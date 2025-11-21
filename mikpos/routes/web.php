@@ -21,8 +21,10 @@ Route::post('/logout', function () {
 })->name('logout');
 
 // Protected routes
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', function () {
         return view('dashboard');
     })->name('dashboard');
+    
+    Route::get('/users', App\Livewire\Users::class)->name('users');
 });
