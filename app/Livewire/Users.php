@@ -32,7 +32,7 @@ class Users extends Component
     #[Rule('required|min:6')]
     public $password;
 
-    #[Rule('required|in:admin,manager,cashier,supervisor')]
+    #[Rule('required|in:super_admin,branch_admin,supervisor,cashier')]
     public $role = 'cashier';
 
     #[Rule('nullable|exists:branches,id')]
@@ -84,7 +84,7 @@ class Users extends Component
         $rules = [
             'name' => 'required|min:3',
             'email' => 'required|email|unique:users,email,' . $this->userId,
-            'role' => 'required|in:admin,manager,cashier,supervisor',
+            'role' => 'required|in:super_admin,branch_admin,supervisor,cashier',
             'branch_id' => 'nullable|exists:branches,id',
         ];
 

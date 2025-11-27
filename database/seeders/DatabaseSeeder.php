@@ -25,12 +25,22 @@ class DatabaseSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        // Create admin user
+        // Create super admin (no branch required)
         User::create([
-            'name' => 'Admin MikPOS',
+            'name' => 'Super Admin',
             'email' => 'admin@mikpos.com',
             'password' => bcrypt('password'),
-            'role' => 'admin',
+            'role' => 'super_admin',
+            'branch_id' => null,
+            'is_active' => true,
+        ]);
+
+        // Create branch admin
+        User::create([
+            'name' => 'Admin Sucursal',
+            'email' => 'branch@mikpos.com',
+            'password' => bcrypt('password'),
+            'role' => 'branch_admin',
             'branch_id' => $branch->id,
             'is_active' => true,
         ]);

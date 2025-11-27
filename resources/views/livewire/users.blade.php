@@ -56,12 +56,17 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
-                                {{ $user->role === 'admin' ? 'bg-purple-100 text-purple-800' : '' }}
-                                {{ $user->role === 'manager' ? 'bg-blue-100 text-blue-800' : '' }}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {{ $user->role === 'super_admin' ? 'bg-purple-100 text-purple-800' : '' }}
+                                {{ $user->role === 'branch_admin' ? 'bg-blue-100 text-blue-800' : '' }}
                                 {{ $user->role === 'supervisor' ? 'bg-orange-100 text-orange-800' : '' }}
                                 {{ $user->role === 'cashier' ? 'bg-green-100 text-green-800' : '' }}">
-                                {{ $user->role }}
+                                @switch($user->role)
+                                    @case('super_admin') Admin General @break
+                                    @case('branch_admin') Admin Sucursal @break
+                                    @case('supervisor') Supervisor @break
+                                    @case('cashier') Cajero @break
+                                @endswitch
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
@@ -146,8 +151,8 @@
                                             <select wire:model="role" class="mt-1 block w-full rounded-xl border-slate-300 shadow-sm focus:border-[#ff7261] focus:ring focus:ring-[#ff7261]/20 sm:text-sm">
                                                 <option value="cashier">Cajero</option>
                                                 <option value="supervisor">Supervisor</option>
-                                                <option value="manager">Gerente</option>
-                                                <option value="admin">Administrador</option>
+                                                <option value="branch_admin">Admin Sucursal</option>
+                                                <option value="super_admin">Admin General</option>
                                             </select>
                                             @error('role') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                                         </div>

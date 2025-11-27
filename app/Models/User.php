@@ -2,21 +2,20 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
+    // Role constants
+    const ROLE_SUPER_ADMIN = 'super_admin';
+    const ROLE_BRANCH_ADMIN = 'branch_admin';
+    const ROLE_SUPERVISOR = 'supervisor';
+    const ROLE_CASHIER = 'cashier';
+
     protected $fillable = [
         'name',
         'email',
@@ -28,21 +27,11 @@ class User extends Authenticatable
         'avatar',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
@@ -55,5 +44,29 @@ class User extends Authenticatable
     public function branch()
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    // Role check helpers
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === self::ROLE_SUPER_ADMIN;
+    }
+
+    public function isBranchAdmin(): bool
+    {
+        return $this->role === self::ROLE_BRANCH_ADMIN;
+    }
+
+    public function isAdmin(): bool
+    {
+        return in_array($this->role, [self::ROLE_SUPER_ADMIN, self::ROLE_BRANCH_ADMIN]);
+    }
+
+    public function canAccessBranch(int $branchId): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+        return $this->branch_id === $branchId;
     }
 }

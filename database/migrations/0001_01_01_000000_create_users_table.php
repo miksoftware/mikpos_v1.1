@@ -31,7 +31,7 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->enum('role', ['admin', 'manager', 'cashier', 'supervisor'])->default('cashier');
+            $table->enum('role', ['super_admin', 'branch_admin', 'supervisor', 'cashier'])->default('cashier');
             $table->string('phone')->nullable();
             $table->boolean('is_active')->default(true);
             $table->string('avatar')->nullable();
