@@ -52,6 +52,15 @@ Root application is in the workspace root directory.
 - Use `wire:` directives for Livewire bindings
 - Use `x-data`, `x-show`, `@click` for Alpine.js interactivity
 
+### Notifications
+- Use `$this->dispatch('notify', message: 'Message', type: 'success')` in Livewire
+- Types: success, error, warning, info
+- Toast component in `resources/views/components/toast.blade.php`
+
+### Activity Logging
+- Use `ActivityLogService::logCreate/logUpdate/logDelete()` for CRUD operations
+- Logs stored in `activity_logs` table with old/new values
+
 ### Routing
 - Livewire components registered directly as routes
 - Protected routes use `auth` middleware

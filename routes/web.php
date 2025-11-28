@@ -14,6 +14,7 @@ Route::get('/login', Login::class)
     ->middleware('guest');
 
 Route::post('/logout', function () {
+    \App\Services\ActivityLogService::logLogout();
     Auth::logout();
     request()->session()->invalidate();
     request()->session()->regenerateToken();
@@ -24,7 +25,17 @@ Route::post('/logout', function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', function () {
         return view('dashboard');
-    })->name('dashboard');
-    
-    Route::get('/users', App\Livewire\Users::class)->name('users');
+    })->name('dashboard')->middleware('permission:dashboard.view');
+
+    Route::get('/users', App\Livewire\Users::class)
+        ->name('users')
+        ->middleware('permission:users.view');
+
+    Route::get('/branches', App\Livewire\Branches::class)
+        ->name('branches')
+        ->middleware('permission:branches.view');
+
+    Route::get('/roles', App\Livewire\Roles::class)
+        ->name('roles')
+        ->middleware('permission:roles.view');
 });

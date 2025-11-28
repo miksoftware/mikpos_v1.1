@@ -1,4 +1,4 @@
-<div class="min-h-screen flex items-center justify-center p-6 relative overflow-hidden">
+<div class="min-h-screen flex items-center justify-center p-6 relative overflow-hidden" wire:loading.class="pointer-events-none">
     <!-- Animated background elements -->
     <div class="absolute inset-0 overflow-hidden pointer-events-none">
         <div class="absolute -top-40 -right-40 w-80 h-80 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-slow" style="background-color: #ff7261;"></div>
@@ -98,18 +98,6 @@
                 </button>
             </form>
 
-            <!-- Full Screen Loading Modal -->
-            <div wire:loading wire:target="login" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
-                <div class="bg-white/10 border border-white/20 p-8 rounded-2xl shadow-2xl flex flex-col items-center backdrop-blur-md animate-fade-in">
-                    <div class="relative w-16 h-16 mb-4">
-                        <div class="absolute inset-0 border-4 border-[#ff7261]/30 rounded-full"></div>
-                        <div class="absolute inset-0 border-4 border-[#ff7261] rounded-full border-t-transparent animate-spin"></div>
-                    </div>
-                    <p class="text-white font-medium text-lg tracking-wide animate-pulse">Iniciando sesión...</p>
-                </div>
-            </div>
-
-
             <!-- Footer -->
             <div class="mt-8 text-center text-sm text-orange-200">
                 <p>© {{ date('Y') }} MikPOS. Sistema POS Multisucursal</p>
@@ -119,6 +107,33 @@
         <!-- Additional Info -->
         <div class="mt-6 text-center text-orange-200 text-sm">
             <p>¿Necesitas ayuda? <a href="#" class="text-white hover:underline">Contacta soporte</a></p>
+        </div>
+    </div>
+
+    <!-- Full Screen Loading Overlay -->
+    <div wire:loading wire:target="login" class="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen z-[9999] flex items-center justify-center bg-gradient-to-br from-[#1a1225]/95 via-[#2d1f3d]/95 to-[#1a1225]/95 backdrop-blur-md" style="margin: 0; padding: 0;">
+        <div class="flex flex-col items-center justify-center">
+            <!-- Animated Logo -->
+            <div class="relative mb-8">
+                <div class="w-24 h-24 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-2xl flex items-center justify-center shadow-2xl animate-pulse">
+                    <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                    </svg>
+                </div>
+                <!-- Spinning ring -->
+                <div class="absolute -inset-2">
+                    <div class="w-full h-full border-4 border-transparent border-t-[#ff7261] border-r-[#a855f7] rounded-2xl animate-spin" style="animation-duration: 1.5s;"></div>
+                </div>
+            </div>
+            <!-- Text -->
+            <h2 class="text-2xl font-bold text-white mb-2">Iniciando sesión</h2>
+            <p class="text-orange-200/80">Verificando credenciales...</p>
+            <!-- Loading dots -->
+            <div class="flex gap-1.5 mt-4">
+                <div class="w-2 h-2 bg-[#ff7261] rounded-full animate-bounce" style="animation-delay: 0ms;"></div>
+                <div class="w-2 h-2 bg-[#ff7261]/80 rounded-full animate-bounce" style="animation-delay: 150ms;"></div>
+                <div class="w-2 h-2 bg-[#a855f7] rounded-full animate-bounce" style="animation-delay: 300ms;"></div>
+            </div>
         </div>
     </div>
 </div>

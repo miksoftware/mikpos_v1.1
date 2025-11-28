@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\Branch;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -10,49 +12,74 @@ class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // Create a test branch
-        $branch = \App\Models\Branch::create([
-            'name' => 'Sucursal Principal',
+        // First, seed roles and permissions
+        $this->call(RolesAndPermissionsSeeder::class);
+
+        // Create test branches
+        $mainBranch = Branch::create([
             'code' => 'SUC001',
-            'address' => 'Calle Principal #123',
-            'phone' => '+1234567890',
+            'name' => 'Sucursal Principal',
+            'tax_id' => '20-12345678-9',
+            'province' => 'Buenos Aires',
+            'city' => 'Capital Federal',
+            'address' => 'Av. Principal #123',
+            'phone' => '+54 11 1234-5678',
             'email' => 'principal@mikpos.com',
+            'ticket_prefix' => 'T001-',
+            'invoice_prefix' => 'F001-',
+            'show_in_pos' => true,
             'is_active' => true,
         ]);
 
-        // Create super admin (no branch required)
-        User::create([
+        $secondBranch = Branch::create([
+            'code' => 'SUC002',
+            'name' => 'Sucursal Norte',
+            'province' => 'Buenos Aires',
+            'city' => 'Vicente López',
+            'address' => 'Av. del Libertador #456',
+            'phone' => '+54 11 8765-4321',
+            'email' => 'norte@mikpos.com',
+            'ticket_prefix' => 'T002-',
+            'invoice_prefix' => 'F002-',
+            'show_in_pos' => true,
+            'is_active' => true,
+        ]);
+
+        // Get roles
+        $superAdminRole = Role::where('name', 'super_admin')->first();
+        $branchAdminRole = Role::where('name', 'branch_admin')->first();
+        $cashierRole = Role::where('name', 'cashier')->first();
+
+        // Create super admin
+        $superAdmin = User::create([
             'name' => 'Super Admin',
             'email' => 'admin@mikpos.com',
             'password' => bcrypt('password'),
-            'role' => 'super_admin',
             'branch_id' => null,
             'is_active' => true,
         ]);
+        $superAdmin->roles()->attach($superAdminRole->id, ['branch_id' => null]);
 
-        // Create branch admin
-        User::create([
-            'name' => 'Admin Sucursal',
+        // Create branch admin for main branch
+        $branchAdmin = User::create([
+            'name' => 'Admin Sucursal Principal',
             'email' => 'branch@mikpos.com',
             'password' => bcrypt('password'),
-            'role' => 'branch_admin',
-            'branch_id' => $branch->id,
+            'branch_id' => $mainBranch->id,
             'is_active' => true,
         ]);
+        $branchAdmin->roles()->attach($branchAdminRole->id, ['branch_id' => $mainBranch->id]);
 
-        // Create cashier user
-        User::create([
+        // Create cashier
+        $cashier = User::create([
             'name' => 'Cajero Demo',
             'email' => 'cajero@mikpos.com',
             'password' => bcrypt('password'),
-            'role' => 'cashier',
-            'branch_id' => $branch->id,
+            'branch_id' => $mainBranch->id,
             'is_active' => true,
         ]);
+        $cashier->roles()->attach($cashierRole->id, ['branch_id' => $mainBranch->id]);
     }
 }

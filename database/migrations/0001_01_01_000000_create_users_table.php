@@ -14,11 +14,25 @@ return new class extends Migration
         // Create branches table first (required for foreign key in users)
         Schema::create('branches', function (Blueprint $table) {
             $table->id();
+            $table->string('code', 10)->unique();
             $table->string('name');
-            $table->string('code')->unique();
-            $table->string('address')->nullable();
-            $table->string('phone')->nullable();
-            $table->string('email')->nullable();
+            $table->string('tax_id', 25)->nullable()->comment('CUIT/RUC/NIT');
+            $table->string('province')->nullable();
+            $table->string('city')->nullable();
+            $table->text('address')->nullable();
+            $table->string('phone', 20)->nullable();
+            $table->string('email', 120)->nullable();
+            // Invoice/receipt numbering
+            $table->string('ticket_prefix', 30)->nullable();
+            $table->string('invoice_prefix', 15)->nullable();
+            $table->string('receipt_prefix', 30)->nullable();
+            $table->string('credit_note_prefix', 15)->nullable();
+            // Fiscal data
+            $table->string('activity_number', 25)->nullable();
+            $table->date('authorization_date')->nullable();
+            $table->text('receipt_header')->nullable()->comment('Header text for receipts');
+            // Settings
+            $table->boolean('show_in_pos')->default(true);
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
@@ -31,7 +45,6 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->enum('role', ['super_admin', 'branch_admin', 'supervisor', 'cashier'])->default('cashier');
             $table->string('phone')->nullable();
             $table->boolean('is_active')->default(true);
             $table->string('avatar')->nullable();
