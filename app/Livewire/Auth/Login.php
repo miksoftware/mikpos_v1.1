@@ -52,7 +52,10 @@ class Login extends Component
 
         if (Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
             RateLimiter::clear($throttleKey);
-            request()->session()->regenerate();
+            
+            if (request()->hasSession()) {
+                request()->session()->regenerate();
+            }
             
             ActivityLogService::logLogin();
             
