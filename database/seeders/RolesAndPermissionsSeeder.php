@@ -262,6 +262,18 @@ class RolesAndPermissionsSeeder extends Seeder
                     ['name' => 'imeis.delete', 'display_name' => 'Eliminar IMEIs'],
                 ],
             ],
+            [
+                'name' => 'customers',
+                'display_name' => 'Clientes',
+                'icon' => 'user-group',
+                'order' => 22,
+                'permissions' => [
+                    ['name' => 'customers.view', 'display_name' => 'Ver Clientes'],
+                    ['name' => 'customers.create', 'display_name' => 'Crear Clientes'],
+                    ['name' => 'customers.edit', 'display_name' => 'Editar Clientes'],
+                    ['name' => 'customers.delete', 'display_name' => 'Eliminar Clientes'],
+                ],
+            ],
         ];
 
         foreach ($modules as $moduleData) {

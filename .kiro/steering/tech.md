@@ -73,7 +73,13 @@ php artisan pail
 3. **Permissions**: Add to `RolesAndPermissionsSeeder.php` and assign to roles
 4. **Routes**: Register in `routes/web.php` with permission middleware
 5. **Menu**: Update `resources/views/layouts/app.blade.php` sidebar
-6. **Testing**: Use default test users (admin@mikpos.com/password)
+6. **Testing**: ALWAYS create comprehensive test suite for new modules:
+   - Add `HasFactory` trait to models
+   - Create factory in `database/factories/`
+   - Create unit tests in `tests/Unit/Models/`
+   - Create feature tests in `tests/Feature/Livewire/`
+   - Test all CRUD operations, validation, relationships, and permissions
+7. **Validation**: Use default test users (admin@mikpos.com/password)
 
 ## Database
 - Default: SQLite at `database/database.sqlite`

@@ -95,4 +95,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/imeis', App\Livewire\Imeis::class)
         ->name('imeis')
         ->middleware('permission:imeis.view');
+
+    // Customer Management Routes
+    Route::get('/customers', App\Livewire\Customers::class)
+        ->name('customers')
+        ->middleware('permission:customers.view');
 });
