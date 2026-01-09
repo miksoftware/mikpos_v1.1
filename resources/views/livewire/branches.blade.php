@@ -51,8 +51,8 @@
                             </div>
                         </td>
                         <td class="px-6 py-4">
-                            <div class="text-sm text-slate-900">{{ $branch->city ?: '-' }}</div>
-                            <div class="text-sm text-slate-500">{{ $branch->province ?: '' }}</div>
+                            <div class="text-sm text-slate-900">{{ $branch->municipality?->name ?: '-' }}</div>
+                            <div class="text-sm text-slate-500">{{ $branch->department?->name ?: '' }}</div>
                         </td>
                         <td class="px-6 py-4">
                             <div class="text-sm text-slate-900">{{ $branch->phone ?: '-' }}</div>
@@ -162,12 +162,28 @@
                             </h4>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-slate-700 mb-1">Provincia/Estado</label>
-                                    <input wire:model="province" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Departamento</label>
+                                    <x-searchable-select
+                                        wire:model.live="department_id"
+                                        :options="$departments"
+                                        placeholder="Seleccionar departamento..."
+                                        searchPlaceholder="Buscar departamento..."
+                                    />
                                 </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-700 mb-1">Ciudad</label>
-                                    <input wire:model="city" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                <div wire:key="municipality-select-{{ $department_id }}">
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Municipio</label>
+                                    @if($department_id && count($municipalities) > 0)
+                                        <x-searchable-select
+                                            wire:model="municipality_id"
+                                            :options="$municipalities"
+                                            placeholder="Seleccionar municipio..."
+                                            searchPlaceholder="Buscar municipio..."
+                                        />
+                                    @else
+                                        <div class="relative w-full cursor-not-allowed rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-3 pr-10 text-left text-sm text-slate-400">
+                                            {{ $department_id ? 'Cargando municipios...' : 'Esperando departamento...' }}
+                                        </div>
+                                    @endif
                                 </div>
                                 <div class="sm:col-span-2">
                                     <label class="block text-sm font-medium text-slate-700 mb-1">Dirección</label>
@@ -286,7 +302,7 @@
                             <div class="col-span-2"><p class="text-xs text-slate-500 uppercase">Email</p><p class="font-medium text-slate-800">{{ $viewingBranch->email }}</p></div>
                             @endif
                             @if($viewingBranch->address)
-                            <div class="col-span-2"><p class="text-xs text-slate-500 uppercase">Dirección</p><p class="font-medium text-slate-800">{{ $viewingBranch->address }}{{ $viewingBranch->city ? ', ' . $viewingBranch->city : '' }}</p></div>
+                            <div class="col-span-2"><p class="text-xs text-slate-500 uppercase">Dirección</p><p class="font-medium text-slate-800">{{ $viewingBranch->address }}{{ $viewingBranch->municipality ? ', ' . $viewingBranch->municipality->name : '' }}{{ $viewingBranch->department ? ' - ' . $viewingBranch->department->name : '' }}</p></div>
                             @endif
                         </div>
                     </div>

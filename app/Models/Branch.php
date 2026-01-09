@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Branch extends Model
@@ -11,6 +12,8 @@ class Branch extends Model
         'code',
         'name',
         'tax_id',
+        'department_id',
+        'municipality_id',
         'province',
         'city',
         'address',
@@ -34,6 +37,16 @@ class Branch extends Model
             'show_in_pos' => 'boolean',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function municipality(): BelongsTo
+    {
+        return $this->belongsTo(Municipality::class);
     }
 
     public function users(): HasMany

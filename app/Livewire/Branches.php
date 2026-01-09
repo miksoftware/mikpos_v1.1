@@ -3,6 +3,8 @@
 namespace App\Livewire;
 
 use App\Models\Branch;
+use App\Models\Department;
+use App\Models\Municipality;
 use App\Services\ActivityLogService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Rule;
@@ -31,8 +33,8 @@ class Branches extends Component
     public $name;
 
     public $tax_id;
-    public $province;
-    public $city;
+    public $department_id = '';
+    public $municipality_id = '';
     public $address;
     public $phone;
     public $email;
@@ -46,13 +48,41 @@ class Branches extends Component
     public $show_in_pos = true;
     public $is_active = true;
 
+    // Select options
+    public $departments = [];
+    public $municipalities = [];
+
+    // Load municipalities when department changes
+    public function updatedDepartmentId($value)
+    {
+        $this->municipality_id = '';
+        $this->municipalities = [];
+        
+        if ($value) {
+            $this->municipalities = Municipality::where('department_id', $value)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+                ->map(fn($m) => ['id' => $m->id, 'name' => $m->name])
+                ->toArray();
+        }
+    }
+
     public function render()
     {
+        $this->departments = Department::where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->map(fn($d) => ['id' => $d->id, 'name' => $d->name])
+            ->toArray();
+
         $branches = Branch::query()
+            ->with(['department', 'municipality'])
             ->when($this->search, function ($query) {
                 $query->where('name', 'like', '%' . $this->search . '%')
                     ->orWhere('code', 'like', '%' . $this->search . '%')
-                    ->orWhere('city', 'like', '%' . $this->search . '%');
+                    ->orWhereHas('department', fn($q) => $q->where('name', 'like', '%' . $this->search . '%'))
+                    ->orWhereHas('municipality', fn($q) => $q->where('name', 'like', '%' . $this->search . '%'));
             })
             ->latest()
             ->paginate(10);
@@ -87,8 +117,19 @@ class Branches extends Component
         $this->code = $branch->code;
         $this->name = $branch->name;
         $this->tax_id = $branch->tax_id;
-        $this->province = $branch->province;
-        $this->city = $branch->city;
+        $this->department_id = $branch->department_id ?? '';
+        
+        // Load municipalities for the selected department
+        if ($this->department_id) {
+            $this->municipalities = Municipality::where('department_id', $this->department_id)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+                ->map(fn($m) => ['id' => $m->id, 'name' => $m->name])
+                ->toArray();
+        }
+        
+        $this->municipality_id = $branch->municipality_id ?? '';
         $this->address = $branch->address;
         $this->phone = $branch->phone;
         $this->email = $branch->email;
@@ -106,7 +147,7 @@ class Branches extends Component
 
     public function view($id)
     {
-        $this->viewingBranch = Branch::withCount('users')->findOrFail($id);
+        $this->viewingBranch = Branch::with(['department', 'municipality'])->withCount('users')->findOrFail($id);
         $this->isViewModalOpen = true;
     }
 
@@ -134,8 +175,8 @@ class Branches extends Component
             'code' => strtoupper($this->code),
             'name' => $this->name,
             'tax_id' => $this->tax_id,
-            'province' => $this->province,
-            'city' => $this->city,
+            'department_id' => $this->department_id ?: null,
+            'municipality_id' => $this->municipality_id ?: null,
             'address' => $this->address,
             'phone' => $this->phone,
             'email' => $this->email,
@@ -220,8 +261,9 @@ class Branches extends Component
         $this->code = '';
         $this->name = '';
         $this->tax_id = '';
-        $this->province = '';
-        $this->city = '';
+        $this->department_id = '';
+        $this->municipality_id = '';
+        $this->municipalities = [];
         $this->address = '';
         $this->phone = '';
         $this->email = '';

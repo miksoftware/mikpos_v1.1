@@ -7,12 +7,16 @@
     'disabled' => false,
 ])
 
+@php
+    $optionsJson = Js::from($options);
+@endphp
+
 <div
     x-data="{
         open: false,
         search: '',
         selected: @entangle($attributes->wire('model')),
-        options: {{ Js::from($options) }},
+        options: {{ $optionsJson }},
         displayKey: '{{ $displayKey }}',
         valueKey: '{{ $valueKey }}',
         
@@ -49,11 +53,18 @@
         closeDropdown() {
             this.open = false;
             this.search = '';
+        },
+        
+        updateOptions(newOptions) {
+            this.options = newOptions;
+            this.search = '';
         }
     }"
+    x-init="$watch('$wire.{{ $attributes->wire('model')->value() }}', value => selected = value)"
     @click.away="closeDropdown()"
     @keydown.escape.window="closeDropdown()"
     class="relative"
+    wire:ignore.self
 >
     <!-- Trigger Button -->
     <button
@@ -83,7 +94,7 @@
         <!-- Chevron -->
         <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
             <svg 
-                class="h-5 w-5 text-slate-400 transition-transform duration-200" 
+                class="h-5 h-5 text-slate-400 transition-transform duration-200" 
                 :class="{ 'rotate-180': open }"
                 fill="none" 
                 stroke="currentColor" 
