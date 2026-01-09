@@ -20,12 +20,14 @@ class Departments extends Component
 
     public $departmentId;
     public $name;
+    public $dian_code;
     public $is_active = true;
 
     public function render()
     {
         $departments = Department::query()
-            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))
+            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%")
+                ->orWhere('dian_code', 'like', "%{$this->search}%"))
             ->withCount('municipalities')
             ->latest()
             ->paginate(10);
@@ -56,6 +58,7 @@ class Departments extends Component
         $department = Department::findOrFail($id);
         $this->departmentId = $department->id;
         $this->name = $department->name;
+        $this->dian_code = $department->dian_code;
         $this->is_active = $department->is_active;
         $this->isModalOpen = true;
     }
@@ -72,13 +75,18 @@ class Departments extends Component
 
         $this->validate([
             'name' => 'required|min:2|unique:departments,name,' . $this->departmentId,
+            'dian_code' => 'nullable|max:10|unique:departments,dian_code,' . $this->departmentId,
         ]);
 
         $oldValues = $isNew ? null : Department::find($this->departmentId)->toArray();
 
         $department = Department::updateOrCreate(
             ['id' => $this->departmentId],
-            ['name' => $this->name, 'is_active' => $this->is_active]
+            [
+                'name' => $this->name,
+                'dian_code' => $this->dian_code,
+                'is_active' => $this->is_active,
+            ]
         );
 
         if ($isNew) {
@@ -145,6 +153,7 @@ class Departments extends Component
     {
         $this->departmentId = null;
         $this->name = '';
+        $this->dian_code = '';
         $this->is_active = true;
     }
 }

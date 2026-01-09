@@ -17,6 +17,10 @@ class DatabaseSeeder extends Seeder
         // First, seed roles and permissions
         $this->call(RolesAndPermissionsSeeder::class);
 
+        // Seed Colombian geographic data
+        $this->call(DepartmentSeeder::class);
+        $this->call(MunicipalitySeeder::class);
+
         // Create test branches
         $mainBranch = Branch::create([
             'code' => 'SUC001',

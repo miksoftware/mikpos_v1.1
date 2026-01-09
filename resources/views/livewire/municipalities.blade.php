@@ -116,13 +116,13 @@
                     <div class="px-6 py-4 space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Departamento *</label>
-                            <select wire:model="department_id" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
-                                <option value="">Seleccionar...</option>
-                                @foreach($departments as $dept)
-                                <option value="{{ $dept->id }}">{{ $dept->name }}</option>
-                                @endforeach
-                            </select>
-                            @error('department_id') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                            <x-searchable-select
+                                wire:model="department_id"
+                                :options="$departments->map(fn($d) => ['id' => $d->id, 'name' => $d->name])->toArray()"
+                                placeholder="Seleccionar departamento..."
+                                searchPlaceholder="Buscar departamento..."
+                            />
+                            @error('department_id') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>

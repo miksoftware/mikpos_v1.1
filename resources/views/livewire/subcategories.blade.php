@@ -20,7 +20,7 @@
                 </div>
                 <input wire:model.live.debounce.300ms="search" type="text" class="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] transition-all sm:text-sm" placeholder="Buscar subcategoría...">
             </div>
-            <select wire:model.live="filterCategory" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm">
+            <select wire:model.live="filterCategory" class="sm:w-64 px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm">
                 <option value="">Todas las categorías</option>
                 @foreach($categories as $cat)
                 <option value="{{ $cat->id }}">{{ $cat->name }}</option>
@@ -84,7 +84,7 @@
                 <div class="px-6 py-4 space-y-4">
                     <div><label class="block text-sm font-medium text-slate-700 mb-1">Categoría *</label>
                         <select wire:model="category_id" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
-                            <option value="">Seleccionar categoría</option>
+                            <option value="">Seleccionar categoría...</option>
                             @foreach($categories as $cat)
                             <option value="{{ $cat->id }}">{{ $cat->name }}</option>
                             @endforeach

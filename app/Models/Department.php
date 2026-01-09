@@ -9,6 +9,7 @@ class Department extends Model
 {
     protected $fillable = [
         'name',
+        'dian_code',
         'is_active',
     ];
 
