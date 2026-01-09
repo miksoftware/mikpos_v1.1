@@ -29,12 +29,12 @@
             <table class="min-w-full divide-y divide-slate-200">
                 <thead class="bg-slate-50">
                     <tr>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Rol</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Descripción</th>
-                        <th class="px-6 py-4 text-center text-xs font-semibold text-slate-500 uppercase">Permisos</th>
-                        <th class="px-6 py-4 text-center text-xs font-semibold text-slate-500 uppercase">Usuarios</th>
-                        <th class="px-6 py-4 text-center text-xs font-semibold text-slate-500 uppercase">Estado</th>
-                        <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase">Acciones</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Rol</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Descripción</th>
+                        <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Permisos</th>
+                        <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Usuarios</th>
+                        <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Estado</th>
+                        <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Acciones</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200">
@@ -47,7 +47,7 @@
                                 </div>
                                 <div>
                                     <p class="font-semibold text-slate-900">{{ $role->display_name }}</p>
-                                    <p class="text-xs text-slate-500">{{ $role->name }}</p>
+                                    <p class="text-sm text-slate-500">{{ $role->name }}</p>
                                 </div>
                             </div>
                         </td>
@@ -55,10 +55,10 @@
                             <p class="text-sm text-slate-600 max-w-xs truncate">{{ $role->description ?: '-' }}</p>
                         </td>
                         <td class="px-6 py-4 text-center">
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">{{ $role->permissions_count }}</span>
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-700">{{ $role->permissions_count }}</span>
                         </td>
                         <td class="px-6 py-4 text-center">
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{{ $role->users_count }}</span>
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium bg-slate-100 text-slate-700">{{ $role->users_count }}</span>
                         </td>
                         <td class="px-6 py-4 text-center">
                             <div class="flex items-center justify-center gap-2">
@@ -67,12 +67,12 @@
                                     <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {{ $role->is_active ? 'translate-x-5' : 'translate-x-0' }}"></span>
                                 </button>
                                 @elseif(!auth()->user()->hasPermission('roles.edit'))
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $role->is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium {{ $role->is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
                                     {{ $role->is_active ? 'Activo' : 'Inactivo' }}
                                 </span>
                                 @endif
                                 @if($role->is_system)
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">Sistema</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-700">Sistema</span>
                                 @endif
                             </div>
                         </td>
@@ -127,12 +127,12 @@
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 mb-1">Identificador *</label>
                                 <input wire:model="name" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] lowercase {{ $is_system ? 'bg-slate-100 cursor-not-allowed' : '' }}" placeholder="nombre_rol" {{ $is_system ? 'disabled' : '' }}>
-                                @error('name') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                                @error('name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 mb-1">Nombre a Mostrar *</label>
                                 <input wire:model="display_name" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Nombre del Rol">
-                                @error('display_name') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                                @error('display_name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                             </div>
                             <div class="sm:col-span-2">
                                 <label class="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
@@ -153,12 +153,12 @@
                                     <div class="bg-slate-50 px-4 py-3 flex items-center justify-between">
                                         <div class="flex items-center gap-2">
                                             <span class="font-medium text-slate-700">{{ $module->display_name }}</span>
-                                            <span class="text-xs text-slate-500">({{ $module->permissions->count() }} permisos)</span>
+                                            <span class="text-sm text-slate-500">({{ $module->permissions->count() }} permisos)</span>
                                         </div>
                                         <div class="flex items-center gap-2">
-                                            <button type="button" wire:click="selectAllModule({{ $module->id }})" class="text-xs text-[#ff7261] hover:underline">Todos</button>
+                                            <button type="button" wire:click="selectAllModule({{ $module->id }})" class="text-sm text-[#ff7261] hover:underline">Todos</button>
                                             <span class="text-slate-300">|</span>
-                                            <button type="button" wire:click="deselectAllModule({{ $module->id }})" class="text-xs text-slate-500 hover:underline">Ninguno</button>
+                                            <button type="button" wire:click="deselectAllModule({{ $module->id }})" class="text-sm text-slate-500 hover:underline">Ninguno</button>
                                         </div>
                                     </div>
                                     <div class="p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">

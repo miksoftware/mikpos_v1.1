@@ -1,0 +1,47 @@
+<?php
+
+namespace Tests\Unit\Models;
+
+use App\Models\Unit;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class UnitTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_unit_has_fillable_attributes(): void
+    {
+        $fillable = ['name', 'abbreviation', 'is_active'];
+        
+        $unit = new Unit();
+        
+        $this->assertEquals($fillable, $unit->getFillable());
+    }
+
+    public function test_unit_casts_is_active_to_boolean(): void
+    {
+        $unit = Unit::factory()->create(['is_active' => 1]);
+        
+        $this->assertIsBool($unit->is_active);
+        $this->assertTrue($unit->is_active);
+    }
+
+    public function test_unit_can_be_created_with_factory(): void
+    {
+        $unit = Unit::factory()->create();
+        
+        $this->assertInstanceOf(Unit::class, $unit);
+        $this->assertDatabaseHas('units', [
+            'id' => $unit->id,
+            'name' => $unit->name,
+        ]);
+    }
+
+    public function test_inactive_unit_factory_state(): void
+    {
+        $unit = Unit::factory()->inactive()->create();
+        
+        $this->assertFalse($unit->is_active);
+    }
+}

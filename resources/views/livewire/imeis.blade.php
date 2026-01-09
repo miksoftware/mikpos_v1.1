@@ -34,11 +34,11 @@
             <table class="min-w-full divide-y divide-slate-200">
                 <thead class="bg-slate-50">
                     <tr>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">IMEI</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">IMEI 2</th>
-                        <th class="px-6 py-4 text-center text-xs font-semibold text-slate-500 uppercase">Estado</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Notas</th>
-                        <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase">Acciones</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">IMEI</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">IMEI 2</th>
+                        <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Estado</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Notas</th>
+                        <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Acciones</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200">
@@ -49,7 +49,7 @@
                         <td class="px-6 py-4 text-center">
                             @php $statusColors = ['available' => 'bg-green-100 text-green-700', 'sold' => 'bg-red-100 text-red-700', 'reserved' => 'bg-yellow-100 text-yellow-700']; @endphp
                             @php $statusLabels = ['available' => 'Disponible', 'sold' => 'Vendido', 'reserved' => 'Reservado']; @endphp
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $statusColors[$item->status] }}">{{ $statusLabels[$item->status] }}</span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium {{ $statusColors[$item->status] }}">{{ $statusLabels[$item->status] }}</span>
                         </td>
                         <td class="px-6 py-4 text-slate-500 text-sm">{{ Str::limit($item->notes, 30) ?: '-' }}</td>
                         <td class="px-6 py-4 text-right">
@@ -78,8 +78,8 @@
             <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl">
                 <div class="px-6 py-4 border-b border-slate-200"><h3 class="text-lg font-bold text-slate-900">{{ $itemId ? 'Editar' : 'Nuevo' }} IMEI</h3></div>
                 <div class="px-6 py-4 space-y-4">
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">IMEI *</label><input wire:model="imei" type="text" maxlength="17" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] font-mono" placeholder="15-17 dígitos">@error('imei')<span class="text-red-500 text-xs">{{ $message }}</span>@enderror</div>
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">IMEI 2</label><input wire:model="imei2" type="text" maxlength="17" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] font-mono" placeholder="Opcional">@error('imei2')<span class="text-red-500 text-xs">{{ $message }}</span>@enderror</div>
+                    <div><label class="block text-sm font-medium text-slate-700 mb-1">IMEI *</label><input wire:model="imei" type="text" maxlength="17" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] font-mono" placeholder="15-17 dígitos">@error('imei')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror</div>
+                    <div><label class="block text-sm font-medium text-slate-700 mb-1">IMEI 2</label><input wire:model="imei2" type="text" maxlength="17" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] font-mono" placeholder="Opcional">@error('imei2')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror</div>
                     <div><label class="block text-sm font-medium text-slate-700 mb-1">Estado *</label>
                         <select wire:model="status" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                             <option value="available">Disponible</option>

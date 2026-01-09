@@ -93,19 +93,26 @@ Each module has standard CRUD permissions:
 
 ## Navigation Structure
 
-Located in sidebar under: **Administración → Productos**
+Located in sidebar under: **Administración → Configuración → Productos**
 
 ```
 Administración
-└── Productos
-    ├── Categorías
-    ├── Subcategorías  
-    ├── Marcas
-    ├── Unidades de Medida
-    ├── Modelos (opcional)
-    ├── Presentaciones (opcional)
-    ├── Colores (opcional)
-    └── IMEIs (opcional)
+└── Configuración
+    ├── Departamentos
+    ├── Municipios
+    ├── Documentos Tributarios
+    ├── Monedas
+    ├── Métodos de Pago
+    ├── Impuestos
+    └── Productos
+        ├── Categorías
+        ├── Subcategorías  
+        ├── Marcas
+        ├── Unidades de Medida
+        ├── Modelos (opcional)
+        ├── Presentaciones (opcional)
+        ├── Colores (opcional)
+        └── IMEIs (opcional)
 ```
 
 ## Implementation Pattern

@@ -26,10 +26,10 @@
             <table class="min-w-full divide-y divide-slate-200">
                 <thead class="bg-slate-50">
                     <tr>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Código</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Medio de Pago</th>
-                        <th class="px-6 py-4 text-center text-xs font-semibold text-slate-500 uppercase">Estado</th>
-                        <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase">Acciones</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Código</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Medio de Pago</th>
+                        <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Estado</th>
+                        <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Acciones</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200">
@@ -43,7 +43,7 @@
                                 <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {{ $item->is_active ? 'translate-x-5' : 'translate-x-0' }}"></span>
                             </button>
                             @else
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $item->is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">{{ $item->is_active ? 'Activo' : 'Inactivo' }}</span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium {{ $item->is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">{{ $item->is_active ? 'Activo' : 'Inactivo' }}</span>
                             @endif
                         </td>
                         <td class="px-6 py-4 text-right">
@@ -72,8 +72,8 @@
             <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl">
                 <div class="px-6 py-4 border-b border-slate-200"><h3 class="text-lg font-bold text-slate-900">{{ $itemId ? 'Editar' : 'Nuevo' }} Medio de Pago</h3></div>
                 <div class="px-6 py-4 space-y-4">
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Código *</label><input wire:model="dian_code" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" maxlength="10">@error('dian_code')<span class="text-red-500 text-xs">{{ $message }}</span>@enderror</div>
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Medio de Pago *</label><input wire:model="name" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">@error('name')<span class="text-red-500 text-xs">{{ $message }}</span>@enderror</div>
+                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Código *</label><input wire:model="dian_code" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" maxlength="10">@error('dian_code')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror</div>
+                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Medio de Pago *</label><input wire:model="name" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">@error('name')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror</div>
                     <label class="flex items-center gap-2 cursor-pointer"><input wire:model="is_active" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]"><span class="text-sm text-slate-700">Activo</span></label>
                 </div>
                 <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">

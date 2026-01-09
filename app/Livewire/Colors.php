@@ -26,7 +26,8 @@ class Colors extends Component
     public function render()
     {
         $items = Color::query()
-            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))
+            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%")
+                ->orWhere('hex_code', 'like', "%{$this->search}%"))
             ->latest()
             ->paginate(10);
 
@@ -69,7 +70,7 @@ class Colors extends Component
 
         $this->validate([
             'name' => 'required|min:2|unique:colors,name,' . $this->itemId,
-            'hex_code' => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
+            'hex_code' => 'nullable|regex:/^#[0-9A-Fa-f]{3,6}$/',
         ]);
 
         $oldValues = $isNew ? null : Color::find($this->itemId)->toArray();

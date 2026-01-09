@@ -28,11 +28,11 @@
             <table class="min-w-full divide-y divide-slate-200">
                 <thead class="bg-slate-50">
                     <tr>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Usuario</th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Rol</th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Sucursal</th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Estado</th>
-                        <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Acciones</th>
+                        <th scope="col" class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase tracking-wider">Usuario</th>
+                        <th scope="col" class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase tracking-wider">Rol</th>
+                        <th scope="col" class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase tracking-wider">Sucursal</th>
+                        <th scope="col" class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase tracking-wider">Estado</th>
+                        <th scope="col" class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase tracking-wider">Acciones</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-slate-200">
@@ -56,7 +56,7 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium
                                 {{ $user->role === 'super_admin' ? 'bg-purple-100 text-purple-800' : '' }}
                                 {{ $user->role === 'branch_admin' ? 'bg-blue-100 text-blue-800' : '' }}
                                 {{ $user->role === 'supervisor' ? 'bg-orange-100 text-orange-800' : '' }}
@@ -127,21 +127,21 @@
                                     <div>
                                         <label for="name" class="block text-sm font-medium text-slate-700">Nombre Completo</label>
                                         <input wire:model="name" type="text" class="mt-1 block w-full rounded-xl border-slate-300 shadow-sm focus:border-[#ff7261] focus:ring focus:ring-[#ff7261]/20 sm:text-sm">
-                                        @error('name') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                                        @error('name') <span class="text-red-500 text-sm mt-1">{{ $message }}</span> @enderror
                                     </div>
 
                                     <!-- Email -->
                                     <div>
                                         <label for="email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label>
                                         <input wire:model="email" type="email" class="mt-1 block w-full rounded-xl border-slate-300 shadow-sm focus:border-[#ff7261] focus:ring focus:ring-[#ff7261]/20 sm:text-sm">
-                                        @error('email') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                                        @error('email') <span class="text-red-500 text-sm mt-1">{{ $message }}</span> @enderror
                                     </div>
 
                                     <!-- Password -->
                                     <div>
                                         <label for="password" class="block text-sm font-medium text-slate-700">Contraseña {{ $userId ? '(Dejar en blanco para mantener)' : '' }}</label>
                                         <input wire:model="password" type="password" class="mt-1 block w-full rounded-xl border-slate-300 shadow-sm focus:border-[#ff7261] focus:ring focus:ring-[#ff7261]/20 sm:text-sm">
-                                        @error('password') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                                        @error('password') <span class="text-red-500 text-sm mt-1">{{ $message }}</span> @enderror
                                     </div>
 
                                     <div class="grid grid-cols-2 gap-4">
@@ -154,7 +154,7 @@
                                                 <option value="branch_admin">Admin Sucursal</option>
                                                 <option value="super_admin">Admin General</option>
                                             </select>
-                                            @error('role') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                                            @error('role') <span class="text-red-500 text-sm mt-1">{{ $message }}</span> @enderror
                                         </div>
 
                                         <!-- Branch -->
@@ -166,7 +166,7 @@
                                                     <option value="{{ $branch->id }}">{{ $branch->name }}</option>
                                                 @endforeach
                                             </select>
-                                            @error('branch_id') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                                            @error('branch_id') <span class="text-red-500 text-sm mt-1">{{ $message }}</span> @enderror
                                         </div>
                                     </div>
                                 </div>

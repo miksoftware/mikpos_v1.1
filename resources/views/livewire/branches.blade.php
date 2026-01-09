@@ -29,11 +29,11 @@
             <table class="min-w-full divide-y divide-slate-200">
                 <thead class="bg-slate-50">
                     <tr>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Sucursal</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Ubicación</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Contacto</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Estado</th>
-                        <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Acciones</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase tracking-wider">Sucursal</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase tracking-wider">Ubicación</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase tracking-wider">Contacto</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase tracking-wider">Estado</th>
+                        <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase tracking-wider">Acciones</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-slate-200">
@@ -65,12 +65,12 @@
                                     <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {{ $branch->is_active ? 'translate-x-5' : 'translate-x-0' }}"></span>
                                 </button>
                                 @else
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $branch->is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium {{ $branch->is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
                                     {{ $branch->is_active ? 'Activa' : 'Inactiva' }}
                                 </span>
                                 @endif
                                 @if($branch->show_in_pos)
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">POS</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-700">POS</span>
                                 @endif
                             </div>
                         </td>
@@ -136,12 +136,12 @@
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-1">Código *</label>
                                     <input wire:model="code" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] uppercase" placeholder="SUC001" maxlength="10">
-                                    @error('code') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                                    @error('code') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
                                     <input wire:model="name" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Sucursal Principal">
-                                    @error('name') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                                    @error('name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-1">CUIT/RUC/NIT</label>
@@ -206,7 +206,7 @@
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
                                     <input wire:model="email" type="email" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
-                                    @error('email') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                                    @error('email') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                                 </div>
                             </div>
                         </div>
@@ -285,24 +285,24 @@
                         </div>
                         <div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
                             <div>
-                                <p class="text-xs text-slate-500 uppercase">Estado</p>
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $viewingBranch->is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">{{ $viewingBranch->is_active ? 'Activa' : 'Inactiva' }}</span>
+                                <p class="text-sm text-slate-500 uppercase">Estado</p>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium {{ $viewingBranch->is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">{{ $viewingBranch->is_active ? 'Activa' : 'Inactiva' }}</span>
                             </div>
                             <div>
-                                <p class="text-xs text-slate-500 uppercase">Usuarios</p>
+                                <p class="text-sm text-slate-500 uppercase">Usuarios</p>
                                 <p class="font-semibold text-slate-800">{{ $viewingBranch->users_count }}</p>
                             </div>
                             @if($viewingBranch->tax_id)
-                            <div><p class="text-xs text-slate-500 uppercase">CUIT/RUC</p><p class="font-medium text-slate-800">{{ $viewingBranch->tax_id }}</p></div>
+                            <div><p class="text-sm text-slate-500 uppercase">CUIT/RUC</p><p class="font-medium text-slate-800">{{ $viewingBranch->tax_id }}</p></div>
                             @endif
                             @if($viewingBranch->phone)
-                            <div><p class="text-xs text-slate-500 uppercase">Teléfono</p><p class="font-medium text-slate-800">{{ $viewingBranch->phone }}</p></div>
+                            <div><p class="text-sm text-slate-500 uppercase">Teléfono</p><p class="font-medium text-slate-800">{{ $viewingBranch->phone }}</p></div>
                             @endif
                             @if($viewingBranch->email)
-                            <div class="col-span-2"><p class="text-xs text-slate-500 uppercase">Email</p><p class="font-medium text-slate-800">{{ $viewingBranch->email }}</p></div>
+                            <div class="col-span-2"><p class="text-sm text-slate-500 uppercase">Email</p><p class="font-medium text-slate-800">{{ $viewingBranch->email }}</p></div>
                             @endif
                             @if($viewingBranch->address)
-                            <div class="col-span-2"><p class="text-xs text-slate-500 uppercase">Dirección</p><p class="font-medium text-slate-800">{{ $viewingBranch->address }}{{ $viewingBranch->municipality ? ', ' . $viewingBranch->municipality->name : '' }}{{ $viewingBranch->department ? ' - ' . $viewingBranch->department->name : '' }}</p></div>
+                            <div class="col-span-2"><p class="text-sm text-slate-500 uppercase">Dirección</p><p class="font-medium text-slate-800">{{ $viewingBranch->address }}{{ $viewingBranch->municipality ? ', ' . $viewingBranch->municipality->name : '' }}{{ $viewingBranch->department ? ' - ' . $viewingBranch->department->name : '' }}</p></div>
                             @endif
                         </div>
                     </div>

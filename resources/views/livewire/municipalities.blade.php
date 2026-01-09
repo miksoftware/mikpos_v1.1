@@ -37,11 +37,11 @@
             <table class="min-w-full divide-y divide-slate-200">
                 <thead class="bg-slate-50">
                     <tr>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Municipio</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Departamento</th>
-                        <th class="px-6 py-4 text-center text-xs font-semibold text-slate-500 uppercase">Código DIAN</th>
-                        <th class="px-6 py-4 text-center text-xs font-semibold text-slate-500 uppercase">Estado</th>
-                        <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase">Acciones</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Municipio</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Departamento</th>
+                        <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Código DIAN</th>
+                        <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Estado</th>
+                        <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Acciones</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200">
@@ -58,7 +58,7 @@
                         <td class="px-6 py-4 text-slate-600">{{ $municipality->department->name }}</td>
                         <td class="px-6 py-4 text-center">
                             @if($municipality->dian_code)
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono font-medium bg-blue-100 text-blue-700">{{ $municipality->dian_code }}</span>
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-mono font-medium bg-blue-100 text-blue-700">{{ $municipality->dian_code }}</span>
                             @else
                             <span class="text-slate-400">-</span>
                             @endif
@@ -69,7 +69,7 @@
                                 <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {{ $municipality->is_active ? 'translate-x-5' : 'translate-x-0' }}"></span>
                             </button>
                             @else
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $municipality->is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">{{ $municipality->is_active ? 'Activo' : 'Inactivo' }}</span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium {{ $municipality->is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">{{ $municipality->is_active ? 'Activo' : 'Inactivo' }}</span>
                             @endif
                         </td>
                         <td class="px-6 py-4 text-right">
@@ -122,17 +122,17 @@
                                 placeholder="Seleccionar departamento..."
                                 searchPlaceholder="Buscar departamento..."
                             />
-                            @error('department_id') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                            @error('department_id') <span class="text-red-500 text-sm mt-1">{{ $message }}</span> @enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
                             <input wire:model="name" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Nombre del municipio">
-                            @error('name') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                            @error('name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Código DIAN</label>
                             <input wire:model="dian_code" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: 05001" maxlength="10">
-                            @error('dian_code') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                            @error('dian_code') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                         </div>
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input wire:model="is_active" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">

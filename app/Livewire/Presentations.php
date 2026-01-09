@@ -26,7 +26,8 @@ class Presentations extends Component
     public function render()
     {
         $items = Presentation::query()
-            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))
+            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%")
+                ->orWhere('description', 'like', "%{$this->search}%"))
             ->latest()
             ->paginate(10);
 
@@ -74,7 +75,7 @@ class Presentations extends Component
         $oldValues = $isNew ? null : Presentation::find($this->itemId)->toArray();
         $item = Presentation::updateOrCreate(['id' => $this->itemId], [
             'name' => $this->name,
-            'description' => $this->description,
+            'description' => $this->description ?: null,
             'is_active' => $this->is_active,
         ]);
 
