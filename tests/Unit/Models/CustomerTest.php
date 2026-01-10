@@ -117,6 +117,7 @@ class CustomerTest extends TestCase
             'has_credit',
             'credit_limit',
             'is_active',
+            'is_default',
         ];
         
         $this->assertEquals($expected, $customer->getFillable());

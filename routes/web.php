@@ -100,4 +100,17 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/customers', App\Livewire\Customers::class)
         ->name('customers')
         ->middleware('permission:customers.view');
+
+    Route::get('/suppliers', App\Livewire\Suppliers::class)
+        ->name('suppliers')
+        ->middleware('permission:suppliers.view');
+
+    // Products Management Routes
+    Route::get('/products', App\Livewire\Products::class)
+        ->name('products')
+        ->middleware('permission:products.view');
+
+    Route::get('/product-field-config', App\Livewire\ProductFieldConfig::class)
+        ->name('product-field-config')
+        ->middleware('permission:product_field_config.view');
 });
