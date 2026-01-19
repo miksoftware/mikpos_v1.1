@@ -14,6 +14,7 @@ class ProductChild extends Model
 
     protected $fillable = [
         'product_id',
+        'unit_quantity',
         'sku',
         'barcode',
         'name',
@@ -22,12 +23,8 @@ class ProductChild extends Model
         'product_model_id',
         'size',
         'weight',
-        'purchase_price',
         'sale_price',
         'price_includes_tax',
-        'min_stock',
-        'max_stock',
-        'current_stock',
         'image',
         'imei',
         'is_active',
@@ -36,8 +33,8 @@ class ProductChild extends Model
     protected function casts(): array
     {
         return [
+            'unit_quantity' => 'decimal:3',
             'weight' => 'decimal:3',
-            'purchase_price' => 'decimal:2',
             'sale_price' => 'decimal:2',
             'price_includes_tax' => 'boolean',
             'is_active' => 'boolean',
@@ -75,7 +72,10 @@ class ProductChild extends Model
 
     public function scopeLowStock(Builder $query): Builder
     {
-        return $query->whereColumn('current_stock', '<=', 'min_stock');
+        // Low stock is now determined by the parent product
+        return $query->whereHas('product', function (Builder $q) {
+            $q->whereColumn('current_stock', '<=', 'min_stock');
+        });
     }
 
     /**
@@ -111,26 +111,85 @@ class ProductChild extends Model
     // Methods
 
     /**
+     * Get the purchase price from the parent product, adjusted by unit_quantity.
+     * This represents the cost of the units consumed by this variant.
+     */
+    public function getPurchasePrice(): float
+    {
+        if (!$this->product) {
+            return 0;
+        }
+        return $this->product->purchase_price * $this->unit_quantity;
+    }
+
+    /**
+     * Get the sale price without tax.
+     * If price_includes_tax is true, removes the tax percentage.
+     */
+    public function getSalePriceWithoutTax(): float
+    {
+        $tax = $this->getTax();
+        
+        if (!$this->price_includes_tax || !$tax) {
+            return (float) $this->sale_price;
+        }
+        
+        $taxRate = $tax->value / 100;
+        return $this->sale_price / (1 + $taxRate);
+    }
+
+    /**
+     * Get the sale price with tax.
+     * If price_includes_tax is false, adds the tax percentage.
+     */
+    public function getSalePriceWithTax(): float
+    {
+        $tax = $this->getTax();
+        
+        if ($this->price_includes_tax || !$tax) {
+            return (float) $this->sale_price;
+        }
+        
+        $taxRate = $tax->value / 100;
+        return $this->sale_price * (1 + $taxRate);
+    }
+
+    /**
      * Calculate the profit margin percentage.
-     * Formula: ((sale_price - purchase_price) / purchase_price) * 100
+     * Uses the purchase price from parent (adjusted by unit_quantity).
+     * If price includes tax, calculates based on price without tax.
      * Returns null if purchase_price is zero to avoid division by zero.
      */
     public function getMargin(): ?float
     {
-        if ($this->purchase_price <= 0) {
+        $purchasePrice = $this->getPurchasePrice();
+        
+        if ($purchasePrice <= 0) {
             return null;
         }
 
-        return round((($this->sale_price - $this->purchase_price) / $this->purchase_price) * 100, 2);
+        $salePrice = $this->getSalePriceWithoutTax();
+        return round((($salePrice - $purchasePrice) / $purchasePrice) * 100, 2);
+    }
+
+    /**
+     * Calculate the profit (ganancia) in absolute value.
+     * Returns the difference between sale price (without tax) and purchase price.
+     */
+    public function getProfit(): float
+    {
+        $salePrice = $this->getSalePriceWithoutTax();
+        $purchasePrice = $this->getPurchasePrice();
+        return $salePrice - $purchasePrice;
     }
 
     /**
      * Check if the product is low on stock.
-     * Returns true if current_stock <= min_stock.
+     * Stock is managed by the parent product.
      */
     public function isLowStock(): bool
     {
-        return $this->current_stock <= $this->min_stock;
+        return $this->product?->isLowStock() ?? false;
     }
 
     /**
@@ -238,7 +297,7 @@ class ProductChild extends Model
      */
     public function hasNegativeMargin(): bool
     {
-        return $this->sale_price < $this->purchase_price;
+        return $this->getProfit() < 0;
     }
 
     /**

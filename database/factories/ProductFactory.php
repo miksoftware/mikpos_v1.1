@@ -24,6 +24,7 @@ class ProductFactory extends Factory
 
         return [
             'sku' => strtoupper($this->faker->unique()->lexify('???')) . '-' . str_pad($this->faker->unique()->numberBetween(1, 99999), 5, '0', STR_PAD_LEFT),
+            'barcode' => $this->faker->optional(0.7)->ean13(),
             'name' => $this->faker->unique()->words(3, true),
             'description' => $this->faker->sentence(),
             'category_id' => Category::factory(),

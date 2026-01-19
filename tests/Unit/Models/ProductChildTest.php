@@ -22,10 +22,9 @@ class ProductChildTest extends TestCase
     public function test_product_child_has_fillable_attributes(): void
     {
         $fillable = [
-            'product_id', 'sku', 'barcode', 'name', 'presentation_id',
-            'color_id', 'product_model_id', 'size', 'weight', 'purchase_price',
-            'sale_price', 'price_includes_tax', 'min_stock', 'max_stock',
-            'current_stock', 'image', 'imei', 'is_active',
+            'product_id', 'unit_quantity', 'sku', 'barcode', 'name', 'presentation_id',
+            'color_id', 'product_model_id', 'size', 'weight',
+            'sale_price', 'price_includes_tax', 'image', 'imei', 'is_active',
         ];
 
         $child = new ProductChild();
@@ -109,8 +108,10 @@ class ProductChildTest extends TestCase
 
     public function test_get_margin_calculates_correct_percentage(): void
     {
+        $product = Product::factory()->create(['purchase_price' => 100.00]);
         $child = ProductChild::factory()->create([
-            'purchase_price' => 100.00,
+            'product_id' => $product->id,
+            'unit_quantity' => 1,
             'sale_price' => 150.00,
         ]);
 
@@ -121,7 +122,12 @@ class ProductChildTest extends TestCase
 
     public function test_get_margin_returns_null_for_zero_purchase_price(): void
     {
-        $child = ProductChild::factory()->zeroPurchasePrice()->create();
+        $product = Product::factory()->create(['purchase_price' => 0]);
+        $child = ProductChild::factory()->create([
+            'product_id' => $product->id,
+            'unit_quantity' => 1,
+            'sale_price' => 100.00,
+        ]);
 
         $margin = $child->getMargin();
 
@@ -130,8 +136,10 @@ class ProductChildTest extends TestCase
 
     public function test_get_margin_returns_negative_for_loss(): void
     {
+        $product = Product::factory()->create(['purchase_price' => 100.00]);
         $child = ProductChild::factory()->create([
-            'purchase_price' => 100.00,
+            'product_id' => $product->id,
+            'unit_quantity' => 1,
             'sale_price' => 80.00,
         ]);
 
@@ -142,8 +150,10 @@ class ProductChildTest extends TestCase
 
     public function test_get_margin_rounds_to_two_decimals(): void
     {
+        $product = Product::factory()->create(['purchase_price' => 33.33]);
         $child = ProductChild::factory()->create([
-            'purchase_price' => 33.33,
+            'product_id' => $product->id,
+            'unit_quantity' => 1,
             'sale_price' => 50.00,
         ]);
 
@@ -155,58 +165,108 @@ class ProductChildTest extends TestCase
 
     public function test_has_negative_margin_returns_true_when_sale_below_purchase(): void
     {
-        $child = ProductChild::factory()->negativeMargin()->create();
+        $product = Product::factory()->create(['purchase_price' => 100.00]);
+        $child = ProductChild::factory()->create([
+            'product_id' => $product->id,
+            'unit_quantity' => 1,
+            'sale_price' => 80.00,
+        ]);
 
         $this->assertTrue($child->hasNegativeMargin());
     }
 
     public function test_has_negative_margin_returns_false_when_sale_above_purchase(): void
     {
+        $product = Product::factory()->create(['purchase_price' => 100.00]);
         $child = ProductChild::factory()->create([
-            'purchase_price' => 100.00,
+            'product_id' => $product->id,
+            'unit_quantity' => 1,
             'sale_price' => 150.00,
         ]);
 
         $this->assertFalse($child->hasNegativeMargin());
     }
 
-    // Stock Level Detection tests (Property 8)
+    // Unit Quantity tests
 
-    public function test_is_low_stock_returns_true_when_at_minimum(): void
+    public function test_get_purchase_price_calculates_from_parent_and_unit_quantity(): void
     {
+        $product = Product::factory()->create(['purchase_price' => 10.00]);
         $child = ProductChild::factory()->create([
+            'product_id' => $product->id,
+            'unit_quantity' => 6,
+        ]);
+
+        $purchasePrice = $child->getPurchasePrice();
+
+        $this->assertEquals(60.00, $purchasePrice);
+    }
+
+    public function test_get_profit_calculates_correctly(): void
+    {
+        $product = Product::factory()->create(['purchase_price' => 10.00]);
+        $child = ProductChild::factory()->create([
+            'product_id' => $product->id,
+            'unit_quantity' => 6,
+            'sale_price' => 100.00,
+        ]);
+
+        $profit = $child->getProfit();
+
+        // Sale price (100) - Purchase price (10 * 6 = 60) = 40
+        $this->assertEquals(40.00, $profit);
+    }
+
+    // Stock Level Detection tests (Property 8)
+    // Stock is now managed by the parent product
+
+    public function test_is_low_stock_returns_true_when_parent_at_minimum(): void
+    {
+        $product = Product::factory()->create([
             'min_stock' => 10,
             'current_stock' => 10,
         ]);
-
-        $this->assertTrue($child->isLowStock());
-    }
-
-    public function test_is_low_stock_returns_true_when_below_minimum(): void
-    {
         $child = ProductChild::factory()->create([
-            'min_stock' => 10,
-            'current_stock' => 5,
+            'product_id' => $product->id,
         ]);
 
         $this->assertTrue($child->isLowStock());
     }
 
-    public function test_is_low_stock_returns_false_when_above_minimum(): void
+    public function test_is_low_stock_returns_true_when_parent_below_minimum(): void
     {
+        $product = Product::factory()->create([
+            'min_stock' => 10,
+            'current_stock' => 5,
+        ]);
         $child = ProductChild::factory()->create([
+            'product_id' => $product->id,
+        ]);
+
+        $this->assertTrue($child->isLowStock());
+    }
+
+    public function test_is_low_stock_returns_false_when_parent_above_minimum(): void
+    {
+        $product = Product::factory()->create([
             'min_stock' => 10,
             'current_stock' => 15,
+        ]);
+        $child = ProductChild::factory()->create([
+            'product_id' => $product->id,
         ]);
 
         $this->assertFalse($child->isLowStock());
     }
 
-    public function test_is_low_stock_returns_true_when_zero_stock(): void
+    public function test_is_low_stock_returns_true_when_parent_zero_stock(): void
     {
-        $child = ProductChild::factory()->create([
+        $product = Product::factory()->create([
             'min_stock' => 5,
             'current_stock' => 0,
+        ]);
+        $child = ProductChild::factory()->create([
+            'product_id' => $product->id,
         ]);
 
         $this->assertTrue($child->isLowStock());
@@ -339,16 +399,19 @@ class ProductChildTest extends TestCase
 
     public function test_low_stock_scope_filters_low_stock_children(): void
     {
-        $product = Product::factory()->create();
-        ProductChild::factory()->create([
-            'product_id' => $product->id,
+        $productLowStock = Product::factory()->create([
             'min_stock' => 10,
             'current_stock' => 5,
         ]);
-        ProductChild::factory()->create([
-            'product_id' => $product->id,
+        $productNormalStock = Product::factory()->create([
             'min_stock' => 10,
             'current_stock' => 20,
+        ]);
+        ProductChild::factory()->create([
+            'product_id' => $productLowStock->id,
+        ]);
+        ProductChild::factory()->create([
+            'product_id' => $productNormalStock->id,
         ]);
 
         $lowStockChildren = ProductChild::lowStock()->get();

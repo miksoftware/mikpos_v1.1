@@ -113,4 +113,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/product-field-config', App\Livewire\ProductFieldConfig::class)
         ->name('product-field-config')
         ->middleware('permission:product_field_config.view');
+
+    // Combos Management Routes
+    Route::get('/combos', App\Livewire\Combos::class)
+        ->name('combos')
+        ->middleware('permission:combos.view');
 });

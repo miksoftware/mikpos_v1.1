@@ -43,6 +43,7 @@ class Products extends Component
     // Form data for parent product
     public ?int $itemId = null;
     public ?string $sku = null;
+    public ?string $barcode = null;
     public string $name = '';
     public ?string $description = null;
     public ?int $category_id = null;
@@ -63,6 +64,7 @@ class Products extends Component
     // Form data for child product
     public ?int $childId = null;
     public ?int $childProductId = null;
+    public float $childUnitQuantity = 1;
     public ?string $childSku = null;
     public ?string $childBarcode = null;
     public string $childName = '';
@@ -71,11 +73,8 @@ class Products extends Component
     public ?int $childProductModelId = null;
     public ?string $childSize = null;
     public ?float $childWeight = null;
-    public float $childPurchasePrice = 0;
     public float $childSalePrice = 0;
     public bool $childPriceIncludesTax = false;
-    public int $childMinStock = 0;
-    public ?int $childMaxStock = null;
     public ?string $childImei = null;
     public bool $childIsActive = true;
     public $childImage = null; // For file upload
@@ -169,6 +168,7 @@ class Products extends Component
         
         $this->itemId = $item->id;
         $this->sku = $item->sku;
+        $this->barcode = $item->barcode;
         $this->name = $item->name;
         $this->description = $item->description;
         $this->category_id = $item->category_id;
@@ -205,6 +205,7 @@ class Products extends Component
         $this->validate([
             'name' => 'required|min:2',
             'sku' => 'nullable|unique:products,sku,' . $this->itemId,
+            'barcode' => 'nullable|unique:products,barcode,' . $this->itemId,
             'category_id' => 'required|exists:categories,id',
             'subcategory_id' => 'nullable|exists:subcategories,id',
             'brand_id' => 'nullable|exists:brands,id',
@@ -220,6 +221,7 @@ class Products extends Component
             'name.required' => 'El nombre es obligatorio',
             'name.min' => 'El nombre debe tener al menos 2 caracteres',
             'sku.unique' => 'El SKU ya está registrado',
+            'barcode.unique' => 'El código de barras ya está registrado',
             'category_id.required' => 'La categoría es obligatoria',
             'category_id.exists' => 'La categoría seleccionada no existe',
             'unit_id.required' => 'La unidad es obligatoria',
@@ -249,6 +251,7 @@ class Products extends Component
         }
 
         $item = Product::updateOrCreate(['id' => $this->itemId], [
+            'barcode' => $this->barcode ?: null,
             'name' => $this->name,
             'description' => $this->description,
             'category_id' => $this->category_id,
@@ -411,6 +414,7 @@ class Products extends Component
         $this->childId = $child->id;
         $this->childProductId = $child->product_id;
         $this->parentProduct = $child->product;
+        $this->childUnitQuantity = (float) $child->unit_quantity;
         $this->childSku = $child->sku;
         $this->childBarcode = $child->barcode;
         $this->childName = $child->name;
@@ -419,11 +423,8 @@ class Products extends Component
         $this->childProductModelId = $child->product_model_id;
         $this->childSize = $child->size;
         $this->childWeight = $child->weight;
-        $this->childPurchasePrice = (float) $child->purchase_price;
         $this->childSalePrice = (float) $child->sale_price;
         $this->childPriceIncludesTax = $child->price_includes_tax;
-        $this->childMinStock = $child->min_stock;
-        $this->childMaxStock = $child->max_stock;
         $this->childImei = $child->imei;
         $this->childIsActive = $child->is_active;
         $this->childExistingImage = $child->image;
@@ -470,6 +471,7 @@ class Products extends Component
 
         $child = ProductChild::updateOrCreate(['id' => $this->childId], [
             'product_id' => $this->childProductId,
+            'unit_quantity' => $this->childUnitQuantity,
             'sku' => $this->childSku ?: null,
             'barcode' => $this->childBarcode ?: null,
             'name' => $this->childName,
@@ -478,11 +480,8 @@ class Products extends Component
             'product_model_id' => $this->childProductModelId ?: null,
             'size' => $this->childSize ?: null,
             'weight' => $this->childWeight ?: null,
-            'purchase_price' => $this->childPurchasePrice,
             'sale_price' => $this->childSalePrice,
             'price_includes_tax' => $this->childPriceIncludesTax,
-            'min_stock' => $this->childMinStock,
-            'max_stock' => $this->childMaxStock ?: null,
             'imei' => $this->childImei ?: null,
             'is_active' => $this->childIsActive,
             'image' => $imagePath,
@@ -604,10 +603,9 @@ class Products extends Component
         $rules = [
             'childName' => 'required|min:2',
             'childProductId' => 'required|exists:products,id',
+            'childUnitQuantity' => 'required|numeric|min:0.001',
             'childSku' => 'nullable|unique:product_children,sku,' . $this->childId,
-            'childPurchasePrice' => 'required|numeric|min:0',
             'childSalePrice' => 'required|numeric|min:0',
-            'childMinStock' => 'required|integer|min:0',
         ];
 
         // Add barcode validation
@@ -666,14 +664,6 @@ class Products extends Component
             }
         }
 
-        // Add max stock validation
-        if ($this->isFieldVisible('max_stock')) {
-            $rules['childMaxStock'] = 'nullable|integer|min:0';
-            if ($this->isFieldRequired('max_stock')) {
-                $rules['childMaxStock'] = 'required|integer|min:0';
-            }
-        }
-
         return $rules;
     }
 
@@ -684,20 +674,15 @@ class Products extends Component
             'childName.min' => 'El nombre debe tener al menos 2 caracteres',
             'childProductId.required' => 'El producto padre es obligatorio',
             'childProductId.exists' => 'El producto padre no existe',
+            'childUnitQuantity.required' => 'La cantidad de unidades es obligatoria',
+            'childUnitQuantity.numeric' => 'La cantidad de unidades debe ser numérica',
+            'childUnitQuantity.min' => 'La cantidad de unidades debe ser mayor a 0',
             'childSku.unique' => 'El SKU ya está registrado',
             'childBarcode.unique' => 'El código de barras ya existe',
             'childBarcode.required' => 'El código de barras es obligatorio',
-            'childPurchasePrice.required' => 'El precio de compra es obligatorio',
-            'childPurchasePrice.numeric' => 'El precio de compra debe ser numérico',
-            'childPurchasePrice.min' => 'El precio de compra no puede ser negativo',
             'childSalePrice.required' => 'El precio de venta es obligatorio',
             'childSalePrice.numeric' => 'El precio de venta debe ser numérico',
             'childSalePrice.min' => 'El precio de venta no puede ser negativo',
-            'childMinStock.required' => 'El stock mínimo es obligatorio',
-            'childMinStock.integer' => 'El stock mínimo debe ser un número entero',
-            'childMinStock.min' => 'El stock mínimo no puede ser negativo',
-            'childMaxStock.integer' => 'El stock máximo debe ser un número entero',
-            'childMaxStock.min' => 'El stock máximo no puede ser negativo',
             'childPresentationId.required' => 'La presentación es obligatoria',
             'childPresentationId.exists' => 'La presentación seleccionada no existe',
             'childColorId.required' => 'El color es obligatorio',
@@ -718,6 +703,7 @@ class Products extends Component
         $this->childId = null;
         $this->childProductId = null;
         $this->parentProduct = null;
+        $this->childUnitQuantity = 1;
         $this->childSku = null;
         $this->childBarcode = null;
         $this->childName = '';
@@ -726,11 +712,8 @@ class Products extends Component
         $this->childProductModelId = null;
         $this->childSize = null;
         $this->childWeight = null;
-        $this->childPurchasePrice = 0;
         $this->childSalePrice = 0;
         $this->childPriceIncludesTax = false;
-        $this->childMinStock = 0;
-        $this->childMaxStock = null;
         $this->childImei = null;
         $this->childIsActive = true;
         $this->fieldSettings = [];
@@ -769,6 +752,7 @@ class Products extends Component
     {
         $this->itemId = null;
         $this->sku = null;
+        $this->barcode = null;
         $this->name = '';
         $this->description = null;
         $this->category_id = null;

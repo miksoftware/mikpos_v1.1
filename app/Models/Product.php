@@ -14,6 +14,7 @@ class Product extends Model
 
     protected $fillable = [
         'sku',
+        'barcode',
         'name',
         'description',
         'category_id',
@@ -165,13 +166,54 @@ class Product extends Model
 
     /**
      * Calculate profit margin percentage.
+     * If price includes tax, calculates based on the price without tax.
      */
     public function getMargin(): ?float
     {
         if ($this->purchase_price <= 0) {
             return null;
         }
-        return (($this->sale_price - $this->purchase_price) / $this->purchase_price) * 100;
+        
+        $salePrice = $this->getSalePriceWithoutTax();
+        return (($salePrice - $this->purchase_price) / $this->purchase_price) * 100;
+    }
+
+    /**
+     * Get the sale price without tax.
+     * If price_includes_tax is true, removes the tax percentage.
+     */
+    public function getSalePriceWithoutTax(): float
+    {
+        if (!$this->price_includes_tax || !$this->tax) {
+            return (float) $this->sale_price;
+        }
+        
+        $taxRate = $this->tax->value / 100;
+        return $this->sale_price / (1 + $taxRate);
+    }
+
+    /**
+     * Get the sale price with tax.
+     * If price_includes_tax is false, adds the tax percentage.
+     */
+    public function getSalePriceWithTax(): float
+    {
+        if ($this->price_includes_tax || !$this->tax) {
+            return (float) $this->sale_price;
+        }
+        
+        $taxRate = $this->tax->value / 100;
+        return $this->sale_price * (1 + $taxRate);
+    }
+
+    /**
+     * Calculate the profit (ganancia) in absolute value.
+     * Returns the difference between sale price (without tax) and purchase price.
+     */
+    public function getProfit(): float
+    {
+        $salePrice = $this->getSalePriceWithoutTax();
+        return $salePrice - $this->purchase_price;
     }
 
     /**
@@ -179,7 +221,7 @@ class Product extends Model
      */
     public function hasNegativeMargin(): bool
     {
-        return $this->sale_price < $this->purchase_price;
+        return $this->getProfit() < 0;
     }
 
     /**

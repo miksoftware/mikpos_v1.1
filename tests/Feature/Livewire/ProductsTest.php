@@ -714,6 +714,7 @@ class ProductsTest extends TestCase
             'name' => 'Parent Product',
             'category_id' => $this->category->id,
             'unit_id' => $this->unit->id,
+            'purchase_price' => 10,
         ]);
         
         Livewire::test(Products::class)
@@ -721,18 +722,16 @@ class ProductsTest extends TestCase
             ->assertSet('isChildModalOpen', true)
             ->assertSet('childProductId', $product->id)
             ->set('childName', 'Child Variant')
-            ->set('childPurchasePrice', 50)
+            ->set('childUnitQuantity', 6)
             ->set('childSalePrice', 75)
-            ->set('childMinStock', 5)
             ->call('storeChild')
             ->assertSet('isChildModalOpen', false);
         
         $this->assertDatabaseHas('product_children', [
             'product_id' => $product->id,
             'name' => 'Child Variant',
-            'purchase_price' => 50,
+            'unit_quantity' => 6,
             'sale_price' => 75,
-            'min_stock' => 5,
         ]);
     }
 
@@ -776,9 +775,8 @@ class ProductsTest extends TestCase
         Livewire::test(Products::class)
             ->call('createChild', $product->id)
             ->set('childName', '')
-            ->set('childPurchasePrice', 50)
+            ->set('childUnitQuantity', 1)
             ->set('childSalePrice', 75)
-            ->set('childMinStock', 5)
             ->call('storeChild')
             ->assertHasErrors(['childName']);
     }
@@ -801,9 +799,8 @@ class ProductsTest extends TestCase
             ->call('createChild', $product->id)
             ->set('childName', 'New Child')
             ->set('childSku', 'UNIQUE-CHILD-SKU')
-            ->set('childPurchasePrice', 50)
+            ->set('childUnitQuantity', 1)
             ->set('childSalePrice', 75)
-            ->set('childMinStock', 5)
             ->call('storeChild')
             ->assertHasErrors(['childSku']);
     }
@@ -826,9 +823,8 @@ class ProductsTest extends TestCase
             ->call('createChild', $product->id)
             ->set('childName', 'New Child')
             ->set('childBarcode', '1234567890123')
-            ->set('childPurchasePrice', 50)
+            ->set('childUnitQuantity', 1)
             ->set('childSalePrice', 75)
-            ->set('childMinStock', 5)
             ->call('storeChild')
             ->assertHasErrors(['childBarcode']);
     }
@@ -858,9 +854,8 @@ class ProductsTest extends TestCase
         Livewire::test(Products::class)
             ->call('createChild', $product->id)
             ->set('childName', 'Inherited Child')
-            ->set('childPurchasePrice', 50)
+            ->set('childUnitQuantity', 1)
             ->set('childSalePrice', 75)
-            ->set('childMinStock', 5)
             ->call('storeChild');
         
         $child = ProductChild::where('name', 'Inherited Child')->first();
@@ -894,9 +889,8 @@ class ProductsTest extends TestCase
         Livewire::test(Products::class)
             ->call('createChild', $product->id)
             ->set('childName', 'Full Featured Child')
-            ->set('childPurchasePrice', 100)
+            ->set('childUnitQuantity', 1)
             ->set('childSalePrice', 150)
-            ->set('childMinStock', 10)
             ->set('childPresentationId', $presentation->id)
             ->set('childColorId', $color->id)
             ->set('childProductModelId', $productModel->id)
@@ -928,9 +922,8 @@ class ProductsTest extends TestCase
         Livewire::test(Products::class)
             ->call('createChild', $product->id)
             ->set('childName', 'Minimal Child')
-            ->set('childPurchasePrice', 50)
+            ->set('childUnitQuantity', 1)
             ->set('childSalePrice', 75)
-            ->set('childMinStock', 5)
             ->call('storeChild');
         
         $this->assertDatabaseHas('product_children', [
@@ -1116,9 +1109,8 @@ class ProductsTest extends TestCase
         Livewire::test(Products::class)
             ->call('createChild', $product->id)
             ->set('childName', 'Logged Child')
-            ->set('childPurchasePrice', 50)
+            ->set('childUnitQuantity', 1)
             ->set('childSalePrice', 75)
-            ->set('childMinStock', 5)
             ->call('storeChild');
         
         $this->assertDatabaseHas('activity_logs', [
@@ -1198,9 +1190,8 @@ class ProductsTest extends TestCase
         Livewire::test(Products::class)
             ->call('createChild', $product->id)
             ->set('childName', 'Property 13 Child Test')
-            ->set('childPurchasePrice', 50)
+            ->set('childUnitQuantity', 1)
             ->set('childSalePrice', 75)
-            ->set('childMinStock', 5)
             ->call('storeChild');
         
         $log = \App\Models\ActivityLog::where('module', 'product_children')

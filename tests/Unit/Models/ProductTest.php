@@ -19,7 +19,7 @@ class ProductTest extends TestCase
     public function test_product_has_fillable_attributes(): void
     {
         $fillable = [
-            'sku', 'name', 'description', 'category_id', 'subcategory_id',
+            'sku', 'barcode', 'name', 'description', 'category_id', 'subcategory_id',
             'brand_id', 'unit_id', 'tax_id', 'image', 'purchase_price',
             'sale_price', 'price_includes_tax', 'min_stock', 'max_stock',
             'current_stock', 'is_active',

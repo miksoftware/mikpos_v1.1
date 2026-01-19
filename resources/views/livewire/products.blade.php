@@ -223,7 +223,10 @@
                             @endif
                         </td>
                         <td class="px-6 py-3 text-center">
-                            <span class="text-sm text-slate-600">{{ $child->current_stock }} {{ $item->unit?->abbreviation ?? 'und' }}</span>
+                            <span class="text-sm text-slate-500" title="Stock del producto padre">
+                                {{ $item->current_stock }} {{ $item->unit?->abbreviation ?? 'und' }}
+                            </span>
+                            <div class="text-xs text-slate-400">(padre)</div>
                         </td>
                         <td class="px-6 py-3 text-center">
                             @if(auth()->user()->hasPermission('products.edit'))
@@ -309,6 +312,11 @@
                                     @error('sku')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
                                 </div>
                                 <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Código de Barras</label>
+                                    <input wire:model="barcode" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: 7701234567890">
+                                    @error('barcode')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                                </div>
+                                <div class="sm:col-span-2">
                                     <label class="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
                                     <input wire:model="name" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: Acetaminofén">
                                     @error('name')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
@@ -391,7 +399,7 @@
                             <div class="mt-3 flex flex-wrap items-center gap-4">
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input wire:model="price_includes_tax" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
-                                    <span class="text-sm text-slate-700">Precio incluye IVA</span>
+                                    <span class="text-sm text-slate-700">Precio incluye impuesto</span>
                                 </label>
                                 <div class="flex items-center gap-2">
                                     <span class="text-sm text-slate-500">Margen:</span>
@@ -403,6 +411,18 @@
                                         }" x-text="margin + '%'"></span>
                                     </template>
                                     <template x-if="margin === null">
+                                        <span class="text-sm text-slate-400">-</span>
+                                    </template>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm text-slate-500">Ganancia:</span>
+                                    <template x-if="purchasePrice > 0">
+                                        <span class="text-sm font-semibold" :class="{
+                                            'text-green-600': (salePrice - purchasePrice) > 0,
+                                            'text-red-500': (salePrice - purchasePrice) <= 0
+                                        }" x-text="'$' + (salePrice - purchasePrice).toFixed(2)"></span>
+                                    </template>
+                                    <template x-if="!purchasePrice || purchasePrice <= 0">
                                         <span class="text-sm text-slate-400">-</span>
                                     </template>
                                 </div>
@@ -523,14 +543,21 @@
     {{-- Create/Edit Child Product Modal --}}
     @if($isChildModalOpen)
     <div class="relative z-[100]" x-data="{
-        purchasePrice: @entangle('childPurchasePrice'),
+        unitQuantity: @entangle('childUnitQuantity'),
+        parentPurchasePrice: {{ $parentProduct?->purchase_price ?? 0 }},
         salePrice: @entangle('childSalePrice'),
+        get purchasePrice() {
+            return this.parentPurchasePrice * this.unitQuantity;
+        },
         get margin() {
             if (!this.purchasePrice || this.purchasePrice <= 0) return null;
             return ((this.salePrice - this.purchasePrice) / this.purchasePrice * 100).toFixed(1);
         },
+        get profit() {
+            return this.salePrice - this.purchasePrice;
+        },
         get hasNegativeMargin() {
-            return this.salePrice < this.purchasePrice;
+            return this.profit < 0;
         }
     }">
         <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="$set('isChildModalOpen', false)"></div>
@@ -553,14 +580,10 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 Información Heredada del Producto Padre
                             </h4>
-                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
                                 <div>
                                     <span class="text-slate-500">Categoría:</span>
                                     <p class="font-medium text-slate-700">{{ $parentProduct->category?->name ?? '-' }}</p>
-                                </div>
-                                <div>
-                                    <span class="text-slate-500">Subcategoría:</span>
-                                    <p class="font-medium text-slate-700">{{ $parentProduct->subcategory?->name ?? '-' }}</p>
                                 </div>
                                 <div>
                                     <span class="text-slate-500">Marca:</span>
@@ -569,6 +592,18 @@
                                 <div>
                                     <span class="text-slate-500">Impuesto:</span>
                                     <p class="font-medium text-slate-700">{{ $parentProduct->tax ? $parentProduct->tax->name . ' (' . $parentProduct->tax->rate . '%)' : 'Sin impuesto' }}</p>
+                                </div>
+                                <div>
+                                    <span class="text-slate-500">Unidad Base:</span>
+                                    <p class="font-medium text-slate-700">{{ $parentProduct->unit?->name ?? '-' }} ({{ $parentProduct->unit?->abbreviation ?? '-' }})</p>
+                                </div>
+                                <div>
+                                    <span class="text-slate-500">Precio Compra (por unidad):</span>
+                                    <p class="font-medium text-slate-700">${{ number_format($parentProduct->purchase_price, 2) }}</p>
+                                </div>
+                                <div>
+                                    <span class="text-slate-500">Stock Actual:</span>
+                                    <p class="font-medium text-slate-700">{{ $parentProduct->current_stock }} {{ $parentProduct->unit?->abbreviation ?? 'und' }}</p>
                                 </div>
                             </div>
                         </div>
@@ -590,6 +625,18 @@
                                     <label class="block text-sm font-medium text-slate-700 mb-1">SKU <span class="text-slate-400 font-normal">(opcional)</span></label>
                                     <input wire:model="childSku" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: MED-001-100">
                                     @error('childSku')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">
+                                        Cantidad de {{ $parentProduct?->unit?->name ?? 'unidades' }} por variante *
+                                        <span class="text-slate-400 font-normal">(cuántas {{ $parentProduct?->unit?->abbreviation ?? 'und' }} del padre consume esta variante)</span>
+                                    </label>
+                                    <div class="flex items-center gap-2">
+                                        <input wire:model.live="childUnitQuantity" x-model.number="unitQuantity" type="number" step="0.001" min="0.001" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: 6">
+                                        <span class="text-sm text-slate-500 whitespace-nowrap">{{ $parentProduct?->unit?->abbreviation ?? 'und' }}</span>
+                                    </div>
+                                    <p class="text-xs text-slate-500 mt-1">Ej: Si el padre es "Pastilla" y la variante es "Tableta x6", ingresa 6</p>
+                                    @error('childUnitQuantity')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
                                 </div>
                             </div>
                         </div>
@@ -715,15 +762,15 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 Precios
                             </h4>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-700 mb-1">Precio Compra *</label>
-                                    <div class="relative">
-                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">$</span>
-                                        <input wire:model.live="childPurchasePrice" x-model.number="purchasePrice" type="number" step="0.01" min="0" class="w-full pl-7 pr-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="0.00">
-                                    </div>
-                                    @error('childPurchasePrice')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                            {{-- Calculated Purchase Price (Read-only) --}}
+                            <div class="bg-blue-50 rounded-xl p-3 mb-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-blue-700">Costo calculado ({{ $parentProduct?->unit?->abbreviation ?? 'und' }} x cantidad):</span>
+                                    <span class="text-lg font-bold text-blue-800" x-text="'$' + purchasePrice.toFixed(2)"></span>
                                 </div>
+                                <p class="text-xs text-blue-600 mt-1">= ${{ number_format($parentProduct?->purchase_price ?? 0, 2) }} × <span x-text="unitQuantity"></span> {{ $parentProduct?->unit?->abbreviation ?? 'und' }}</p>
+                            </div>
+                            <div class="grid grid-cols-1 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-1">Precio Venta *</label>
                                     <div class="relative">
@@ -736,7 +783,7 @@
                             <div class="mt-3 flex flex-wrap items-center gap-4">
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input wire:model="childPriceIncludesTax" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
-                                    <span class="text-sm text-slate-700">Precio incluye IVA</span>
+                                    <span class="text-sm text-slate-700">Precio incluye impuesto</span>
                                 </label>
                                 {{-- Real-time Margin Display --}}
                                 <div class="flex items-center gap-2">
@@ -752,44 +799,18 @@
                                         <span class="text-sm text-slate-400">-</span>
                                     </template>
                                 </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm text-slate-500">Ganancia:</span>
+                                    <span class="text-sm font-semibold" :class="{
+                                        'text-green-600': profit > 0,
+                                        'text-red-500': profit <= 0
+                                    }" x-text="'$' + profit.toFixed(2)"></span>
+                                </div>
                             </div>
                             {{-- Warning for negative margin --}}
                             <div x-show="hasNegativeMargin" x-transition class="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
                                 <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                                <span class="text-sm text-red-700">Advertencia: El precio de venta es menor al precio de compra</span>
-                            </div>
-                        </div>
-
-                        {{-- Stock Section --}}
-                        <div>
-                            <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-                                Inventario
-                            </h4>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                @php
-                                    $minStockField = $fieldSettings['min_stock'] ?? null;
-                                    $minStockVisible = $minStockField ? (is_object($minStockField) ? $minStockField->is_visible : ($minStockField['is_visible'] ?? true)) : true;
-                                @endphp
-                                @if($minStockVisible)
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-700 mb-1">Stock Mínimo *</label>
-                                    <input wire:model="childMinStock" type="number" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="0">
-                                    @error('childMinStock')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
-                                </div>
-                                @endif
-
-                                @php
-                                    $maxStockField = $fieldSettings['max_stock'] ?? null;
-                                    $maxStockVisible = $maxStockField ? (is_object($maxStockField) ? $maxStockField->is_visible : ($maxStockField['is_visible'] ?? false)) : false;
-                                @endphp
-                                @if($maxStockVisible)
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-700 mb-1">Stock Máximo</label>
-                                    <input wire:model="childMaxStock" type="number" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Opcional">
-                                    @error('childMaxStock')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
-                                </div>
-                                @endif
+                                <span class="text-sm text-red-700">Advertencia: El precio de venta es menor al costo calculado</span>
                             </div>
                         </div>
 

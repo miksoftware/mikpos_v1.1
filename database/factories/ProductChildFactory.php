@@ -18,11 +18,9 @@ class ProductChildFactory extends Factory
 
     public function definition(): array
     {
-        $purchasePrice = $this->faker->randomFloat(2, 5, 200);
-        $salePrice = $purchasePrice * $this->faker->randomFloat(2, 1.1, 2.0);
-
         return [
             'product_id' => Product::factory(),
+            'unit_quantity' => $this->faker->randomFloat(3, 1, 10),
             'sku' => strtoupper($this->faker->unique()->lexify('???')) . '-' . str_pad($this->faker->unique()->numberBetween(1, 99999), 5, '0', STR_PAD_LEFT),
             'barcode' => $this->faker->unique()->ean13(),
             'name' => $this->faker->words(2, true),
@@ -31,12 +29,8 @@ class ProductChildFactory extends Factory
             'product_model_id' => null,
             'size' => null,
             'weight' => null,
-            'purchase_price' => $purchasePrice,
-            'sale_price' => round($salePrice, 2),
+            'sale_price' => $this->faker->randomFloat(2, 10, 500),
             'price_includes_tax' => false,
-            'min_stock' => $this->faker->numberBetween(5, 20),
-            'max_stock' => $this->faker->numberBetween(50, 200),
-            'current_stock' => $this->faker->numberBetween(10, 100),
             'image' => null,
             'imei' => null,
             'is_active' => true,
@@ -78,32 +72,6 @@ class ProductChildFactory extends Factory
         ]);
     }
 
-    public function lowStock(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'min_stock' => 10,
-            'current_stock' => $this->faker->numberBetween(0, 10),
-        ]);
-    }
-
-    public function negativeMargin(): static
-    {
-        return $this->state(function (array $attributes) {
-            $purchasePrice = $this->faker->randomFloat(2, 50, 200);
-            return [
-                'purchase_price' => $purchasePrice,
-                'sale_price' => $purchasePrice * 0.8, // 20% below purchase price
-            ];
-        });
-    }
-
-    public function zeroPurchasePrice(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'purchase_price' => 0,
-        ]);
-    }
-
     public function withSize(): static
     {
         return $this->state(fn (array $attributes) => [
@@ -122,6 +90,13 @@ class ProductChildFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'imei' => $this->faker->numerify('###############'),
+        ]);
+    }
+
+    public function unitQuantity(float $quantity): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'unit_quantity' => $quantity,
         ]);
     }
 }
