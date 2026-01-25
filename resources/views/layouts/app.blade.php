@@ -60,7 +60,7 @@
                 </a>
 
                 <!-- Administración Section -->
-                <div x-data="{ adminOpen: {{ request()->routeIs('users') || request()->routeIs('branches') || request()->routeIs('roles') || request()->routeIs('departments') || request()->routeIs('municipalities') || request()->routeIs('tax-documents') || request()->routeIs('currencies') || request()->routeIs('payment-methods') || request()->routeIs('taxes') || request()->routeIs('categories') || request()->routeIs('subcategories') || request()->routeIs('brands') || request()->routeIs('units') || request()->routeIs('product-models') || request()->routeIs('presentations') || request()->routeIs('colors') || request()->routeIs('imeis') || request()->routeIs('product-field-config') ? 'true' : 'false' }}, configOpen: {{ request()->routeIs('departments') || request()->routeIs('municipalities') || request()->routeIs('tax-documents') || request()->routeIs('currencies') || request()->routeIs('payment-methods') || request()->routeIs('taxes') || request()->routeIs('product-field-config') ? 'true' : 'false' }}, productsOpen: {{ request()->routeIs('categories') || request()->routeIs('subcategories') || request()->routeIs('brands') || request()->routeIs('units') || request()->routeIs('product-models') || request()->routeIs('presentations') || request()->routeIs('colors') || request()->routeIs('imeis') ? 'true' : 'false' }} }">
+                <div x-data="{ adminOpen: {{ request()->routeIs('users') || request()->routeIs('branches') || request()->routeIs('roles') || request()->routeIs('departments') || request()->routeIs('municipalities') || request()->routeIs('tax-documents') || request()->routeIs('currencies') || request()->routeIs('payment-methods') || request()->routeIs('taxes') || request()->routeIs('system-documents') || request()->routeIs('categories') || request()->routeIs('subcategories') || request()->routeIs('brands') || request()->routeIs('units') || request()->routeIs('product-models') || request()->routeIs('presentations') || request()->routeIs('colors') || request()->routeIs('imeis') || request()->routeIs('product-field-config') ? 'true' : 'false' }}, configOpen: {{ request()->routeIs('departments') || request()->routeIs('municipalities') || request()->routeIs('tax-documents') || request()->routeIs('currencies') || request()->routeIs('payment-methods') || request()->routeIs('taxes') || request()->routeIs('system-documents') || request()->routeIs('product-field-config') ? 'true' : 'false' }}, productsOpen: {{ request()->routeIs('categories') || request()->routeIs('subcategories') || request()->routeIs('brands') || request()->routeIs('units') || request()->routeIs('product-models') || request()->routeIs('presentations') || request()->routeIs('colors') || request()->routeIs('imeis') ? 'true' : 'false' }} }">
                     <button @click="adminOpen = !adminOpen"
                         class="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-slate-400 hover:bg-white/5 hover:text-white">
                         <div class="flex items-center gap-3">
@@ -196,6 +196,18 @@
                                     </svg>
                                     <span class="text-sm">Impuestos</span>
                                 </a>
+                                @if (auth()->user()->hasPermission('system_documents.view'))
+                                <a href="{{ route('system-documents') }}"
+                                    class="flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all duration-200 {{ request()->routeIs('system-documents') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                                        </path>
+                                    </svg>
+                                    <span class="text-sm">Documentos Sistema</span>
+                                </a>
+                                @endif
                                 @if (auth()->user()->hasPermission('product_field_config.view'))
                                 <a href="{{ route('product-field-config') }}"
                                     class="flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all duration-200 {{ request()->routeIs('product-field-config') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
@@ -383,6 +395,42 @@
                                     </path>
                                 </svg>
                                 <span class="text-sm">Combos</span>
+                            </a>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Inventarios Section -->
+                <div x-data="{ inventariosOpen: {{ request()->routeIs('purchases') || request()->routeIs('purchases.create') ? 'true' : 'false' }} }">
+                    <button @click="inventariosOpen = !inventariosOpen"
+                        class="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-slate-400 hover:bg-white/5 hover:text-white">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5 flex-shrink-0 group-hover:text-[#a855f7]" fill="none"
+                                stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                            </svg>
+                            <span x-show="sidebarOpen" class="font-medium">Inventarios</span>
+                        </div>
+                        <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform duration-200"
+                            :class="inventariosOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
+                            </path>
+                        </svg>
+                    </button>
+
+                    <div x-show="inventariosOpen && sidebarOpen" x-collapse
+                        class="mt-1 ml-4 pl-4 border-l border-white/10 space-y-1">
+                        @if (auth()->user()->hasPermission('purchases.view'))
+                            <a href="{{ route('purchases') }}"
+                                class="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 {{ request()->routeIs('purchases') || request()->routeIs('purchases.create') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z">
+                                    </path>
+                                </svg>
+                                <span class="text-sm">Compras</span>
                             </a>
                         @endif
                     </div>
@@ -631,6 +679,17 @@
                         </svg>
                         <span>Impuestos</span>
                     </a>
+                    @if (auth()->user()->hasPermission('system_documents.view'))
+                    <a href="{{ route('system-documents') }}"
+                        class="flex items-center gap-3 px-3 py-2 rounded-xl {{ request()->routeIs('system-documents') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                            </path>
+                        </svg>
+                        <span>Doc. Sistema</span>
+                    </a>
+                    @endif
                     @if (auth()->user()->hasPermission('product_field_config.view'))
                     <a href="{{ route('product-field-config') }}"
                         class="flex items-center gap-3 px-3 py-2 rounded-xl {{ request()->routeIs('product-field-config') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">

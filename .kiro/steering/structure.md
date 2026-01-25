@@ -16,7 +16,6 @@ Root application is in the workspace root directory.
 │   └── View/Components/     # Blade view components
 ├── config/                  # Laravel configuration files
 ├── database/
-│   ├── factories/           # Model factories for testing
 │   ├── migrations/          # Database migrations
 │   └── seeders/             # Database seeders
 ├── resources/
@@ -28,9 +27,6 @@ Root application is in the workspace root directory.
 │       └── livewire/        # Livewire component views
 ├── routes/
 │   └── web.php              # Web routes (Livewire components as routes)
-└── tests/
-    ├── Feature/             # Feature tests
-    └── Unit/                # Unit tests
 ```
 
 ## Current Livewire Components

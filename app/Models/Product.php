@@ -30,6 +30,9 @@ class Product extends Model
         'max_stock',
         'current_stock',
         'is_active',
+        'has_commission',
+        'commission_type',
+        'commission_value',
     ];
 
     protected function casts(): array
@@ -37,8 +40,10 @@ class Product extends Model
         return [
             'is_active' => 'boolean',
             'price_includes_tax' => 'boolean',
+            'has_commission' => 'boolean',
             'purchase_price' => 'decimal:2',
             'sale_price' => 'decimal:2',
+            'commission_value' => 'decimal:2',
         ];
     }
 
@@ -77,6 +82,11 @@ class Product extends Model
     public function activeChildren(): HasMany
     {
         return $this->hasMany(ProductChild::class)->where('is_active', true);
+    }
+
+    public function inventoryMovements(): HasMany
+    {
+        return $this->hasMany(InventoryMovement::class);
     }
 
     // Scopes
@@ -222,6 +232,34 @@ class Product extends Model
     public function hasNegativeMargin(): bool
     {
         return $this->getProfit() < 0;
+    }
+
+    /**
+     * Get the commission amount based on sale price.
+     * Returns the commission in currency value.
+     */
+    public function getCommissionAmount(): float
+    {
+        if (!$this->has_commission || !$this->commission_value) {
+            return 0;
+        }
+
+        $salePrice = $this->getSalePriceWithoutTax();
+
+        if ($this->commission_type === 'percentage') {
+            return $salePrice * ($this->commission_value / 100);
+        }
+
+        return (float) $this->commission_value;
+    }
+
+    /**
+     * Get the profit after commission deduction.
+     * Returns the net profit after subtracting commission from gross profit.
+     */
+    public function getProfitAfterCommission(): float
+    {
+        return $this->getProfit() - $this->getCommissionAmount();
     }
 
     /**

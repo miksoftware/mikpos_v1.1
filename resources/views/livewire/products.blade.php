@@ -472,6 +472,70 @@
                                 </div>
                             </div>
                         </div>
+                        {{-- Commission Section --}}
+                        <div x-data="{
+                            hasCommission: @entangle('has_commission'),
+                            commissionType: @entangle('commission_type'),
+                            commissionValue: @entangle('commission_value'),
+                            get commissionAmount() {
+                                if (!this.hasCommission || !this.commissionValue) return 0;
+                                if (this.commissionType === 'percentage') {
+                                    return (salePrice * (this.commissionValue / 100)).toFixed(2);
+                                }
+                                return parseFloat(this.commissionValue).toFixed(2);
+                            },
+                            get profitAfterCommission() {
+                                const profit = salePrice - purchasePrice;
+                                return (profit - parseFloat(this.commissionAmount)).toFixed(2);
+                            }
+                        }">
+                            <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                Comisión Vendedor
+                            </h4>
+                            <div class="space-y-4">
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <input wire:model.live="has_commission" x-model="hasCommission" type="checkbox" class="w-5 h-5 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                                    <span class="text-sm text-slate-700">Este producto tiene comisión para el vendedor</span>
+                                </label>
+                                
+                                <div x-show="hasCommission" x-transition class="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100 space-y-4">
+                                    <div class="flex gap-3">
+                                        <button type="button" @click="commissionType = 'percentage'; $wire.set('commission_type', 'percentage')" 
+                                            :class="commissionType === 'percentage' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-lg' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'"
+                                            class="flex-1 py-2.5 px-4 rounded-xl font-medium transition-all text-sm">
+                                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                                            Porcentaje
+                                        </button>
+                                        <button type="button" @click="commissionType = 'fixed'; $wire.set('commission_type', 'fixed')"
+                                            :class="commissionType === 'fixed' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-lg' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'"
+                                            class="flex-1 py-2.5 px-4 rounded-xl font-medium transition-all text-sm">
+                                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                            Valor Fijo
+                                        </button>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1" x-text="commissionType === 'percentage' ? 'Porcentaje de comisión' : 'Valor de comisión'"></label>
+                                        <div class="relative">
+                                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500" x-text="commissionType === 'percentage' ? '%' : '$'"></span>
+                                            <input wire:model.live="commission_value" x-model.number="commissionValue" type="number" step="0.01" min="0" :max="commissionType === 'percentage' ? 100 : undefined" class="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="0.00">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="grid grid-cols-2 gap-4 pt-2">
+                                        <div class="p-3 bg-white rounded-xl border border-purple-200">
+                                            <p class="text-xs text-slate-500 mb-1">Comisión por venta</p>
+                                            <p class="text-lg font-bold text-purple-600">$<span x-text="commissionAmount">0.00</span></p>
+                                        </div>
+                                        <div class="p-3 bg-white rounded-xl border border-green-200">
+                                            <p class="text-xs text-slate-500 mb-1">Ganancia neta</p>
+                                            <p class="text-lg font-bold" :class="profitAfterCommission >= 0 ? 'text-green-600' : 'text-red-500'">$<span x-text="profitAfterCommission">0.00</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="pt-2">
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input wire:model="is_active" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
@@ -811,6 +875,68 @@
                             <div x-show="hasNegativeMargin" x-transition class="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
                                 <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                                 <span class="text-sm text-red-700">Advertencia: El precio de venta es menor al costo calculado</span>
+                            </div>
+                        </div>
+
+                        {{-- Commission Section for Child --}}
+                        <div x-data="{
+                            hasCommission: @entangle('childHasCommission'),
+                            commissionType: @entangle('childCommissionType'),
+                            commissionValue: @entangle('childCommissionValue'),
+                            get commissionAmount() {
+                                if (!this.hasCommission || !this.commissionValue) return 0;
+                                if (this.commissionType === 'percentage') {
+                                    return (salePrice * (this.commissionValue / 100)).toFixed(2);
+                                }
+                                return parseFloat(this.commissionValue).toFixed(2);
+                            },
+                            get profitAfterCommission() {
+                                return (profit - parseFloat(this.commissionAmount)).toFixed(2);
+                            }
+                        }">
+                            <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                Comisión Vendedor
+                            </h4>
+                            <div class="space-y-4">
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <input wire:model.live="childHasCommission" x-model="hasCommission" type="checkbox" class="w-5 h-5 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                                    <span class="text-sm text-slate-700">Esta variante tiene comisión para el vendedor</span>
+                                </label>
+                                
+                                <div x-show="hasCommission" x-transition class="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100 space-y-4">
+                                    <div class="flex gap-3">
+                                        <button type="button" @click="commissionType = 'percentage'; $wire.set('childCommissionType', 'percentage')" 
+                                            :class="commissionType === 'percentage' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-lg' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'"
+                                            class="flex-1 py-2 px-3 rounded-xl font-medium transition-all text-sm">
+                                            Porcentaje
+                                        </button>
+                                        <button type="button" @click="commissionType = 'fixed'; $wire.set('childCommissionType', 'fixed')"
+                                            :class="commissionType === 'fixed' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-lg' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'"
+                                            class="flex-1 py-2 px-3 rounded-xl font-medium transition-all text-sm">
+                                            Valor Fijo
+                                        </button>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1" x-text="commissionType === 'percentage' ? 'Porcentaje de comisión' : 'Valor de comisión'"></label>
+                                        <div class="relative">
+                                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500" x-text="commissionType === 'percentage' ? '%' : '$'"></span>
+                                            <input wire:model.live="childCommissionValue" x-model.number="commissionValue" type="number" step="0.01" min="0" :max="commissionType === 'percentage' ? 100 : undefined" class="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="0.00">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="p-3 bg-white rounded-xl border border-purple-200">
+                                            <p class="text-xs text-slate-500 mb-1">Comisión por venta</p>
+                                            <p class="text-lg font-bold text-purple-600">$<span x-text="commissionAmount">0.00</span></p>
+                                        </div>
+                                        <div class="p-3 bg-white rounded-xl border border-green-200">
+                                            <p class="text-xs text-slate-500 mb-1">Ganancia neta</p>
+                                            <p class="text-lg font-bold" :class="profitAfterCommission >= 0 ? 'text-green-600' : 'text-red-500'">$<span x-text="profitAfterCommission">0.00</span></p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

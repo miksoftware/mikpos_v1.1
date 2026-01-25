@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Color;
+use App\Models\InventoryMovement;
 use App\Models\Presentation;
 use App\Models\Product;
 use App\Models\ProductChild;
@@ -58,6 +59,9 @@ class Products extends Component
     public ?int $max_stock = null;
     public int $current_stock = 0;
     public bool $is_active = true;
+    public bool $has_commission = false;
+    public ?string $commission_type = 'percentage';
+    public ?float $commission_value = null;
     public $image = null; // For file upload
     public ?string $existingImage = null; // To track existing image path
 
@@ -77,6 +81,9 @@ class Products extends Component
     public bool $childPriceIncludesTax = false;
     public ?string $childImei = null;
     public bool $childIsActive = true;
+    public bool $childHasCommission = false;
+    public ?string $childCommissionType = 'percentage';
+    public ?float $childCommissionValue = null;
     public $childImage = null; // For file upload
     public ?string $childExistingImage = null; // To track existing image path
 
@@ -183,6 +190,9 @@ class Products extends Component
         $this->max_stock = $item->max_stock;
         $this->current_stock = $item->current_stock;
         $this->is_active = $item->is_active;
+        $this->has_commission = $item->has_commission;
+        $this->commission_type = $item->commission_type ?? 'percentage';
+        $this->commission_value = $item->commission_value ? (float) $item->commission_value : null;
         $this->existingImage = $item->image;
         $this->image = null;
 
@@ -266,6 +276,9 @@ class Products extends Component
             'max_stock' => $this->max_stock ?: null,
             'current_stock' => $this->current_stock,
             'is_active' => $this->is_active,
+            'has_commission' => $this->has_commission,
+            'commission_type' => $this->has_commission ? $this->commission_type : null,
+            'commission_value' => $this->has_commission ? $this->commission_value : null,
             'image' => $imagePath,
         ]);
 
@@ -276,6 +289,35 @@ class Products extends Component
         } elseif ($this->sku && $this->sku !== $item->sku) {
             $item->sku = $this->sku;
             $item->save();
+        }
+
+        // Create inventory movement for initial stock on new products
+        if ($isNew && $this->current_stock > 0) {
+            try {
+                // For initial stock, we need to set stock_before to 0 manually
+                // since the product was just created with current_stock already set
+                $systemDocument = \App\Models\SystemDocument::findByCode('initial_stock');
+                if ($systemDocument) {
+                    \App\Models\InventoryMovement::create([
+                        'system_document_id' => $systemDocument->id,
+                        'document_number' => $systemDocument->generateNextNumber(),
+                        'product_id' => $item->id,
+                        'branch_id' => auth()->user()->branch_id,
+                        'user_id' => auth()->id(),
+                        'movement_type' => 'in',
+                        'quantity' => $this->current_stock,
+                        'stock_before' => 0,
+                        'stock_after' => $this->current_stock,
+                        'unit_cost' => $this->purchase_price,
+                        'total_cost' => $this->purchase_price * $this->current_stock,
+                        'notes' => "Stock inicial del producto '{$item->name}'",
+                        'movement_date' => now(),
+                    ]);
+                }
+            } catch (\Exception $e) {
+                // Log error but don't fail the product creation
+                \Log::warning("Could not create initial stock movement: " . $e->getMessage());
+            }
         }
 
         $isNew
@@ -427,6 +469,9 @@ class Products extends Component
         $this->childPriceIncludesTax = $child->price_includes_tax;
         $this->childImei = $child->imei;
         $this->childIsActive = $child->is_active;
+        $this->childHasCommission = $child->has_commission;
+        $this->childCommissionType = $child->commission_type ?? 'percentage';
+        $this->childCommissionValue = $child->commission_value ? (float) $child->commission_value : null;
         $this->childExistingImage = $child->image;
         $this->childImage = null;
 
@@ -484,6 +529,9 @@ class Products extends Component
             'price_includes_tax' => $this->childPriceIncludesTax,
             'imei' => $this->childImei ?: null,
             'is_active' => $this->childIsActive,
+            'has_commission' => $this->childHasCommission,
+            'commission_type' => $this->childHasCommission ? $this->childCommissionType : null,
+            'commission_value' => $this->childHasCommission ? $this->childCommissionValue : null,
             'image' => $imagePath,
         ]);
 
@@ -716,6 +764,9 @@ class Products extends Component
         $this->childPriceIncludesTax = false;
         $this->childImei = null;
         $this->childIsActive = true;
+        $this->childHasCommission = false;
+        $this->childCommissionType = 'percentage';
+        $this->childCommissionValue = null;
         $this->fieldSettings = [];
         $this->childImage = null;
         $this->childExistingImage = null;
@@ -767,6 +818,9 @@ class Products extends Component
         $this->max_stock = null;
         $this->current_stock = 0;
         $this->is_active = true;
+        $this->has_commission = false;
+        $this->commission_type = 'percentage';
+        $this->commission_value = null;
         $this->subcategories = [];
         $this->image = null;
         $this->existingImage = null;

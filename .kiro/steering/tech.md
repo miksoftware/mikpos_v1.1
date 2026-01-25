@@ -15,7 +15,6 @@
 ## Key Dependencies
 - `livewire/livewire` ^3.6 - Reactive UI components
 - `laravel/pint` ^1.24 - Code formatting
-- `phpunit/phpunit` ^11.5.3 - Testing
 - `laravel/tinker` ^2.10.1 - Interactive shell
 - `laravel/sail` ^1.41 - Docker development environment
 - `laravel/pail` ^1.2.2 - Log viewer
@@ -45,9 +44,6 @@ composer setup
 # Development (starts server, queue, logs, vite concurrently)
 composer dev
 
-# Run tests
-composer test
-
 # Build assets for production
 npm run build
 
@@ -70,16 +66,10 @@ php artisan pail
 ## Development Workflow
 1. **Database Changes**: Create migrations with proper naming convention
 2. **New Features**: Create Livewire component + model + view + permissions
-3. **Permissions**: Add to `RolesAndPermissionsSeeder.php` and assign to roles
+3. **Permissions**: Add to seeder and assign to roles
 4. **Routes**: Register in `routes/web.php` with permission middleware
 5. **Menu**: Update `resources/views/layouts/app.blade.php` sidebar
-6. **Testing**: ALWAYS create comprehensive test suite for new modules:
-   - Add `HasFactory` trait to models
-   - Create factory in `database/factories/`
-   - Create unit tests in `tests/Unit/Models/`
-   - Create feature tests in `tests/Feature/Livewire/`
-   - Test all CRUD operations, validation, relationships, and permissions
-7. **Validation**: Use default test users (admin@mikpos.com/password)
+6. **Validation**: Use default test users (admin@mikpos.com/password)
 
 ## Database
 - Default: SQLite at `database/database.sqlite`

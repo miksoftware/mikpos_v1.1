@@ -63,6 +63,10 @@ Route::middleware(['auth'])->group(function () {
         ->name('taxes')
         ->middleware('permission:taxes.view');
 
+    Route::get('/system-documents', App\Livewire\SystemDocuments::class)
+        ->name('system-documents')
+        ->middleware('permission:system_documents.view');
+
     // Product Catalog Routes
     Route::get('/categories', App\Livewire\Categories::class)
         ->name('categories')
@@ -118,4 +122,17 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/combos', App\Livewire\Combos::class)
         ->name('combos')
         ->middleware('permission:combos.view');
+
+    // Purchases Management Routes
+    Route::get('/purchases', App\Livewire\Purchases::class)
+        ->name('purchases')
+        ->middleware('permission:purchases.view');
+
+    Route::get('/purchases/create', App\Livewire\PurchaseCreate::class)
+        ->name('purchases.create')
+        ->middleware('permission:purchases.create');
+
+    Route::get('/purchases/{id}/edit', App\Livewire\PurchaseCreate::class)
+        ->name('purchases.edit')
+        ->middleware('permission:purchases.edit');
 });

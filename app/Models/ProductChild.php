@@ -28,6 +28,9 @@ class ProductChild extends Model
         'image',
         'imei',
         'is_active',
+        'has_commission',
+        'commission_type',
+        'commission_value',
     ];
 
     protected function casts(): array
@@ -36,8 +39,10 @@ class ProductChild extends Model
             'unit_quantity' => 'decimal:3',
             'weight' => 'decimal:3',
             'sale_price' => 'decimal:2',
+            'commission_value' => 'decimal:2',
             'price_includes_tax' => 'boolean',
             'is_active' => 'boolean',
+            'has_commission' => 'boolean',
         ];
     }
 
@@ -298,6 +303,34 @@ class ProductChild extends Model
     public function hasNegativeMargin(): bool
     {
         return $this->getProfit() < 0;
+    }
+
+    /**
+     * Get the commission amount based on sale price.
+     * Returns the commission in currency value.
+     */
+    public function getCommissionAmount(): float
+    {
+        if (!$this->has_commission || !$this->commission_value) {
+            return 0;
+        }
+
+        $salePrice = $this->getSalePriceWithoutTax();
+
+        if ($this->commission_type === 'percentage') {
+            return $salePrice * ($this->commission_value / 100);
+        }
+
+        return (float) $this->commission_value;
+    }
+
+    /**
+     * Get the profit after commission deduction.
+     * Returns the net profit after subtracting commission from gross profit.
+     */
+    public function getProfitAfterCommission(): float
+    {
+        return $this->getProfit() - $this->getCommissionAmount();
     }
 
     /**
