@@ -67,6 +67,11 @@ class CashReconciliation extends Model
         return $this->hasMany(CashMovement::class);
     }
 
+    public function sales(): HasMany
+    {
+        return $this->hasMany(Sale::class);
+    }
+
     // Scopes
 
     public function scopeOpen(Builder $query): Builder
@@ -124,11 +129,69 @@ class CashReconciliation extends Model
     }
 
     /**
-     * Calculate expected amount based on opening + income - expenses.
+     * Get total sales amount.
+     */
+    public function getTotalSalesAttribute(): float
+    {
+        return (float) $this->sales()->where('status', 'completed')->sum('total');
+    }
+
+    /**
+     * Get total cash sales (only cash payments affect the register).
+     */
+    public function getTotalCashSalesAttribute(): float
+    {
+        return (float) \App\Models\SalePayment::whereHas('sale', function ($q) {
+            $q->where('cash_reconciliation_id', $this->id)
+              ->where('status', 'completed');
+        })->whereHas('paymentMethod', function ($q) {
+            $q->where('name', 'like', '%efectivo%')
+              ->orWhere('name', 'like', '%cash%');
+        })->sum('amount');
+    }
+
+    /**
+     * Get sales grouped by payment method.
+     */
+    public function getSalesByPaymentMethod(): \Illuminate\Support\Collection
+    {
+        return \App\Models\SalePayment::with('paymentMethod')
+            ->whereHas('sale', function ($q) {
+                $q->where('cash_reconciliation_id', $this->id)
+                  ->where('status', 'completed');
+            })
+            ->get()
+            ->groupBy('payment_method_id')
+            ->map(function ($payments) {
+                $method = $payments->first()->paymentMethod;
+                return [
+                    'method_id' => $method->id,
+                    'method_name' => $method->name,
+                    'total' => $payments->sum('amount'),
+                    'count' => $payments->count(),
+                ];
+            })
+            ->values();
+    }
+
+    /**
+     * Get sales count.
+     */
+    public function getSalesCountAttribute(): int
+    {
+        return $this->sales()->where('status', 'completed')->count();
+    }
+
+    /**
+     * Calculate expected amount based on opening + cash sales + income - expenses.
+     * Only cash affects the physical register.
      */
     public function calculateExpectedAmount(): float
     {
-        return (float) $this->opening_amount + $this->total_income - $this->total_expenses;
+        return (float) $this->opening_amount 
+            + $this->total_cash_sales 
+            + $this->total_income 
+            - $this->total_expenses;
     }
 
     /**

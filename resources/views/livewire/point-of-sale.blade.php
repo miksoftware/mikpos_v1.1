@@ -39,15 +39,28 @@
         <!-- Left Panel - Cart (50%) -->
         <div class="w-1/2 bg-white flex flex-col border-r border-slate-200">
             @if($needsReconciliation)
-            <div class="p-3 bg-amber-50 border-b border-amber-200">
-                <div class="flex items-center gap-2 text-amber-700">
-                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                    </svg>
-                    <div class="text-sm">
-                        <p class="font-medium">Caja no abierta</p>
-                        <a href="{{ route('cash-reconciliations') }}" class="underline text-amber-800">Abrir arqueo de caja</a>
+            <div class="p-4 bg-amber-50 border-b border-amber-200">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 text-amber-700">
+                        <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="font-medium">Caja no abierta</p>
+                            <p class="text-sm text-amber-600">Debes abrir la caja para poder vender</p>
+                        </div>
                     </div>
+                    @if($cashRegister)
+                    <button wire:click="openCashModal" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition">
+                        Abrir Caja
+                    </button>
+                    @else
+                    <a href="{{ route('cash-reconciliations') }}" class="px-4 py-2 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition">
+                        Ir a Arqueos
+                    </a>
+                    @endif
                 </div>
             </div>
             @endif
@@ -177,13 +190,32 @@
                         <span class="font-bold text-[#ff7261]">${{ number_format($total, 2) }}</span>
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-3 gap-2">
                     <button wire:click="clearCart" class="px-4 py-3 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition flex items-center justify-center gap-2" {{ count($cart) === 0 ? 'disabled' : '' }}>
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                         </svg>
                         Limpiar
                     </button>
+                    <div x-data="{ showHoldInput: false }" class="relative">
+                        <button @click="showHoldInput = !showHoldInput" class="w-full px-4 py-3 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition flex items-center justify-center gap-2 relative" {{ count($cart) === 0 ? 'disabled' : '' }}>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Espera
+                            @if(count($heldOrders) > 0)
+                            <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">{{ count($heldOrders) }}</span>
+                            @endif
+                        </button>
+                        <!-- Hold Note Dropdown -->
+                        <div x-show="showHoldInput" x-transition @click.away="showHoldInput = false" class="absolute bottom-full left-0 right-0 mb-2 p-3 bg-white rounded-xl shadow-lg border border-slate-200 z-50">
+                            <label class="text-xs font-medium text-slate-600 mb-1 block">Nota (opcional)</label>
+                            <input wire:model="holdNote" type="text" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 mb-2" placeholder="Ej: Cliente va a traer efectivo...">
+                            <button wire:click="holdOrder" @click="showHoldInput = false" class="w-full px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition">
+                                Guardar en Espera
+                            </button>
+                        </div>
+                    </div>
                     <button wire:click="openPayment" class="px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] rounded-xl transition flex items-center justify-center gap-2 disabled:opacity-50" {{ count($cart) === 0 || $needsReconciliation ? 'disabled' : '' }}>
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
@@ -191,6 +223,15 @@
                         Cobrar
                     </button>
                 </div>
+                <!-- View Held Orders Button -->
+                @if(count($heldOrders) > 0)
+                <button wire:click="showHeldOrders" class="w-full mt-2 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                    Ver {{ count($heldOrders) }} orden(es) en espera
+                </button>
+                @endif
             </div>
         </div>
 
@@ -412,6 +453,171 @@
                         </button>
                         <button wire:click="processPayment" class="flex-1 px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] disabled:opacity-50" {{ $pendingAmount > 0 ? 'disabled' : '' }}>
                             Confirmar Pago
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Held Orders Modal -->
+    @if($showHeldOrdersModal)
+    <div class="fixed inset-0 z-[100]">
+        <div class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100]" wire:click="$set('showHeldOrdersModal', false)"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl">
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900">Órdenes en Espera</h3>
+                                <p class="text-sm text-slate-500">{{ count($heldOrders) }} orden(es) guardada(s)</p>
+                            </div>
+                        </div>
+                        <button wire:click="$set('showHeldOrdersModal', false)" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="p-6 max-h-[60vh] overflow-y-auto">
+                        @if(count($heldOrders) > 0)
+                        <div class="space-y-3">
+                            @foreach($heldOrders as $index => $order)
+                            <div class="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden hover:border-amber-300 transition">
+                                <div class="p-4">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-[#ff7261] to-[#a855f7] flex items-center justify-center text-white font-bold text-lg">
+                                                {{ substr($order['customer_name'], 0, 1) }}
+                                            </div>
+                                            <div>
+                                                <p class="font-semibold text-slate-800">{{ $order['customer_name'] }}</p>
+                                                <div class="flex items-center gap-2 text-sm text-slate-500">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                    </svg>
+                                                    {{ $order['created_at'] }}
+                                                    <span class="text-slate-300">•</span>
+                                                    {{ $order['item_count'] }} producto(s)
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-xl font-bold text-[#ff7261]">${{ number_format($order['total'], 2) }}</p>
+                                        </div>
+                                    </div>
+                                    @if(!empty($order['note']))
+                                    <div class="mt-3 p-2 bg-amber-50 rounded-lg border border-amber-100">
+                                        <p class="text-sm text-amber-700">
+                                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
+                                            </svg>
+                                            {{ $order['note'] }}
+                                        </p>
+                                    </div>
+                                    @endif
+                                </div>
+                                <div class="px-4 py-3 bg-white border-t border-slate-200 flex justify-end gap-2">
+                                    <button wire:click="deleteHeldOrder({{ $index }})" class="px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition flex items-center gap-1">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                        Eliminar
+                                    </button>
+                                    <button wire:click="restoreOrder({{ $index }})" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] rounded-lg transition flex items-center gap-1">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                        </svg>
+                                        Restaurar
+                                    </button>
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                        @else
+                        <div class="text-center py-12">
+                            <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
+                                <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                </svg>
+                            </div>
+                            <p class="text-lg font-medium text-slate-600">No hay órdenes en espera</p>
+                            <p class="text-sm text-slate-400">Las órdenes guardadas aparecerán aquí</p>
+                        </div>
+                        @endif
+                    </div>
+
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200">
+                        <button wire:click="$set('showHeldOrdersModal', false)" class="w-full px-4 py-3 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Open Cash Register Modal -->
+    @if($showOpenCashModal)
+    <div class="fixed inset-0 z-[100]">
+        <div class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100]" wire:click="cancelOpenCash"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl">
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#ff7261] to-[#a855f7] flex items-center justify-center">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900">Abrir Caja</h3>
+                                <p class="text-sm text-slate-500">{{ $cashRegister?->name }}</p>
+                            </div>
+                        </div>
+                        <button wire:click="cancelOpenCash" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="p-6 space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Monto Inicial en Caja</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg">$</span>
+                                <input wire:model="openingAmount" type="number" step="0.01" min="0" 
+                                    class="w-full pl-10 pr-4 py-4 text-2xl font-bold text-center border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]"
+                                    placeholder="0.00" autofocus>
+                            </div>
+                            @error('openingAmount') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Notas (opcional)</label>
+                            <textarea wire:model="openingNotes" rows="2" 
+                                class="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm"
+                                placeholder="Observaciones de apertura..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex gap-3">
+                        <button wire:click="cancelOpenCash" class="flex-1 px-4 py-3 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
+                            Cancelar
+                        </button>
+                        <button wire:click="storeOpenCash" class="flex-1 px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea]">
+                            Abrir Caja
                         </button>
                     </div>
                 </div>

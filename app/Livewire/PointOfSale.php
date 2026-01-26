@@ -10,6 +10,11 @@ use App\Models\Category;
 use App\Models\CashRegister;
 use App\Models\CashReconciliation;
 use App\Models\PaymentMethod;
+use App\Models\Sale;
+use App\Models\SaleItem;
+use App\Models\SalePayment;
+use App\Services\ActivityLogService;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 
@@ -44,6 +49,16 @@ class PointOfSale extends Component
     public $payments = [];
     public $paymentNotes = '';
     
+    // Hold/Park functionality
+    public $heldOrders = [];
+    public $showHeldOrdersModal = false;
+    public $holdNote = '';
+    
+    // Cash opening modal
+    public $showOpenCashModal = false;
+    public $openingAmount = '0';
+    public $openingNotes = '';
+    
     // Branch
     public $branchId = null;
 
@@ -51,6 +66,9 @@ class PointOfSale extends Component
     {
         $user = auth()->user();
         $this->branchId = $user->branch_id;
+        
+        // Load held orders from session
+        $this->heldOrders = session()->get('pos_held_orders_' . $user->id, []);
         
         // Check if user has assigned cash register
         $this->cashRegister = CashRegister::where('user_id', $user->id)
@@ -322,21 +340,236 @@ class PointOfSale extends Component
             return;
         }
         
-        // TODO: Create sale record, update inventory, generate invoice
-        
-        $this->dispatch('notify', message: 'Venta procesada correctamente', type: 'success');
-        
-        // Reset
-        $this->cart = [];
-        $this->showPaymentModal = false;
-        $this->payments = [];
-        $this->loadDefaultCustomer();
+        try {
+            DB::beginTransaction();
+            
+            // Create sale
+            $sale = Sale::create([
+                'branch_id' => $this->branchId,
+                'cash_reconciliation_id' => $this->openReconciliation->id,
+                'customer_id' => $this->customerId,
+                'user_id' => auth()->id(),
+                'invoice_number' => Sale::generateInvoiceNumber($this->branchId),
+                'subtotal' => $this->getSubtotalProperty(),
+                'tax_total' => $this->getTaxTotalProperty(),
+                'discount' => 0,
+                'total' => $this->getTotalProperty(),
+                'status' => 'completed',
+                'notes' => $this->paymentNotes ?: null,
+            ]);
+            
+            // Create sale items and update stock
+            foreach ($this->cart as $item) {
+                $taxAmount = $item['subtotal'] * ($item['tax_rate'] / 100);
+                
+                SaleItem::create([
+                    'sale_id' => $sale->id,
+                    'product_id' => $item['product_id'],
+                    'product_child_id' => $item['child_id'],
+                    'product_name' => $item['name'],
+                    'product_sku' => $item['sku'],
+                    'unit_price' => $item['price'],
+                    'quantity' => $item['quantity'],
+                    'tax_rate' => $item['tax_rate'],
+                    'tax_amount' => $taxAmount,
+                    'subtotal' => $item['subtotal'],
+                    'total' => $item['subtotal'] + $taxAmount,
+                ]);
+                
+                // Update product stock
+                $product = Product::find($item['product_id']);
+                if ($product) {
+                    $product->decrement('current_stock', $item['quantity']);
+                }
+            }
+            
+            // Create sale payments
+            foreach ($this->payments as $payment) {
+                if ($payment['amount'] > 0) {
+                    SalePayment::create([
+                        'sale_id' => $sale->id,
+                        'payment_method_id' => $payment['method_id'],
+                        'amount' => $payment['amount'],
+                    ]);
+                }
+            }
+            
+            DB::commit();
+            
+            ActivityLogService::logCreate(
+                'sales',
+                $sale,
+                "Venta {$sale->invoice_number} por $" . number_format($sale->total, 2)
+            );
+            
+            $this->dispatch('notify', message: 'Venta procesada: ' . $sale->invoice_number, type: 'success');
+            
+            // Reset
+            $this->cart = [];
+            $this->showPaymentModal = false;
+            $this->payments = [];
+            $this->paymentNotes = '';
+            $this->loadDefaultCustomer();
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->dispatch('notify', message: 'Error al procesar la venta: ' . $e->getMessage(), type: 'error');
+        }
     }
 
     public function cancelPayment()
     {
         $this->showPaymentModal = false;
         $this->payments = [];
+    }
+
+    // Cash Opening Methods
+    public function openCashModal()
+    {
+        if (!$this->cashRegister) {
+            $this->dispatch('notify', message: 'No tienes una caja asignada', type: 'error');
+            return;
+        }
+        
+        $this->openingAmount = '0';
+        $this->openingNotes = '';
+        $this->showOpenCashModal = true;
+    }
+
+    public function storeOpenCash()
+    {
+        $this->validate([
+            'openingAmount' => 'required|numeric|min:0',
+        ], [
+            'openingAmount.required' => 'El monto inicial es obligatorio',
+            'openingAmount.min' => 'El monto no puede ser negativo',
+        ]);
+
+        if (!$this->cashRegister) {
+            $this->dispatch('notify', message: 'No tienes una caja asignada', type: 'error');
+            return;
+        }
+
+        // Check if already has open reconciliation
+        if (CashReconciliation::hasOpenReconciliation($this->cashRegister->id)) {
+            $this->dispatch('notify', message: 'Esta caja ya tiene un arqueo abierto', type: 'error');
+            $this->showOpenCashModal = false;
+            return;
+        }
+
+        $reconciliation = CashReconciliation::create([
+            'branch_id' => $this->cashRegister->branch_id,
+            'cash_register_id' => $this->cashRegister->id,
+            'opened_by' => auth()->id(),
+            'opening_amount' => $this->openingAmount,
+            'opening_notes' => $this->openingNotes ?: null,
+            'opened_at' => now(),
+            'status' => 'open',
+        ]);
+
+        ActivityLogService::logCreate(
+            'cash_reconciliations',
+            $reconciliation,
+            "Caja '{$this->cashRegister->name}' abierta desde POS con monto inicial: $" . number_format($this->openingAmount, 2)
+        );
+
+        $this->openReconciliation = $reconciliation;
+        $this->needsReconciliation = false;
+        $this->showOpenCashModal = false;
+        
+        $this->dispatch('notify', message: 'Caja abierta correctamente', type: 'success');
+    }
+
+    public function cancelOpenCash()
+    {
+        $this->showOpenCashModal = false;
+        $this->openingAmount = '0';
+        $this->openingNotes = '';
+    }
+
+    // Hold/Park Order Methods
+    public function holdOrder()
+    {
+        if (empty($this->cart)) {
+            $this->dispatch('notify', message: 'No hay productos en el carrito', type: 'warning');
+            return;
+        }
+        
+        $heldOrder = [
+            'cart' => $this->cart,
+            'customer_id' => $this->customerId,
+            'customer_name' => $this->selectedCustomer ? $this->selectedCustomer->full_name : 'Cliente General',
+            'total' => $this->getTotalProperty(),
+            'item_count' => $this->getItemCountProperty(),
+            'created_at' => now()->format('H:i'),
+            'note' => $this->holdNote,
+        ];
+        
+        $this->heldOrders[] = $heldOrder;
+        $this->saveHeldOrdersToSession();
+        
+        // Clear current cart
+        $this->cart = [];
+        $this->holdNote = '';
+        $this->loadDefaultCustomer();
+        
+        $this->dispatch('notify', message: 'Orden guardada en espera', type: 'success');
+    }
+
+    public function showHeldOrders()
+    {
+        $this->showHeldOrdersModal = true;
+    }
+
+    public function restoreOrder($index)
+    {
+        if (!isset($this->heldOrders[$index])) {
+            return;
+        }
+        
+        // If current cart has items, ask to hold them first
+        if (!empty($this->cart)) {
+            $this->dispatch('notify', message: 'Limpia el carrito actual antes de restaurar', type: 'warning');
+            return;
+        }
+        
+        $order = $this->heldOrders[$index];
+        
+        // Restore cart
+        $this->cart = $order['cart'];
+        
+        // Restore customer
+        if ($order['customer_id']) {
+            $customer = Customer::find($order['customer_id']);
+            if ($customer) {
+                $this->customerId = $customer->id;
+                $this->selectedCustomer = $customer;
+            }
+        }
+        
+        // Remove from held orders
+        unset($this->heldOrders[$index]);
+        $this->heldOrders = array_values($this->heldOrders);
+        $this->saveHeldOrdersToSession();
+        
+        $this->showHeldOrdersModal = false;
+        $this->dispatch('notify', message: 'Orden restaurada', type: 'success');
+    }
+
+    public function deleteHeldOrder($index)
+    {
+        if (isset($this->heldOrders[$index])) {
+            unset($this->heldOrders[$index]);
+            $this->heldOrders = array_values($this->heldOrders);
+            $this->saveHeldOrdersToSession();
+            $this->dispatch('notify', message: 'Orden eliminada', type: 'success');
+        }
+    }
+
+    protected function saveHeldOrdersToSession()
+    {
+        $user = auth()->user();
+        session()->put('pos_held_orders_' . $user->id, $this->heldOrders);
     }
 
     public function render()

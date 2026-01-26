@@ -15,4 +15,26 @@ class PaymentMethod extends Model
     {
         return ['is_active' => 'boolean'];
     }
+
+    /**
+     * Check if this payment method is cash.
+     */
+    public function isCash(): bool
+    {
+        $name = strtolower($this->name);
+        return str_contains($name, 'efectivo') || str_contains($name, 'cash');
+    }
+
+    /**
+     * Get the cash payment method.
+     */
+    public static function getCashMethod(): ?self
+    {
+        return static::where('is_active', true)
+            ->where(function ($q) {
+                $q->where('name', 'like', '%efectivo%')
+                  ->orWhere('name', 'like', '%cash%');
+            })
+            ->first();
+    }
 }

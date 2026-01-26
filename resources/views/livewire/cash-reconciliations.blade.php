@@ -286,12 +286,12 @@
             <div class="fixed inset-0 transition-opacity bg-slate-900/75" wire:click="$set('isCloseModalOpen', false)"></div>
 
             <!-- Modal -->
-            <div class="relative z-10 w-full max-w-lg mx-auto bg-white rounded-2xl shadow-xl">
+            <div class="relative z-10 w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-xl max-h-[90vh] overflow-hidden flex flex-col">
                 <div class="px-6 py-4 border-b border-slate-200">
                     <h3 class="text-lg font-semibold text-slate-800">Cerrar Caja</h3>
                     <p class="text-sm text-slate-500 mt-1">{{ $currentReconciliation->cashRegister->name }} - Nº {{ $currentReconciliation->cashRegister->number }}</p>
                 </div>
-                <div class="px-6 py-4 space-y-4 bg-slate-50">
+                <div class="px-6 py-4 space-y-4 bg-slate-50 overflow-y-auto flex-1">
                     <!-- Summary -->
                     <div class="bg-white rounded-xl p-4 border border-slate-200">
                         <div class="grid grid-cols-2 gap-4 text-sm">
@@ -306,31 +306,73 @@
                         </div>
                     </div>
 
-                    <!-- Movement Summary -->
+                    <!-- Sales Summary by Payment Method -->
+                    @php
+                        $salesByMethod = $currentReconciliation->getSalesByPaymentMethod();
+                        $totalSales = $currentReconciliation->total_sales;
+                        $salesCount = $currentReconciliation->sales_count;
+                        $cashSales = $currentReconciliation->total_cash_sales;
+                    @endphp
+                    @if($salesCount > 0)
                     <div class="bg-white rounded-xl p-4 border border-slate-200">
-                        <h4 class="font-medium text-slate-800 text-sm mb-3">Resumen de Movimientos</h4>
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="font-medium text-slate-800 text-sm">Ventas del Turno</h4>
+                            <span class="text-xs text-slate-500">{{ $salesCount }} venta(s)</span>
+                        </div>
+                        <div class="space-y-2 text-sm">
+                            @foreach($salesByMethod as $method)
+                            <div class="flex justify-between items-center py-2 px-3 bg-slate-50 rounded-lg">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2 h-2 rounded-full {{ str_contains(strtolower($method['method_name']), 'efectivo') ? 'bg-emerald-500' : 'bg-blue-500' }}"></div>
+                                    <span class="text-slate-700">{{ $method['method_name'] }}</span>
+                                    <span class="text-xs text-slate-400">({{ $method['count'] }})</span>
+                                </div>
+                                <span class="font-medium text-slate-800">${{ number_format($method['total'], 2) }}</span>
+                            </div>
+                            @endforeach
+                            <div class="flex justify-between pt-2 border-t border-slate-200">
+                                <span class="text-slate-700 font-medium">Total Ventas:</span>
+                                <span class="font-bold text-slate-800">${{ number_format($totalSales, 2) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+
+                    <!-- Cash Movement Summary -->
+                    <div class="bg-white rounded-xl p-4 border border-slate-200">
+                        <h4 class="font-medium text-slate-800 text-sm mb-3">Resumen de Caja (Efectivo)</h4>
                         <div class="space-y-2 text-sm">
                             <div class="flex justify-between">
                                 <span class="text-slate-500">Monto inicial:</span>
                                 <span class="font-medium text-slate-800">${{ number_format($currentReconciliation->opening_amount, 2) }}</span>
                             </div>
+                            @if($cashSales > 0)
                             <div class="flex justify-between">
-                                <span class="text-emerald-600">+ Ingresos:</span>
+                                <span class="text-emerald-600">+ Ventas en efectivo:</span>
+                                <span class="font-medium text-emerald-600">${{ number_format($cashSales, 2) }}</span>
+                            </div>
+                            @endif
+                            @if($currentReconciliation->total_income > 0)
+                            <div class="flex justify-between">
+                                <span class="text-emerald-600">+ Otros ingresos:</span>
                                 <span class="font-medium text-emerald-600">${{ number_format($currentReconciliation->total_income, 2) }}</span>
                             </div>
+                            @endif
+                            @if($currentReconciliation->total_expenses > 0)
                             <div class="flex justify-between">
                                 <span class="text-red-600">- Egresos:</span>
                                 <span class="font-medium text-red-600">${{ number_format($currentReconciliation->total_expenses, 2) }}</span>
                             </div>
+                            @endif
                             <div class="flex justify-between pt-2 border-t border-slate-200">
-                                <span class="text-slate-700 font-medium">Monto esperado:</span>
-                                <span class="font-bold text-slate-800">${{ number_format($currentReconciliation->calculateExpectedAmount(), 2) }}</span>
+                                <span class="text-slate-700 font-medium">Efectivo esperado en caja:</span>
+                                <span class="font-bold text-[#ff7261]">${{ number_format($currentReconciliation->calculateExpectedAmount(), 2) }}</span>
                             </div>
                         </div>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Monto de Cierre <span class="text-red-500">*</span></label>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Monto de Cierre (Efectivo contado) <span class="text-red-500">*</span></label>
                         <div class="relative">
                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
                             <input wire:model="closing_amount" type="number" step="0.01" min="0"
@@ -450,6 +492,42 @@
                         </div>
                         @else
                         <p class="text-sm text-slate-400 text-center py-4">No hay movimientos registrados</p>
+                        @endif
+                    </div>
+
+                    <!-- Sales Section -->
+                    @php
+                        $viewSalesByMethod = $viewReconciliation->getSalesByPaymentMethod();
+                        $viewTotalSales = $viewReconciliation->total_sales;
+                        $viewSalesCount = $viewReconciliation->sales_count;
+                        $viewCashSales = $viewReconciliation->total_cash_sales;
+                    @endphp
+                    <div class="bg-white rounded-xl p-4 border border-slate-200 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <h4 class="font-medium text-slate-800 text-sm">Ventas</h4>
+                            <span class="text-xs text-slate-500">{{ $viewSalesCount }} venta(s) - Total: ${{ number_format($viewTotalSales, 2) }}</span>
+                        </div>
+                        @if($viewSalesCount > 0)
+                        <div class="space-y-2">
+                            @foreach($viewSalesByMethod as $method)
+                            <div class="flex justify-between items-center py-2 px-3 bg-slate-50 rounded-lg text-sm">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2 h-2 rounded-full {{ str_contains(strtolower($method['method_name']), 'efectivo') ? 'bg-emerald-500' : 'bg-blue-500' }}"></div>
+                                    <span class="text-slate-700">{{ $method['method_name'] }}</span>
+                                    <span class="text-xs text-slate-400">({{ $method['count'] }} pagos)</span>
+                                </div>
+                                <span class="font-medium text-slate-800">${{ number_format($method['total'], 2) }}</span>
+                            </div>
+                            @endforeach
+                        </div>
+                        <div class="pt-2 border-t border-slate-200 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-slate-500">Efectivo en caja por ventas:</span>
+                                <span class="font-medium text-emerald-600">${{ number_format($viewCashSales, 2) }}</span>
+                            </div>
+                        </div>
+                        @else
+                        <p class="text-sm text-slate-400 text-center py-4">No hay ventas registradas</p>
                         @endif
                     </div>
 
