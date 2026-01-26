@@ -139,3 +139,91 @@ ActivityLogService::logDelete($model, "Descripción eliminada");
 - Supplier required
 - At least one item required
 - Payment amount cannot exceed remaining balance
+
+
+## Electronic Invoicing (Facturación Electrónica)
+
+### Overview
+- Integration with Factus API for DIAN electronic invoicing in Colombia
+- Can be enabled/disabled from BillingSettings module
+- When enabled, invoices are automatically sent to DIAN after each sale
+
+### Configuration (BillingSetting model)
+- `provider`: 'factus' (default)
+- `is_enabled`: Toggle to enable/disable electronic invoicing
+- `environment`: 'sandbox' or 'production'
+- `api_url`: Auto-configured based on environment
+- `client_id`, `client_secret`: OAuth credentials
+- `username`, `password`: Factus user credentials
+- `access_token`, `refresh_token`: Stored tokens (encrypted)
+- `token_expires_at`: Token expiration timestamp
+
+### Sale Electronic Invoice Fields
+- `is_electronic`: Boolean indicating if invoice was sent to DIAN
+- `cufe`: DIAN unique code (Código Único de Factura Electrónica)
+- `qr_code`: QR code URL for verification
+- `dian_number`: DIAN invoice number (prefix + number)
+- `dian_validated_at`: Timestamp when DIAN validated
+- `dian_response`: Full JSON response from Factus
+- `reference_code`: Unique reference for Factus (POS-{sale_id}-{timestamp})
+
+### FactusService Methods
+```php
+use App\Services\FactusService;
+
+$factus = new FactusService();
+
+// Check if enabled
+if ($factus->isEnabled()) {
+    // Create and validate invoice
+    $response = $factus->createInvoice($sale);
+    
+    // Get PDF
+    $pdfBase64 = $factus->getInvoicePdf($sale);
+    
+    // Check status
+    $status = $factus->getInvoiceStatus($sale);
+}
+```
+
+### DIAN Codes Reference
+
+**Payment Methods (Métodos de Pago):**
+- 10: Efectivo
+- 47: Transferencia (Nequi, Daviplata, PSE, etc.)
+- 48: Tarjeta Crédito
+- 49: Tarjeta Débito
+- 42: Consignación
+- 20: Cheque
+- 71: Bonos
+- 72: Vales
+- ZZ: Otro
+- 1: No Definido
+
+**Document Types (Tipos de Documento):**
+- 1: Registro Civil (RC)
+- 2: Tarjeta de Identidad (TI)
+- 3: Cédula de Ciudadanía (CC)
+- 4: Tarjeta de Extranjería (TE)
+- 5: Cédula de Extranjería (CE)
+- 6: NIT
+- 7: Pasaporte (PA)
+- 8: Documento de Identificación Extranjero (DIE)
+- 9: PEP
+- 10: NIT de Otro País
+- 11: NUIP
+
+**Legal Organization Types:**
+- 1: Persona Jurídica
+- 2: Persona Natural
+
+**Payment Forms:**
+- 1: Pago de contado
+- 2: Pago a crédito
+
+### POS Integration
+- Electronic invoicing is processed automatically after sale creation
+- If enabled and configured, invoice is sent to DIAN
+- Success/failure is shown in notification
+- Sale continues even if DIAN validation fails (logged for retry)
+- Visual indicator "FE" in POS header when enabled

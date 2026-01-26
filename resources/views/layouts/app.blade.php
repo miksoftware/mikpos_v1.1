@@ -108,6 +108,17 @@
                 </div>
                 @endif
 
+                <!-- Ventas -->
+                @if (auth()->user()->hasPermission('sales.view'))
+                <a href="{{ route('sales') }}"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group {{ request()->routeIs('sales') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
+                    <svg class="w-5 h-5 flex-shrink-0 group-hover:text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                    </svg>
+                    <span x-show="sidebarOpen" class="font-medium">Ventas</span>
+                </a>
+                @endif
+
                 <!-- Administración Section -->
                 <div x-data="{ adminOpen: {{ request()->routeIs('users') || request()->routeIs('branches') || request()->routeIs('roles') || request()->routeIs('departments') || request()->routeIs('municipalities') || request()->routeIs('tax-documents') || request()->routeIs('currencies') || request()->routeIs('payment-methods') || request()->routeIs('taxes') || request()->routeIs('system-documents') || request()->routeIs('categories') || request()->routeIs('subcategories') || request()->routeIs('brands') || request()->routeIs('units') || request()->routeIs('product-models') || request()->routeIs('presentations') || request()->routeIs('colors') || request()->routeIs('imeis') || request()->routeIs('product-field-config') || request()->routeIs('billing-settings') ? 'true' : 'false' }}, configOpen: {{ request()->routeIs('departments') || request()->routeIs('municipalities') || request()->routeIs('tax-documents') || request()->routeIs('currencies') || request()->routeIs('payment-methods') || request()->routeIs('taxes') || request()->routeIs('system-documents') || request()->routeIs('product-field-config') || request()->routeIs('billing-settings') ? 'true' : 'false' }}, productsOpen: {{ request()->routeIs('categories') || request()->routeIs('subcategories') || request()->routeIs('brands') || request()->routeIs('units') || request()->routeIs('product-models') || request()->routeIs('presentations') || request()->routeIs('colors') || request()->routeIs('imeis') ? 'true' : 'false' }} }">
                     <button @click="adminOpen = !adminOpen"

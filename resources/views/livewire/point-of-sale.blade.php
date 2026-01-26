@@ -19,6 +19,14 @@
             </div>
         </div>
         <div class="flex items-center gap-4">
+            @if($isElectronicInvoicingEnabled)
+            <div class="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 rounded-lg" title="Facturación Electrónica Activa">
+                <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span class="text-green-400 text-xs font-medium">FE</span>
+            </div>
+            @endif
             @if($cashRegister)
             <div class="flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-lg">
                 <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -266,13 +274,13 @@
 
             <!-- Products Grid -->
             <div class="flex-1 overflow-y-auto p-4">
-                @if($products->count() > 0)
+                @if($sellableItems->count() > 0)
                 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                    @foreach($products as $product)
-                    <button wire:click="addToCart({{ $product->id }})" class="bg-white rounded-xl border border-slate-200 hover:border-[#ff7261] hover:shadow-lg transition-all duration-200 overflow-hidden group text-left">
+                    @foreach($sellableItems as $item)
+                    <button wire:click="addToCart({{ $item['id'] }}, {{ $item['child_id'] ?? 'null' }})" class="bg-white rounded-xl border border-slate-200 hover:border-[#ff7261] hover:shadow-lg transition-all duration-200 overflow-hidden group text-left">
                         <div class="aspect-square bg-slate-50 relative overflow-hidden">
-                            @if($product->image)
-                            <img src="{{ Storage::url($product->image) }}" alt="{{ $product->name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200">
+                            @if($item['image'])
+                            <img src="{{ Storage::url($item['image']) }}" alt="{{ $item['name'] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200">
                             @else
                             <div class="w-full h-full bg-gradient-to-br from-[#ff7261]/5 to-[#a855f7]/10 flex items-center justify-center">
                                 <div class="text-center">
@@ -284,15 +292,27 @@
                             </div>
                             @endif
                             <div class="absolute top-2 right-2 px-2 py-1 bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white text-xs font-bold rounded-lg shadow">
-                                ${{ number_format($product->sale_price, 0) }}
+                                ${{ number_format($item['price'], 0) }}
                             </div>
-                            <div class="absolute top-2 left-2 px-2 py-1 text-xs font-medium rounded-lg {{ $product->current_stock <= $product->min_stock ? 'bg-red-500 text-white' : 'bg-green-500 text-white' }}">
-                                {{ (int)$product->current_stock }} uds
+                            <div class="absolute top-2 left-2 px-2 py-1 text-xs font-medium rounded-lg {{ $item['stock'] <= 5 ? 'bg-red-500 text-white' : 'bg-green-500 text-white' }}">
+                                {{ $item['stock'] }} {{ $item['unit'] ?? 'uds' }}
                             </div>
+                            @if($item['type'] === 'child')
+                            <div class="absolute bottom-2 left-2 px-2 py-0.5 bg-blue-500 text-white text-[10px] font-medium rounded">
+                                Variante
+                            </div>
+                            @elseif(isset($item['has_variants']) && $item['has_variants'])
+                            <div class="absolute bottom-2 left-2 px-2 py-0.5 bg-purple-500 text-white text-[10px] font-medium rounded">
+                                {{ $item['variant_count'] }} variantes
+                            </div>
+                            @endif
                         </div>
                         <div class="p-3">
-                            <p class="font-medium text-slate-800 text-sm line-clamp-2 leading-tight mb-1">{{ $product->name }}</p>
-                            <p class="text-xs text-slate-500">{{ $product->brand?->name ?? 'Sin marca' }}</p>
+                            <p class="font-medium text-slate-800 text-sm line-clamp-2 leading-tight mb-1">{{ $item['name'] }}</p>
+                            @if($item['type'] === 'child' && isset($item['parent_name']))
+                            <p class="text-[10px] text-slate-400 truncate">{{ $item['parent_name'] }}</p>
+                            @endif
+                            <p class="text-xs text-slate-500">{{ $item['brand'] ?? 'Sin marca' }}</p>
                         </div>
                     </button>
                     @endforeach

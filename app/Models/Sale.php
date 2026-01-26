@@ -18,6 +18,13 @@ class Sale extends Model
         'customer_id',
         'user_id',
         'invoice_number',
+        'cufe',
+        'qr_code',
+        'dian_number',
+        'dian_validated_at',
+        'dian_response',
+        'is_electronic',
+        'reference_code',
         'subtotal',
         'tax_total',
         'discount',
@@ -33,6 +40,9 @@ class Sale extends Model
             'tax_total' => 'decimal:2',
             'discount' => 'decimal:2',
             'total' => 'decimal:2',
+            'is_electronic' => 'boolean',
+            'dian_validated_at' => 'datetime',
+            'dian_response' => 'array',
         ];
     }
 

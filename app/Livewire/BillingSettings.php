@@ -68,7 +68,7 @@ class BillingSettings extends Component
             'password' => $this->password ?: null,
         ]);
 
-        ActivityLogService::logUpdate($settings, $oldValues, "Configuración de facturación electrónica actualizada");
+        ActivityLogService::logUpdate('billing_settings', $settings, $oldValues, "Configuración de facturación electrónica actualizada");
 
         $this->dispatch('notify', message: 'Configuración guardada correctamente', type: 'success');
     }

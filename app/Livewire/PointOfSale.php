@@ -10,11 +10,14 @@ use App\Models\Category;
 use App\Models\CashRegister;
 use App\Models\CashReconciliation;
 use App\Models\PaymentMethod;
+use App\Models\BillingSetting;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SalePayment;
 use App\Services\ActivityLogService;
+use App\Services\FactusService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 
@@ -155,18 +158,15 @@ class PointOfSale extends Component
             return;
         }
         
-        // If no child specified, use first active child
-        if (!$childId && $product->children->count() > 0) {
-            $childId = $product->children->first()->id;
-        }
-        
+        // Get child if specified (don't auto-select first child anymore)
         $child = $childId ? ProductChild::find($childId) : null;
         
         // Get price based on price type
         $price = $this->getPrice($product, $child);
         
-        // Check if already in cart
-        $cartKey = $productId . '-' . ($childId ?? 0);
+        // Cart key: use 'parent' suffix when selling parent directly, child_id otherwise
+        // This ensures parent and first child have different cart keys
+        $cartKey = $productId . '-' . ($childId ?? 'parent');
         
         // Check stock availability
         $currentQtyInCart = isset($this->cart[$cartKey]) ? $this->cart[$cartKey]['quantity'] : 0;
@@ -177,22 +177,53 @@ class PointOfSale extends Component
         
         if (isset($this->cart[$cartKey])) {
             $this->cart[$cartKey]['quantity']++;
-            $this->cart[$cartKey]['subtotal'] = $this->cart[$cartKey]['quantity'] * $this->cart[$cartKey]['price'];
+            $this->updateCartItemTotals($cartKey);
         } else {
+            // Determine if price includes tax
+            $priceIncludesTax = $child ? $child->price_includes_tax : $product->price_includes_tax;
+            $taxRate = $product->tax?->value ?? 0;
+            
+            // Calculate base price (without tax) and price with tax
+            if ($priceIncludesTax) {
+                // Price already includes tax, calculate base price
+                $priceWithTax = $price;
+                $basePrice = $taxRate > 0 ? $price / (1 + ($taxRate / 100)) : $price;
+            } else {
+                // Price doesn't include tax
+                $basePrice = $price;
+                $priceWithTax = $taxRate > 0 ? $price * (1 + ($taxRate / 100)) : $price;
+            }
+            
+            // Determine display name and image
+            $displayName = $child ? $child->name : $product->name;
+            $displayImage = $child ? ($child->image ?? $product->image) : $product->image;
+            
             $this->cart[$cartKey] = [
                 'product_id' => $productId,
                 'child_id' => $childId,
-                'name' => $product->name . ($child ? ' - ' . $child->name : ''),
+                'name' => $displayName,
                 'sku' => $child ? $child->sku : $product->sku,
-                'price' => $price,
+                'price' => round($priceWithTax, 2), // Price shown to customer (with tax)
+                'base_price' => round($basePrice, 2), // Price without tax for calculations
                 'quantity' => 1,
-                'subtotal' => $price,
+                'subtotal' => round($basePrice, 2), // Subtotal is base price * quantity
                 'tax_id' => $product->tax_id,
-                'tax_rate' => $product->tax?->value ?? 0,
-                'image' => $product->image, // Always use product image
-                'max_stock' => (int)$product->current_stock, // Store max available
+                'tax_rate' => $taxRate,
+                'tax_amount' => round($priceWithTax - $basePrice, 2), // Tax for 1 unit
+                'price_includes_tax' => $priceIncludesTax,
+                'image' => $displayImage,
+                'max_stock' => (int)$product->current_stock,
             ];
         }
+    }
+
+    protected function updateCartItemTotals($cartKey)
+    {
+        if (!isset($this->cart[$cartKey])) return;
+        
+        $item = &$this->cart[$cartKey];
+        $item['subtotal'] = round($item['base_price'] * $item['quantity'], 2);
+        $item['tax_amount'] = round($item['subtotal'] * ($item['tax_rate'] / 100), 2);
     }
 
     public function getPrice($product, $child = null)
@@ -212,7 +243,7 @@ class PointOfSale extends Component
         
         if (isset($this->cart[$cartKey])) {
             $this->cart[$cartKey]['quantity'] = $quantity;
-            $this->cart[$cartKey]['subtotal'] = $quantity * $this->cart[$cartKey]['price'];
+            $this->updateCartItemTotals($cartKey);
         }
     }
 
@@ -226,7 +257,7 @@ class PointOfSale extends Component
                 return;
             }
             $this->cart[$cartKey]['quantity']++;
-            $this->cart[$cartKey]['subtotal'] = $this->cart[$cartKey]['quantity'] * $this->cart[$cartKey]['price'];
+            $this->updateCartItemTotals($cartKey);
         }
     }
 
@@ -235,7 +266,7 @@ class PointOfSale extends Component
         if (isset($this->cart[$cartKey])) {
             if ($this->cart[$cartKey]['quantity'] > 1) {
                 $this->cart[$cartKey]['quantity']--;
-                $this->cart[$cartKey]['subtotal'] = $this->cart[$cartKey]['quantity'] * $this->cart[$cartKey]['price'];
+                $this->updateCartItemTotals($cartKey);
             } else {
                 $this->removeFromCart($cartKey);
             }
@@ -259,9 +290,7 @@ class PointOfSale extends Component
 
     public function getTaxTotalProperty()
     {
-        return collect($this->cart)->sum(function ($item) {
-            return $item['subtotal'] * ($item['tax_rate'] / 100);
-        });
+        return collect($this->cart)->sum('tax_amount');
     }
 
     public function getTotalProperty()
@@ -360,20 +389,18 @@ class PointOfSale extends Component
             
             // Create sale items and update stock
             foreach ($this->cart as $item) {
-                $taxAmount = $item['subtotal'] * ($item['tax_rate'] / 100);
-                
                 SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_id' => $item['product_id'],
                     'product_child_id' => $item['child_id'],
                     'product_name' => $item['name'],
                     'product_sku' => $item['sku'],
-                    'unit_price' => $item['price'],
+                    'unit_price' => $item['base_price'], // Price without tax
                     'quantity' => $item['quantity'],
                     'tax_rate' => $item['tax_rate'],
-                    'tax_amount' => $taxAmount,
+                    'tax_amount' => $item['tax_amount'],
                     'subtotal' => $item['subtotal'],
-                    'total' => $item['subtotal'] + $taxAmount,
+                    'total' => $item['subtotal'] + $item['tax_amount'],
                 ]);
                 
                 // Update product stock
@@ -402,7 +429,22 @@ class PointOfSale extends Component
                 "Venta {$sale->invoice_number} por $" . number_format($sale->total, 2)
             );
             
-            $this->dispatch('notify', message: 'Venta procesada: ' . $sale->invoice_number, type: 'success');
+            // Process electronic invoice if enabled
+            $electronicInvoiceResult = $this->processElectronicInvoice($sale);
+            
+            $message = 'Venta procesada: ' . $sale->invoice_number;
+            if ($electronicInvoiceResult['sent']) {
+                if ($electronicInvoiceResult['success']) {
+                    $message .= ' | Factura DIAN: ' . ($sale->fresh()->dian_number ?? 'Validada');
+                } else {
+                    $message .= ' | Error DIAN: ' . $electronicInvoiceResult['error'];
+                }
+            }
+            
+            $this->dispatch('notify', 
+                message: $message, 
+                type: $electronicInvoiceResult['sent'] && !$electronicInvoiceResult['success'] ? 'warning' : 'success'
+            );
             
             // Reset
             $this->cart = [];
@@ -415,6 +457,45 @@ class PointOfSale extends Component
             DB::rollBack();
             $this->dispatch('notify', message: 'Error al procesar la venta: ' . $e->getMessage(), type: 'error');
         }
+    }
+
+    /**
+     * Process electronic invoice if enabled.
+     */
+    protected function processElectronicInvoice(Sale $sale): array
+    {
+        $result = [
+            'sent' => false,
+            'success' => false,
+            'error' => null,
+        ];
+
+        try {
+            $factusService = new FactusService();
+            
+            if (!$factusService->isEnabled()) {
+                return $result;
+            }
+
+            $result['sent'] = true;
+            
+            $response = $factusService->createInvoice($sale);
+            $result['success'] = true;
+            
+            Log::info('Electronic invoice created successfully', [
+                'sale_id' => $sale->id,
+                'dian_number' => $sale->fresh()->dian_number,
+            ]);
+            
+        } catch (\Exception $e) {
+            $result['error'] = $e->getMessage();
+            Log::error('Electronic invoice failed', [
+                'sale_id' => $sale->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $result;
     }
 
     public function cancelPayment()
@@ -597,21 +678,16 @@ class PointOfSale extends Component
             ->orderBy('name')
             ->get();
         
-        // Get products - only products with stock > 0
-        $productsQuery = Product::with(['category', 'brand', 'tax', 'children' => function ($q) {
+        // Build combined list of sellable items (parents without children + all children)
+        $sellableItems = collect();
+        
+        // Query for products with stock
+        $productsQuery = Product::with(['category', 'brand', 'tax', 'unit', 'children' => function ($q) {
                 $q->where('is_active', true);
             }])
             ->where('is_active', true)
-            ->where('current_stock', '>', 0) // Only products with stock
-            ->forBranch($this->branchId)
-            ->where(function ($q) {
-                // Products with at least one active child
-                $q->whereHas('children', function ($cq) {
-                    $cq->where('is_active', true);
-                })
-                // OR products without any children (simple products)
-                ->orWhereDoesntHave('children');
-            });
+            ->where('current_stock', '>', 0)
+            ->forBranch($this->branchId);
         
         if ($this->selectedCategory) {
             $productsQuery->where('category_id', $this->selectedCategory);
@@ -635,13 +711,76 @@ class PointOfSale extends Component
         
         $products = $productsQuery->orderBy('name')->limit(50)->get();
         
+        // Build sellable items list
+        foreach ($products as $product) {
+            if ($product->children->isEmpty()) {
+                // Product without children - add as sellable item
+                $sellableItems->push([
+                    'type' => 'product',
+                    'id' => $product->id,
+                    'child_id' => null,
+                    'name' => $product->name,
+                    'sku' => $product->sku,
+                    'brand' => $product->brand?->name,
+                    'price' => $product->price_includes_tax 
+                        ? $product->sale_price 
+                        : $product->getSalePriceWithTax(),
+                    'stock' => (int) $product->current_stock,
+                    'image' => $product->image,
+                    'unit' => $product->unit?->abbreviation ?? 'UND',
+                ]);
+            } else {
+                // Product with children - add parent AND each child separately
+                // Add parent (can be sold at parent price)
+                $sellableItems->push([
+                    'type' => 'product',
+                    'id' => $product->id,
+                    'child_id' => null,
+                    'name' => $product->name,
+                    'sku' => $product->sku,
+                    'brand' => $product->brand?->name,
+                    'price' => $product->price_includes_tax 
+                        ? $product->sale_price 
+                        : $product->getSalePriceWithTax(),
+                    'stock' => (int) $product->current_stock,
+                    'image' => $product->image,
+                    'unit' => $product->unit?->abbreviation ?? 'UND',
+                    'has_variants' => true,
+                    'variant_count' => $product->children->count(),
+                ]);
+                
+                // Add each child
+                foreach ($product->children as $child) {
+                    $sellableItems->push([
+                        'type' => 'child',
+                        'id' => $product->id,
+                        'child_id' => $child->id,
+                        'name' => $child->name,
+                        'parent_name' => $product->name,
+                        'sku' => $child->sku,
+                        'brand' => $product->brand?->name,
+                        'price' => $child->price_includes_tax 
+                            ? $child->sale_price 
+                            : $child->getSalePriceWithTax(),
+                        'stock' => (int) $product->current_stock, // Stock is at parent level
+                        'image' => $child->image ?? $product->image,
+                        'unit' => $product->unit?->abbreviation ?? 'UND',
+                    ]);
+                }
+            }
+        }
+        
         // Get payment methods
         $paymentMethods = PaymentMethod::where('is_active', true)->get();
+        
+        // Check if electronic invoicing is enabled
+        $billingSettings = BillingSetting::getSettings();
+        $isElectronicInvoicingEnabled = $billingSettings->is_enabled && $billingSettings->isConfigured();
         
         return view('livewire.point-of-sale', [
             'customers' => $customers,
             'categories' => $categories,
-            'products' => $products,
+            'sellableItems' => $sellableItems,
             'paymentMethods' => $paymentMethods,
             'subtotal' => $this->getSubtotalProperty(),
             'taxTotal' => $this->getTaxTotalProperty(),
@@ -650,6 +789,7 @@ class PointOfSale extends Component
             'totalReceived' => $this->getTotalReceivedProperty(),
             'pendingAmount' => $this->getPendingAmountProperty(),
             'change' => $this->getChangeProperty(),
+            'isElectronicInvoicingEnabled' => $isElectronicInvoicingEnabled,
         ]);
     }
 }

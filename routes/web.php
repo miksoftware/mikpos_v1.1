@@ -152,6 +152,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('cash-reconciliations')
         ->middleware('permission:cash_reconciliations.view');
 
+    // Sales
+    Route::get('/sales', App\Livewire\Sales::class)
+        ->name('sales')
+        ->middleware('permission:sales.view');
+
     // Billing Settings
     Route::get('/billing-settings', App\Livewire\BillingSettings::class)
         ->name('billing-settings')
