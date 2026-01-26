@@ -23,15 +23,105 @@ class PaymentMethods extends Component
     public $name;
     public $is_active = true;
 
+    /**
+     * DIAN payment method codes with descriptions.
+     * These are the official codes for electronic invoicing in Colombia.
+     */
+    public static array $dianPaymentTypes = [
+        '10' => [
+            'name' => 'Efectivo',
+            'description' => 'Pago en dinero físico (billetes y monedas)',
+            'icon' => 'cash',
+            'suggested_names' => ['Efectivo', 'Cash', 'Contado'],
+        ],
+        '49' => [
+            'name' => 'Tarjeta Débito',
+            'description' => 'Pago con tarjeta de débito bancaria',
+            'icon' => 'card',
+            'suggested_names' => ['Tarjeta Débito', 'Débito', 'Tarjeta Bancaria'],
+        ],
+        '48' => [
+            'name' => 'Tarjeta Crédito',
+            'description' => 'Pago con tarjeta de crédito',
+            'icon' => 'card',
+            'suggested_names' => ['Tarjeta Crédito', 'Crédito', 'Visa/Mastercard'],
+        ],
+        '47' => [
+            'name' => 'Transferencia Bancaria',
+            'description' => 'Transferencias electrónicas: PSE, Nequi, Daviplata, Bancolombia, etc.',
+            'icon' => 'transfer',
+            'suggested_names' => ['Nequi', 'Daviplata', 'PSE', 'Transferencia Bancolombia', 'Transferencia'],
+        ],
+        '42' => [
+            'name' => 'Consignación Bancaria',
+            'description' => 'Depósito directo en cuenta bancaria',
+            'icon' => 'bank',
+            'suggested_names' => ['Consignación', 'Depósito Bancario'],
+        ],
+        '20' => [
+            'name' => 'Cheque',
+            'description' => 'Pago mediante cheque bancario',
+            'icon' => 'document',
+            'suggested_names' => ['Cheque', 'Cheque Bancario'],
+        ],
+        '71' => [
+            'name' => 'Bonos',
+            'description' => 'Pago con bonos o certificados de regalo',
+            'icon' => 'gift',
+            'suggested_names' => ['Bonos', 'Bono Regalo', 'Gift Card'],
+        ],
+        '72' => [
+            'name' => 'Vales',
+            'description' => 'Pago con vales o cupones',
+            'icon' => 'ticket',
+            'suggested_names' => ['Vales', 'Cupones', 'Voucher'],
+        ],
+        'ZZ' => [
+            'name' => 'Otro',
+            'description' => 'Otros medios no clasificados (criptomonedas, pagos internacionales, etc.)',
+            'icon' => 'dots',
+            'suggested_names' => ['Otro', 'Cripto', 'PayPal'],
+        ],
+        '1' => [
+            'name' => 'No Definido',
+            'description' => 'Medio de pago sin clasificación específica',
+            'icon' => 'question',
+            'suggested_names' => ['Sin Definir', 'Otro'],
+        ],
+    ];
+
+    public function getDianPaymentTypes(): array
+    {
+        return self::$dianPaymentTypes;
+    }
+
+    public function getSelectedDianType(): ?array
+    {
+        if ($this->dian_code && isset(self::$dianPaymentTypes[$this->dian_code])) {
+            return self::$dianPaymentTypes[$this->dian_code];
+        }
+        return null;
+    }
+
+    public function updatedDianCode($value)
+    {
+        // Auto-suggest name when DIAN code is selected and name is empty
+        if ($value && empty($this->name) && isset(self::$dianPaymentTypes[$value])) {
+            $this->name = self::$dianPaymentTypes[$value]['name'];
+        }
+    }
+
     public function render()
     {
         $items = PaymentMethod::query()
-            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%")
-                ->orWhere('dian_code', 'like', "%{$this->search}%"))
+            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))
             ->latest()
             ->paginate(10);
 
-        return view('livewire.payment-methods', ['items' => $items]);
+        return view('livewire.payment-methods', [
+            'items' => $items,
+            'dianTypes' => self::$dianPaymentTypes,
+        ]);
     }
 
     public function create()
@@ -69,8 +159,13 @@ class PaymentMethods extends Component
         }
 
         $this->validate([
-            'dian_code' => 'required|max:10|unique:payment_methods,dian_code,' . $this->itemId,
-            'name' => 'required|min:2',
+            'dian_code' => 'required|in:' . implode(',', array_keys(self::$dianPaymentTypes)),
+            'name' => 'required|min:2|max:100',
+        ], [
+            'dian_code.required' => 'Selecciona un tipo de pago DIAN',
+            'dian_code.in' => 'Tipo de pago DIAN inválido',
+            'name.required' => 'El nombre es obligatorio',
+            'name.min' => 'El nombre debe tener al menos 2 caracteres',
         ]);
 
         $oldValues = $isNew ? null : PaymentMethod::find($this->itemId)->toArray();

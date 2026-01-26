@@ -21,6 +21,10 @@ class DatabaseSeeder extends Seeder
         $this->call(DepartmentSeeder::class);
         $this->call(MunicipalitySeeder::class);
 
+        // Seed DIAN configuration data
+        $this->call(PaymentMethodsSeeder::class);
+        $this->call(TaxDocumentsSeeder::class);
+
         // Create test branches
         $mainBranch = Branch::create([
             'code' => 'SUC001',
