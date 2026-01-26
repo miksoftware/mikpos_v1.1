@@ -37,6 +37,17 @@
                     <option value="completed">Completada</option>
                     <option value="cancelled">Cancelada</option>
                 </select>
+                <select wire:model.live="filterPaymentType" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[120px]">
+                    <option value="">Tipo de pago</option>
+                    <option value="cash">Contado</option>
+                    <option value="credit">Crédito</option>
+                </select>
+                <select wire:model.live="filterPaymentStatus" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[130px]">
+                    <option value="">Estado de pago</option>
+                    <option value="paid">Pagado</option>
+                    <option value="partial">Parcial</option>
+                    <option value="pending">Pendiente</option>
+                </select>
                 <select wire:model.live="filterSupplier" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[150px]">
                     <option value="">Todos los proveedores</option>
                     @foreach($suppliers as $supplier)
@@ -45,7 +56,7 @@
                 </select>
                 <input wire:model.live="dateFrom" type="date" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm">
                 <input wire:model.live="dateTo" type="date" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm">
-                @if($search || $filterStatus || $filterSupplier || $filterBranch || $dateFrom || $dateTo)
+                @if($search || $filterStatus || $filterSupplier || $filterBranch || $filterPaymentType || $filterPaymentStatus || $dateFrom || $dateTo)
                 <button wire:click="clearFilters" class="px-3 py-2.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors text-sm font-medium">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
@@ -68,6 +79,7 @@
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Fecha</th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Tipo</th>
                         <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Total</th>
+                        <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Pago</th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Estado</th>
                         <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Acciones</th>
                     </tr>
@@ -107,6 +119,33 @@
                             <span class="text-lg font-bold text-slate-800">${{ number_format($item->total, 2) }}</span>
                         </td>
                         <td class="px-6 py-4 text-center">
+                            @if($item->payment_type === 'credit')
+                                @if($item->payment_status === 'paid')
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                    Pagado
+                                </span>
+                                @elseif($item->payment_status === 'partial')
+                                <div class="flex flex-col items-center gap-1">
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                        Parcial
+                                    </span>
+                                    <span class="text-xs text-slate-500">${{ number_format($item->paid_amount, 2) }} / ${{ number_format($item->credit_amount, 2) }}</span>
+                                </div>
+                                @else
+                                <div class="flex flex-col items-center gap-1">
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                                        Pendiente
+                                    </span>
+                                    <span class="text-xs text-slate-500">${{ number_format($item->credit_amount, 2) }}</span>
+                                </div>
+                                @endif
+                            @else
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                    Pagado
+                                </span>
+                            @endif
+                        </td>
+                        <td class="px-6 py-4 text-center">
                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium
                                 {{ $item->status === 'completed' ? 'bg-green-100 text-green-700' : '' }}
                                 {{ $item->status === 'draft' ? 'bg-amber-100 text-amber-700' : '' }}
@@ -120,6 +159,11 @@
                                 <button wire:click="viewPurchase({{ $item->id }})" class="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Ver detalle">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                 </button>
+                                @if($item->payment_type === 'credit' && $item->payment_status !== 'paid' && $item->status === 'completed' && auth()->user()->hasPermission('purchases.edit'))
+                                <button wire:click="openPaymentModal({{ $item->id }})" class="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors" title="Registrar pago">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </button>
+                                @endif
                                 @if($item->status === 'draft' && auth()->user()->hasPermission('purchases.edit'))
                                 <button wire:click="continuePurchase({{ $item->id }})" class="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors" title="Continuar">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
@@ -148,10 +192,10 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="{{ $needsBranchSelection ? 8 : 7 }}" class="px-6 py-12 text-center">
+                        <td colspan="{{ $needsBranchSelection ? 9 : 8 }}" class="px-6 py-12 text-center">
                             <svg class="w-12 h-12 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
                             <p class="text-slate-500">No hay compras registradas</p>
-                            @if($search || $filterStatus || $filterSupplier || $filterBranch || $dateFrom || $dateTo)
+                            @if($search || $filterStatus || $filterSupplier || $filterBranch || $filterPaymentType || $filterPaymentStatus || $dateFrom || $dateTo)
                             <button wire:click="clearFilters" class="mt-2 text-[#ff7261] hover:underline text-sm">Limpiar filtros</button>
                             @endif
                         </td>
@@ -350,6 +394,89 @@
                         <button wire:click="editCompleted" class="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-xl hover:bg-amber-700">
                             <span wire:loading.remove wire:target="editCompleted">Sí, Editar</span>
                             <span wire:loading wire:target="editCompleted">Cargando...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Payment Modal --}}
+    @if($isPaymentModalOpen && $payingPurchase)
+    <div class="relative z-[100]">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="$set('isPaymentModalOpen', false)"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl">
+                    <div class="px-6 py-4 border-b border-slate-200">
+                        <h3 class="text-lg font-bold text-slate-900">Registrar Pago</h3>
+                        <p class="text-sm text-slate-500 mt-1">{{ $payingPurchase->purchase_number }} - {{ $payingPurchase->supplier?->name }}</p>
+                    </div>
+                    <div class="px-6 py-4 space-y-4 bg-slate-50">
+                        {{-- Payment Summary --}}
+                        <div class="bg-white rounded-xl p-4 border border-slate-200">
+                            <div class="grid grid-cols-2 gap-3 text-sm">
+                                <div>
+                                    <span class="text-slate-500">Total Crédito:</span>
+                                    <span class="font-semibold text-slate-800 ml-2">${{ number_format($payingPurchase->credit_amount, 2) }}</span>
+                                </div>
+                                <div>
+                                    <span class="text-slate-500">Pagado:</span>
+                                    <span class="font-semibold text-emerald-600 ml-2">${{ number_format($payingPurchase->paid_amount, 2) }}</span>
+                                </div>
+                                <div class="col-span-2 pt-2 border-t border-slate-200">
+                                    <span class="text-slate-700 font-medium">Saldo Pendiente:</span>
+                                    <span class="font-bold text-red-600 ml-2">${{ number_format($payingPurchase->credit_amount - $payingPurchase->paid_amount, 2) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Monto a Pagar <span class="text-red-500">*</span></label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                                <input wire:model="paymentAmount" type="number" step="0.01" min="0.01" max="{{ $payingPurchase->credit_amount - $payingPurchase->paid_amount }}"
+                                    class="w-full pl-8 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 bg-white"
+                                    placeholder="0.00">
+                            </div>
+                            @error('paymentAmount') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                            <div class="flex gap-2 mt-2">
+                                <button type="button" wire:click="$set('paymentAmount', {{ $payingPurchase->credit_amount - $payingPurchase->paid_amount }})"
+                                    class="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors">
+                                    Pagar todo
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Método de Pago <span class="text-red-500">*</span></label>
+                            <select wire:model="paymentMethodId"
+                                class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 bg-white">
+                                <option value="">Seleccionar método...</option>
+                                @foreach($paymentMethods as $method)
+                                <option value="{{ $method->id }}">{{ $method->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('paymentMethodId') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Notas (opcional)</label>
+                            <textarea wire:model="paymentNotes" rows="2"
+                                class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 bg-white"
+                                placeholder="Observaciones del pago..."></textarea>
+                        </div>
+                    </div>
+                    <div class="px-6 py-4 flex justify-end gap-3 border-t border-slate-200 bg-white rounded-b-2xl">
+                        <button wire:click="$set('isPaymentModalOpen', false)" type="button"
+                            class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
+                            Cancelar
+                        </button>
+                        <button wire:click="registerPayment" type="button"
+                            class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:opacity-90 transition-opacity">
+                            <span wire:loading.remove wire:target="registerPayment">Registrar Pago</span>
+                            <span wire:loading wire:target="registerPayment">Procesando...</span>
                         </button>
                     </div>
                 </div>

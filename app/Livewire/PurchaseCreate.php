@@ -144,17 +144,20 @@ class PurchaseCreate extends Component
         // Determine branch_id for filtering
         $branchId = $this->needsBranchSelection ? $this->branch_id : auth()->user()->branch_id;
 
+        // If super_admin and no branch selected, don't allow search
+        if ($this->needsBranchSelection && !$branchId) {
+            $this->searchResults = [];
+            $this->dispatch('notify', message: 'Selecciona una sucursal primero', type: 'warning');
+            return;
+        }
+
         $query = Product::where('is_active', true)
+            ->where('branch_id', $branchId)
             ->where(function ($q) {
                 $q->where('name', 'like', "%{$this->productSearch}%")
                     ->orWhere('sku', 'like', "%{$this->productSearch}%")
                     ->orWhere('barcode', 'like', "%{$this->productSearch}%");
             });
-
-        // Filter by branch if branch_id is set
-        if ($branchId) {
-            $query->where('branch_id', $branchId);
-        }
 
         $this->searchResults = $query
             ->with(['category', 'unit', 'tax'])
@@ -226,18 +229,20 @@ class PurchaseCreate extends Component
         // Determine branch_id for filtering
         $branchId = $this->needsBranchSelection ? $this->branch_id : auth()->user()->branch_id;
 
-        $query = Product::where('is_active', true)
+        // If super_admin and no branch selected, don't allow search
+        if ($this->needsBranchSelection && !$branchId) {
+            $this->dispatch('notify', message: 'Selecciona una sucursal primero', type: 'warning');
+            $this->productSearch = '';
+            return;
+        }
+
+        $product = Product::where('is_active', true)
+            ->where('branch_id', $branchId)
             ->where(function ($q) {
                 $q->where('barcode', $this->productSearch)
                     ->orWhere('sku', $this->productSearch);
-            });
-
-        // Filter by branch if branch_id is set
-        if ($branchId) {
-            $query->where('branch_id', $branchId);
-        }
-
-        $product = $query->first();
+            })
+            ->first();
 
         if ($product) {
             $this->addProduct($product->id);

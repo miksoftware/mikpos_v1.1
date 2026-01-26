@@ -56,18 +56,18 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
+                            @php $userRole = $user->roles->first(); @endphp
+                            @if($userRole)
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium
-                                {{ $user->role === 'super_admin' ? 'bg-purple-100 text-purple-800' : '' }}
-                                {{ $user->role === 'branch_admin' ? 'bg-blue-100 text-blue-800' : '' }}
-                                {{ $user->role === 'supervisor' ? 'bg-orange-100 text-orange-800' : '' }}
-                                {{ $user->role === 'cashier' ? 'bg-green-100 text-green-800' : '' }}">
-                                @switch($user->role)
-                                    @case('super_admin') Admin General @break
-                                    @case('branch_admin') Admin Sucursal @break
-                                    @case('supervisor') Supervisor @break
-                                    @case('cashier') Cajero @break
-                                @endswitch
+                                {{ $userRole->name === 'super_admin' ? 'bg-purple-100 text-purple-800' : '' }}
+                                {{ $userRole->name === 'branch_admin' ? 'bg-blue-100 text-blue-800' : '' }}
+                                {{ $userRole->name === 'supervisor' ? 'bg-orange-100 text-orange-800' : '' }}
+                                {{ $userRole->name === 'cashier' ? 'bg-green-100 text-green-800' : '' }}">
+                                {{ $userRole->display_name ?? $userRole->name }}
                             </span>
+                            @else
+                            <span class="text-slate-400 text-sm">Sin rol</span>
+                            @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                             {{ $user->branch ? $user->branch->name : 'Sin Asignar' }}
@@ -109,73 +109,78 @@
 
     <!-- Create/Edit Modal -->
     @if($isModalOpen)
-    <div class="relative z-[100]" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <!-- Backdrop -->
-        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm transition-opacity z-[100]" wire:click="$set('isModalOpen', false)"></div>
+    <div class="relative z-[100]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="$set('isModalOpen', false)"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-xl">
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-slate-900">{{ $userId ? 'Editar Usuario' : 'Nuevo Usuario' }}</h3>
+                        <button wire:click="$set('isModalOpen', false)" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+                    <div class="px-6 py-4 space-y-4">
+                        <!-- Name -->
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Nombre Completo *</label>
+                            <input wire:model="name" type="text" 
+                                class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]"
+                                placeholder="Nombre del usuario">
+                            @error('name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                        </div>
 
-        <div class="fixed inset-0 z-[101] w-screen overflow-y-auto">
-            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                <div class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
-                    <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
-                        <div class="sm:flex sm:items-start">
-                            <div class="mt-3 w-full text-center sm:ml-4 sm:mt-0 sm:text-left">
-                                <h3 class="text-lg font-bold leading-6 text-slate-900" id="modal-title">
-                                    {{ $userId ? 'Editar Usuario' : 'Crear Nuevo Usuario' }}
-                                </h3>
-                                <div class="mt-6 space-y-4">
-                                    <!-- Name -->
-                                    <div>
-                                        <label for="name" class="block text-sm font-medium text-slate-700">Nombre Completo</label>
-                                        <input wire:model="name" type="text" class="mt-1 block w-full rounded-xl border-slate-300 shadow-sm focus:border-[#ff7261] focus:ring focus:ring-[#ff7261]/20 sm:text-sm">
-                                        @error('name') <span class="text-red-500 text-sm mt-1">{{ $message }}</span> @enderror
-                                    </div>
+                        <!-- Email -->
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Correo Electrónico *</label>
+                            <input wire:model="email" type="email" 
+                                class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]"
+                                placeholder="correo@ejemplo.com">
+                            @error('email') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                        </div>
 
-                                    <!-- Email -->
-                                    <div>
-                                        <label for="email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label>
-                                        <input wire:model="email" type="email" class="mt-1 block w-full rounded-xl border-slate-300 shadow-sm focus:border-[#ff7261] focus:ring focus:ring-[#ff7261]/20 sm:text-sm">
-                                        @error('email') <span class="text-red-500 text-sm mt-1">{{ $message }}</span> @enderror
-                                    </div>
+                        <!-- Password -->
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">
+                                Contraseña @if(!$userId)*@else<span class="text-slate-400 text-xs ml-1">(Dejar en blanco para mantener)</span>@endif
+                            </label>
+                            <input wire:model="password" type="password" 
+                                class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]"
+                                placeholder="••••••••">
+                            @error('password') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                        </div>
 
-                                    <!-- Password -->
-                                    <div>
-                                        <label for="password" class="block text-sm font-medium text-slate-700">Contraseña {{ $userId ? '(Dejar en blanco para mantener)' : '' }}</label>
-                                        <input wire:model="password" type="password" class="mt-1 block w-full rounded-xl border-slate-300 shadow-sm focus:border-[#ff7261] focus:ring focus:ring-[#ff7261]/20 sm:text-sm">
-                                        @error('password') <span class="text-red-500 text-sm mt-1">{{ $message }}</span> @enderror
-                                    </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <!-- Role -->
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Rol *</label>
+                                <select wire:model="role" 
+                                    class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                    <option value="cashier">Cajero</option>
+                                    <option value="supervisor">Supervisor</option>
+                                    <option value="branch_admin">Admin Sucursal</option>
+                                    <option value="super_admin">Admin General</option>
+                                </select>
+                                @error('role') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                            </div>
 
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <!-- Role -->
-                                        <div>
-                                            <label for="role" class="block text-sm font-medium text-slate-700">Rol</label>
-                                            <select wire:model="role" class="mt-1 block w-full rounded-xl border-slate-300 shadow-sm focus:border-[#ff7261] focus:ring focus:ring-[#ff7261]/20 sm:text-sm">
-                                                <option value="cashier">Cajero</option>
-                                                <option value="supervisor">Supervisor</option>
-                                                <option value="branch_admin">Admin Sucursal</option>
-                                                <option value="super_admin">Admin General</option>
-                                            </select>
-                                            @error('role') <span class="text-red-500 text-sm mt-1">{{ $message }}</span> @enderror
-                                        </div>
-
-                                        <!-- Branch -->
-                                        <div>
-                                            <label for="branch_id" class="block text-sm font-medium text-slate-700">Sucursal</label>
-                                            <select wire:model="branch_id" class="mt-1 block w-full rounded-xl border-slate-300 shadow-sm focus:border-[#ff7261] focus:ring focus:ring-[#ff7261]/20 sm:text-sm">
-                                                <option value="">Seleccionar...</option>
-                                                @foreach($branches as $branch)
-                                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                                @endforeach
-                                            </select>
-                                            @error('branch_id') <span class="text-red-500 text-sm mt-1">{{ $message }}</span> @enderror
-                                        </div>
-                                    </div>
-                                </div>
+                            <!-- Branch -->
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Sucursal</label>
+                                <select wire:model="branch_id" 
+                                    class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                    <option value="">Sin asignar</option>
+                                    @foreach($branches as $branch)
+                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('branch_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                             </div>
                         </div>
                     </div>
-                    <div class="bg-slate-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                        <button wire:click="store" type="button" class="inline-flex w-full justify-center rounded-xl bg-[#ff7261] px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#e55a4a] sm:ml-3 sm:w-auto">Guardar</button>
-                        <button wire:click="$set('isModalOpen', false)" type="button" class="mt-3 inline-flex w-full justify-center rounded-xl bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50 sm:mt-0 sm:w-auto">Cancelar</button>
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                        <button wire:click="$set('isModalOpen', false)" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
+                        <button wire:click="store" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea]">Guardar</button>
                     </div>
                 </div>
             </div>
@@ -185,30 +190,21 @@
 
     <!-- Delete Confirmation Modal -->
     @if($isDeleteModalOpen)
-    <div class="relative z-[100]" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm transition-opacity z-[100]" wire:click="$set('isDeleteModalOpen', false)"></div>
-
-        <div class="fixed inset-0 z-[101] w-screen overflow-y-auto">
-            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                <div class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
-                    <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
-                        <div class="sm:flex sm:items-start">
-                            <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                                <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                                </svg>
-                            </div>
-                            <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
-                                <h3 class="text-lg font-bold leading-6 text-slate-900" id="modal-title">Eliminar Usuario</h3>
-                                <div class="mt-2">
-                                    <p class="text-sm text-slate-500">¿Estás seguro de que deseas eliminar este usuario? Esta acción no se puede deshacer.</p>
-                                </div>
-                            </div>
-                        </div>
+    <div class="relative z-[100]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="$set('isDeleteModalOpen', false)"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-6 text-center">
+                    <div class="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
                     </div>
-                    <div class="bg-slate-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                        <button wire:click="delete" type="button" class="inline-flex w-full justify-center rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto">Eliminar</button>
-                        <button wire:click="$set('isDeleteModalOpen', false)" type="button" class="mt-3 inline-flex w-full justify-center rounded-xl bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50 sm:mt-0 sm:w-auto">Cancelar</button>
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Eliminar Usuario</h3>
+                    <p class="text-slate-500 mb-6">¿Estás seguro de que deseas eliminar este usuario? Esta acción no se puede deshacer.</p>
+                    <div class="flex justify-center gap-3">
+                        <button wire:click="$set('isDeleteModalOpen', false)" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
+                        <button wire:click="delete" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700">Eliminar</button>
                     </div>
                 </div>
             </div>

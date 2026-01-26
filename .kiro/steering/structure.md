@@ -8,6 +8,7 @@ Root application is in the workspace root directory.
 /
 ├── app/
 │   ├── Http/Controllers/    # Traditional controllers (minimal use)
+│   ├── Http/Middleware/     # Custom middleware (CheckPermission)
 │   ├── Livewire/            # Livewire components (primary UI logic)
 │   │   └── Auth/            # Authentication components
 │   ├── Models/              # Eloquent models
@@ -17,7 +18,8 @@ Root application is in the workspace root directory.
 ├── config/                  # Laravel configuration files
 ├── database/
 │   ├── migrations/          # Database migrations
-│   └── seeders/             # Database seeders
+│   ├── seeders/             # Database seeders
+│   └── factories/           # Model factories for testing
 ├── resources/
 │   ├── css/                 # Tailwind CSS entry point
 │   ├── js/                  # JavaScript entry point
@@ -30,39 +32,105 @@ Root application is in the workspace root directory.
 ```
 
 ## Current Livewire Components
-- **Auth/Login** - Authentication
+
+### Authentication
+- **Auth/Login** - User authentication
+
+### Administration
+- **Users** - User management with role assignment
 - **Branches** - Multi-branch management
-- **Users** - User management
 - **Roles** - Role and permission management
+
+### Configuration
 - **Departments** - Geographic departments
 - **Municipalities** - Geographic municipalities
 - **TaxDocuments** - Tax document types
 - **Currencies** - Currency management
 - **PaymentMethods** - Payment methods
 - **Taxes** - Tax rates
-- **Product Catalog:**
-  - **Categories** - Product categories
-  - **Subcategories** - Product subcategories
-  - **Brands** - Product brands
-  - **Units** - Units of measurement
-  - **ProductModels** - Product models
-  - **Presentations** - Product presentations
-  - **Colors** - Product colors
-  - **Imeis** - IMEI management
+- **SystemDocuments** - System document types
+- **ProductFieldConfig** - Product field configuration
+
+### Product Catalog
+- **Categories** - Product categories
+- **Subcategories** - Product subcategories
+- **Brands** - Product brands
+- **Units** - Units of measurement
+- **ProductModels** - Product models
+- **Presentations** - Product presentations
+- **Colors** - Product colors
+- **Imeis** - IMEI management
+
+### Cash Management
+- **CashRegisters** - Cash register creation and management
+- **CashReconciliations** - Cash reconciliations (arqueos) with movements
+
+### Creation/Catalog
+- **Products** - Product management
+- **Customers** - Customer management
+- **Suppliers** - Supplier management
+- **Combos** - Combo products
+
+### Inventory
+- **Purchases** - Purchase order listing and payment control
+- **PurchaseCreate** - Purchase order creation
+- **InventoryAdjustments** - Inventory adjustments
+- **InventoryTransfers** - Inventory transfers between branches
 
 ## Current Models
+
+### Core
 - User, Role, Permission, Module
 - Branch, ActivityLog
+
+### Geographic
 - Department, Municipality
+
+### Configuration
 - TaxDocument, Currency, PaymentMethod, Tax
-- **Product Catalog:** Category, Subcategory, Brand, Unit, ProductModel, Presentation, Color, Imei
+- SystemDocument, ProductFieldSetting
+
+### Product Catalog
+- Category, Subcategory, Brand, Unit
+- ProductModel, Presentation, Color, Imei
+- Product, ProductChild
+
+### Cash Management
+- CashRegister, CashReconciliation, CashMovement
+
+### Transactions
+- Customer, Supplier
+- Combo, ComboItem
+- Purchase, PurchaseItem
+- InventoryMovement
 
 ## Database Tables
-- Core: users, roles, permissions, modules, role_user, permission_role
-- System: branches, activity_logs, cache, jobs
-- Geographic: departments, municipalities
-- Configuration: tax_documents, currencies, payment_methods, taxes
-- **Product Catalog:** categories, subcategories, brands, units, product_models, presentations, colors, imeis
+
+### Core
+- users, roles, permissions, modules
+- user_role (pivot), permission_role (pivot)
+- branches, activity_logs
+
+### Geographic
+- departments, municipalities
+
+### Configuration
+- tax_documents, currencies, payment_methods, taxes
+- system_documents, product_field_settings
+
+### Product Catalog
+- categories, subcategories, brands, units
+- product_models, presentations, colors, imeis
+- products, product_children
+
+### Cash Management
+- cash_registers, cash_reconciliations, cash_movements
+
+### Transactions
+- customers, suppliers
+- combos, combo_items
+- purchases, purchase_items
+- inventory_movements
 
 ## Conventions
 
@@ -112,15 +180,6 @@ Select con buscador usando Alpine.js puro y Tailwind CSS. Compatible con Livewir
 />
 ```
 
-**Características:**
-- Filtrado client-side en tiempo real
-- Animaciones suaves con `x-transition`
-- Check en la opción seleccionada
-- Botón para limpiar selección
-- Mensaje "No se encontraron resultados"
-- Cierre al hacer clic fuera (`@click.away`)
-- Sincronización con Livewire via `@entangle`
-
 **IMPORTANTE:** NO usar jQuery ni librerías externas. Solo Alpine.js (incluido con Livewire) y Tailwind CSS.
 
 ### Notifications
@@ -130,6 +189,7 @@ Select con buscador usando Alpine.js puro y Tailwind CSS. Compatible con Livewir
 
 ### Activity Logging
 - Use `ActivityLogService::logCreate/logUpdate/logDelete()` for CRUD operations
+- **IMPORTANT**: Must pass Eloquent Model instance, not stdClass
 - Logs stored in `activity_logs` table with old/new values
 - Automatic logging for all entity changes
 
@@ -139,9 +199,44 @@ Select con buscador usando Alpine.js puro y Tailwind CSS. Compatible con Livewir
 - Permission-based route protection: `middleware('permission:module.view')`
 - Guest routes use `guest` middleware
 
-### Menu Structure
-- Sidebar navigation with collapsible sections
-- **Administración** section contains:
-  - Users, Branches, Roles
-  - **Configuración** subsection: Departments, Municipalities, Tax Documents, Currencies, Payment Methods, Taxes
-  - **Productos** subsection: Categories, Subcategories, Brands, Units, Models, Presentations, Colors, IMEIs
+### Menu Structure (Sidebar)
+Located in `resources/views/layouts/app.blade.php`
+
+```
+Dashboard
+POS
+Cajas (independent section)
+├── Creación de Cajas
+└── Arqueos de Caja
+Administración
+├── Usuarios
+├── Sucursales
+├── Roles
+└── Configuración
+    ├── Departamentos
+    ├── Municipios
+    ├── Documentos Tributarios
+    ├── Monedas
+    ├── Métodos de Pago
+    ├── Impuestos
+    ├── Documentos Sistema
+    ├── Config. Campos Producto
+    └── Productos
+        ├── Categorías
+        ├── Subcategorías
+        ├── Marcas
+        ├── Unidades
+        ├── Modelos
+        ├── Presentaciones
+        ├── Colores
+        └── IMEIs
+Creación
+├── Productos
+├── Clientes
+├── Proveedores
+└── Combos
+Inventarios
+├── Compras
+├── Ajustes Inventario
+└── Transferencias
+```

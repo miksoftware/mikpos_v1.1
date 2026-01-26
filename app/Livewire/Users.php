@@ -6,6 +6,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\User;
 use App\Models\Branch;
+use App\Models\Role;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Rule;
 use Livewire\Attributes\Layout;
@@ -46,7 +47,7 @@ class Users extends Component
         $users = User::query()
             ->where('name', 'like', '%'.$this->search.'%')
             ->orWhere('email', 'like', '%'.$this->search.'%')
-            ->with('branch')
+            ->with(['branch', 'roles'])
             ->latest()
             ->paginate(10);
 
@@ -66,11 +67,11 @@ class Users extends Component
     public function edit($id)
     {
         $this->resetValidation();
-        $user = User::findOrFail($id);
+        $user = User::with('roles')->findOrFail($id);
         $this->userId = $user->id;
         $this->name = $user->name;
         $this->email = $user->email;
-        $this->role = $user->role;
+        $this->role = $user->roles->first()?->name ?? 'cashier';
         $this->branch_id = $user->branch_id;
         $this->phone = $user->phone;
         $this->is_active = $user->is_active;
@@ -99,7 +100,6 @@ class Users extends Component
         $data = [
             'name' => $this->name,
             'email' => $this->email,
-            'role' => $this->role,
             'branch_id' => $this->branch_id,
             'phone' => $this->phone,
             'is_active' => $this->is_active,
@@ -109,7 +109,13 @@ class Users extends Component
             $data['password'] = Hash::make($this->password);
         }
 
-        User::updateOrCreate(['id' => $this->userId], $data);
+        $user = User::updateOrCreate(['id' => $this->userId], $data);
+
+        // Sync role
+        $role = Role::where('name', $this->role)->first();
+        if ($role) {
+            $user->roles()->sync([$role->id]);
+        }
 
         $this->isModalOpen = false;
         $this->dispatch('notify', message: $this->userId ? 'Usuario actualizado correctamente' : 'Usuario creado correctamente');
