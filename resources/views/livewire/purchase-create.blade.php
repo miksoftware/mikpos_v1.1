@@ -167,6 +167,27 @@
             </h3>
             
             <div class="space-y-4">
+                {{-- Branch Selector for Super Admin --}}
+                @if($needsBranchSelection)
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                    <div class="flex items-start gap-2">
+                        <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                        <div class="flex-1">
+                            <p class="text-xs font-medium text-amber-800">Selecciona la sucursal</p>
+                            <select wire:model="branch_id" class="mt-1.5 w-full px-3 py-2 border border-amber-300 rounded-lg bg-white focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 text-sm @error('branch_id') border-red-300 @enderror">
+                                <option value="">Seleccionar sucursal...</option>
+                                @foreach($branches as $branch)
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('branch_id') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                        </div>
+                    </div>
+                </div>
+                @endif
+
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Proveedor *</label>
                     <select wire:model="supplier_id" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] @error('supplier_id') border-red-300 @enderror">

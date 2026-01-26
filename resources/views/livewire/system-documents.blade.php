@@ -17,7 +17,7 @@
             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </div>
-            <input wire:model.live.debounce.300ms="search" type="text" class="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] transition-all sm:text-sm" placeholder="Buscar por nombre, código o prefijo...">
+            <input wire:model.live.debounce.300ms="search" type="text" class="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] transition-all sm:text-sm" placeholder="Buscar por nombre o prefijo...">
         </div>
     </div>
 
@@ -26,7 +26,6 @@
             <table class="min-w-full divide-y divide-slate-200">
                 <thead class="bg-slate-50">
                     <tr>
-                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Código</th>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Nombre</th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Prefijo</th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Próximo #</th>
@@ -37,7 +36,6 @@
                 <tbody class="divide-y divide-slate-200">
                     @forelse($items as $item)
                     <tr class="hover:bg-slate-50/50 transition-colors">
-                        <td class="px-6 py-4"><span class="font-mono text-sm bg-slate-100 px-2 py-1 rounded">{{ $item->code }}</span></td>
                         <td class="px-6 py-4">
                             <div>
                                 <span class="font-medium text-slate-900">{{ $item->name }}</span>
@@ -73,7 +71,7 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="6" class="px-6 py-12 text-center text-slate-500">No hay documentos registrados</td></tr>
+                    <tr><td colspan="5" class="px-6 py-12 text-center text-slate-500">No hay documentos registrados</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -87,22 +85,16 @@
             <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl">
                 <div class="px-6 py-4 border-b border-slate-200"><h3 class="text-lg font-bold text-slate-900">{{ $itemId ? 'Editar' : 'Nuevo' }} Documento Sistema</h3></div>
                 <div class="px-6 py-4 space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Código *</label>
-                            <input wire:model="code" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] lowercase" maxlength="20" placeholder="purchase">
-                            @error('code')<span class="text-red-500 text-xs">{{ $message }}</span>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Prefijo *</label>
-                            <input wire:model="prefix" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] uppercase" maxlength="10" placeholder="CMP">
-                            @error('prefix')<span class="text-red-500 text-xs">{{ $message }}</span>@enderror
-                        </div>
-                    </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
-                        <input wire:model="name" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Compra">
+                        <input wire:model="name" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: Stock Inicial">
                         @error('name')<span class="text-red-500 text-xs">{{ $message }}</span>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Prefijo *</label>
+                        <input wire:model="prefix" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] uppercase" maxlength="10" placeholder="Ej: STI">
+                        <p class="text-xs text-slate-500 mt-1">Se usará para generar los números de documento</p>
+                        @error('prefix')<span class="text-red-500 text-xs">{{ $message }}</span>@enderror
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Próximo Consecutivo *</label>

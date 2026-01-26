@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\Branch;
 use App\Models\Combo;
 use App\Models\ComboItem;
 use App\Models\Product;
@@ -23,6 +24,7 @@ class Combos extends Component
     public string $search = '';
     public ?string $filterStatus = null;
     public ?string $filterLimitType = null;
+    public ?string $filterBranch = null;
 
     // Modal states
     public bool $isModalOpen = false;
@@ -32,6 +34,7 @@ class Combos extends Component
 
     // Form data
     public ?int $itemId = null;
+    public ?int $branch_id = null;
     public string $name = '';
     public ?string $description = null;
     public float $combo_price = 0;
@@ -48,10 +51,38 @@ class Combos extends Component
     public string $productSearch = '';
     public array $searchResults = [];
 
+    // Branch control
+    public bool $needsBranchSelection = false;
+    public $branches = [];
+
+    public function mount()
+    {
+        $user = auth()->user();
+        $this->needsBranchSelection = $user->isSuperAdmin() || !$user->branch_id;
+        
+        if ($this->needsBranchSelection) {
+            $this->branches = Branch::where('is_active', true)->orderBy('name')->get();
+        }
+    }
+
     public function render()
     {
-        $items = Combo::query()
-            ->withCount('items')
+        $user = auth()->user();
+        
+        $query = Combo::query()
+            ->with('branch')
+            ->withCount('items');
+
+        // Apply branch filter
+        if ($this->needsBranchSelection) {
+            if ($this->filterBranch) {
+                $query->where('branch_id', $this->filterBranch);
+            }
+        } else {
+            $query->where('branch_id', $user->branch_id);
+        }
+
+        $items = $query
             ->when($this->search, function ($q) {
                 $q->where(function ($query) {
                     $query->where('name', 'like', "%{$this->search}%")
@@ -211,6 +242,13 @@ class Combos extends Component
         }
         $this->resetValidation();
         $this->resetForm();
+        
+        // Set default branch for users with assigned branch
+        $user = auth()->user();
+        if (!$this->needsBranchSelection && $user->branch_id) {
+            $this->branch_id = $user->branch_id;
+        }
+        
         $this->isModalOpen = true;
     }
 
@@ -225,6 +263,7 @@ class Combos extends Component
         $combo = Combo::with('items.product.unit', 'items.productChild.product.unit')->findOrFail($id);
         
         $this->itemId = $combo->id;
+        $this->branch_id = $combo->branch_id;
         $this->name = $combo->name;
         $this->description = $combo->description;
         $this->combo_price = (float) $combo->combo_price;
@@ -278,6 +317,11 @@ class Combos extends Component
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ];
 
+        // Branch is required for super_admin or users without branch
+        if ($this->needsBranchSelection) {
+            $rules['branch_id'] = 'required|exists:branches,id';
+        }
+
         // Conditional validation based on limit type
         if (in_array($this->limit_type, ['time', 'both'])) {
             $rules['start_date'] = 'nullable|date';
@@ -298,6 +342,7 @@ class Combos extends Component
             'image.image' => 'El archivo debe ser una imagen',
             'image.mimes' => 'La imagen debe ser JPG, PNG o WebP',
             'image.max' => 'La imagen no debe superar 2MB',
+            'branch_id.required' => 'Debe seleccionar una sucursal',
         ]);
 
         // Validate at least 2 products
@@ -317,7 +362,11 @@ class Combos extends Component
             $imagePath = $this->image->store('combos', 'public');
         }
 
+        // Determine branch_id
+        $branchId = $this->needsBranchSelection ? $this->branch_id : auth()->user()->branch_id;
+
         $combo = Combo::updateOrCreate(['id' => $this->itemId], [
+            'branch_id' => $branchId,
             'name' => $this->name,
             'description' => $this->description,
             'combo_price' => $this->combo_price,
@@ -417,6 +466,7 @@ class Combos extends Component
         $this->search = '';
         $this->filterStatus = null;
         $this->filterLimitType = null;
+        $this->filterBranch = null;
         $this->resetPage();
     }
 
@@ -432,6 +482,7 @@ class Combos extends Component
     private function resetForm()
     {
         $this->itemId = null;
+        $this->branch_id = null;
         $this->name = '';
         $this->description = null;
         $this->combo_price = 0;

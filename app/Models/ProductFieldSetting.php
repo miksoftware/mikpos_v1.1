@@ -14,32 +14,77 @@ class ProductFieldSetting extends Model
     protected $fillable = [
         'branch_id',
         'field_name',
-        'is_visible',
-        'is_required',
+        'parent_visible',
+        'parent_required',
+        'child_visible',
+        'child_required',
         'display_order',
     ];
 
     protected function casts(): array
     {
         return [
-            'is_visible' => 'boolean',
-            'is_required' => 'boolean',
+            'parent_visible' => 'boolean',
+            'parent_required' => 'boolean',
+            'child_visible' => 'boolean',
+            'child_required' => 'boolean',
         ];
     }
 
     /**
      * List of configurable fields with their default settings.
+     * These fields can be configured for both parent Product and child ProductChild (variants).
      */
     public const CONFIGURABLE_FIELDS = [
-        'barcode' => ['label' => 'Código de Barras', 'default_visible' => true, 'default_required' => false],
-        'presentation_id' => ['label' => 'Presentación', 'default_visible' => true, 'default_required' => false],
-        'color_id' => ['label' => 'Color', 'default_visible' => false, 'default_required' => false],
-        'product_model_id' => ['label' => 'Modelo', 'default_visible' => false, 'default_required' => false],
-        'size' => ['label' => 'Talla', 'default_visible' => false, 'default_required' => false],
-        'weight' => ['label' => 'Peso', 'default_visible' => false, 'default_required' => false],
-        'imei' => ['label' => 'IMEI', 'default_visible' => false, 'default_required' => false],
-        'min_stock' => ['label' => 'Stock Mínimo', 'default_visible' => true, 'default_required' => false],
-        'max_stock' => ['label' => 'Stock Máximo', 'default_visible' => false, 'default_required' => false],
+        'barcode' => [
+            'label' => 'Código de Barras',
+            'parent_visible' => true,
+            'parent_required' => false,
+            'child_visible' => true,
+            'child_required' => false,
+        ],
+        'presentation_id' => [
+            'label' => 'Presentación',
+            'parent_visible' => false,
+            'parent_required' => false,
+            'child_visible' => true,
+            'child_required' => false,
+        ],
+        'color_id' => [
+            'label' => 'Color',
+            'parent_visible' => false,
+            'parent_required' => false,
+            'child_visible' => false,
+            'child_required' => false,
+        ],
+        'product_model_id' => [
+            'label' => 'Modelo',
+            'parent_visible' => false,
+            'parent_required' => false,
+            'child_visible' => false,
+            'child_required' => false,
+        ],
+        'size' => [
+            'label' => 'Talla',
+            'parent_visible' => false,
+            'parent_required' => false,
+            'child_visible' => false,
+            'child_required' => false,
+        ],
+        'weight' => [
+            'label' => 'Peso',
+            'parent_visible' => false,
+            'parent_required' => false,
+            'child_visible' => false,
+            'child_required' => false,
+        ],
+        'imei' => [
+            'label' => 'IMEI',
+            'parent_visible' => false,
+            'parent_required' => false,
+            'child_visible' => false,
+            'child_required' => false,
+        ],
     ];
 
     /**
@@ -50,75 +95,65 @@ class ProductFieldSetting extends Model
             'name' => 'Farmacia',
             'description' => 'Configuración para farmacias y droguerías',
             'fields' => [
-                'presentation_id' => ['visible' => true, 'required' => true],
-                'barcode' => ['visible' => true, 'required' => false],
-                'color_id' => ['visible' => false, 'required' => false],
-                'product_model_id' => ['visible' => false, 'required' => false],
-                'size' => ['visible' => false, 'required' => false],
-                'weight' => ['visible' => false, 'required' => false],
-                'imei' => ['visible' => false, 'required' => false],
-                'min_stock' => ['visible' => true, 'required' => false],
-                'max_stock' => ['visible' => true, 'required' => false],
+                'presentation_id' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => true],
+                'barcode' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => false],
+                'color_id' => ['parent_visible' => false, 'parent_required' => false, 'child_visible' => false, 'child_required' => false],
+                'product_model_id' => ['parent_visible' => false, 'parent_required' => false, 'child_visible' => false, 'child_required' => false],
+                'size' => ['parent_visible' => false, 'parent_required' => false, 'child_visible' => false, 'child_required' => false],
+                'weight' => ['parent_visible' => false, 'parent_required' => false, 'child_visible' => false, 'child_required' => false],
+                'imei' => ['parent_visible' => false, 'parent_required' => false, 'child_visible' => false, 'child_required' => false],
             ],
         ],
         'cellphones' => [
             'name' => 'Celulares',
             'description' => 'Configuración para tiendas de celulares y electrónicos',
             'fields' => [
-                'product_model_id' => ['visible' => true, 'required' => true],
-                'color_id' => ['visible' => true, 'required' => true],
-                'imei' => ['visible' => true, 'required' => false],
-                'barcode' => ['visible' => true, 'required' => false],
-                'presentation_id' => ['visible' => false, 'required' => false],
-                'size' => ['visible' => false, 'required' => false],
-                'weight' => ['visible' => false, 'required' => false],
-                'min_stock' => ['visible' => true, 'required' => false],
-                'max_stock' => ['visible' => false, 'required' => false],
+                'product_model_id' => ['parent_visible' => true, 'parent_required' => true, 'child_visible' => true, 'child_required' => true],
+                'color_id' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => true],
+                'imei' => ['parent_visible' => false, 'parent_required' => false, 'child_visible' => true, 'child_required' => false],
+                'barcode' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => false],
+                'presentation_id' => ['parent_visible' => false, 'parent_required' => false, 'child_visible' => false, 'child_required' => false],
+                'size' => ['parent_visible' => false, 'parent_required' => false, 'child_visible' => false, 'child_required' => false],
+                'weight' => ['parent_visible' => false, 'parent_required' => false, 'child_visible' => false, 'child_required' => false],
             ],
         ],
         'clothing' => [
             'name' => 'Ropa',
             'description' => 'Configuración para tiendas de ropa y calzado',
             'fields' => [
-                'color_id' => ['visible' => true, 'required' => true],
-                'size' => ['visible' => true, 'required' => true],
-                'barcode' => ['visible' => true, 'required' => false],
-                'presentation_id' => ['visible' => false, 'required' => false],
-                'product_model_id' => ['visible' => false, 'required' => false],
-                'weight' => ['visible' => false, 'required' => false],
-                'imei' => ['visible' => false, 'required' => false],
-                'min_stock' => ['visible' => true, 'required' => false],
-                'max_stock' => ['visible' => false, 'required' => false],
+                'color_id' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => true],
+                'size' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => true],
+                'barcode' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => false],
+                'presentation_id' => ['parent_visible' => false, 'parent_required' => false, 'child_visible' => false, 'child_required' => false],
+                'product_model_id' => ['parent_visible' => false, 'parent_required' => false, 'child_visible' => false, 'child_required' => false],
+                'weight' => ['parent_visible' => false, 'parent_required' => false, 'child_visible' => false, 'child_required' => false],
+                'imei' => ['parent_visible' => false, 'parent_required' => false, 'child_visible' => false, 'child_required' => false],
             ],
         ],
         'jewelry' => [
             'name' => 'Joyería',
             'description' => 'Configuración para joyerías y relojerías',
             'fields' => [
-                'weight' => ['visible' => true, 'required' => true],
-                'color_id' => ['visible' => true, 'required' => false],
-                'barcode' => ['visible' => true, 'required' => false],
-                'presentation_id' => ['visible' => false, 'required' => false],
-                'product_model_id' => ['visible' => true, 'required' => false],
-                'size' => ['visible' => true, 'required' => false],
-                'imei' => ['visible' => false, 'required' => false],
-                'min_stock' => ['visible' => true, 'required' => false],
-                'max_stock' => ['visible' => false, 'required' => false],
+                'weight' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => true],
+                'color_id' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => false],
+                'barcode' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => false],
+                'presentation_id' => ['parent_visible' => false, 'parent_required' => false, 'child_visible' => false, 'child_required' => false],
+                'product_model_id' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => false],
+                'size' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => false],
+                'imei' => ['parent_visible' => false, 'parent_required' => false, 'child_visible' => false, 'child_required' => false],
             ],
         ],
         'general' => [
             'name' => 'General',
             'description' => 'Configuración general para cualquier tipo de negocio',
             'fields' => [
-                'barcode' => ['visible' => true, 'required' => false],
-                'presentation_id' => ['visible' => true, 'required' => false],
-                'color_id' => ['visible' => true, 'required' => false],
-                'product_model_id' => ['visible' => true, 'required' => false],
-                'size' => ['visible' => true, 'required' => false],
-                'weight' => ['visible' => true, 'required' => false],
-                'imei' => ['visible' => false, 'required' => false],
-                'min_stock' => ['visible' => true, 'required' => false],
-                'max_stock' => ['visible' => true, 'required' => false],
+                'barcode' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => false],
+                'presentation_id' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => false],
+                'color_id' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => false],
+                'product_model_id' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => false],
+                'size' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => false],
+                'weight' => ['parent_visible' => true, 'parent_required' => false, 'child_visible' => true, 'child_required' => false],
+                'imei' => ['parent_visible' => false, 'parent_required' => false, 'child_visible' => false, 'child_required' => false],
             ],
         ],
     ];
@@ -134,15 +169,9 @@ class ProductFieldSetting extends Model
 
     /**
      * Get field settings for a specific branch.
-     * Falls back to global settings (branch_id = null) if no branch-specific settings exist.
-     * Falls back to default settings if no settings exist at all.
-     *
-     * @param int|null $branchId The branch ID, or null for global settings
-     * @return Collection Collection of field settings keyed by field_name
      */
     public static function getFieldsForBranch(?int $branchId = null): Collection
     {
-        // Try to get branch-specific settings first
         $settings = collect();
         
         if ($branchId !== null) {
@@ -152,7 +181,6 @@ class ProductFieldSetting extends Model
                 ->keyBy('field_name');
         }
 
-        // If no branch-specific settings, try global settings
         if ($settings->isEmpty()) {
             $settings = static::whereNull('branch_id')
                 ->orderBy('display_order')
@@ -160,7 +188,6 @@ class ProductFieldSetting extends Model
                 ->keyBy('field_name');
         }
 
-        // If still no settings, return defaults
         if ($settings->isEmpty()) {
             return static::getDefaultFieldSettings();
         }
@@ -178,10 +205,6 @@ class ProductFieldSetting extends Model
 
     /**
      * Apply a preset configuration to a branch.
-     *
-     * @param string $preset The preset key (pharmacy, cellphones, clothing, jewelry, general)
-     * @param int|null $branchId The branch ID, or null for global settings
-     * @return bool True if successful, false if preset doesn't exist
      */
     public static function applyPreset(string $preset, ?int $branchId = null): bool
     {
@@ -192,16 +215,16 @@ class ProductFieldSetting extends Model
         $presetConfig = self::PRESETS[$preset]['fields'];
         $displayOrder = 0;
 
-        // Delete existing settings for this branch
         static::where('branch_id', $branchId)->delete();
 
-        // Create new settings from preset
         foreach ($presetConfig as $fieldName => $config) {
             static::create([
                 'branch_id' => $branchId,
                 'field_name' => $fieldName,
-                'is_visible' => $config['visible'],
-                'is_required' => $config['required'],
+                'parent_visible' => $config['parent_visible'],
+                'parent_required' => $config['parent_required'],
+                'child_visible' => $config['child_visible'],
+                'child_required' => $config['child_required'],
                 'display_order' => $displayOrder++,
             ]);
         }
@@ -211,8 +234,6 @@ class ProductFieldSetting extends Model
 
     /**
      * Get default field settings based on CONFIGURABLE_FIELDS.
-     *
-     * @return Collection Collection of default settings
      */
     public static function getDefaultFieldSettings(): Collection
     {
@@ -223,8 +244,10 @@ class ProductFieldSetting extends Model
             $defaults->put($fieldName, (object) [
                 'field_name' => $fieldName,
                 'label' => $config['label'],
-                'is_visible' => $config['default_visible'],
-                'is_required' => $config['default_required'],
+                'parent_visible' => $config['parent_visible'],
+                'parent_required' => $config['parent_required'],
+                'child_visible' => $config['child_visible'],
+                'child_required' => $config['child_required'],
                 'display_order' => $displayOrder++,
             ]);
         }
@@ -233,36 +256,7 @@ class ProductFieldSetting extends Model
     }
 
     /**
-     * Get visible fields for a branch.
-     *
-     * @param int|null $branchId The branch ID
-     * @return Collection Collection of visible field names
-     */
-    public static function getVisibleFieldsForBranch(?int $branchId = null): Collection
-    {
-        return static::getFieldsForBranch($branchId)
-            ->filter(fn ($field) => $field->is_visible ?? $field['is_visible'] ?? true)
-            ->keys();
-    }
-
-    /**
-     * Get required fields for a branch.
-     *
-     * @param int|null $branchId The branch ID
-     * @return Collection Collection of required field names
-     */
-    public static function getRequiredFieldsForBranch(?int $branchId = null): Collection
-    {
-        return static::getFieldsForBranch($branchId)
-            ->filter(fn ($field) => ($field->is_visible ?? $field['is_visible'] ?? true) 
-                && ($field->is_required ?? $field['is_required'] ?? false))
-            ->keys();
-    }
-
-    /**
      * Get available presets.
-     *
-     * @return array Array of preset information
      */
     public static function getAvailablePresets(): array
     {

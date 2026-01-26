@@ -11,33 +11,17 @@ use Livewire\Component;
 #[Layout('layouts.app')]
 class ProductFieldConfig extends Component
 {
-    // Current branch selection (null = global settings)
     public ?int $branchId = null;
-
-    // Field settings array: [field_name => ['is_visible' => bool, 'is_required' => bool]]
     public array $fieldSettings = [];
-
-    // Selected preset for quick configuration
     public ?string $selectedPreset = null;
-
-    // Available presets from model
     public array $availablePresets = [];
-
-    // Configurable fields with labels
     public array $configurableFields = [];
-
-    // Track if settings have been modified
     public bool $hasChanges = false;
 
     public function mount()
     {
-        // Load available presets
         $this->availablePresets = ProductFieldSetting::getAvailablePresets();
-        
-        // Load configurable fields
         $this->configurableFields = ProductFieldSetting::CONFIGURABLE_FIELDS;
-        
-        // Load current settings for the selected branch
         $this->loadSettings();
     }
 
@@ -66,51 +50,55 @@ class ProductFieldConfig extends Component
             $setting = $settings->get($fieldName);
             
             $this->fieldSettings[$fieldName] = [
-                'is_visible' => is_object($setting) 
-                    ? $setting->is_visible 
-                    : ($setting['is_visible'] ?? $config['default_visible']),
-                'is_required' => is_object($setting) 
-                    ? $setting->is_required 
-                    : ($setting['is_required'] ?? $config['default_required'] ?? false),
+                'parent_visible' => is_object($setting) 
+                    ? $setting->parent_visible 
+                    : ($setting['parent_visible'] ?? $config['parent_visible']),
+                'parent_required' => is_object($setting) 
+                    ? $setting->parent_required 
+                    : ($setting['parent_required'] ?? $config['parent_required']),
+                'child_visible' => is_object($setting) 
+                    ? $setting->child_visible 
+                    : ($setting['child_visible'] ?? $config['child_visible']),
+                'child_required' => is_object($setting) 
+                    ? $setting->child_required 
+                    : ($setting['child_required'] ?? $config['child_required']),
             ];
         }
     }
 
-    public function toggleVisible(string $fieldName)
+    public function toggleSetting(string $fieldName, string $settingType)
     {
         if (!auth()->user()->hasPermission('product_field_config.edit')) {
             $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
             return;
         }
 
-        if (isset($this->fieldSettings[$fieldName])) {
-            $this->fieldSettings[$fieldName]['is_visible'] = !$this->fieldSettings[$fieldName]['is_visible'];
-            
-            // If field becomes hidden, also set required to false
-            if (!$this->fieldSettings[$fieldName]['is_visible']) {
-                $this->fieldSettings[$fieldName]['is_required'] = false;
-            }
-            
-            $this->hasChanges = true;
-            $this->selectedPreset = null;
-        }
-    }
-
-    public function toggleRequired(string $fieldName)
-    {
-        if (!auth()->user()->hasPermission('product_field_config.edit')) {
-            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+        if (!isset($this->fieldSettings[$fieldName])) {
             return;
         }
 
-        if (isset($this->fieldSettings[$fieldName])) {
-            // Can only toggle required if field is visible
-            if ($this->fieldSettings[$fieldName]['is_visible']) {
-                $this->fieldSettings[$fieldName]['is_required'] = !$this->fieldSettings[$fieldName]['is_required'];
-                $this->hasChanges = true;
-                $this->selectedPreset = null;
-            }
+        $this->fieldSettings[$fieldName][$settingType] = !$this->fieldSettings[$fieldName][$settingType];
+
+        // If visibility is turned off, also turn off required
+        if ($settingType === 'parent_visible' && !$this->fieldSettings[$fieldName]['parent_visible']) {
+            $this->fieldSettings[$fieldName]['parent_required'] = false;
         }
+        if ($settingType === 'child_visible' && !$this->fieldSettings[$fieldName]['child_visible']) {
+            $this->fieldSettings[$fieldName]['child_required'] = false;
+        }
+
+        // Can't set required if not visible
+        if ($settingType === 'parent_required' && !$this->fieldSettings[$fieldName]['parent_visible']) {
+            $this->fieldSettings[$fieldName]['parent_required'] = false;
+            return;
+        }
+        if ($settingType === 'child_required' && !$this->fieldSettings[$fieldName]['child_visible']) {
+            $this->fieldSettings[$fieldName]['child_required'] = false;
+            return;
+        }
+
+        $this->hasChanges = true;
+        $this->selectedPreset = null;
     }
 
     public function applyPreset(string $preset)
@@ -130,14 +118,17 @@ class ProductFieldConfig extends Component
         foreach ($this->configurableFields as $fieldName => $config) {
             if (isset($presetConfig[$fieldName])) {
                 $this->fieldSettings[$fieldName] = [
-                    'is_visible' => $presetConfig[$fieldName]['visible'],
-                    'is_required' => $presetConfig[$fieldName]['required'],
+                    'parent_visible' => $presetConfig[$fieldName]['parent_visible'],
+                    'parent_required' => $presetConfig[$fieldName]['parent_required'],
+                    'child_visible' => $presetConfig[$fieldName]['child_visible'],
+                    'child_required' => $presetConfig[$fieldName]['child_required'],
                 ];
             } else {
-                // Reset to defaults if not in preset
                 $this->fieldSettings[$fieldName] = [
-                    'is_visible' => $config['default_visible'],
-                    'is_required' => $config['default_required'] ?? false,
+                    'parent_visible' => $config['parent_visible'],
+                    'parent_required' => $config['parent_required'],
+                    'child_visible' => $config['child_visible'],
+                    'child_required' => $config['child_required'],
                 ];
             }
         }
@@ -156,27 +147,25 @@ class ProductFieldConfig extends Component
             return;
         }
 
-        // Delete existing settings for this branch
         ProductFieldSetting::where('branch_id', $this->branchId)->delete();
 
-        // Create new settings
         $displayOrder = 0;
         foreach ($this->fieldSettings as $fieldName => $settings) {
             ProductFieldSetting::create([
                 'branch_id' => $this->branchId,
                 'field_name' => $fieldName,
-                'is_visible' => $settings['is_visible'],
-                'is_required' => $settings['is_required'],
+                'parent_visible' => $settings['parent_visible'],
+                'parent_required' => $settings['parent_required'],
+                'child_visible' => $settings['child_visible'],
+                'child_required' => $settings['child_required'],
                 'display_order' => $displayOrder++,
             ]);
         }
 
-        // Log activity
         $branchName = $this->branchId 
             ? Branch::find($this->branchId)?->name ?? 'Sucursal desconocida'
             : 'Global';
         
-        // Use the base log method since we don't have a single model to reference
         ActivityLogService::log(
             'product_field_settings',
             'update',
@@ -199,8 +188,10 @@ class ProductFieldConfig extends Component
 
         foreach ($this->configurableFields as $fieldName => $config) {
             $this->fieldSettings[$fieldName] = [
-                'is_visible' => $config['default_visible'],
-                'is_required' => $config['default_required'] ?? false,
+                'parent_visible' => $config['parent_visible'],
+                'parent_required' => $config['parent_required'],
+                'child_visible' => $config['child_visible'],
+                'child_required' => $config['child_required'],
             ];
         }
 

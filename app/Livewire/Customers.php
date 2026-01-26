@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\Department;
 use App\Models\Municipality;
@@ -18,12 +19,14 @@ class Customers extends Component
 
     public $search = '';
     public $filterCustomerType = '';
+    public $filterBranch = '';
     public $isModalOpen = false;
     public $isDeleteModalOpen = false;
     public $itemIdToDelete = null;
 
     // Form properties
     public $itemId;
+    public $branch_id;
     public $customer_type = 'natural';
     public $tax_document_id;
     public $document_number;
@@ -43,10 +46,40 @@ class Customers extends Component
     // Data collections
     public $municipalities = [];
 
+    // Branch control
+    public bool $needsBranchSelection = false;
+    public $branches = [];
+
+    public function mount()
+    {
+        $user = auth()->user();
+        // User needs branch selection if they are super_admin or have no branch assigned
+        $this->needsBranchSelection = $user->isSuperAdmin() || !$user->branch_id;
+        
+        if ($this->needsBranchSelection) {
+            $this->branches = Branch::where('is_active', true)->orderBy('name')->get();
+        }
+    }
+
     public function render()
     {
-        $items = Customer::query()
-            ->with(['taxDocument', 'department', 'municipality'])
+        $user = auth()->user();
+        
+        $query = Customer::query()
+            ->with(['taxDocument', 'department', 'municipality', 'branch']);
+
+        // Apply branch filter
+        if ($this->needsBranchSelection) {
+            // Super admin or user without branch - can filter by branch
+            if ($this->filterBranch) {
+                $query->where('branch_id', $this->filterBranch);
+            }
+        } else {
+            // Regular user - only see their branch's customers
+            $query->where('branch_id', $user->branch_id);
+        }
+
+        $items = $query
             ->when($this->search, fn($q) => $q->where('first_name', 'like', "%{$this->search}%")
                 ->orWhere('last_name', 'like', "%{$this->search}%")
                 ->orWhere('business_name', 'like', "%{$this->search}%")
@@ -98,6 +131,13 @@ class Customers extends Component
         }
         $this->resetValidation();
         $this->resetForm();
+        
+        // Set default branch for users with assigned branch
+        $user = auth()->user();
+        if (!$this->needsBranchSelection && $user->branch_id) {
+            $this->branch_id = $user->branch_id;
+        }
+        
         $this->isModalOpen = true;
     }
 
@@ -111,6 +151,7 @@ class Customers extends Component
         $item = Customer::findOrFail($id);
         
         $this->itemId = $item->id;
+        $this->branch_id = $item->branch_id;
         $this->customer_type = $item->customer_type;
         $this->tax_document_id = $item->tax_document_id;
         $this->document_number = $item->document_number;
@@ -157,15 +198,26 @@ class Customers extends Component
             'credit_limit' => $this->has_credit ? 'required|numeric|min:0' : 'nullable|numeric|min:0',
         ];
 
-        $this->validate($rules);
+        // Branch is required for super_admin or users without branch
+        if ($this->needsBranchSelection) {
+            $rules['branch_id'] = 'required|exists:branches,id';
+        }
+
+        $this->validate($rules, [
+            'branch_id.required' => 'Debe seleccionar una sucursal',
+        ]);
 
         // If setting as default, remove default from other customers
         if ($this->is_default) {
             Customer::where('is_default', true)->update(['is_default' => false]);
         }
 
+        // Determine branch_id
+        $branchId = $this->needsBranchSelection ? $this->branch_id : auth()->user()->branch_id;
+
         $oldValues = $isNew ? null : Customer::find($this->itemId)->toArray();
         $item = Customer::updateOrCreate(['id' => $this->itemId], [
+            'branch_id' => $branchId,
             'customer_type' => $this->customer_type,
             'tax_document_id' => $this->tax_document_id,
             'document_number' => $this->document_number,
@@ -230,6 +282,7 @@ class Customers extends Component
     private function resetForm()
     {
         $this->itemId = null;
+        $this->branch_id = '';
         $this->customer_type = 'natural';
         $this->tax_document_id = '';
         $this->document_number = '';

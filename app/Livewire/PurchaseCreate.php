@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\Branch;
 use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\Purchase;
@@ -22,6 +23,7 @@ class PurchaseCreate extends Component
 
     // Purchase header
     public ?int $supplier_id = null;
+    public ?int $branch_id = null;
     public string $supplier_invoice = '';
     public string $purchase_date;
     public ?string $due_date = null;
@@ -45,6 +47,10 @@ class PurchaseCreate extends Component
     // Lists
     public $suppliers = [];
     public $paymentMethods = [];
+    public $branches = [];
+
+    // Branch control
+    public bool $needsBranchSelection = false;
 
     // Totals
     public float $subtotal = 0;
@@ -57,6 +63,15 @@ class PurchaseCreate extends Component
         $this->purchase_date = now()->format('Y-m-d');
         $this->suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
         $this->paymentMethods = PaymentMethod::where('is_active', true)->orderBy('name')->get();
+
+        $user = auth()->user();
+        $this->needsBranchSelection = $user->isSuperAdmin() || !$user->branch_id;
+        
+        if ($this->needsBranchSelection) {
+            $this->branches = Branch::where('is_active', true)->orderBy('name')->get();
+        } else {
+            $this->branch_id = $user->branch_id;
+        }
 
         if ($id) {
             $this->loadPurchase($id);
@@ -78,6 +93,7 @@ class PurchaseCreate extends Component
 
         // Load header data
         $this->supplier_id = $this->purchase->supplier_id;
+        $this->branch_id = $this->purchase->branch_id;
         $this->supplier_invoice = $this->purchase->supplier_invoice ?? '';
         $this->purchase_date = $this->purchase->purchase_date->format('Y-m-d');
         $this->due_date = $this->purchase->due_date?->format('Y-m-d');
@@ -125,12 +141,22 @@ class PurchaseCreate extends Component
             return;
         }
 
-        $this->searchResults = Product::where('is_active', true)
+        // Determine branch_id for filtering
+        $branchId = $this->needsBranchSelection ? $this->branch_id : auth()->user()->branch_id;
+
+        $query = Product::where('is_active', true)
             ->where(function ($q) {
                 $q->where('name', 'like', "%{$this->productSearch}%")
                     ->orWhere('sku', 'like', "%{$this->productSearch}%")
                     ->orWhere('barcode', 'like', "%{$this->productSearch}%");
-            })
+            });
+
+        // Filter by branch if branch_id is set
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+
+        $this->searchResults = $query
             ->with(['category', 'unit', 'tax'])
             ->limit(10)
             ->get()
@@ -197,12 +223,21 @@ class PurchaseCreate extends Component
             return;
         }
 
-        $product = Product::where('is_active', true)
+        // Determine branch_id for filtering
+        $branchId = $this->needsBranchSelection ? $this->branch_id : auth()->user()->branch_id;
+
+        $query = Product::where('is_active', true)
             ->where(function ($q) {
                 $q->where('barcode', $this->productSearch)
                     ->orWhere('sku', $this->productSearch);
-            })
-            ->first();
+            });
+
+        // Filter by branch if branch_id is set
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+
+        $product = $query->first();
 
         if ($product) {
             $this->addProduct($product->id);
@@ -324,7 +359,13 @@ class PurchaseCreate extends Component
             'purchase_date.required' => 'La fecha es obligatoria',
             'supplier_id.required' => 'El proveedor es obligatorio',
             'supplier_id.exists' => 'El proveedor seleccionado no es válido',
+            'branch_id.required' => 'Debe seleccionar una sucursal',
         ];
+
+        // Branch is required for super_admin
+        if ($this->needsBranchSelection) {
+            $rules['branch_id'] = 'required|exists:branches,id';
+        }
 
         if ($this->payment_type === 'cash') {
             $rules['payment_method_id'] = 'required|exists:payment_methods,id';
@@ -338,9 +379,12 @@ class PurchaseCreate extends Component
 
         $this->validate($rules, $messages);
 
+        // Determine branch_id
+        $branchId = $this->needsBranchSelection ? $this->branch_id : auth()->user()->branch_id;
+
         $purchaseData = [
             'supplier_id' => $this->supplier_id,
-            'branch_id' => auth()->user()->branch_id,
+            'branch_id' => $branchId,
             'user_id' => auth()->id(),
             'supplier_invoice' => $this->supplier_invoice ?: null,
             'purchase_date' => $this->purchase_date,

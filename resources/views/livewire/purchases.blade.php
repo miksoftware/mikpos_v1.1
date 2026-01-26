@@ -23,6 +23,14 @@
                 <input wire:model.live.debounce.300ms="search" type="text" class="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] transition-all sm:text-sm" placeholder="Buscar por número, factura o proveedor...">
             </div>
             <div class="flex flex-col sm:flex-row gap-3">
+                @if($needsBranchSelection)
+                <select wire:model.live="filterBranch" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[150px]">
+                    <option value="">Todas las sucursales</option>
+                    @foreach($branches as $branch)
+                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                    @endforeach
+                </select>
+                @endif
                 <select wire:model.live="filterStatus" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[130px]">
                     <option value="">Todos los estados</option>
                     <option value="draft">Borrador</option>
@@ -37,7 +45,7 @@
                 </select>
                 <input wire:model.live="dateFrom" type="date" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm">
                 <input wire:model.live="dateTo" type="date" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm">
-                @if($search || $filterStatus || $filterSupplier || $dateFrom || $dateTo)
+                @if($search || $filterStatus || $filterSupplier || $filterBranch || $dateFrom || $dateTo)
                 <button wire:click="clearFilters" class="px-3 py-2.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors text-sm font-medium">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
@@ -54,6 +62,9 @@
                     <tr>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Compra</th>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Proveedor</th>
+                        @if($needsBranchSelection)
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Sucursal</th>
+                        @endif
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Fecha</th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Tipo</th>
                         <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Total</th>
@@ -79,6 +90,11 @@
                             <span class="text-slate-400">Sin proveedor</span>
                             @endif
                         </td>
+                        @if($needsBranchSelection)
+                        <td class="px-6 py-4">
+                            <span class="text-slate-700">{{ $item->branch?->name ?? '-' }}</span>
+                        </td>
+                        @endif
                         <td class="px-6 py-4 text-center">
                             <span class="text-slate-700">{{ $item->purchase_date->format('d/m/Y') }}</span>
                         </td>
@@ -132,10 +148,10 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="px-6 py-12 text-center">
+                        <td colspan="{{ $needsBranchSelection ? 8 : 7 }}" class="px-6 py-12 text-center">
                             <svg class="w-12 h-12 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
                             <p class="text-slate-500">No hay compras registradas</p>
-                            @if($search || $filterStatus || $filterSupplier || $dateFrom || $dateTo)
+                            @if($search || $filterStatus || $filterSupplier || $filterBranch || $dateFrom || $dateTo)
                             <button wire:click="clearFilters" class="mt-2 text-[#ff7261] hover:underline text-sm">Limpiar filtros</button>
                             @endif
                         </td>

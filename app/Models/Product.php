@@ -13,6 +13,7 @@ class Product extends Model
     use HasFactory;
 
     protected $fillable = [
+        'branch_id',
         'sku',
         'barcode',
         'name',
@@ -22,6 +23,12 @@ class Product extends Model
         'brand_id',
         'unit_id',
         'tax_id',
+        'presentation_id',
+        'color_id',
+        'product_model_id',
+        'size',
+        'weight',
+        'imei',
         'image',
         'purchase_price',
         'sale_price',
@@ -49,6 +56,11 @@ class Product extends Model
 
     // Relationships
 
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
@@ -74,6 +86,21 @@ class Product extends Model
         return $this->belongsTo(Tax::class);
     }
 
+    public function presentation(): BelongsTo
+    {
+        return $this->belongsTo(Presentation::class);
+    }
+
+    public function color(): BelongsTo
+    {
+        return $this->belongsTo(Color::class);
+    }
+
+    public function productModel(): BelongsTo
+    {
+        return $this->belongsTo(ProductModel::class);
+    }
+
     public function children(): HasMany
     {
         return $this->hasMany(ProductChild::class);
@@ -94,6 +121,19 @@ class Product extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * Scope to filter products by branch.
+     * If user has a branch, filter by that branch.
+     * If user is super_admin or has no branch, show all or filter by selected branch.
+     */
+    public function scopeForBranch(Builder $query, ?int $branchId = null): Builder
+    {
+        if ($branchId) {
+            return $query->where('branch_id', $branchId);
+        }
+        return $query;
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
 use Carbon\Carbon;
@@ -13,6 +14,7 @@ class Combo extends Model
     use HasFactory;
 
     protected $fillable = [
+        'branch_id',
         'name',
         'description',
         'image',
@@ -41,6 +43,11 @@ class Combo extends Model
 
     // Relationships
 
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(ComboItem::class);
@@ -51,6 +58,17 @@ class Combo extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * Scope to filter combos by branch.
+     */
+    public function scopeForBranch(Builder $query, ?int $branchId = null): Builder
+    {
+        if ($branchId) {
+            return $query->where('branch_id', $branchId);
+        }
+        return $query;
     }
 
     public function scopeAvailable(Builder $query): Builder

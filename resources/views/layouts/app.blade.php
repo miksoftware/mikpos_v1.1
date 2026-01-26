@@ -59,6 +59,53 @@
                     <span x-show="sidebarOpen" class="font-medium">POS</span>
                 </a>
 
+                <!-- Cajas Section -->
+                @if (auth()->user()->hasPermission('cash_registers.view') || auth()->user()->hasPermission('cash_reconciliations.view'))
+                <div x-data="{ cajasOpen: {{ request()->routeIs('cash-registers') || request()->routeIs('cash-reconciliations') ? 'true' : 'false' }} }">
+                    <button @click="cajasOpen = !cajasOpen"
+                        class="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group {{ request()->routeIs('cash-registers') || request()->routeIs('cash-reconciliations') ? 'bg-gradient-to-r from-[#ff7261]/20 to-[#a855f7]/20 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5 flex-shrink-0 {{ request()->routeIs('cash-registers') || request()->routeIs('cash-reconciliations') ? 'text-[#ff7261]' : 'group-hover:text-[#ff7261]' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z">
+                                </path>
+                            </svg>
+                            <span x-show="sidebarOpen" class="font-medium">Cajas</span>
+                        </div>
+                        <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform duration-200"
+                            :class="cajasOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
+                            </path>
+                        </svg>
+                    </button>
+
+                    <div x-show="cajasOpen && sidebarOpen" x-collapse
+                        class="mt-1 ml-4 pl-4 border-l border-white/10 space-y-1">
+                        @if (auth()->user()->hasPermission('cash_registers.view'))
+                        <a href="{{ route('cash-registers') }}"
+                            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 {{ request()->routeIs('cash-registers') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                            <span class="text-sm">Creación de Cajas</span>
+                        </a>
+                        @endif
+                        @if (auth()->user()->hasPermission('cash_reconciliations.view'))
+                        <a href="{{ route('cash-reconciliations') }}"
+                            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 {{ request()->routeIs('cash-reconciliations') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span class="text-sm">Arqueos de Caja</span>
+                        </a>
+                        @endif
+                    </div>
+                </div>
+                @endif
+
                 <!-- Administración Section -->
                 <div x-data="{ adminOpen: {{ request()->routeIs('users') || request()->routeIs('branches') || request()->routeIs('roles') || request()->routeIs('departments') || request()->routeIs('municipalities') || request()->routeIs('tax-documents') || request()->routeIs('currencies') || request()->routeIs('payment-methods') || request()->routeIs('taxes') || request()->routeIs('system-documents') || request()->routeIs('categories') || request()->routeIs('subcategories') || request()->routeIs('brands') || request()->routeIs('units') || request()->routeIs('product-models') || request()->routeIs('presentations') || request()->routeIs('colors') || request()->routeIs('imeis') || request()->routeIs('product-field-config') ? 'true' : 'false' }}, configOpen: {{ request()->routeIs('departments') || request()->routeIs('municipalities') || request()->routeIs('tax-documents') || request()->routeIs('currencies') || request()->routeIs('payment-methods') || request()->routeIs('taxes') || request()->routeIs('system-documents') || request()->routeIs('product-field-config') ? 'true' : 'false' }}, productsOpen: {{ request()->routeIs('categories') || request()->routeIs('subcategories') || request()->routeIs('brands') || request()->routeIs('units') || request()->routeIs('product-models') || request()->routeIs('presentations') || request()->routeIs('colors') || request()->routeIs('imeis') ? 'true' : 'false' }} }">
                     <button @click="adminOpen = !adminOpen"
@@ -401,7 +448,7 @@
                 </div>
 
                 <!-- Inventarios Section -->
-                <div x-data="{ inventariosOpen: {{ request()->routeIs('purchases') || request()->routeIs('purchases.create') ? 'true' : 'false' }} }">
+                <div x-data="{ inventariosOpen: {{ request()->routeIs('purchases') || request()->routeIs('purchases.create') || request()->routeIs('inventory-adjustments') || request()->routeIs('inventory-transfers') ? 'true' : 'false' }} }">
                     <button @click="inventariosOpen = !inventariosOpen"
                         class="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-slate-400 hover:bg-white/5 hover:text-white">
                         <div class="flex items-center gap-3">
@@ -431,6 +478,28 @@
                                     </path>
                                 </svg>
                                 <span class="text-sm">Compras</span>
+                            </a>
+                        @endif
+                        @if (auth()->user()->hasPermission('inventory_adjustments.view'))
+                            <a href="{{ route('inventory-adjustments') }}"
+                                class="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 {{ request()->routeIs('inventory-adjustments') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z">
+                                    </path>
+                                </svg>
+                                <span class="text-sm">Ajustes Inventario</span>
+                            </a>
+                        @endif
+                        @if (auth()->user()->hasPermission('inventory_transfers.view'))
+                            <a href="{{ route('inventory-transfers') }}"
+                                class="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 {{ request()->routeIs('inventory-transfers') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4">
+                                    </path>
+                                </svg>
+                                <span class="text-sm">Traslados</span>
                             </a>
                         @endif
                     </div>

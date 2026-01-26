@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\Branch;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Color;
@@ -32,6 +33,11 @@ class Products extends Component
     public ?int $filterCategory = null;
     public ?int $filterBrand = null;
     public ?string $filterStatus = null;
+    public ?string $filterBranch = null;
+
+    // Branch control
+    public bool $needsBranchSelection = false;
+    public $branches = [];
 
     // Modal states
     public bool $isModalOpen = false;
@@ -43,6 +49,7 @@ class Products extends Component
 
     // Form data for parent product
     public ?int $itemId = null;
+    public ?int $branch_id = null;
     public ?string $sku = null;
     public ?string $barcode = null;
     public string $name = '';
@@ -64,6 +71,14 @@ class Products extends Component
     public ?float $commission_value = null;
     public $image = null; // For file upload
     public ?string $existingImage = null; // To track existing image path
+
+    // Configurable fields for parent product
+    public ?int $presentation_id = null;
+    public ?int $color_id = null;
+    public ?int $product_model_id = null;
+    public ?string $size = null;
+    public ?float $weight = null;
+    public ?string $imei = null;
 
     // Form data for child product
     public ?int $childId = null;
@@ -99,12 +114,35 @@ class Products extends Component
     // Expanded products (to show children)
     public array $expandedProducts = [];
 
+    public function mount()
+    {
+        $user = auth()->user();
+        $this->needsBranchSelection = $user->isSuperAdmin() || !$user->branch_id;
+        
+        if ($this->needsBranchSelection) {
+            $this->branches = Branch::where('is_active', true)->orderBy('name')->get();
+        }
+    }
+
     public function render()
     {
-        $items = Product::query()
-            ->with(['category', 'subcategory', 'brand', 'unit', 'tax', 'children.presentation', 'children.color', 'children.productModel'])
+        $user = auth()->user();
+        
+        $query = Product::query()
+            ->with(['category', 'subcategory', 'brand', 'unit', 'tax', 'branch', 'children.presentation', 'children.color', 'children.productModel'])
             ->withCount('children')
-            ->withCount('activeChildren')
+            ->withCount('activeChildren');
+
+        // Apply branch filter
+        if ($this->needsBranchSelection) {
+            if ($this->filterBranch) {
+                $query->where('branch_id', $this->filterBranch);
+            }
+        } else {
+            $query->where('branch_id', $user->branch_id);
+        }
+
+        $items = $query
             ->when($this->search, function ($q) {
                 $q->where(function ($query) {
                     $query->where('name', 'like', "%{$this->search}%")
@@ -161,6 +199,14 @@ class Products extends Component
         }
         $this->resetValidation();
         $this->resetForm();
+        $this->loadFieldSettings();
+        
+        // Set default branch for users with assigned branch
+        $user = auth()->user();
+        if (!$this->needsBranchSelection && $user->branch_id) {
+            $this->branch_id = $user->branch_id;
+        }
+        
         $this->isModalOpen = true;
     }
 
@@ -171,9 +217,11 @@ class Products extends Component
             return;
         }
         $this->resetValidation();
+        $this->loadFieldSettings();
         $item = Product::findOrFail($id);
         
         $this->itemId = $item->id;
+        $this->branch_id = $item->branch_id;
         $this->sku = $item->sku;
         $this->barcode = $item->barcode;
         $this->name = $item->name;
@@ -190,6 +238,14 @@ class Products extends Component
         $this->max_stock = $item->max_stock;
         $this->current_stock = $item->current_stock;
         $this->is_active = $item->is_active;
+        
+        // Load configurable fields
+        $this->presentation_id = $item->presentation_id;
+        $this->color_id = $item->color_id;
+        $this->product_model_id = $item->product_model_id;
+        $this->size = $item->size;
+        $this->weight = $item->weight ? (float) $item->weight : null;
+        $this->imei = $item->imei;
         $this->has_commission = $item->has_commission;
         $this->commission_type = $item->commission_type ?? 'percentage';
         $this->commission_value = $item->commission_value ? (float) $item->commission_value : null;
@@ -212,40 +268,17 @@ class Products extends Component
             return;
         }
 
-        $this->validate([
-            'name' => 'required|min:2',
-            'sku' => 'nullable|unique:products,sku,' . $this->itemId,
-            'barcode' => 'nullable|unique:products,barcode,' . $this->itemId,
-            'category_id' => 'required|exists:categories,id',
-            'subcategory_id' => 'nullable|exists:subcategories,id',
-            'brand_id' => 'nullable|exists:brands,id',
-            'unit_id' => 'required|exists:units,id',
-            'tax_id' => 'nullable|exists:taxes,id',
-            'purchase_price' => 'required|numeric|min:0',
-            'sale_price' => 'required|numeric|min:0',
-            'min_stock' => 'required|integer|min:0',
-            'max_stock' => 'nullable|integer|min:0',
-            'current_stock' => 'required|integer|min:0',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
-        ], [
-            'name.required' => 'El nombre es obligatorio',
-            'name.min' => 'El nombre debe tener al menos 2 caracteres',
-            'sku.unique' => 'El SKU ya está registrado',
-            'barcode.unique' => 'El código de barras ya está registrado',
-            'category_id.required' => 'La categoría es obligatoria',
-            'category_id.exists' => 'La categoría seleccionada no existe',
-            'unit_id.required' => 'La unidad es obligatoria',
-            'unit_id.exists' => 'La unidad seleccionada no existe',
-            'purchase_price.required' => 'El precio de compra es obligatorio',
-            'purchase_price.numeric' => 'El precio de compra debe ser numérico',
-            'sale_price.required' => 'El precio de venta es obligatorio',
-            'sale_price.numeric' => 'El precio de venta debe ser numérico',
-            'current_stock.required' => 'El stock inicial es obligatorio',
-            'current_stock.integer' => 'El stock debe ser un número entero',
-            'image.image' => 'El archivo debe ser una imagen',
-            'image.mimes' => 'La imagen debe ser JPG, PNG o WebP',
-            'image.max' => 'La imagen no debe superar 2MB',
-        ]);
+        // Build validation rules dynamically
+        $rules = $this->buildParentValidationRules();
+        $messages = $this->getParentValidationMessages();
+        
+        // Branch is required for super_admin or users without branch
+        if ($this->needsBranchSelection) {
+            $rules['branch_id'] = 'required|exists:branches,id';
+            $messages['branch_id.required'] = 'Debe seleccionar una sucursal';
+        }
+        
+        $this->validate($rules, $messages);
 
         $oldValues = $isNew ? null : Product::find($this->itemId)->toArray();
 
@@ -260,7 +293,11 @@ class Products extends Component
             $imagePath = $this->image->store('products', 'public');
         }
 
+        // Determine branch_id
+        $branchId = $this->needsBranchSelection ? $this->branch_id : auth()->user()->branch_id;
+
         $item = Product::updateOrCreate(['id' => $this->itemId], [
+            'branch_id' => $branchId,
             'barcode' => $this->barcode ?: null,
             'name' => $this->name,
             'description' => $this->description,
@@ -280,6 +317,13 @@ class Products extends Component
             'commission_type' => $this->has_commission ? $this->commission_type : null,
             'commission_value' => $this->has_commission ? $this->commission_value : null,
             'image' => $imagePath,
+            // Configurable fields
+            'presentation_id' => $this->presentation_id ?: null,
+            'color_id' => $this->color_id ?: null,
+            'product_model_id' => $this->product_model_id ?: null,
+            'size' => $this->size ?: null,
+            'weight' => $this->weight ?: null,
+            'imei' => $this->imei ?: null,
         ]);
 
         // Generate SKU if not provided
@@ -302,7 +346,7 @@ class Products extends Component
                         'system_document_id' => $systemDocument->id,
                         'document_number' => $systemDocument->generateNextNumber(),
                         'product_id' => $item->id,
-                        'branch_id' => auth()->user()->branch_id,
+                        'branch_id' => $branchId,
                         'user_id' => auth()->id(),
                         'movement_type' => 'in',
                         'quantity' => $this->current_stock,
@@ -622,28 +666,156 @@ class Products extends Component
         $this->fieldSettings = ProductFieldSetting::getFieldsForBranch($branchId)->toArray();
     }
 
-    private function isFieldVisible(string $fieldName): bool
+    private function isParentFieldVisible(string $fieldName): bool
     {
         if (!isset($this->fieldSettings[$fieldName])) {
-            return true; // Default to visible if not configured
+            return false; // Default to not visible for configurable fields
         }
         
         $field = $this->fieldSettings[$fieldName];
-        return is_object($field) ? $field->is_visible : ($field['is_visible'] ?? true);
+        return is_object($field) ? $field->parent_visible : ($field['parent_visible'] ?? false);
     }
 
-    private function isFieldRequired(string $fieldName): bool
+    private function isParentFieldRequired(string $fieldName): bool
     {
         if (!isset($this->fieldSettings[$fieldName])) {
-            return false; // Default to not required if not configured
+            return false;
         }
         
         $field = $this->fieldSettings[$fieldName];
-        $isVisible = is_object($field) ? $field->is_visible : ($field['is_visible'] ?? true);
-        $isRequired = is_object($field) ? $field->is_required : ($field['is_required'] ?? false);
+        $isVisible = is_object($field) ? $field->parent_visible : ($field['parent_visible'] ?? false);
+        $isRequired = is_object($field) ? $field->parent_required : ($field['parent_required'] ?? false);
         
-        // Only required if visible AND marked as required
         return $isVisible && $isRequired;
+    }
+
+    private function isChildFieldVisible(string $fieldName): bool
+    {
+        if (!isset($this->fieldSettings[$fieldName])) {
+            return false;
+        }
+        
+        $field = $this->fieldSettings[$fieldName];
+        return is_object($field) ? $field->child_visible : ($field['child_visible'] ?? false);
+    }
+
+    private function isChildFieldRequired(string $fieldName): bool
+    {
+        if (!isset($this->fieldSettings[$fieldName])) {
+            return false;
+        }
+        
+        $field = $this->fieldSettings[$fieldName];
+        $isVisible = is_object($field) ? $field->child_visible : ($field['child_visible'] ?? false);
+        $isRequired = is_object($field) ? $field->child_required : ($field['child_required'] ?? false);
+        
+        return $isVisible && $isRequired;
+    }
+
+    private function buildParentValidationRules(): array
+    {
+        $rules = [
+            'name' => 'required|min:2',
+            'sku' => 'nullable|unique:products,sku,' . $this->itemId,
+            'category_id' => 'required|exists:categories,id',
+            'subcategory_id' => 'nullable|exists:subcategories,id',
+            'brand_id' => 'nullable|exists:brands,id',
+            'unit_id' => 'required|exists:units,id',
+            'tax_id' => 'nullable|exists:taxes,id',
+            'purchase_price' => 'required|numeric|min:0',
+            'sale_price' => 'required|numeric|min:0',
+            'min_stock' => 'required|integer|min:0',
+            'max_stock' => 'nullable|integer|min:0',
+            'current_stock' => 'required|integer|min:0',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+        ];
+
+        // Barcode - configurable
+        if ($this->isParentFieldVisible('barcode')) {
+            $rules['barcode'] = $this->isParentFieldRequired('barcode') 
+                ? 'required|unique:products,barcode,' . $this->itemId
+                : 'nullable|unique:products,barcode,' . $this->itemId;
+        }
+
+        // Presentation - configurable
+        if ($this->isParentFieldVisible('presentation_id')) {
+            $rules['presentation_id'] = $this->isParentFieldRequired('presentation_id')
+                ? 'required|exists:presentations,id'
+                : 'nullable|exists:presentations,id';
+        }
+
+        // Color - configurable
+        if ($this->isParentFieldVisible('color_id')) {
+            $rules['color_id'] = $this->isParentFieldRequired('color_id')
+                ? 'required|exists:colors,id'
+                : 'nullable|exists:colors,id';
+        }
+
+        // Product Model - configurable
+        if ($this->isParentFieldVisible('product_model_id')) {
+            $rules['product_model_id'] = $this->isParentFieldRequired('product_model_id')
+                ? 'required|exists:product_models,id'
+                : 'nullable|exists:product_models,id';
+        }
+
+        // Size - configurable
+        if ($this->isParentFieldVisible('size')) {
+            $rules['size'] = $this->isParentFieldRequired('size')
+                ? 'required|string|max:50'
+                : 'nullable|string|max:50';
+        }
+
+        // Weight - configurable
+        if ($this->isParentFieldVisible('weight')) {
+            $rules['weight'] = $this->isParentFieldRequired('weight')
+                ? 'required|numeric|min:0'
+                : 'nullable|numeric|min:0';
+        }
+
+        // IMEI - configurable
+        if ($this->isParentFieldVisible('imei')) {
+            $rules['imei'] = $this->isParentFieldRequired('imei')
+                ? 'required|string|min:15|max:17'
+                : 'nullable|string|min:15|max:17';
+        }
+
+        return $rules;
+    }
+
+    private function getParentValidationMessages(): array
+    {
+        return [
+            'name.required' => 'El nombre es obligatorio',
+            'name.min' => 'El nombre debe tener al menos 2 caracteres',
+            'sku.unique' => 'El SKU ya está registrado',
+            'barcode.unique' => 'El código de barras ya está registrado',
+            'barcode.required' => 'El código de barras es obligatorio',
+            'category_id.required' => 'La categoría es obligatoria',
+            'category_id.exists' => 'La categoría seleccionada no existe',
+            'unit_id.required' => 'La unidad es obligatoria',
+            'unit_id.exists' => 'La unidad seleccionada no existe',
+            'purchase_price.required' => 'El precio de compra es obligatorio',
+            'purchase_price.numeric' => 'El precio de compra debe ser numérico',
+            'sale_price.required' => 'El precio de venta es obligatorio',
+            'sale_price.numeric' => 'El precio de venta debe ser numérico',
+            'current_stock.required' => 'El stock inicial es obligatorio',
+            'current_stock.integer' => 'El stock debe ser un número entero',
+            'image.image' => 'El archivo debe ser una imagen',
+            'image.mimes' => 'La imagen debe ser JPG, PNG o WebP',
+            'image.max' => 'La imagen no debe superar 2MB',
+            'presentation_id.required' => 'La presentación es obligatoria',
+            'presentation_id.exists' => 'La presentación seleccionada no existe',
+            'color_id.required' => 'El color es obligatorio',
+            'color_id.exists' => 'El color seleccionado no existe',
+            'product_model_id.required' => 'El modelo es obligatorio',
+            'product_model_id.exists' => 'El modelo seleccionado no existe',
+            'size.required' => 'La talla es obligatoria',
+            'weight.required' => 'El peso es obligatorio',
+            'weight.numeric' => 'El peso debe ser numérico',
+            'imei.required' => 'El IMEI es obligatorio',
+            'imei.min' => 'El IMEI debe tener al menos 15 caracteres',
+            'imei.max' => 'El IMEI no puede tener más de 17 caracteres',
+        ];
     }
 
     private function buildChildValidationRules(): array
@@ -657,59 +829,52 @@ class Products extends Component
         ];
 
         // Add barcode validation
-        if ($this->isFieldVisible('barcode')) {
-            $rules['childBarcode'] = 'nullable|unique:product_children,barcode,' . $this->childId;
-            if ($this->isFieldRequired('barcode')) {
-                $rules['childBarcode'] = 'required|unique:product_children,barcode,' . $this->childId;
-            }
+        if ($this->isChildFieldVisible('barcode')) {
+            $rules['childBarcode'] = $this->isChildFieldRequired('barcode')
+                ? 'required|unique:product_children,barcode,' . $this->childId
+                : 'nullable|unique:product_children,barcode,' . $this->childId;
         }
 
         // Add presentation validation
-        if ($this->isFieldVisible('presentation_id')) {
-            $rules['childPresentationId'] = 'nullable|exists:presentations,id';
-            if ($this->isFieldRequired('presentation_id')) {
-                $rules['childPresentationId'] = 'required|exists:presentations,id';
-            }
+        if ($this->isChildFieldVisible('presentation_id')) {
+            $rules['childPresentationId'] = $this->isChildFieldRequired('presentation_id')
+                ? 'required|exists:presentations,id'
+                : 'nullable|exists:presentations,id';
         }
 
         // Add color validation
-        if ($this->isFieldVisible('color_id')) {
-            $rules['childColorId'] = 'nullable|exists:colors,id';
-            if ($this->isFieldRequired('color_id')) {
-                $rules['childColorId'] = 'required|exists:colors,id';
-            }
+        if ($this->isChildFieldVisible('color_id')) {
+            $rules['childColorId'] = $this->isChildFieldRequired('color_id')
+                ? 'required|exists:colors,id'
+                : 'nullable|exists:colors,id';
         }
 
         // Add product model validation
-        if ($this->isFieldVisible('product_model_id')) {
-            $rules['childProductModelId'] = 'nullable|exists:product_models,id';
-            if ($this->isFieldRequired('product_model_id')) {
-                $rules['childProductModelId'] = 'required|exists:product_models,id';
-            }
+        if ($this->isChildFieldVisible('product_model_id')) {
+            $rules['childProductModelId'] = $this->isChildFieldRequired('product_model_id')
+                ? 'required|exists:product_models,id'
+                : 'nullable|exists:product_models,id';
         }
 
         // Add size validation
-        if ($this->isFieldVisible('size')) {
-            $rules['childSize'] = 'nullable|string|max:50';
-            if ($this->isFieldRequired('size')) {
-                $rules['childSize'] = 'required|string|max:50';
-            }
+        if ($this->isChildFieldVisible('size')) {
+            $rules['childSize'] = $this->isChildFieldRequired('size')
+                ? 'required|string|max:50'
+                : 'nullable|string|max:50';
         }
 
         // Add weight validation
-        if ($this->isFieldVisible('weight')) {
-            $rules['childWeight'] = 'nullable|numeric|min:0';
-            if ($this->isFieldRequired('weight')) {
-                $rules['childWeight'] = 'required|numeric|min:0';
-            }
+        if ($this->isChildFieldVisible('weight')) {
+            $rules['childWeight'] = $this->isChildFieldRequired('weight')
+                ? 'required|numeric|min:0'
+                : 'nullable|numeric|min:0';
         }
 
         // Add IMEI validation
-        if ($this->isFieldVisible('imei')) {
-            $rules['childImei'] = 'nullable|string|min:15|max:17';
-            if ($this->isFieldRequired('imei')) {
-                $rules['childImei'] = 'required|string|min:15|max:17';
-            }
+        if ($this->isChildFieldVisible('imei')) {
+            $rules['childImei'] = $this->isChildFieldRequired('imei')
+                ? 'required|string|min:15|max:17'
+                : 'nullable|string|min:15|max:17';
         }
 
         return $rules;
@@ -778,6 +943,7 @@ class Products extends Component
         $this->filterCategory = null;
         $this->filterBrand = null;
         $this->filterStatus = null;
+        $this->filterBranch = null;
         $this->resetPage();
     }
 
@@ -802,6 +968,7 @@ class Products extends Component
     private function resetForm()
     {
         $this->itemId = null;
+        $this->branch_id = null;
         $this->sku = null;
         $this->barcode = null;
         $this->name = '';
@@ -824,5 +991,12 @@ class Products extends Component
         $this->subcategories = [];
         $this->image = null;
         $this->existingImage = null;
+        // Configurable fields
+        $this->presentation_id = null;
+        $this->color_id = null;
+        $this->product_model_id = null;
+        $this->size = null;
+        $this->weight = null;
+        $this->imei = null;
     }
 }

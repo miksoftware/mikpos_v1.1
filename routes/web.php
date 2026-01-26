@@ -135,4 +135,20 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/purchases/{id}/edit', App\Livewire\PurchaseCreate::class)
         ->name('purchases.edit')
         ->middleware('permission:purchases.edit');
+
+    Route::get('/inventory-adjustments', App\Livewire\InventoryAdjustments::class)
+        ->name('inventory-adjustments')
+        ->middleware('permission:inventory_adjustments.view');
+
+    Route::get('/inventory-transfers', App\Livewire\InventoryTransfers::class)
+        ->name('inventory-transfers')
+        ->middleware('permission:inventory_transfers.view');
+
+    Route::get('/cash-registers', App\Livewire\CashRegisters::class)
+        ->name('cash-registers')
+        ->middleware('permission:cash_registers.view');
+
+    Route::get('/cash-reconciliations', App\Livewire\CashReconciliations::class)
+        ->name('cash-reconciliations')
+        ->middleware('permission:cash_reconciliations.view');
 });

@@ -28,6 +28,14 @@
                 <option value="juridico">Jurídico</option>
                 <option value="exonerado">Exonerado</option>
             </select>
+            @if($needsBranchSelection)
+            <select wire:model.live="filterBranch" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm">
+                <option value="">Todas las sucursales</option>
+                @foreach($branches as $branch)
+                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                @endforeach
+            </select>
+            @endif
         </div>
     </div>
 
@@ -40,6 +48,9 @@
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Cliente</th>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Documento</th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Tipo</th>
+                        @if($needsBranchSelection)
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Sucursal</th>
+                        @endif
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Contacto</th>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Ubicación</th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Crédito</th>
@@ -84,6 +95,15 @@
                                 {{ ucfirst($item->customer_type) }}
                             </span>
                         </td>
+                        @if($needsBranchSelection)
+                        <td class="px-6 py-4">
+                            @if($item->branch)
+                            <span class="text-sm text-slate-900">{{ $item->branch->name }}</span>
+                            @else
+                            <span class="text-sm text-slate-400 italic">Sin sucursal</span>
+                            @endif
+                        </td>
+                        @endif
                         <td class="px-6 py-4">
                             @if($item->phone)
                             <div class="text-sm text-slate-900">{{ $item->phone }}</div>
@@ -135,7 +155,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8" class="px-6 py-12 text-center">
+                        <td colspan="{{ $needsBranchSelection ? 9 : 8 }}" class="px-6 py-12 text-center">
                             <svg class="w-12 h-12 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                             <p class="text-lg font-medium text-slate-900">No hay clientes</p>
                             <p class="text-slate-500">Comienza creando tu primer cliente</p>
@@ -167,6 +187,26 @@
                     </div>
                     
                     <div class="px-6 py-4 max-h-[70vh] overflow-y-auto space-y-6">
+                        <!-- Branch Selection (for super_admin or users without branch) -->
+                        @if($needsBranchSelection)
+                        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                            <div class="flex items-start gap-3">
+                                <svg class="w-5 h-5 text-amber-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                <div class="flex-1">
+                                    <h4 class="text-sm font-semibold text-amber-800 mb-1">Selección de Sucursal Requerida</h4>
+                                    <p class="text-sm text-amber-700 mb-3">Como administrador general, debes seleccionar la sucursal a la que pertenecerá este cliente.</p>
+                                    <select wire:model="branch_id" class="w-full px-3 py-2 border border-amber-300 rounded-xl bg-white focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500">
+                                        <option value="">Seleccionar sucursal...</option>
+                                        @foreach($branches as $branch)
+                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('branch_id') <span class="text-red-500 text-sm mt-1 block">{{ $message }}</span> @enderror
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+
                         <!-- Tipo de Cliente -->
                         <div>
                             <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">

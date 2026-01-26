@@ -40,7 +40,15 @@
                     <option value="1">Activos</option>
                     <option value="0">Inactivos</option>
                 </select>
-                @if($search || $filterCategory || $filterBrand || $filterStatus !== null && $filterStatus !== '')
+                @if($needsBranchSelection)
+                <select wire:model.live="filterBranch" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[160px]">
+                    <option value="">Todas las sucursales</option>
+                    @foreach($branches as $branch)
+                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                    @endforeach
+                </select>
+                @endif
+                @if($search || $filterCategory || $filterBrand || $filterStatus !== null && $filterStatus !== '' || $filterBranch)
                 <button wire:click="clearFilters" class="px-3 py-2.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors text-sm font-medium">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
@@ -300,21 +308,36 @@
                         <h3 class="text-lg font-bold text-slate-900">{{ $itemId ? 'Editar' : 'Nuevo' }} Producto</h3>
                     </div>
                     <div class="px-6 py-4 space-y-6 max-h-[70vh] overflow-y-auto">
+                        {{-- Branch Selection (for super_admin or users without branch) --}}
+                        @if($needsBranchSelection)
+                        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                            <div class="flex items-start gap-3">
+                                <svg class="w-5 h-5 text-amber-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                <div class="flex-1">
+                                    <h4 class="text-sm font-semibold text-amber-800 mb-1">Selección de Sucursal Requerida</h4>
+                                    <p class="text-sm text-amber-700 mb-3">Como administrador general, debes seleccionar la sucursal a la que pertenecerá este producto.</p>
+                                    <select wire:model="branch_id" class="w-full px-3 py-2 border border-amber-300 rounded-xl bg-white focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500">
+                                        <option value="">Seleccionar sucursal...</option>
+                                        @foreach($branches as $branch)
+                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('branch_id') <span class="text-red-500 text-sm mt-1 block">{{ $message }}</span> @enderror
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+
                         <div>
                             <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
                                 Información Básica
                             </h4>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
+                                <div class="sm:col-span-2">
                                     <label class="block text-sm font-medium text-slate-700 mb-1">SKU <span class="text-slate-400 font-normal">(se genera automáticamente)</span></label>
                                     <input wire:model="sku" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: MED-00001">
                                     @error('sku')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-700 mb-1">Código de Barras</label>
-                                    <input wire:model="barcode" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: 7701234567890">
-                                    @error('barcode')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
                                 </div>
                                 <div class="sm:col-span-2">
                                     <label class="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
@@ -373,6 +396,132 @@
                                 </div>
                             </div>
                         </div>
+                        {{-- Configurable Fields Section (Parent) --}}
+                        @php
+                            $hasVisibleFields = false;
+                            foreach (['barcode', 'presentation_id', 'color_id', 'product_model_id', 'size', 'weight', 'imei'] as $fn) {
+                                $f = $fieldSettings[$fn] ?? null;
+                                if ($f && (is_object($f) ? $f->parent_visible : ($f['parent_visible'] ?? false))) {
+                                    $hasVisibleFields = true;
+                                    break;
+                                }
+                            }
+                        @endphp
+                        @if($hasVisibleFields)
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                                Atributos Adicionales
+                            </h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                @php
+                                    $barcodeField = $fieldSettings['barcode'] ?? null;
+                                    $barcodeVisible = $barcodeField ? (is_object($barcodeField) ? $barcodeField->parent_visible : ($barcodeField['parent_visible'] ?? false)) : false;
+                                    $barcodeRequired = $barcodeField ? (is_object($barcodeField) ? $barcodeField->parent_required : ($barcodeField['parent_required'] ?? false)) : false;
+                                @endphp
+                                @if($barcodeVisible)
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Código de Barras @if($barcodeRequired)*@endif</label>
+                                    <input wire:model="barcode" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: 7701234567890">
+                                    @error('barcode')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                                </div>
+                                @endif
+
+                                @php
+                                    $presentationField = $fieldSettings['presentation_id'] ?? null;
+                                    $presentationVisible = $presentationField ? (is_object($presentationField) ? $presentationField->parent_visible : ($presentationField['parent_visible'] ?? false)) : false;
+                                    $presentationRequired = $presentationField ? (is_object($presentationField) ? $presentationField->parent_required : ($presentationField['parent_required'] ?? false)) : false;
+                                @endphp
+                                @if($presentationVisible)
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Presentación @if($presentationRequired)*@endif</label>
+                                    <select wire:model="presentation_id" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                        <option value="">Seleccionar presentación...</option>
+                                        @foreach($presentations as $presentation)
+                                        <option value="{{ $presentation->id }}">{{ $presentation->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('presentation_id')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                                </div>
+                                @endif
+
+                                @php
+                                    $colorField = $fieldSettings['color_id'] ?? null;
+                                    $colorVisible = $colorField ? (is_object($colorField) ? $colorField->parent_visible : ($colorField['parent_visible'] ?? false)) : false;
+                                    $colorRequired = $colorField ? (is_object($colorField) ? $colorField->parent_required : ($colorField['parent_required'] ?? false)) : false;
+                                @endphp
+                                @if($colorVisible)
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Color @if($colorRequired)*@endif</label>
+                                    <select wire:model="color_id" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                        <option value="">Seleccionar color...</option>
+                                        @foreach($colors as $color)
+                                        <option value="{{ $color->id }}">{{ $color->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('color_id')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                                </div>
+                                @endif
+
+                                @php
+                                    $modelField = $fieldSettings['product_model_id'] ?? null;
+                                    $modelVisible = $modelField ? (is_object($modelField) ? $modelField->parent_visible : ($modelField['parent_visible'] ?? false)) : false;
+                                    $modelRequired = $modelField ? (is_object($modelField) ? $modelField->parent_required : ($modelField['parent_required'] ?? false)) : false;
+                                @endphp
+                                @if($modelVisible)
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Modelo @if($modelRequired)*@endif</label>
+                                    <select wire:model="product_model_id" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                        <option value="">Seleccionar modelo...</option>
+                                        @foreach($productModels as $model)
+                                        <option value="{{ $model->id }}">{{ $model->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('product_model_id')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                                </div>
+                                @endif
+
+                                @php
+                                    $sizeField = $fieldSettings['size'] ?? null;
+                                    $sizeVisible = $sizeField ? (is_object($sizeField) ? $sizeField->parent_visible : ($sizeField['parent_visible'] ?? false)) : false;
+                                    $sizeRequired = $sizeField ? (is_object($sizeField) ? $sizeField->parent_required : ($sizeField['parent_required'] ?? false)) : false;
+                                @endphp
+                                @if($sizeVisible)
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Talla @if($sizeRequired)*@endif</label>
+                                    <input wire:model="size" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: M, L, XL">
+                                    @error('size')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                                </div>
+                                @endif
+
+                                @php
+                                    $weightField = $fieldSettings['weight'] ?? null;
+                                    $weightVisible = $weightField ? (is_object($weightField) ? $weightField->parent_visible : ($weightField['parent_visible'] ?? false)) : false;
+                                    $weightRequired = $weightField ? (is_object($weightField) ? $weightField->parent_required : ($weightField['parent_required'] ?? false)) : false;
+                                @endphp
+                                @if($weightVisible)
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Peso (g) @if($weightRequired)*@endif</label>
+                                    <input wire:model="weight" type="number" step="0.001" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: 100.5">
+                                    @error('weight')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                                </div>
+                                @endif
+
+                                @php
+                                    $imeiField = $fieldSettings['imei'] ?? null;
+                                    $imeiVisible = $imeiField ? (is_object($imeiField) ? $imeiField->parent_visible : ($imeiField['parent_visible'] ?? false)) : false;
+                                    $imeiRequired = $imeiField ? (is_object($imeiField) ? $imeiField->parent_required : ($imeiField['parent_required'] ?? false)) : false;
+                                @endphp
+                                @if($imeiVisible)
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">IMEI @if($imeiRequired)*@endif</label>
+                                    <input wire:model="imei" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="15-17 dígitos">
+                                    @error('imei')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                                </div>
+                                @endif
+                            </div>
+                        </div>
+                        @endif
                         <div>
                             <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -714,8 +863,8 @@
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 @php
                                     $barcodeField = $fieldSettings['barcode'] ?? null;
-                                    $barcodeVisible = $barcodeField ? (is_object($barcodeField) ? $barcodeField->is_visible : ($barcodeField['is_visible'] ?? true)) : true;
-                                    $barcodeRequired = $barcodeField ? (is_object($barcodeField) ? $barcodeField->is_required : ($barcodeField['is_required'] ?? false)) : false;
+                                    $barcodeVisible = $barcodeField ? (is_object($barcodeField) ? $barcodeField->child_visible : ($barcodeField['child_visible'] ?? false)) : false;
+                                    $barcodeRequired = $barcodeField ? (is_object($barcodeField) ? $barcodeField->child_required : ($barcodeField['child_required'] ?? false)) : false;
                                 @endphp
                                 @if($barcodeVisible)
                                 <div>
@@ -727,8 +876,8 @@
 
                                 @php
                                     $presentationField = $fieldSettings['presentation_id'] ?? null;
-                                    $presentationVisible = $presentationField ? (is_object($presentationField) ? $presentationField->is_visible : ($presentationField['is_visible'] ?? true)) : true;
-                                    $presentationRequired = $presentationField ? (is_object($presentationField) ? $presentationField->is_required : ($presentationField['is_required'] ?? false)) : false;
+                                    $presentationVisible = $presentationField ? (is_object($presentationField) ? $presentationField->child_visible : ($presentationField['child_visible'] ?? false)) : false;
+                                    $presentationRequired = $presentationField ? (is_object($presentationField) ? $presentationField->child_required : ($presentationField['child_required'] ?? false)) : false;
                                 @endphp
                                 @if($presentationVisible)
                                 <div>
@@ -745,8 +894,8 @@
 
                                 @php
                                     $colorField = $fieldSettings['color_id'] ?? null;
-                                    $colorVisible = $colorField ? (is_object($colorField) ? $colorField->is_visible : ($colorField['is_visible'] ?? false)) : false;
-                                    $colorRequired = $colorField ? (is_object($colorField) ? $colorField->is_required : ($colorField['is_required'] ?? false)) : false;
+                                    $colorVisible = $colorField ? (is_object($colorField) ? $colorField->child_visible : ($colorField['child_visible'] ?? false)) : false;
+                                    $colorRequired = $colorField ? (is_object($colorField) ? $colorField->child_required : ($colorField['child_required'] ?? false)) : false;
                                 @endphp
                                 @if($colorVisible)
                                 <div>
@@ -763,8 +912,8 @@
 
                                 @php
                                     $modelField = $fieldSettings['product_model_id'] ?? null;
-                                    $modelVisible = $modelField ? (is_object($modelField) ? $modelField->is_visible : ($modelField['is_visible'] ?? false)) : false;
-                                    $modelRequired = $modelField ? (is_object($modelField) ? $modelField->is_required : ($modelField['is_required'] ?? false)) : false;
+                                    $modelVisible = $modelField ? (is_object($modelField) ? $modelField->child_visible : ($modelField['child_visible'] ?? false)) : false;
+                                    $modelRequired = $modelField ? (is_object($modelField) ? $modelField->child_required : ($modelField['child_required'] ?? false)) : false;
                                 @endphp
                                 @if($modelVisible)
                                 <div>
@@ -781,8 +930,8 @@
 
                                 @php
                                     $sizeField = $fieldSettings['size'] ?? null;
-                                    $sizeVisible = $sizeField ? (is_object($sizeField) ? $sizeField->is_visible : ($sizeField['is_visible'] ?? false)) : false;
-                                    $sizeRequired = $sizeField ? (is_object($sizeField) ? $sizeField->is_required : ($sizeField['is_required'] ?? false)) : false;
+                                    $sizeVisible = $sizeField ? (is_object($sizeField) ? $sizeField->child_visible : ($sizeField['child_visible'] ?? false)) : false;
+                                    $sizeRequired = $sizeField ? (is_object($sizeField) ? $sizeField->child_required : ($sizeField['child_required'] ?? false)) : false;
                                 @endphp
                                 @if($sizeVisible)
                                 <div>
@@ -794,8 +943,8 @@
 
                                 @php
                                     $weightField = $fieldSettings['weight'] ?? null;
-                                    $weightVisible = $weightField ? (is_object($weightField) ? $weightField->is_visible : ($weightField['is_visible'] ?? false)) : false;
-                                    $weightRequired = $weightField ? (is_object($weightField) ? $weightField->is_required : ($weightField['is_required'] ?? false)) : false;
+                                    $weightVisible = $weightField ? (is_object($weightField) ? $weightField->child_visible : ($weightField['child_visible'] ?? false)) : false;
+                                    $weightRequired = $weightField ? (is_object($weightField) ? $weightField->child_required : ($weightField['child_required'] ?? false)) : false;
                                 @endphp
                                 @if($weightVisible)
                                 <div>
@@ -807,8 +956,8 @@
 
                                 @php
                                     $imeiField = $fieldSettings['imei'] ?? null;
-                                    $imeiVisible = $imeiField ? (is_object($imeiField) ? $imeiField->is_visible : ($imeiField['is_visible'] ?? false)) : false;
-                                    $imeiRequired = $imeiField ? (is_object($imeiField) ? $imeiField->is_required : ($imeiField['is_required'] ?? false)) : false;
+                                    $imeiVisible = $imeiField ? (is_object($imeiField) ? $imeiField->child_visible : ($imeiField['child_visible'] ?? false)) : false;
+                                    $imeiRequired = $imeiField ? (is_object($imeiField) ? $imeiField->child_required : ($imeiField['child_required'] ?? false)) : false;
                                 @endphp
                                 @if($imeiVisible)
                                 <div>

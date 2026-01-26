@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\Branch;
 use App\Models\Purchase;
 use App\Models\Supplier;
 use App\Services\ActivityLogService;
@@ -17,6 +18,7 @@ class Purchases extends Component
     public string $search = '';
     public ?string $filterStatus = null;
     public ?string $filterSupplier = null;
+    public ?string $filterBranch = null;
     public ?string $dateFrom = null;
     public ?string $dateTo = null;
 
@@ -28,17 +30,41 @@ class Purchases extends Component
     public ?Purchase $viewingPurchase = null;
 
     public $suppliers = [];
+    
+    // Branch control
+    public bool $needsBranchSelection = false;
+    public $branches = [];
 
     public function mount()
     {
         $this->suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
+        
+        $user = auth()->user();
+        $this->needsBranchSelection = $user->isSuperAdmin() || !$user->branch_id;
+        
+        if ($this->needsBranchSelection) {
+            $this->branches = Branch::where('is_active', true)->orderBy('name')->get();
+        }
     }
 
     public function render()
     {
-        $items = Purchase::query()
+        $user = auth()->user();
+        
+        $query = Purchase::query()
             ->with(['supplier', 'user', 'branch', 'paymentMethod'])
-            ->withCount('items')
+            ->withCount('items');
+
+        // Apply branch filter
+        if ($this->needsBranchSelection) {
+            if ($this->filterBranch) {
+                $query->where('branch_id', $this->filterBranch);
+            }
+        } else {
+            $query->where('branch_id', $user->branch_id);
+        }
+
+        $items = $query
             ->when($this->search, function ($q) {
                 $q->where(function ($query) {
                     $query->where('purchase_number', 'like', "%{$this->search}%")
@@ -180,6 +206,7 @@ class Purchases extends Component
         $this->search = '';
         $this->filterStatus = null;
         $this->filterSupplier = null;
+        $this->filterBranch = null;
         $this->dateFrom = null;
         $this->dateTo = null;
         $this->resetPage();

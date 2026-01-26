@@ -3,7 +3,7 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
             <h1 class="text-2xl font-bold text-slate-800">Configuración de Campos de Producto</h1>
-            <p class="text-slate-500 mt-1">Define qué campos son visibles y requeridos para las variantes de productos</p>
+            <p class="text-slate-500 mt-1">Define qué campos son visibles y requeridos para productos y variantes</p>
         </div>
     </div>
 
@@ -92,82 +92,106 @@
             <table class="min-w-full divide-y divide-slate-200">
                 <thead class="bg-slate-50">
                     <tr>
-                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Campo</th>
-                        <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Visible</th>
-                        <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Requerido</th>
-                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Descripción</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase" rowspan="2">Campo</th>
+                        <th class="px-3 py-2 text-center text-sm font-semibold text-blue-600 uppercase border-b border-slate-200" colspan="2">
+                            <div class="flex items-center justify-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                Producto (Padre)
+                            </div>
+                        </th>
+                        <th class="px-3 py-2 text-center text-sm font-semibold text-purple-600 uppercase border-b border-slate-200" colspan="2">
+                            <div class="flex items-center justify-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                                Variante (Hijo)
+                            </div>
+                        </th>
+                    </tr>
+                    <tr class="bg-slate-50">
+                        <th class="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase">Visible</th>
+                        <th class="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase">Requerido</th>
+                        <th class="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase">Visible</th>
+                        <th class="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase">Requerido</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200">
                     @foreach($configurableFields as $fieldName => $config)
-                        <tr class="hover:bg-slate-50/50 transition-colors {{ !($fieldSettings[$fieldName]['is_visible'] ?? true) ? 'opacity-50' : '' }}">
+                        @php
+                            $settings = $fieldSettings[$fieldName] ?? [];
+                            $parentVisible = $settings['parent_visible'] ?? false;
+                            $parentRequired = $settings['parent_required'] ?? false;
+                            $childVisible = $settings['child_visible'] ?? false;
+                            $childRequired = $settings['child_required'] ?? false;
+                        @endphp
+                        <tr class="hover:bg-slate-50/50 transition-colors">
                             <td class="px-6 py-4">
                                 <span class="font-medium text-slate-900">{{ $config['label'] }}</span>
                                 <span class="text-xs text-slate-400 block">{{ $fieldName }}</span>
                             </td>
-                            <td class="px-6 py-4 text-center">
+                            {{-- Parent Visible --}}
+                            <td class="px-3 py-4 text-center">
                                 @if(auth()->user()->hasPermission('product_field_config.edit'))
                                     <button 
-                                        wire:click="toggleVisible('{{ $fieldName }}')"
-                                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 {{ ($fieldSettings[$fieldName]['is_visible'] ?? true) ? 'bg-[#ff7261]' : 'bg-slate-200' }}"
+                                        wire:click="toggleSetting('{{ $fieldName }}', 'parent_visible')"
+                                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 {{ $parentVisible ? 'bg-blue-500' : 'bg-slate-200' }}"
                                     >
-                                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {{ ($fieldSettings[$fieldName]['is_visible'] ?? true) ? 'translate-x-5' : 'translate-x-0' }}"></span>
+                                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {{ $parentVisible ? 'translate-x-5' : 'translate-x-0' }}"></span>
                                     </button>
                                 @else
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium {{ ($fieldSettings[$fieldName]['is_visible'] ?? true) ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500' }}">
-                                        {{ ($fieldSettings[$fieldName]['is_visible'] ?? true) ? 'Sí' : 'No' }}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium {{ $parentVisible ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500' }}">
+                                        {{ $parentVisible ? 'Sí' : 'No' }}
                                     </span>
                                 @endif
                             </td>
-                            <td class="px-6 py-4 text-center">
+                            {{-- Parent Required --}}
+                            <td class="px-3 py-4 text-center">
                                 @if(auth()->user()->hasPermission('product_field_config.edit'))
                                     <button 
-                                        wire:click="toggleRequired('{{ $fieldName }}')"
-                                        @if(!($fieldSettings[$fieldName]['is_visible'] ?? true)) disabled @endif
+                                        wire:click="toggleSetting('{{ $fieldName }}', 'parent_required')"
+                                        @if(!$parentVisible) disabled @endif
                                         class="relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 
-                                            {{ ($fieldSettings[$fieldName]['is_required'] ?? false) ? 'bg-purple-500' : 'bg-slate-200' }}
-                                            {{ !($fieldSettings[$fieldName]['is_visible'] ?? true) ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer' }}"
+                                            {{ $parentRequired ? 'bg-blue-700' : 'bg-slate-200' }}
+                                            {{ !$parentVisible ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer' }}"
                                     >
-                                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {{ ($fieldSettings[$fieldName]['is_required'] ?? false) ? 'translate-x-5' : 'translate-x-0' }}"></span>
+                                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {{ $parentRequired ? 'translate-x-5' : 'translate-x-0' }}"></span>
                                     </button>
                                 @else
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium {{ ($fieldSettings[$fieldName]['is_required'] ?? false) ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500' }}">
-                                        {{ ($fieldSettings[$fieldName]['is_required'] ?? false) ? 'Sí' : 'No' }}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium {{ $parentRequired ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500' }}">
+                                        {{ $parentRequired ? 'Sí' : 'No' }}
                                     </span>
                                 @endif
                             </td>
-                            <td class="px-6 py-4 text-sm text-slate-500">
-                                @switch($fieldName)
-                                    @case('barcode')
-                                        Código de barras para escaneo rápido
-                                        @break
-                                    @case('presentation_id')
-                                        Presentación del producto (Caja, Blister, etc.)
-                                        @break
-                                    @case('color_id')
-                                        Color del producto
-                                        @break
-                                    @case('product_model_id')
-                                        Modelo específico del producto
-                                        @break
-                                    @case('size')
-                                        Talla o tamaño del producto
-                                        @break
-                                    @case('weight')
-                                        Peso del producto
-                                        @break
-                                    @case('imei')
-                                        Número IMEI para dispositivos móviles
-                                        @break
-                                    @case('min_stock')
-                                        Stock mínimo para alertas de reabastecimiento
-                                        @break
-                                    @case('max_stock')
-                                        Stock máximo permitido
-                                        @break
-                                    @default
-                                        -
-                                @endswitch
+                            {{-- Child Visible --}}
+                            <td class="px-3 py-4 text-center">
+                                @if(auth()->user()->hasPermission('product_field_config.edit'))
+                                    <button 
+                                        wire:click="toggleSetting('{{ $fieldName }}', 'child_visible')"
+                                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 {{ $childVisible ? 'bg-purple-500' : 'bg-slate-200' }}"
+                                    >
+                                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {{ $childVisible ? 'translate-x-5' : 'translate-x-0' }}"></span>
+                                    </button>
+                                @else
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium {{ $childVisible ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500' }}">
+                                        {{ $childVisible ? 'Sí' : 'No' }}
+                                    </span>
+                                @endif
+                            </td>
+                            {{-- Child Required --}}
+                            <td class="px-3 py-4 text-center">
+                                @if(auth()->user()->hasPermission('product_field_config.edit'))
+                                    <button 
+                                        wire:click="toggleSetting('{{ $fieldName }}', 'child_required')"
+                                        @if(!$childVisible) disabled @endif
+                                        class="relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 
+                                            {{ $childRequired ? 'bg-purple-700' : 'bg-slate-200' }}
+                                            {{ !$childVisible ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer' }}"
+                                    >
+                                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {{ $childRequired ? 'translate-x-5' : 'translate-x-0' }}"></span>
+                                    </button>
+                                @else
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium {{ $childRequired ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500' }}">
+                                        {{ $childRequired ? 'Sí' : 'No' }}
+                                    </span>
+                                @endif
                             </td>
                         </tr>
                     @endforeach
@@ -203,9 +227,10 @@
             <div>
                 <h3 class="font-semibold text-blue-800 mb-2">¿Cómo funciona?</h3>
                 <ul class="text-sm text-blue-700 space-y-1">
-                    <li>• <strong>Visible:</strong> El campo aparecerá en el formulario de variantes de producto</li>
-                    <li>• <strong>Requerido:</strong> El campo será obligatorio al crear o editar una variante</li>
-                    <li>• Los campos ocultos no se mostrarán en los formularios ni serán validados</li>
+                    <li>• <strong>Producto (Padre):</strong> Campos que aparecen al crear/editar un producto principal</li>
+                    <li>• <strong>Variante (Hijo):</strong> Campos que aparecen al crear/editar una variante del producto</li>
+                    <li>• <strong>Visible:</strong> El campo aparecerá en el formulario correspondiente</li>
+                    <li>• <strong>Requerido:</strong> El campo será obligatorio (solo si está visible)</li>
                     <li>• Puedes configurar diferentes campos para cada sucursal o usar una configuración global</li>
                     <li>• Los presets te permiten configurar rápidamente según tu tipo de negocio</li>
                 </ul>

@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\SystemDocument;
 use App\Services\ActivityLogService;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -19,7 +20,6 @@ class SystemDocuments extends Component
     public $itemIdToDelete = null;
 
     public $itemId;
-    public $code;
     public $name;
     public $prefix;
     public $next_number = 1;
@@ -58,13 +58,20 @@ class SystemDocuments extends Component
         $this->resetValidation();
         $item = SystemDocument::findOrFail($id);
         $this->itemId = $item->id;
-        $this->code = $item->code;
         $this->name = $item->name;
         $this->prefix = $item->prefix;
         $this->next_number = $item->next_number;
         $this->description = $item->description;
         $this->is_active = $item->is_active;
         $this->isModalOpen = true;
+    }
+
+    /**
+     * Generate code from name: "Stock Inicial" -> "stock_inicial"
+     */
+    private function generateCodeFromName(string $name): string
+    {
+        return Str::slug($name, '_');
     }
 
     public function store()
@@ -75,16 +82,25 @@ class SystemDocuments extends Component
             return;
         }
 
+        // Generate code from name
+        $code = $this->generateCodeFromName($this->name);
+
         $this->validate([
-            'code' => 'required|max:20|unique:system_documents,code,' . $this->itemId,
             'name' => 'required|min:2',
             'prefix' => 'required|max:10|unique:system_documents,prefix,' . $this->itemId,
             'next_number' => 'required|integer|min:1',
         ]);
 
+        // Check if generated code is unique
+        $existingCode = SystemDocument::where('code', $code)->where('id', '!=', $this->itemId)->first();
+        if ($existingCode) {
+            $this->addError('name', 'Ya existe un documento con un nombre similar');
+            return;
+        }
+
         $oldValues = $isNew ? null : SystemDocument::find($this->itemId)->toArray();
         $item = SystemDocument::updateOrCreate(['id' => $this->itemId], [
-            'code' => strtolower($this->code),
+            'code' => $code,
             'name' => $this->name,
             'prefix' => strtoupper($this->prefix),
             'next_number' => $this->next_number,
@@ -147,7 +163,6 @@ class SystemDocuments extends Component
     private function resetForm()
     {
         $this->itemId = null;
-        $this->code = '';
         $this->name = '';
         $this->prefix = '';
         $this->next_number = 1;
