@@ -164,7 +164,8 @@ class FactusService
         $sale->update([
             'is_electronic' => true,
             'cufe' => $billData['cufe'] ?? null,
-            'qr_code' => $billData['qr'] ?? null,
+            'qr_code' => $billData['qr_image'] ?? null, // Use qr_image (base64) instead of qr (URL)
+            'dian_public_url' => $billData['public_url'] ?? null, // URL to view/download PDF
             'dian_number' => $billData['number'] ?? null,
             'dian_validated_at' => isset($billData['validated']) ? now() : null,
             'dian_response' => $responseData,

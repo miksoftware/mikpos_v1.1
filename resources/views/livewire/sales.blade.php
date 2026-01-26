@@ -143,12 +143,37 @@
                         </td>
                         <td class="px-6 py-4 text-right">
                             <div class="flex items-center justify-end gap-1">
+                                <!-- View Detail -->
                                 <button wire:click="viewSale({{ $sale->id }})" class="p-2 text-slate-400 hover:text-[#ff7261] hover:bg-orange-50 rounded-lg transition-colors" title="Ver detalle">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                 </button>
+                                
+                                <!-- Reprint Receipt -->
+                                <button wire:click="reprintReceipt({{ $sale->id }})" class="p-2 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded-lg transition-colors relative" title="Reimprimir recibo">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                                    @if($sale->reprints_count > 0)
+                                    <span class="absolute -top-1 -right-1 w-4 h-4 text-[10px] font-bold bg-purple-500 text-white rounded-full flex items-center justify-center">{{ $sale->reprints_count }}</span>
+                                    @endif
+                                </button>
+                                
+                                <!-- View Electronic PDF -->
+                                @if($sale->is_electronic && $sale->cufe && $sale->dian_public_url)
+                                <button wire:click="viewElectronicPdf({{ $sale->id }})" class="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Ver factura electrónica PDF">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                </button>
+                                @endif
+                                
+                                <!-- Retry Electronic Invoice -->
                                 @if($sale->is_electronic && !$sale->cufe)
-                                <button wire:click="retryElectronicInvoice({{ $sale->id }})" wire:loading.attr="disabled" class="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Reintentar factura electrónica">
+                                <button wire:click="retryElectronicInvoice({{ $sale->id }})" wire:loading.attr="disabled" class="p-2 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors" title="Reintentar factura electrónica">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                </button>
+                                @endif
+                                
+                                <!-- View Reprints History -->
+                                @if($sale->reprints_count > 0)
+                                <button wire:click="viewReprints({{ $sale->id }})" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" title="Ver historial de reimpresiones">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 </button>
                                 @endif
                             </div>
@@ -388,7 +413,30 @@
                     </div>
 
                     <!-- Footer -->
-                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <!-- Reprint Receipt -->
+                            <button wire:click="reprintReceipt({{ $selectedSale->id }})" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                                Reimprimir
+                            </button>
+                            
+                            <!-- View Electronic PDF -->
+                            @if($selectedSale->is_electronic && $selectedSale->cufe && $selectedSale->dian_public_url)
+                            <button wire:click="viewElectronicPdf({{ $selectedSale->id }})" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                Ver PDF DIAN
+                            </button>
+                            @endif
+                            
+                            <!-- View Reprints History -->
+                            @if($selectedSale->reprints->count() > 0)
+                            <button wire:click="viewReprints({{ $selectedSale->id }})" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-xl hover:bg-slate-200 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                Historial ({{ $selectedSale->reprints->count() }})
+                            </button>
+                            @endif
+                        </div>
                         <button wire:click="closeDetailModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
                             Cerrar
                         </button>
@@ -398,4 +446,83 @@
         </div>
     </div>
     @endif
+
+    <!-- Reprints History Modal -->
+    @if($showReprintsModal)
+    <div class="relative z-[100]">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="closeReprintsModal"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl">
+                    <!-- Header -->
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">Historial de Reimpresiones</h3>
+                            <p class="text-sm text-slate-500">{{ count($selectedSaleReprints) }} registro(s)</p>
+                        </div>
+                        <button wire:click="closeReprintsModal" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <div class="px-6 py-4 max-h-[60vh] overflow-y-auto">
+                        @if(count($selectedSaleReprints) > 0)
+                        <div class="space-y-3">
+                            @foreach($selectedSaleReprints as $reprint)
+                            <div class="flex items-center gap-4 p-3 bg-slate-50 rounded-xl">
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center {{ $reprint->type === 'pos' ? 'bg-purple-100' : 'bg-blue-100' }}">
+                                    @if($reprint->type === 'pos')
+                                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                                    @else
+                                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                    @endif
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="font-medium text-slate-800">{{ $reprint->user->name ?? 'Usuario desconocido' }}</p>
+                                    <p class="text-xs text-slate-500">
+                                        {{ $reprint->type === 'pos' ? 'Recibo POS' : 'PDF Electrónico' }}
+                                        · {{ $reprint->created_at->format('d/m/Y H:i') }}
+                                    </p>
+                                    @if($reprint->ip_address)
+                                    <p class="text-xs text-slate-400">IP: {{ $reprint->ip_address }}</p>
+                                    @endif
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                        @else
+                        <div class="text-center py-8 text-slate-500">
+                            <svg class="w-12 h-12 mx-auto text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <p>No hay reimpresiones registradas</p>
+                        </div>
+                        @endif
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+                        <button wire:click="closeReprintsModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- JavaScript for print and URL events -->
+    <script>
+        document.addEventListener('livewire:init', () => {
+            Livewire.on('print-receipt', (data) => {
+                const printWindow = window.open('/receipt/' + data.saleId, '_blank', 'width=400,height=600');
+                if (printWindow) {
+                    printWindow.focus();
+                }
+            });
+            
+            Livewire.on('open-url', (data) => {
+                window.open(data.url, '_blank');
+            });
+        });
+    </script>
 </div>

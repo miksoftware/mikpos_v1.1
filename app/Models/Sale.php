@@ -20,6 +20,7 @@ class Sale extends Model
         'invoice_number',
         'cufe',
         'qr_code',
+        'dian_public_url',
         'dian_number',
         'dian_validated_at',
         'dian_response',
@@ -76,6 +77,11 @@ class Sale extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(SalePayment::class);
+    }
+
+    public function reprints(): HasMany
+    {
+        return $this->hasMany(SaleReprint::class);
     }
 
     // Scopes

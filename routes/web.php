@@ -166,4 +166,20 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/pos', App\Livewire\PointOfSale::class)
         ->name('pos')
         ->middleware('permission:pos.access');
+
+    // POS Receipt
+    Route::get('/receipt/{sale}', function (App\Models\Sale $sale) {
+        // Load relationships needed for the receipt
+        $sale->load([
+            'branch.department',
+            'branch.municipality',
+            'customer.taxDocument',
+            'user',
+            'items',
+            'payments.paymentMethod',
+            'cashReconciliation.cashRegister',
+        ]);
+        
+        return view('receipts.pos-receipt', compact('sale'));
+    })->name('receipt.show');
 });

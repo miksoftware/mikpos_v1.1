@@ -3,8 +3,10 @@
 namespace App\Livewire;
 
 use App\Models\Sale;
+use App\Models\SaleReprint;
 use App\Models\Branch;
 use App\Services\FactusService;
+use App\Services\ActivityLogService;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -24,6 +26,10 @@ class Sales extends Component
     // Detail modal
     public $showDetailModal = false;
     public $selectedSale = null;
+    
+    // Reprints modal
+    public $showReprintsModal = false;
+    public $selectedSaleReprints = [];
     
     // Retry electronic invoice
     public $isRetrying = false;
@@ -48,6 +54,7 @@ class Sales extends Component
             'items.product',
             'payments.paymentMethod',
             'cashReconciliation.cashRegister',
+            'reprints.user',
         ])->find($saleId);
         
         $this->showDetailModal = true;
@@ -57,6 +64,81 @@ class Sales extends Component
     {
         $this->showDetailModal = false;
         $this->selectedSale = null;
+    }
+
+    public function reprintReceipt($saleId)
+    {
+        $sale = Sale::find($saleId);
+        
+        if (!$sale) {
+            $this->dispatch('notify', message: 'Venta no encontrada', type: 'error');
+            return;
+        }
+
+        // Log the reprint
+        SaleReprint::create([
+            'sale_id' => $saleId,
+            'user_id' => auth()->id(),
+            'type' => 'pos',
+            'ip_address' => request()->ip(),
+        ]);
+
+        ActivityLogService::logCreate(
+            'sales',
+            $sale,
+            "Reimpresión de recibo POS: {$sale->invoice_number}"
+        );
+
+        // Dispatch event to open print window
+        $this->dispatch('print-receipt', saleId: $saleId);
+        
+        $this->dispatch('notify', message: 'Abriendo recibo para impresión...', type: 'success');
+    }
+
+    public function viewElectronicPdf($saleId)
+    {
+        $sale = Sale::find($saleId);
+        
+        if (!$sale || !$sale->dian_public_url) {
+            $this->dispatch('notify', message: 'PDF no disponible', type: 'error');
+            return;
+        }
+
+        // Log the view/download
+        SaleReprint::create([
+            'sale_id' => $saleId,
+            'user_id' => auth()->id(),
+            'type' => 'electronic_pdf',
+            'ip_address' => request()->ip(),
+        ]);
+
+        ActivityLogService::logCreate(
+            'sales',
+            $sale,
+            "Visualización de factura electrónica: {$sale->dian_number}"
+        );
+
+        // Dispatch event to open PDF in new tab
+        $this->dispatch('open-url', url: $sale->dian_public_url);
+    }
+
+    public function viewReprints($saleId)
+    {
+        $sale = Sale::with(['reprints.user'])->find($saleId);
+        
+        if (!$sale) {
+            $this->dispatch('notify', message: 'Venta no encontrada', type: 'error');
+            return;
+        }
+
+        $this->selectedSaleReprints = $sale->reprints;
+        $this->showReprintsModal = true;
+    }
+
+    public function closeReprintsModal()
+    {
+        $this->showReprintsModal = false;
+        $this->selectedSaleReprints = [];
     }
 
     public function retryElectronicInvoice($saleId)
@@ -97,6 +179,7 @@ class Sales extends Component
                 'items.product',
                 'payments.paymentMethod',
                 'cashReconciliation.cashRegister',
+                'reprints.user',
             ])->find($saleId);
         }
 
@@ -109,6 +192,7 @@ class Sales extends Component
         $isSuperAdmin = $user->roles->first()?->name === 'super_admin';
         
         $query = Sale::with(['customer', 'user', 'branch', 'payments.paymentMethod'])
+            ->withCount('reprints')
             ->when($this->search, function ($q) {
                 $q->where(function ($sq) {
                     $sq->where('invoice_number', 'like', "%{$this->search}%")

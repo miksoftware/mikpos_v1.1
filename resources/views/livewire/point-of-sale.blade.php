@@ -646,3 +646,25 @@
     </div>
     @endif
 </div>
+
+@script
+<script>
+    // Listen for print receipt event
+    $wire.on('print-receipt', (event) => {
+        const saleId = event.saleId;
+        const receiptUrl = `/receipt/${saleId}?print=auto`;
+        
+        // Open receipt in new window optimized for printing
+        const printWindow = window.open(
+            receiptUrl,
+            'receipt_' + saleId,
+            'width=350,height=600,scrollbars=yes,resizable=yes'
+        );
+        
+        // Focus the new window
+        if (printWindow) {
+            printWindow.focus();
+        }
+    });
+</script>
+@endscript

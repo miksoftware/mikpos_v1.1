@@ -446,6 +446,9 @@ class PointOfSale extends Component
                 type: $electronicInvoiceResult['sent'] && !$electronicInvoiceResult['success'] ? 'warning' : 'success'
             );
             
+            // Open print receipt window
+            $this->dispatch('print-receipt', saleId: $sale->id);
+            
             // Reset
             $this->cart = [];
             $this->showPaymentModal = false;
