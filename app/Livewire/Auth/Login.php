@@ -7,6 +7,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use App\Services\ActivityLogService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
@@ -30,6 +31,14 @@ class Login extends Component
         'password.required' => 'La contraseña es requerida',
         'password.min' => 'La contraseña debe tener al menos 6 caracteres',
     ];
+
+    public function mount()
+    {
+        // Redirect to install if not installed
+        if (!File::exists(storage_path('installed.lock'))) {
+            return redirect('/install');
+        }
+    }
 
     public function updated($propertyName)
     {

@@ -2,9 +2,16 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Livewire\Auth\Login;
+use App\Livewire\Install;
 
-// Redirect root to login
+// Installation route (no middleware)
+Route::get('/install', Install::class)->name('install');
+
+// Redirect root to login or install
 Route::get('/', function () {
+    if (!file_exists(storage_path('installed.lock'))) {
+        return redirect('/install');
+    }
     return redirect('/login');
 });
 
