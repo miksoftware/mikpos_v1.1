@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Module;
+use App\Models\Permission;
 use App\Models\Role;
 use Illuminate\Database\Seeder;
 
@@ -11,12 +12,10 @@ class CustomerModuleSeeder extends Seeder
     public function run(): void
     {
         // Create customers module
-        $module = Module::create([
-            'name' => 'customers',
-            'display_name' => 'Clientes',
-            'icon' => 'user-group',
-            'order' => 22,
-        ]);
+        $module = Module::firstOrCreate(
+            ['name' => 'customers'],
+            ['display_name' => 'Clientes', 'icon' => 'user-group', 'order' => 22, 'is_active' => true]
+        );
 
         // Create permissions for customers module
         $permissions = [
@@ -27,7 +26,10 @@ class CustomerModuleSeeder extends Seeder
         ];
 
         foreach ($permissions as $permissionData) {
-            $module->permissions()->create($permissionData);
+            Permission::firstOrCreate(
+                ['name' => $permissionData['name']],
+                array_merge($permissionData, ['module_id' => $module->id])
+            );
         }
 
         // Assign permissions to roles
@@ -35,19 +37,20 @@ class CustomerModuleSeeder extends Seeder
         $branchAdmin = Role::where('name', 'branch_admin')->first();
         $supervisor = Role::where('name', 'supervisor')->first();
 
+        $permissionIds = Permission::where('name', 'like', 'customers.%')->pluck('id');
+
         if ($superAdmin) {
-            $superAdmin->permissions()->attach($module->permissions->pluck('id'));
+            $superAdmin->permissions()->syncWithoutDetaching($permissionIds);
         }
 
         if ($branchAdmin) {
-            $branchAdmin->permissions()->attach($module->permissions->pluck('id'));
+            $branchAdmin->permissions()->syncWithoutDetaching($permissionIds);
         }
 
         if ($supervisor) {
-            // Supervisor gets view permission only
-            $viewPermission = $module->permissions()->where('name', 'customers.view')->first();
+            $viewPermission = Permission::where('name', 'customers.view')->first();
             if ($viewPermission) {
-                $supervisor->permissions()->attach($viewPermission->id);
+                $supervisor->permissions()->syncWithoutDetaching([$viewPermission->id]);
             }
         }
     }
