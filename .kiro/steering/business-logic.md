@@ -227,3 +227,85 @@ if ($factus->isEnabled()) {
 - Success/failure is shown in notification
 - Sale continues even if DIAN validation fails (logged for retry)
 - Visual indicator "FE" in POS header when enabled
+
+
+## Credit Notes (Notas Crédito) - Electronic Invoices
+
+### Overview
+- Credit notes are used to partially or totally cancel electronic invoices
+- Sent to DIAN via Factus API for validation
+- Only available for validated electronic invoices (with CUFE)
+
+### CreditNote Model Fields
+- `sale_id`: Reference to original sale
+- `number`: Internal number (NC-YYYYMMDD-XXXX)
+- `type`: 'total' or 'partial'
+- `correction_concept_code`: DIAN correction concept (1-5)
+- `reason`: Description of why the credit note is being issued
+- `subtotal`, `tax_total`, `total`: Amounts
+- `cufe`, `qr_code`, `dian_public_url`, `dian_number`: DIAN response fields
+- `status`: 'pending', 'validated', 'rejected'
+
+### DIAN Correction Concepts
+- 1: Devolución parcial de bienes y/o no aceptación parcial del servicio
+- 2: Anulación de factura electrónica
+- 3: Rebaja o descuento parcial o total
+- 4: Ajuste de precio
+- 5: Otros
+
+### Credit Note Flow
+1. User opens credit note modal from validated electronic invoice
+2. Selects type (total/partial)
+3. Selects correction concept
+4. Enters reason
+5. For partial: selects items and quantities
+6. System creates CreditNote and CreditNoteItems
+7. Sends to DIAN via FactusService::createCreditNote()
+8. Updates status based on DIAN response
+
+### FactusService Credit Note Methods
+```php
+// Create and validate credit note
+$response = $factusService->createCreditNote($creditNote);
+
+// Get PDF
+$pdf = $factusService->getCreditNotePdf($creditNote);
+```
+
+## Refunds (Devoluciones) - POS Sales
+
+### Overview
+- Refunds are used for POS sales (non-electronic)
+- Internal document, not sent to DIAN
+- Generates printable receipt
+
+### Refund Model Fields
+- `sale_id`: Reference to original sale
+- `number`: Internal number (DEV-YYYYMMDD-XXXX)
+- `type`: 'total' or 'partial'
+- `reason`: Description of why the refund is being issued
+- `cash_reconciliation_id`: Optional link to current cash register
+- `subtotal`, `tax_total`, `total`: Amounts
+- `status`: 'completed', 'cancelled'
+
+### Refund Flow
+1. User opens refund modal from POS sale
+2. Selects type (total/partial)
+3. Enters reason
+4. For partial: selects items and quantities
+5. System creates Refund and RefundItems
+6. Opens print window for refund receipt
+7. Logs activity
+
+### Refund Receipt
+- Printed on 80mm thermal printer
+- Shows original sale reference
+- Lists refunded items
+- Includes signature lines for customer and staff
+- Route: `/refund-receipt/{refund}`
+
+### Validation Rules
+- Cannot create credit note/refund for more than remaining quantity
+- System tracks credited/refunded quantities per item
+- Reason is required (min 5-10 characters)
+- At least one item must be selected

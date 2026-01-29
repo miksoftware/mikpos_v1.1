@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\BillingSetting;
 use App\Models\Sale;
+use App\Models\CreditNote;
 use App\Models\Customer;
 use App\Models\Branch;
 use Illuminate\Support\Facades\Http;
@@ -393,6 +394,167 @@ class FactusService
             }
         } catch (Exception $e) {
             Log::error('Error getting Factus invoice status: ' . $e->getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * Create and validate credit note with DIAN.
+     */
+    public function createCreditNote(CreditNote $creditNote): array
+    {
+        if (!$this->isEnabled()) {
+            throw new Exception('Facturación electrónica no está habilitada');
+        }
+
+        $token = $this->getAccessToken();
+        
+        // Load relationships
+        $creditNote->load(['sale.customer.taxDocument', 'sale.customer.municipality', 'sale.branch.municipality', 'items']);
+        
+        // Build credit note payload
+        $payload = $this->buildCreditNotePayload($creditNote);
+        
+        Log::info('Factus credit note payload', ['credit_note_id' => $creditNote->id, 'payload' => $payload]);
+
+        $response = Http::withToken($token)
+            ->acceptJson()
+            ->post($this->baseUrl . '/v1/credit-notes/validate', $payload);
+
+        $responseData = $response->json();
+        
+        Log::info('Factus credit note response', ['credit_note_id' => $creditNote->id, 'response' => $responseData]);
+
+        if (!$response->successful()) {
+            $creditNote->update([
+                'status' => 'rejected',
+                'dian_response' => $responseData,
+            ]);
+            
+            $errorMessage = $responseData['message'] ?? 'Error al crear nota crédito';
+            if (isset($responseData['errors'])) {
+                $errorMessage .= ': ' . json_encode($responseData['errors']);
+            }
+            throw new Exception($errorMessage);
+        }
+
+        // Update credit note with DIAN response
+        $noteData = $responseData['data']['credit_note'] ?? $responseData['data']['bill'] ?? [];
+        
+        $creditNote->update([
+            'status' => 'validated',
+            'cufe' => $noteData['cufe'] ?? null,
+            'qr_code' => $noteData['qr_image'] ?? null,
+            'dian_public_url' => $noteData['public_url'] ?? null,
+            'dian_number' => $noteData['number'] ?? null,
+            'dian_validated_at' => now(),
+            'dian_response' => $responseData,
+        ]);
+
+        return $responseData;
+    }
+
+    /**
+     * Build the credit note payload for Factus API.
+     */
+    protected function buildCreditNotePayload(CreditNote $creditNote): array
+    {
+        $sale = $creditNote->sale;
+        $customer = $sale->customer;
+        $branch = $sale->branch;
+        
+        // Generate unique reference code
+        $referenceCode = 'NC-' . $creditNote->id . '-' . time();
+        $creditNote->update(['reference_code' => $referenceCode]);
+
+        $payload = [
+            'document' => '91', // Nota crédito electrónica
+            'reference_code' => $referenceCode,
+            'observation' => $creditNote->reason,
+            'payment_method_code' => '10', // Default to cash for credit notes
+            'payment_form' => '1',
+            // Reference to original invoice
+            'numbering_range_id' => null, // Will use default
+            'bill_reference' => [
+                'number' => $sale->dian_number,
+                'cufe' => $sale->cufe,
+                'issue_date' => $sale->dian_validated_at?->format('Y-m-d') ?? $sale->created_at->format('Y-m-d'),
+            ],
+            'correction_concept_code' => $creditNote->correction_concept_code,
+        ];
+
+        // Add establishment info if branch has municipality
+        if ($branch->municipality_id) {
+            $payload['establishment'] = [
+                'name' => $branch->name,
+                'address' => $branch->address ?? '',
+                'phone_number' => $branch->phone ?? '',
+                'email' => $branch->email ?? '',
+                'municipality_id' => $branch->municipality_id,
+            ];
+        }
+
+        // Customer data (same as original invoice)
+        $payload['customer'] = $this->buildCustomerData($customer);
+
+        // Items from credit note
+        $payload['items'] = $this->buildCreditNoteItemsData($creditNote);
+
+        return $payload;
+    }
+
+    /**
+     * Build items data for credit note.
+     */
+    protected function buildCreditNoteItemsData(CreditNote $creditNote): array
+    {
+        $items = [];
+
+        foreach ($creditNote->items as $item) {
+            $taxRate = (float) $item->tax_rate;
+            $unitPriceWithTax = $item->unit_price * (1 + ($taxRate / 100));
+            
+            $items[] = [
+                'code_reference' => $item->product_sku ?? (string) $item->product_id,
+                'name' => $item->product_name,
+                'quantity' => (int) $item->quantity,
+                'discount_rate' => 0,
+                'price' => round($unitPriceWithTax, 2),
+                'tax_rate' => number_format($taxRate, 2, '.', ''),
+                'unit_measure_id' => 70,
+                'standard_code_id' => 1,
+                'is_excluded' => $taxRate == 0 ? 1 : 0,
+                'tribute_id' => 1,
+                'withholding_taxes' => [],
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * Get credit note PDF from Factus.
+     */
+    public function getCreditNotePdf(CreditNote $creditNote): ?string
+    {
+        if (!$creditNote->dian_number || !$this->isEnabled()) {
+            return null;
+        }
+
+        try {
+            $token = $this->getAccessToken();
+            
+            $response = Http::withToken($token)
+                ->acceptJson()
+                ->get($this->baseUrl . '/v1/credit-notes/' . $creditNote->dian_number . '/download-pdf');
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return $data['data']['pdf_base_64_encoded'] ?? null;
+            }
+        } catch (Exception $e) {
+            Log::error('Error getting Factus credit note PDF: ' . $e->getMessage());
         }
 
         return null;

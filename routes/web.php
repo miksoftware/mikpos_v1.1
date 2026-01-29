@@ -182,4 +182,17 @@ Route::middleware(['auth'])->group(function () {
         
         return view('receipts.pos-receipt', compact('sale'));
     })->name('receipt.show');
+
+    // Refund Receipt
+    Route::get('/refund-receipt/{refund}', function (App\Models\Refund $refund) {
+        $refund->load([
+            'sale.branch.department',
+            'sale.branch.municipality',
+            'sale.customer.taxDocument',
+            'user',
+            'items',
+        ]);
+        
+        return view('receipts.refund-receipt', compact('refund'));
+    })->name('refund-receipt.show');
 });

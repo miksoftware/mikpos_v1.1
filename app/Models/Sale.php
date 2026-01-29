@@ -84,6 +84,16 @@ class Sale extends Model
         return $this->hasMany(SaleReprint::class);
     }
 
+    public function creditNotes(): HasMany
+    {
+        return $this->hasMany(CreditNote::class);
+    }
+
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
+    }
+
     // Scopes
 
     public function scopeForBranch(Builder $query, ?int $branchId = null): Builder
