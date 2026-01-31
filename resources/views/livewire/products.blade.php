@@ -21,31 +21,37 @@
 
     {{-- Search and Filters --}}
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-        <div class="flex flex-col lg:flex-row gap-4">
-            <div class="relative flex-1">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        <div class="flex flex-col gap-4">
+            {{-- Row 1: Search and main filters --}}
+            <div class="flex flex-col lg:flex-row gap-4">
+                <div class="relative flex-1">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                    <input wire:model.live.debounce.300ms="search" type="text" class="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] transition-all sm:text-sm" placeholder="Buscar por nombre, SKU o descripción...">
                 </div>
-                <input wire:model.live.debounce.300ms="search" type="text" class="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] transition-all sm:text-sm" placeholder="Buscar por nombre, SKU o descripción...">
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <select wire:model.live="filterCategory" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[160px]">
+                        <option value="">Todas las categorías</option>
+                        @foreach($categories as $cat)
+                        <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                        @endforeach
+                    </select>
+                    <select wire:model.live="filterBrand" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[140px]">
+                        <option value="">Todas las marcas</option>
+                        @foreach($brands as $brand)
+                        <option value="{{ $brand->id }}">{{ $brand->name }}</option>
+                        @endforeach
+                    </select>
+                    <select wire:model.live="filterStatus" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[120px]">
+                        <option value="">Todos</option>
+                        <option value="1">Activos</option>
+                        <option value="0">Inactivos</option>
+                    </select>
+                </div>
             </div>
-            <div class="flex flex-col sm:flex-row gap-3">
-                <select wire:model.live="filterCategory" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[160px]">
-                    <option value="">Todas las categorías</option>
-                    @foreach($categories as $cat)
-                    <option value="{{ $cat->id }}">{{ $cat->name }}</option>
-                    @endforeach
-                </select>
-                <select wire:model.live="filterBrand" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[140px]">
-                    <option value="">Todas las marcas</option>
-                    @foreach($brands as $brand)
-                    <option value="{{ $brand->id }}">{{ $brand->name }}</option>
-                    @endforeach
-                </select>
-                <select wire:model.live="filterStatus" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[120px]">
-                    <option value="">Todos</option>
-                    <option value="1">Activos</option>
-                    <option value="0">Inactivos</option>
-                </select>
+            {{-- Row 2: Advanced filters --}}
+            <div class="flex flex-col sm:flex-row gap-3 items-center">
                 @if($needsBranchSelection)
                 <select wire:model.live="filterBranch" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[160px]">
                     <option value="">Todas las sucursales</option>
@@ -54,9 +60,39 @@
                     @endforeach
                 </select>
                 @endif
-                @if($search || $filterCategory || $filterBrand || $filterStatus !== null && $filterStatus !== '' || $filterBranch)
-                <button wire:click="clearFilters" class="px-3 py-2.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors text-sm font-medium">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <select wire:model.live="filterHasVariants" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[140px]">
+                    <option value="">Variantes: Todos</option>
+                    <option value="1">Con variantes</option>
+                    <option value="0">Sin variantes</option>
+                </select>
+                <select wire:model.live="filterStockStatus" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[140px]">
+                    <option value="">Stock: Todos</option>
+                    <option value="ok">Stock OK</option>
+                    <option value="low">Stock bajo</option>
+                    <option value="out">Sin stock</option>
+                </select>
+                {{-- Sort dropdown --}}
+                <div class="flex items-center gap-2 ml-auto">
+                    <span class="text-sm text-slate-500">Ordenar:</span>
+                    <select wire:model.live="sortBy" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm">
+                        <option value="created_at">Fecha creación</option>
+                        <option value="name">Nombre</option>
+                        <option value="sale_price">Precio venta</option>
+                        <option value="purchase_price">Precio compra</option>
+                        <option value="current_stock">Stock</option>
+                    </select>
+                    <button wire:click="sortByColumn('{{ $sortBy }}')" class="p-2.5 border border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors" title="{{ $sortDirection === 'asc' ? 'Ascendente' : 'Descendente' }}">
+                        @if($sortDirection === 'asc')
+                        <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path></svg>
+                        @else
+                        <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"></path></svg>
+                        @endif
+                    </button>
+                </div>
+                @if($search || $filterCategory || $filterBrand || ($filterStatus !== null && $filterStatus !== '') || $filterBranch || ($filterHasVariants !== null && $filterHasVariants !== '') || ($filterStockStatus !== null && $filterStockStatus !== '') || $sortBy !== 'created_at')
+                <button wire:click="clearFilters" class="px-3 py-2.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors text-sm font-medium flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    Limpiar
                 </button>
                 @endif
             </div>
@@ -70,10 +106,39 @@
                 <thead class="bg-slate-50">
                     <tr>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase w-10"></th>
-                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Producto</th>
+                        <th wire:click="sortByColumn('name')" class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase cursor-pointer hover:text-slate-700 transition-colors">
+                            <div class="flex items-center gap-1">
+                                Producto
+                                @if($sortBy === 'name')
+                                <svg class="w-4 h-4 {{ $sortDirection === 'asc' ? '' : 'rotate-180' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                                @endif
+                            </div>
+                        </th>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Categoría</th>
-                        <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Precio</th>
-                        <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Stock</th>
+                        <th wire:click="sortByColumn('purchase_price')" class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase cursor-pointer hover:text-slate-700 transition-colors">
+                            <div class="flex items-center justify-end gap-1">
+                                P. Compra
+                                @if($sortBy === 'purchase_price')
+                                <svg class="w-4 h-4 {{ $sortDirection === 'asc' ? '' : 'rotate-180' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                                @endif
+                            </div>
+                        </th>
+                        <th wire:click="sortByColumn('sale_price')" class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase cursor-pointer hover:text-slate-700 transition-colors">
+                            <div class="flex items-center justify-end gap-1">
+                                P. Venta
+                                @if($sortBy === 'sale_price')
+                                <svg class="w-4 h-4 {{ $sortDirection === 'asc' ? '' : 'rotate-180' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                                @endif
+                            </div>
+                        </th>
+                        <th wire:click="sortByColumn('current_stock')" class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase cursor-pointer hover:text-slate-700 transition-colors">
+                            <div class="flex items-center justify-center gap-1">
+                                Stock
+                                @if($sortBy === 'current_stock')
+                                <svg class="w-4 h-4 {{ $sortDirection === 'asc' ? '' : 'rotate-180' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                                @endif
+                            </div>
+                        </th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Variantes</th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Estado</th>
                         <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Acciones</th>
@@ -117,8 +182,11 @@
                             @endif
                         </td>
                         <td class="px-6 py-4 text-right">
+                            <span class="text-sm text-slate-600">${{ number_format($item->purchase_price, 0, ',', '.') }}</span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
                             <div class="text-sm">
-                                <span class="text-slate-900 font-medium">${{ number_format($item->sale_price, 2) }}</span>
+                                <span class="text-slate-900 font-medium">${{ number_format($item->sale_price, 0, ',', '.') }}</span>
                                 @if($item->hasNegativeMargin())
                                 <span class="ml-1 text-red-500" title="Margen negativo">⚠️</span>
                                 @else
@@ -218,9 +286,12 @@
                             </div>
                             @endif
                         </td>
-                        <td class="px-6 py-3">
+                        <td class="px-6 py-3 text-right">
+                            <span class="text-xs text-slate-400">(padre)</span>
+                        </td>
+                        <td class="px-6 py-3 text-right">
                             <div class="text-sm">
-                                <span class="text-slate-600">${{ number_format($child->sale_price, 2) }}</span>
+                                <span class="text-slate-600">${{ number_format($child->sale_price, 0, ',', '.') }}</span>
                                 @if($child->hasNegativeMargin())
                                 <span class="ml-1 text-red-500" title="Margen negativo">⚠️</span>
                                 @else
@@ -232,15 +303,15 @@
                                 @endif
                                 @endif
                             </div>
-                            @if($child->isLowStock())
-                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">Stock bajo</span>
-                            @endif
                         </td>
                         <td class="px-6 py-3 text-center">
                             <span class="text-sm text-slate-500" title="Stock del producto padre">
                                 {{ $item->current_stock }} {{ $item->unit?->abbreviation ?? 'und' }}
                             </span>
                             <div class="text-xs text-slate-400">(padre)</div>
+                        </td>
+                        <td class="px-6 py-3 text-center">
+                            <span class="text-xs text-slate-400">x{{ $child->unit_quantity }}</span>
                         </td>
                         <td class="px-6 py-3 text-center">
                             @if(auth()->user()->hasPermission('products.edit'))
@@ -272,11 +343,11 @@
                     @endif
                     @empty
                     <tr>
-                        <td colspan="8" class="px-6 py-12 text-center text-slate-500">
+                        <td colspan="9" class="px-6 py-12 text-center text-slate-500">
                             <div class="flex flex-col items-center">
                                 <svg class="w-12 h-12 text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
                                 <p>No hay productos registrados</p>
-                                @if($search || $filterCategory || $filterBrand || ($filterStatus !== null && $filterStatus !== ''))
+                                @if($search || $filterCategory || $filterBrand || ($filterStatus !== null && $filterStatus !== '') || ($filterHasVariants !== null && $filterHasVariants !== '') || ($filterStockStatus !== null && $filterStockStatus !== ''))
                                 <button wire:click="clearFilters" class="mt-2 text-[#ff7261] hover:underline text-sm">Limpiar filtros</button>
                                 @endif
                             </div>
@@ -1333,10 +1404,25 @@
                         {{-- Preview Table --}}
                         @if(count($importPreview) > 0)
                         <div>
-                            <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
-                                Vista Previa ({{ count($importPreview) }} registros)
-                            </h4>
+                            @php
+                                $validCount = count(array_filter($importPreview, fn($r) => $r['valid']));
+                                $invalidCount = count($importPreview) - $validCount;
+                                $filteredPreview = $showOnlyErrors 
+                                    ? array_filter($importPreview, fn($r) => !$r['valid'])
+                                    : $importPreview;
+                            @endphp
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                                    Vista Previa ({{ count($importPreview) }} registros)
+                                </h4>
+                                @if($invalidCount > 0)
+                                <label class="inline-flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" wire:model.live="showOnlyErrors" class="w-4 h-4 text-red-600 border-slate-300 rounded focus:ring-red-500">
+                                    <span class="text-sm text-red-600 font-medium">Solo errores ({{ $invalidCount }})</span>
+                                </label>
+                                @endif
+                            </div>
                             <div class="border border-slate-200 rounded-xl overflow-hidden">
                                 <div class="overflow-x-auto max-h-64">
                                     <table class="min-w-full divide-y divide-slate-200 text-sm">
@@ -1350,7 +1436,7 @@
                                             </tr>
                                         </thead>
                                         <tbody class="divide-y divide-slate-200">
-                                            @foreach($importPreview as $row)
+                                            @forelse($filteredPreview as $row)
                                             <tr class="{{ $row['valid'] ? 'bg-white' : 'bg-red-50' }}">
                                                 <td class="px-3 py-2 text-slate-600">{{ $row['row'] }}</td>
                                                 <td class="px-3 py-2">
@@ -1359,7 +1445,7 @@
                                                     </span>
                                                 </td>
                                                 <td class="px-3 py-2 text-slate-900 max-w-xs truncate">{{ $row['data']['nombre'] ?? '-' }}</td>
-                                                <td class="px-3 py-2 text-right text-slate-600">${{ number_format(floatval($row['data']['precio_venta'] ?? 0), 2) }}</td>
+                                                <td class="px-3 py-2 text-right text-slate-600">${{ number_format(floatval($row['data']['precio_venta'] ?? 0), 0, ',', '.') }}</td>
                                                 <td class="px-3 py-2 text-center">
                                                     @if($row['valid'])
                                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
@@ -1372,22 +1458,25 @@
                                                             <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                                             Error
                                                         </span>
-                                                        <span class="text-xs text-red-600 max-w-xs truncate" title="{{ implode(', ', $row['errors']) }}">
-                                                            {{ Str::limit(implode(', ', $row['errors']), 50) }}
+                                                        <span class="text-xs text-red-600 max-w-xs" title="{{ implode(', ', $row['errors']) }}">
+                                                            {{ implode(', ', $row['errors']) }}
                                                         </span>
                                                     </div>
                                                     @endif
                                                 </td>
                                             </tr>
-                                            @endforeach
+                                            @empty
+                                            <tr>
+                                                <td colspan="5" class="px-3 py-8 text-center text-slate-500">
+                                                    <svg class="w-8 h-8 mx-auto text-green-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                    No hay errores, todos los registros son válidos
+                                                </td>
+                                            </tr>
+                                            @endforelse
                                         </tbody>
                                     </table>
                                 </div>
                             </div>
-                            @php
-                                $validCount = count(array_filter($importPreview, fn($r) => $r['valid']));
-                                $invalidCount = count($importPreview) - $validCount;
-                            @endphp
                             <div class="mt-2 flex items-center gap-4 text-sm">
                                 <span class="text-green-600">
                                     <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>

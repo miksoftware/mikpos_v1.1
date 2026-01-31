@@ -34,6 +34,10 @@ class Products extends Component
     public ?int $filterBrand = null;
     public ?string $filterStatus = null;
     public ?string $filterBranch = null;
+    public ?string $filterHasVariants = null;
+    public ?string $filterStockStatus = null;
+    public string $sortBy = 'created_at';
+    public string $sortDirection = 'desc';
 
     // Branch control
     public bool $needsBranchSelection = false;
@@ -125,6 +129,7 @@ class Products extends Component
     public bool $isImporting = false;
     public int $importProgress = 0;
     public int $importTotal = 0;
+    public bool $showOnlyErrors = false;
 
     public function mount()
     {
@@ -172,7 +177,23 @@ class Products extends Component
             ->when($this->filterStatus !== null && $this->filterStatus !== '', function ($q) {
                 $q->where('is_active', $this->filterStatus === '1');
             })
-            ->latest()
+            ->when($this->filterHasVariants !== null && $this->filterHasVariants !== '', function ($q) {
+                if ($this->filterHasVariants === '1') {
+                    $q->has('children');
+                } else {
+                    $q->doesntHave('children');
+                }
+            })
+            ->when($this->filterStockStatus !== null && $this->filterStockStatus !== '', function ($q) {
+                if ($this->filterStockStatus === 'low') {
+                    $q->whereRaw('current_stock <= min_stock');
+                } elseif ($this->filterStockStatus === 'out') {
+                    $q->where('current_stock', '<=', 0);
+                } elseif ($this->filterStockStatus === 'ok') {
+                    $q->whereRaw('current_stock > min_stock');
+                }
+            })
+            ->orderBy($this->sortBy, $this->sortDirection)
             ->paginate(10);
 
         $categories = Category::where('is_active', true)->orderBy('name')->get();
@@ -956,6 +977,21 @@ class Products extends Component
         $this->filterBrand = null;
         $this->filterStatus = null;
         $this->filterBranch = null;
+        $this->filterHasVariants = null;
+        $this->filterStockStatus = null;
+        $this->sortBy = 'created_at';
+        $this->sortDirection = 'desc';
+        $this->resetPage();
+    }
+
+    public function sortByColumn(string $column)
+    {
+        if ($this->sortBy === $column) {
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortBy = $column;
+            $this->sortDirection = 'desc';
+        }
         $this->resetPage();
     }
 
@@ -1041,6 +1077,7 @@ class Products extends Component
         $this->isImporting = false;
         $this->importProgress = 0;
         $this->importTotal = 0;
+        $this->showOnlyErrors = false;
     }
 
     public function downloadTemplate()
