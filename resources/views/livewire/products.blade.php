@@ -5,12 +5,18 @@
             <h1 class="text-2xl font-bold text-slate-800">Productos</h1>
             <p class="text-slate-500 mt-1">Gestiona los productos y sus variantes</p>
         </div>
-        @if(auth()->user()->hasPermission('products.create'))
-        <button wire:click="create" class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] text-white text-sm font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-            Nuevo Producto
-        </button>
-        @endif
+        <div class="flex items-center gap-2">
+            @if(auth()->user()->hasPermission('products.create'))
+            <button wire:click="openImportModal" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                Importar CSV
+            </button>
+            <button wire:click="create" class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] text-white text-sm font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                Nuevo Producto
+            </button>
+            @endif
+        </div>
     </div>
 
     {{-- Search and Filters --}}
@@ -1204,6 +1210,241 @@
                             <span wire:loading wire:target="deleteChild">Eliminando...</span>
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Import CSV Modal --}}
+    @if($isImportModalOpen)
+    <div class="relative z-[100]" x-data="{ dragover: false }">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="closeImportModal"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-3xl bg-white rounded-2xl shadow-xl">
+                    {{-- Header --}}
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">Importar Productos desde CSV</h3>
+                            <p class="text-sm text-slate-500 mt-0.5">Carga masiva de productos y variantes</p>
+                        </div>
+                        <button wire:click="closeImportModal" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    {{-- Content --}}
+                    <div class="px-6 py-4 space-y-6 max-h-[70vh] overflow-y-auto">
+                        {{-- Instructions --}}
+                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                            <div class="flex items-start gap-3">
+                                <svg class="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <div class="flex-1">
+                                    <h4 class="text-sm font-semibold text-blue-800 mb-2">Pasos para Importar</h4>
+                                    <ol class="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+                                        <li>Descarga la plantilla Excel (.xlsx)</li>
+                                        <li>Abre el archivo y completa los datos (ver hoja "Instrucciones")</li>
+                                        <li>Elimina las filas de ejemplo</li>
+                                        <li><span class="font-semibold">Guarda como CSV:</span> Archivo → Guardar como → CSV UTF-8</li>
+                                        <li>Sube el archivo CSV aquí</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Download Template Button --}}
+                        <div class="flex justify-center">
+                            <button wire:click="downloadTemplate" class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                Descargar Plantilla Excel
+                            </button>
+                        </div>
+
+                        {{-- Branch Selection Warning for Super Admin --}}
+                        @if($needsBranchSelection && !$filterBranch)
+                        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                            <div class="flex items-start gap-3">
+                                <svg class="w-5 h-5 text-amber-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                <div>
+                                    <h4 class="text-sm font-semibold text-amber-800">Selecciona una Sucursal</h4>
+                                    <p class="text-sm text-amber-700 mt-1">Debes seleccionar una sucursal en los filtros antes de importar productos.</p>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+
+                        {{-- File Upload Area --}}
+                        <div 
+                            class="relative border-2 border-dashed rounded-xl p-8 text-center transition-colors"
+                            :class="dragover ? 'border-[#ff7261] bg-orange-50' : 'border-slate-300 hover:border-slate-400'"
+                            x-on:dragover.prevent="dragover = true"
+                            x-on:dragleave.prevent="dragover = false"
+                            x-on:drop.prevent="dragover = false; $refs.fileInput.files = $event.dataTransfer.files; $refs.fileInput.dispatchEvent(new Event('change'))"
+                        >
+                            <input 
+                                type="file" 
+                                wire:model="importFile" 
+                                accept=".csv"
+                                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                x-ref="fileInput"
+                            >
+                            <div class="pointer-events-none">
+                                <svg class="w-12 h-12 mx-auto text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                                <p class="text-slate-600 font-medium">Arrastra tu archivo CSV aquí</p>
+                                <p class="text-slate-400 text-sm mt-1">Solo archivos .csv (guardado desde Excel)</p>
+                            </div>
+                            <div wire:loading wire:target="importFile" class="absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl">
+                                <div class="flex items-center gap-2 text-slate-600">
+                                    <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    <span>Procesando archivo...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Import Errors --}}
+                        @if(count($importErrors) > 0)
+                        <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+                            <div class="flex items-start gap-3">
+                                <svg class="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <div class="flex-1">
+                                    <h4 class="text-sm font-semibold text-red-800 mb-2">Errores encontrados</h4>
+                                    <ul class="text-sm text-red-700 space-y-1 max-h-32 overflow-y-auto">
+                                        @foreach($importErrors as $error)
+                                        <li>
+                                            @if($error['row'] > 0)
+                                            <span class="font-medium">Fila {{ $error['row'] }}:</span>
+                                            @endif
+                                            {{ $error['message'] }}
+                                        </li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+
+                        {{-- Preview Table --}}
+                        @if(count($importPreview) > 0)
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                                Vista Previa ({{ count($importPreview) }} registros)
+                            </h4>
+                            <div class="border border-slate-200 rounded-xl overflow-hidden">
+                                <div class="overflow-x-auto max-h-64">
+                                    <table class="min-w-full divide-y divide-slate-200 text-sm">
+                                        <thead class="bg-slate-50 sticky top-0">
+                                            <tr>
+                                                <th class="px-3 py-2 text-left font-semibold text-slate-500">Fila</th>
+                                                <th class="px-3 py-2 text-left font-semibold text-slate-500">Tipo</th>
+                                                <th class="px-3 py-2 text-left font-semibold text-slate-500">Nombre</th>
+                                                <th class="px-3 py-2 text-right font-semibold text-slate-500">Precio</th>
+                                                <th class="px-3 py-2 text-center font-semibold text-slate-500">Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-200">
+                                            @foreach($importPreview as $row)
+                                            <tr class="{{ $row['valid'] ? 'bg-white' : 'bg-red-50' }}">
+                                                <td class="px-3 py-2 text-slate-600">{{ $row['row'] }}</td>
+                                                <td class="px-3 py-2">
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ strtoupper($row['data']['tipo'] ?? '') === 'PADRE' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700' }}">
+                                                        {{ $row['data']['tipo'] ?? '-' }}
+                                                    </span>
+                                                </td>
+                                                <td class="px-3 py-2 text-slate-900 max-w-xs truncate">{{ $row['data']['nombre'] ?? '-' }}</td>
+                                                <td class="px-3 py-2 text-right text-slate-600">${{ number_format(floatval($row['data']['precio_venta'] ?? 0), 2) }}</td>
+                                                <td class="px-3 py-2 text-center">
+                                                    @if($row['valid'])
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                                        Válido
+                                                    </span>
+                                                    @else
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700" title="{{ implode(', ', $row['errors']) }}">
+                                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                        Error
+                                                    </span>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            @php
+                                $validCount = count(array_filter($importPreview, fn($r) => $r['valid']));
+                                $invalidCount = count($importPreview) - $validCount;
+                            @endphp
+                            <div class="mt-2 flex items-center gap-4 text-sm">
+                                <span class="text-green-600">
+                                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    {{ $validCount }} válidos
+                                </span>
+                                @if($invalidCount > 0)
+                                <span class="text-red-600">
+                                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                    {{ $invalidCount }} con errores
+                                </span>
+                                @endif
+                            </div>
+                        </div>
+                        @endif
+
+                        {{-- Import Results --}}
+                        @if($importProcessed)
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                            <div class="flex items-center gap-4">
+                                <div class="flex-1">
+                                    <h4 class="text-sm font-semibold text-slate-800 mb-1">Resultado de la Importación</h4>
+                                    <div class="flex items-center gap-4 text-sm">
+                                        <span class="text-green-600">
+                                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                            {{ $importSuccessCount }} importados
+                                        </span>
+                                        @if($importErrorCount > 0)
+                                        <span class="text-red-600">
+                                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                            {{ $importErrorCount }} con errores
+                                        </span>
+                                        @endif
+                                    </div>
+                                </div>
+                                <button wire:click="closeImportModal" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea]">
+                                    Cerrar
+                                </button>
+                            </div>
+                        </div>
+                        @endif
+                    </div>
+
+                    {{-- Footer --}}
+                    @if(!$importProcessed)
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                        <button wire:click="closeImportModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
+                            Cancelar
+                        </button>
+                        @php
+                            $canImport = count($importPreview) > 0 && count(array_filter($importPreview, fn($r) => $r['valid'])) > 0;
+                            $needsBranch = $needsBranchSelection && !$filterBranch;
+                        @endphp
+                        <button 
+                            wire:click="executeImport" 
+                            class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] disabled:opacity-50 disabled:cursor-not-allowed"
+                            {{ !$canImport || $needsBranch ? 'disabled' : '' }}
+                        >
+                            <span wire:loading.remove wire:target="executeImport">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                Importar Productos
+                            </span>
+                            <span wire:loading wire:target="executeImport">
+                                <svg class="w-4 h-4 inline mr-1 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                Importando...
+                            </span>
+                        </button>
+                    </div>
+                    @endif
                 </div>
             </div>
         </div>

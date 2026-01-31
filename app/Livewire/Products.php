@@ -114,6 +114,15 @@ class Products extends Component
     // Expanded products (to show children)
     public array $expandedProducts = [];
 
+    // Import CSV properties
+    public bool $isImportModalOpen = false;
+    public $importFile = null;
+    public array $importErrors = [];
+    public array $importPreview = [];
+    public bool $importProcessed = false;
+    public int $importSuccessCount = 0;
+    public int $importErrorCount = 0;
+
     public function mount()
     {
         $user = auth()->user();
@@ -998,5 +1007,594 @@ class Products extends Component
         $this->size = null;
         $this->weight = null;
         $this->imei = null;
+    }
+
+    // ==================== CSV IMPORT METHODS ====================
+
+    public function openImportModal()
+    {
+        if (!auth()->user()->hasPermission('products.create')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+        $this->resetImportForm();
+        $this->isImportModalOpen = true;
+    }
+
+    public function closeImportModal()
+    {
+        $this->isImportModalOpen = false;
+        $this->resetImportForm();
+    }
+
+    private function resetImportForm()
+    {
+        $this->importFile = null;
+        $this->importErrors = [];
+        $this->importPreview = [];
+        $this->importProcessed = false;
+        $this->importSuccessCount = 0;
+        $this->importErrorCount = 0;
+    }
+
+    public function downloadTemplate()
+    {
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Productos');
+
+        // Headers
+        $headers = [
+            'A1' => 'tipo',
+            'B1' => 'sku',
+            'C1' => 'nombre',
+            'D1' => 'descripcion',
+            'E1' => 'producto_padre_sku',
+            'F1' => 'cantidad_unidades',
+            'G1' => 'stock_inicial',
+            'H1' => 'precio_compra',
+            'I1' => 'precio_venta',
+            'J1' => 'codigo_barras',
+            'K1' => 'tiene_comision',
+            'L1' => 'tipo_comision',
+            'M1' => 'valor_comision',
+            'N1' => 'precio_incluye_impuesto',
+            'O1' => 'impuesto_nombre',
+        ];
+
+        foreach ($headers as $cell => $value) {
+            $sheet->setCellValue($cell, $value);
+        }
+
+        // Style headers
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]],
+        ];
+        $sheet->getStyle('A1:O1')->applyFromArray($headerStyle);
+
+        // Get available taxes for examples
+        $taxes = Tax::where('is_active', true)->pluck('name')->toArray();
+        $taxExample1 = $taxes[0] ?? 'IVA';
+        $taxExample2 = $taxes[1] ?? 'EXENTO';
+
+        // Example data
+        $examples = [
+            ['PADRE', 'MED-001', 'Acetaminofén 500mg', 'Analgésico y antipirético', '', '', 100, 1500, 2500, '7701234567890', 'SI', 'PORCENTAJE', 5, 'NO', $taxExample1],
+            ['VARIANTE', '', 'Acetaminofén - Caja x 10', 'Caja de 10 tabletas', 'MED-001', 10, '', '', 22000, '7701234567891', 'NO', '', '', 'SI', ''],
+            ['PADRE', 'MED-002', 'Ibuprofeno 400mg', 'Antiinflamatorio', '', '', 50, 2000, 3500, '', 'NO', '', '', 'NO', $taxExample2],
+            ['VARIANTE', '', 'Ibuprofeno - Blister x 4', 'Blister de 4 tabletas', 'MED-002', 4, '', '', 12000, '', 'SI', 'FIJO', 500, 'NO', ''],
+            ['PADRE', '', 'Aspirina 100mg', 'Sin variantes', '', '', 30, 800, 1500, '', 'NO', '', '', 'NO', ''],
+        ];
+
+        $row = 2;
+        foreach ($examples as $data) {
+            $col = 'A';
+            foreach ($data as $value) {
+                $sheet->setCellValue($col . $row, $value);
+                $col++;
+            }
+            // Color rows by type
+            $fillColor = $data[0] === 'PADRE' ? 'E0E7FF' : 'FEF3C7';
+            $sheet->getStyle("A{$row}:O{$row}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB($fillColor);
+            $row++;
+        }
+
+        // Auto-size columns
+        foreach (range('A', 'O') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        // Add borders to data
+        $sheet->getStyle('A2:O6')->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+
+        // Instructions sheet
+        $instructionsSheet = $spreadsheet->createSheet();
+        $instructionsSheet->setTitle('Instrucciones');
+        
+        $instructions = [
+            ['INSTRUCCIONES PARA IMPORTAR PRODUCTOS'],
+            [''],
+            ['PASO A PASO:'],
+            ['1. Complete los datos en la hoja "Productos"'],
+            ['2. Elimine las filas de ejemplo (filas 2-6) antes de agregar sus productos'],
+            ['3. Guarde el archivo como CSV: Archivo → Guardar como → CSV UTF-8'],
+            ['4. Suba el archivo CSV en el sistema'],
+            [''],
+            ['═══════════════════════════════════════════════════════════════'],
+            ['CAMPOS OBLIGATORIOS:'],
+            ['═══════════════════════════════════════════════════════════════'],
+            ['- tipo: Escriba PADRE o VARIANTE'],
+            ['- nombre: Nombre del producto'],
+            ['- precio_venta: Precio de venta al público'],
+            [''],
+            ['═══════════════════════════════════════════════════════════════'],
+            ['SOLO PARA PRODUCTOS PADRE:'],
+            ['═══════════════════════════════════════════════════════════════'],
+            ['- sku: Código único del producto (ej: MED-001, PROD-ABC)'],
+            ['  * OBLIGATORIO si el producto tiene variantes'],
+            ['  * Opcional si el producto NO tiene variantes (se genera automático)'],
+            ['- stock_inicial: Cantidad inicial en inventario'],
+            ['- precio_compra: Costo/precio de compra del producto'],
+            ['- impuesto_nombre: Nombre del impuesto (ver lista abajo)'],
+            [''],
+            ['═══════════════════════════════════════════════════════════════'],
+            ['SOLO PARA VARIANTES:'],
+            ['═══════════════════════════════════════════════════════════════'],
+            ['- producto_padre_sku: SKU del producto padre al que pertenece'],
+            ['  Debe coincidir EXACTAMENTE con el SKU del padre (ej: MED-001)'],
+            ['- cantidad_unidades: Cuántas unidades del padre consume esta variante'],
+            ['  Ejemplo: Una caja de 10 tabletas consume 10 unidades del padre'],
+            [''],
+            ['IMPORTANTE: Las variantes heredan el impuesto del producto padre.'],
+            [''],
+            ['═══════════════════════════════════════════════════════════════'],
+            ['CAMPOS OPCIONALES:'],
+            ['═══════════════════════════════════════════════════════════════'],
+            ['- descripcion: Descripción del producto'],
+            ['- codigo_barras: Código de barras único (no repetir)'],
+            ['- tiene_comision: Escriba SI o NO'],
+            ['- tipo_comision: PORCENTAJE o FIJO (solo si tiene_comision = SI)'],
+            ['- valor_comision: Número (ej: 5 para 5% o 500 para $500 fijo)'],
+            ['- precio_incluye_impuesto: SI si el precio ya tiene impuesto, NO si no'],
+            [''],
+            ['═══════════════════════════════════════════════════════════════'],
+            ['IMPUESTOS DISPONIBLES EN SU SISTEMA:'],
+            ['═══════════════════════════════════════════════════════════════'],
+            ['Escriba el NOMBRE exacto del impuesto en la columna impuesto_nombre:'],
+            [''],
+        ];
+
+        $rowNum = 1;
+        foreach ($instructions as $line) {
+            $instructionsSheet->setCellValue('A' . $rowNum, $line[0] ?? '');
+            $rowNum++;
+        }
+        
+        // Add each tax on its own row
+        $activeTaxes = Tax::where('is_active', true)->get();
+        foreach ($activeTaxes as $tax) {
+            $instructionsSheet->setCellValue('A' . $rowNum, "   → {$tax->name} ({$tax->value}%)");
+            $rowNum++;
+        }
+        
+        if ($activeTaxes->isEmpty()) {
+            $instructionsSheet->setCellValue('A' . $rowNum, "   (No hay impuestos configurados)");
+            $rowNum++;
+        }
+        
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, 'Si no desea aplicar impuesto, deje la columna vacía.');
+        $rowNum += 2;
+        
+        $instructionsSheet->setCellValue('A' . $rowNum, '═══════════════════════════════════════════════════════════════');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, 'EJEMPLO DE USO:');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '═══════════════════════════════════════════════════════════════');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, 'Producto con variantes:');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '  Fila 1: PADRE | MED-001 | Acetaminofén 500mg | ... ');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '  Fila 2: VARIANTE | (vacío) | Caja x 10 | ... | MED-001 | 10');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, 'Producto SIN variantes:');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '  Fila 1: PADRE | (vacío) | Aspirina 100mg | ... ');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '  (El SKU se genera automáticamente)');
+        $rowNum += 2;
+        
+        $instructionsSheet->setCellValue('A' . $rowNum, '═══════════════════════════════════════════════════════════════');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, 'COLORES EN LA PLANTILLA:');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '═══════════════════════════════════════════════════════════════');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '- Azul claro: Productos PADRE');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '- Amarillo claro: VARIANTES');
+        
+        // Style title
+        $instructionsSheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $instructionsSheet->getColumnDimension('A')->setWidth(70);
+
+        // Set first sheet as active
+        $spreadsheet->setActiveSheetIndex(0);
+
+        // Generate file
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, 'plantilla_productos.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    public function updatedImportFile()
+    {
+        $this->importErrors = [];
+        $this->importPreview = [];
+        $this->importProcessed = false;
+
+        if (!$this->importFile) {
+            return;
+        }
+
+        // Validate file type
+        $extension = $this->importFile->getClientOriginalExtension();
+        if (strtolower($extension) !== 'csv') {
+            $this->importErrors[] = ['row' => 0, 'message' => 'El archivo debe ser CSV'];
+            return;
+        }
+
+        $this->processImportPreview();
+    }
+
+    private function processImportPreview()
+    {
+        $path = $this->importFile->getRealPath();
+        $content = file_get_contents($path);
+        
+        if (!$content) {
+            $this->importErrors[] = ['row' => 0, 'message' => 'No se pudo leer el archivo'];
+            return;
+        }
+
+        // Clean BOM if present
+        $content = preg_replace('/^\xEF\xBB\xBF/', '', $content);
+        
+        // Detect separator (comma or semicolon)
+        $firstLine = strtok($content, "\n");
+        $separator = (substr_count($firstLine, ';') > substr_count($firstLine, ',')) ? ';' : ',';
+        
+        // Parse CSV with detected separator
+        $lines = array_filter(explode("\n", $content), fn($line) => trim($line) !== '');
+        
+        if (count($lines) < 1) {
+            $this->importErrors[] = ['row' => 0, 'message' => 'El archivo está vacío'];
+            return;
+        }
+
+        // Read header
+        $header = str_getcsv(array_shift($lines), $separator);
+        $header = array_map('trim', array_map('strtolower', $header));
+
+        // Required columns
+        $requiredColumns = ['tipo', 'nombre', 'precio_venta'];
+        $missingColumns = array_diff($requiredColumns, $header);
+        
+        if (!empty($missingColumns)) {
+            $this->importErrors[] = ['row' => 0, 'message' => 'Columnas faltantes: ' . implode(', ', $missingColumns) . '. Separador detectado: ' . ($separator === ';' ? 'punto y coma' : 'coma')];
+            return;
+        }
+
+        // First pass: collect all parent SKUs from the file
+        $parentSkusInFile = [];
+        $rowNumber = 1;
+        foreach ($lines as $line) {
+            $rowNumber++;
+            $row = str_getcsv($line, $separator);
+            if (count($row) >= count($header)) {
+                $data = array_combine($header, array_map('trim', $row));
+                $tipo = strtoupper($data['tipo'] ?? '');
+                if ($tipo === 'PADRE' && !empty($data['sku'])) {
+                    $parentSkusInFile[] = $data['sku'];
+                }
+            }
+        }
+
+        // Second pass: validate and preview
+        $rowNumber = 1;
+        $preview = [];
+
+        foreach ($lines as $line) {
+            $rowNumber++;
+            $row = str_getcsv($line, $separator);
+            
+            if (count($row) < count($header)) {
+                $this->importErrors[] = ['row' => $rowNumber, 'message' => 'Número de columnas incorrecto'];
+                continue;
+            }
+
+            $data = array_combine($header, array_map('trim', $row));
+            $errors = $this->validateImportRow($data, $rowNumber, $parentSkusInFile);
+
+            $preview[] = [
+                'row' => $rowNumber,
+                'data' => $data,
+                'errors' => $errors,
+                'valid' => empty($errors),
+            ];
+        }
+
+        $this->importPreview = $preview;
+    }
+
+    private function validateImportRow(array $data, int $rowNumber, array $parentSkusInFile = []): array
+    {
+        $errors = [];
+        $tipo = strtoupper($data['tipo'] ?? '');
+
+        // Validate type
+        if (!in_array($tipo, ['PADRE', 'VARIANTE'])) {
+            $errors[] = "Tipo debe ser PADRE o VARIANTE";
+        }
+
+        // Validate name
+        if (empty($data['nombre'])) {
+            $errors[] = "Nombre es obligatorio";
+        }
+
+        // Validate sale price
+        if (!is_numeric($data['precio_venta'] ?? '') || floatval($data['precio_venta']) < 0) {
+            $errors[] = "Precio de venta debe ser un número válido";
+        }
+
+        if ($tipo === 'PADRE') {
+            // Parent-specific validations
+            if (!is_numeric($data['stock_inicial'] ?? '') || intval($data['stock_inicial']) < 0) {
+                $errors[] = "Stock inicial debe ser un número válido para productos padre";
+            }
+            if (!is_numeric($data['precio_compra'] ?? '') || floatval($data['precio_compra']) < 0) {
+                $errors[] = "Precio de compra debe ser un número válido para productos padre";
+            }
+            
+            // Validate SKU uniqueness if provided
+            if (!empty($data['sku'])) {
+                $skuExists = Product::where('sku', $data['sku'])->exists();
+                if ($skuExists) {
+                    $errors[] = "SKU '{$data['sku']}' ya existe en el sistema";
+                }
+            }
+        }
+
+        if ($tipo === 'VARIANTE') {
+            // Variant-specific validations
+            if (empty($data['producto_padre_sku'])) {
+                $errors[] = "SKU del producto padre es obligatorio para variantes";
+            } else {
+                // Check if parent exists in database
+                $parentExists = Product::where('sku', $data['producto_padre_sku'])->exists();
+                if (!$parentExists) {
+                    // Check if parent will be created in this import
+                    $willBeCreated = in_array($data['producto_padre_sku'], $parentSkusInFile);
+                    if (!$willBeCreated) {
+                        $errors[] = "Producto padre con SKU '{$data['producto_padre_sku']}' no existe. Asegúrese de que el padre tenga ese SKU en la columna 'sku'";
+                    }
+                }
+            }
+
+            if (!is_numeric($data['cantidad_unidades'] ?? '') || floatval($data['cantidad_unidades']) <= 0) {
+                $errors[] = "Cantidad de unidades debe ser mayor a 0 para variantes";
+            }
+        }
+
+        // Validate commission
+        $tieneComision = strtoupper($data['tiene_comision'] ?? '') === 'SI';
+        if ($tieneComision) {
+            $tipoComision = strtoupper($data['tipo_comision'] ?? '');
+            if (!in_array($tipoComision, ['PORCENTAJE', 'FIJO'])) {
+                $errors[] = "Tipo de comisión debe ser PORCENTAJE o FIJO";
+            }
+            if (!is_numeric($data['valor_comision'] ?? '') || floatval($data['valor_comision']) < 0) {
+                $errors[] = "Valor de comisión debe ser un número válido";
+            }
+        }
+
+        // Validate barcode uniqueness if provided
+        if (!empty($data['codigo_barras'])) {
+            $barcodeExists = Product::where('barcode', $data['codigo_barras'])->exists() ||
+                             ProductChild::where('barcode', $data['codigo_barras'])->exists();
+            if ($barcodeExists) {
+                $errors[] = "Código de barras '{$data['codigo_barras']}' ya existe";
+            }
+        }
+
+        return $errors;
+    }
+
+    public function executeImport()
+    {
+        if (!auth()->user()->hasPermission('products.create')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        if (empty($this->importPreview)) {
+            $this->dispatch('notify', message: 'No hay datos para importar', type: 'error');
+            return;
+        }
+
+        // Check if user needs to select branch
+        $user = auth()->user();
+        $branchId = $user->branch_id;
+        
+        if ($this->needsBranchSelection && !$this->filterBranch) {
+            $this->dispatch('notify', message: 'Debe seleccionar una sucursal antes de importar', type: 'error');
+            return;
+        }
+        
+        if ($this->needsBranchSelection) {
+            $branchId = $this->filterBranch;
+        }
+
+        $successCount = 0;
+        $errorCount = 0;
+        $createdParentSkus = []; // Track SKUs of parents created in this import
+
+        // Get default unit
+        $defaultUnit = Unit::where('is_active', true)->first();
+        if (!$defaultUnit) {
+            $this->dispatch('notify', message: 'No hay unidades de medida configuradas', type: 'error');
+            return;
+        }
+
+        // Get default category
+        $defaultCategory = Category::where('is_active', true)->first();
+        if (!$defaultCategory) {
+            $this->dispatch('notify', message: 'No hay categorías configuradas', type: 'error');
+            return;
+        }
+
+        // Process parents first, then variants
+        $parents = array_filter($this->importPreview, fn($row) => strtoupper($row['data']['tipo'] ?? '') === 'PADRE' && $row['valid']);
+        $variants = array_filter($this->importPreview, fn($row) => strtoupper($row['data']['tipo'] ?? '') === 'VARIANTE' && $row['valid']);
+
+        // Import parents
+        foreach ($parents as $row) {
+            try {
+                $data = $row['data'];
+                
+                // Find tax if specified - search by exact name
+                $taxId = null;
+                if (!empty($data['impuesto_nombre'])) {
+                    $tax = Tax::where('name', $data['impuesto_nombre'])->first();
+                    $taxId = $tax?->id;
+                }
+
+                // Use provided SKU or generate one
+                $sku = !empty($data['sku']) ? $data['sku'] : null;
+
+                $product = Product::create([
+                    'branch_id' => $branchId,
+                    'sku' => $sku,
+                    'name' => $data['nombre'],
+                    'description' => $data['descripcion'] ?? null,
+                    'barcode' => !empty($data['codigo_barras']) ? $data['codigo_barras'] : null,
+                    'category_id' => $defaultCategory->id,
+                    'unit_id' => $defaultUnit->id,
+                    'tax_id' => $taxId,
+                    'purchase_price' => floatval($data['precio_compra'] ?? 0),
+                    'sale_price' => floatval($data['precio_venta']),
+                    'price_includes_tax' => strtoupper($data['precio_incluye_impuesto'] ?? '') === 'SI',
+                    'current_stock' => intval($data['stock_inicial'] ?? 0),
+                    'min_stock' => 0,
+                    'is_active' => true,
+                    'has_commission' => strtoupper($data['tiene_comision'] ?? '') === 'SI',
+                    'commission_type' => strtoupper($data['tipo_comision'] ?? '') === 'FIJO' ? 'fixed' : 'percentage',
+                    'commission_value' => floatval($data['valor_comision'] ?? 0),
+                ]);
+
+                // Generate SKU only if not provided
+                if (!$product->sku) {
+                    $product->generateSku();
+                    $product->save();
+                }
+
+                // Track created parent for variant matching using the SKU from CSV
+                if (!empty($data['sku'])) {
+                    $createdParentSkus[$data['sku']] = $product->id;
+                }
+                $createdParentSkus[$product->sku] = $product->id;
+
+                // Create initial stock movement
+                if (intval($data['stock_inicial'] ?? 0) > 0) {
+                    $systemDocument = \App\Models\SystemDocument::findByCode('initial_stock');
+                    if ($systemDocument) {
+                        \App\Models\InventoryMovement::create([
+                            'system_document_id' => $systemDocument->id,
+                            'document_number' => $systemDocument->generateNextNumber(),
+                            'product_id' => $product->id,
+                            'branch_id' => $branchId,
+                            'user_id' => auth()->id(),
+                            'movement_type' => 'in',
+                            'quantity' => intval($data['stock_inicial']),
+                            'stock_before' => 0,
+                            'stock_after' => intval($data['stock_inicial']),
+                            'unit_cost' => floatval($data['precio_compra'] ?? 0),
+                            'total_cost' => floatval($data['precio_compra'] ?? 0) * intval($data['stock_inicial']),
+                            'notes' => "Stock inicial importado - '{$product->name}'",
+                            'movement_date' => now(),
+                        ]);
+                    }
+                }
+
+                ActivityLogService::logCreate('products', $product, "Producto '{$product->name}' importado desde CSV");
+                $successCount++;
+            } catch (\Exception $e) {
+                $errorCount++;
+                $this->importErrors[] = ['row' => $row['row'], 'message' => 'Error al crear: ' . $e->getMessage()];
+            }
+        }
+
+        // Import variants
+        foreach ($variants as $row) {
+            try {
+                $data = $row['data'];
+                
+                // Find parent product
+                $parentSku = $data['producto_padre_sku'];
+                $parentId = $createdParentSkus[$parentSku] ?? null;
+                
+                if (!$parentId) {
+                    $parent = Product::where('sku', $parentSku)->first();
+                    $parentId = $parent?->id;
+                }
+
+                if (!$parentId) {
+                    $errorCount++;
+                    $this->importErrors[] = ['row' => $row['row'], 'message' => "Producto padre con SKU '{$parentSku}' no encontrado"];
+                    continue;
+                }
+
+                $child = ProductChild::create([
+                    'product_id' => $parentId,
+                    'name' => $data['nombre'],
+                    'barcode' => !empty($data['codigo_barras']) ? $data['codigo_barras'] : null,
+                    'unit_quantity' => floatval($data['cantidad_unidades'] ?? 1),
+                    'sale_price' => floatval($data['precio_venta']),
+                    'price_includes_tax' => strtoupper($data['precio_incluye_impuesto'] ?? '') === 'SI',
+                    'is_active' => true,
+                    'has_commission' => strtoupper($data['tiene_comision'] ?? '') === 'SI',
+                    'commission_type' => strtoupper($data['tipo_comision'] ?? '') === 'FIJO' ? 'fixed' : 'percentage',
+                    'commission_value' => floatval($data['valor_comision'] ?? 0),
+                ]);
+
+                ActivityLogService::logCreate('product_children', $child, "Variante '{$child->name}' importada desde CSV");
+                $successCount++;
+            } catch (\Exception $e) {
+                $errorCount++;
+                $this->importErrors[] = ['row' => $row['row'], 'message' => 'Error al crear variante: ' . $e->getMessage()];
+            }
+        }
+
+        $this->importProcessed = true;
+        $this->importSuccessCount = $successCount;
+        $this->importErrorCount = $errorCount;
+
+        if ($successCount > 0) {
+            $this->dispatch('notify', message: "{$successCount} productos importados correctamente", type: 'success');
+        }
+        
+        if ($errorCount > 0) {
+            $this->dispatch('notify', message: "{$errorCount} productos con errores", type: 'warning');
+        }
     }
 }
