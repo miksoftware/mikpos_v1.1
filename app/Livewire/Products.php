@@ -122,6 +122,9 @@ class Products extends Component
     public bool $importProcessed = false;
     public int $importSuccessCount = 0;
     public int $importErrorCount = 0;
+    public bool $isImporting = false;
+    public int $importProgress = 0;
+    public int $importTotal = 0;
 
     public function mount()
     {
@@ -1035,6 +1038,9 @@ class Products extends Component
         $this->importProcessed = false;
         $this->importSuccessCount = 0;
         $this->importErrorCount = 0;
+        $this->isImporting = false;
+        $this->importProgress = 0;
+        $this->importTotal = 0;
     }
 
     public function downloadTemplate()
@@ -1420,7 +1426,7 @@ class Products extends Component
         return $errors;
     }
 
-    public function executeImport()
+        public function executeImport()
     {
         if (!auth()->user()->hasPermission('products.create')) {
             $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
@@ -1435,19 +1441,15 @@ class Products extends Component
         // Check if user needs to select branch
         $user = auth()->user();
         $branchId = $user->branch_id;
-        
+
         if ($this->needsBranchSelection && !$this->filterBranch) {
             $this->dispatch('notify', message: 'Debe seleccionar una sucursal antes de importar', type: 'error');
             return;
         }
-        
+
         if ($this->needsBranchSelection) {
             $branchId = $this->filterBranch;
         }
-
-        $successCount = 0;
-        $errorCount = 0;
-        $createdParentSkus = []; // Track SKUs of parents created in this import
 
         // Get default unit
         $defaultUnit = Unit::where('is_active', true)->first();
@@ -1463,61 +1465,78 @@ class Products extends Component
             return;
         }
 
-        // Process parents first, then variants
+        // Initialize progress tracking
+        $this->isImporting = true;
+        $this->importProgress = 0;
+        $validRows = array_filter($this->importPreview, fn($row) => $row['valid']);
+        $this->importTotal = count($validRows);
+
+        $successCount = 0;
+        $errorCount = 0;
+        $createdParentSkus = [];
+
+        // Separate parents and variants
         $parents = array_filter($this->importPreview, fn($row) => strtoupper($row['data']['tipo'] ?? '') === 'PADRE' && $row['valid']);
         $variants = array_filter($this->importPreview, fn($row) => strtoupper($row['data']['tipo'] ?? '') === 'VARIANTE' && $row['valid']);
 
-        // Import parents
-        foreach ($parents as $row) {
+        // Pre-load taxes for faster lookup
+        $taxesMap = Tax::where('is_active', true)->pluck('id', 'name')->toArray();
+
+        // Get system document for initial stock (once)
+        $systemDocument = \App\Models\SystemDocument::findByCode('initial_stock');
+
+        // Disable query logging for performance
+        \DB::disableQueryLog();
+
+        // Process parents in chunks with transaction
+        $parentChunks = array_chunk($parents, 100, true);
+        
+        foreach ($parentChunks as $chunk) {
+            \DB::beginTransaction();
             try {
-                $data = $row['data'];
-                
-                // Find tax if specified - search by exact name
-                $taxId = null;
-                if (!empty($data['impuesto_nombre'])) {
-                    $tax = Tax::where('name', $data['impuesto_nombre'])->first();
-                    $taxId = $tax?->id;
-                }
+                foreach ($chunk as $row) {
+                    $data = $row['data'];
 
-                // Use provided SKU or generate one
-                $sku = !empty($data['sku']) ? $data['sku'] : null;
+                    // Find tax if specified
+                    $taxId = null;
+                    if (!empty($data['impuesto_nombre']) && isset($taxesMap[$data['impuesto_nombre']])) {
+                        $taxId = $taxesMap[$data['impuesto_nombre']];
+                    }
 
-                $product = Product::create([
-                    'branch_id' => $branchId,
-                    'sku' => $sku,
-                    'name' => $data['nombre'],
-                    'description' => $data['descripcion'] ?? null,
-                    'barcode' => !empty($data['codigo_barras']) ? $data['codigo_barras'] : null,
-                    'category_id' => $defaultCategory->id,
-                    'unit_id' => $defaultUnit->id,
-                    'tax_id' => $taxId,
-                    'purchase_price' => floatval($data['precio_compra'] ?? 0),
-                    'sale_price' => floatval($data['precio_venta']),
-                    'price_includes_tax' => strtoupper($data['precio_incluye_impuesto'] ?? '') === 'SI',
-                    'current_stock' => intval($data['stock_inicial'] ?? 0),
-                    'min_stock' => 0,
-                    'is_active' => true,
-                    'has_commission' => strtoupper($data['tiene_comision'] ?? '') === 'SI',
-                    'commission_type' => strtoupper($data['tipo_comision'] ?? '') === 'FIJO' ? 'fixed' : 'percentage',
-                    'commission_value' => floatval($data['valor_comision'] ?? 0),
-                ]);
+                    $sku = !empty($data['sku']) ? $data['sku'] : null;
 
-                // Generate SKU only if not provided
-                if (!$product->sku) {
-                    $product->generateSku();
-                    $product->save();
-                }
+                    $product = Product::create([
+                        'branch_id' => $branchId,
+                        'sku' => $sku,
+                        'name' => $data['nombre'],
+                        'description' => $data['descripcion'] ?? null,
+                        'barcode' => !empty($data['codigo_barras']) ? $data['codigo_barras'] : null,
+                        'category_id' => $defaultCategory->id,
+                        'unit_id' => $defaultUnit->id,
+                        'tax_id' => $taxId,
+                        'purchase_price' => floatval($data['precio_compra'] ?? 0),
+                        'sale_price' => floatval($data['precio_venta']),
+                        'price_includes_tax' => strtoupper($data['precio_incluye_impuesto'] ?? '') === 'SI',
+                        'current_stock' => intval($data['stock_inicial'] ?? 0),
+                        'min_stock' => 0,
+                        'is_active' => true,
+                        'has_commission' => strtoupper($data['tiene_comision'] ?? '') === 'SI',
+                        'commission_type' => strtoupper($data['tipo_comision'] ?? '') === 'FIJO' ? 'fixed' : 'percentage',
+                        'commission_value' => floatval($data['valor_comision'] ?? 0),
+                    ]);
 
-                // Track created parent for variant matching using the SKU from CSV
-                if (!empty($data['sku'])) {
-                    $createdParentSkus[$data['sku']] = $product->id;
-                }
-                $createdParentSkus[$product->sku] = $product->id;
+                    if (!$product->sku) {
+                        $product->generateSku();
+                        $product->save();
+                    }
 
-                // Create initial stock movement
-                if (intval($data['stock_inicial'] ?? 0) > 0) {
-                    $systemDocument = \App\Models\SystemDocument::findByCode('initial_stock');
-                    if ($systemDocument) {
+                    if (!empty($data['sku'])) {
+                        $createdParentSkus[$data['sku']] = $product->id;
+                    }
+                    $createdParentSkus[$product->sku] = $product->id;
+
+                    $stockInicial = intval($data['stock_inicial'] ?? 0);
+                    if ($stockInicial > 0 && $systemDocument) {
                         \App\Models\InventoryMovement::create([
                             'system_document_id' => $systemDocument->id,
                             'document_number' => $systemDocument->generateNextNumber(),
@@ -1525,66 +1544,84 @@ class Products extends Component
                             'branch_id' => $branchId,
                             'user_id' => auth()->id(),
                             'movement_type' => 'in',
-                            'quantity' => intval($data['stock_inicial']),
+                            'quantity' => $stockInicial,
                             'stock_before' => 0,
-                            'stock_after' => intval($data['stock_inicial']),
+                            'stock_after' => $stockInicial,
                             'unit_cost' => floatval($data['precio_compra'] ?? 0),
-                            'total_cost' => floatval($data['precio_compra'] ?? 0) * intval($data['stock_inicial']),
-                            'notes' => "Stock inicial importado - '{$product->name}'",
+                            'total_cost' => floatval($data['precio_compra'] ?? 0) * $stockInicial,
+                            'notes' => "Stock inicial importado",
                             'movement_date' => now(),
                         ]);
                     }
-                }
 
-                ActivityLogService::logCreate('products', $product, "Producto '{$product->name}' importado desde CSV");
-                $successCount++;
+                    $successCount++;
+                    $this->importProgress = $successCount;
+                }
+                
+                \DB::commit();
             } catch (\Exception $e) {
-                $errorCount++;
-                $this->importErrors[] = ['row' => $row['row'], 'message' => 'Error al crear: ' . $e->getMessage()];
-            }
-        }
-
-        // Import variants
-        foreach ($variants as $row) {
-            try {
-                $data = $row['data'];
-                
-                // Find parent product
-                $parentSku = $data['producto_padre_sku'];
-                $parentId = $createdParentSkus[$parentSku] ?? null;
-                
-                if (!$parentId) {
-                    $parent = Product::where('sku', $parentSku)->first();
-                    $parentId = $parent?->id;
-                }
-
-                if (!$parentId) {
+                \DB::rollBack();
+                foreach ($chunk as $row) {
                     $errorCount++;
-                    $this->importErrors[] = ['row' => $row['row'], 'message' => "Producto padre con SKU '{$parentSku}' no encontrado"];
-                    continue;
+                    $this->importErrors[] = ['row' => $row['row'], 'message' => 'Error en lote: ' . $e->getMessage()];
                 }
-
-                $child = ProductChild::create([
-                    'product_id' => $parentId,
-                    'name' => $data['nombre'],
-                    'barcode' => !empty($data['codigo_barras']) ? $data['codigo_barras'] : null,
-                    'unit_quantity' => floatval($data['cantidad_unidades'] ?? 1),
-                    'sale_price' => floatval($data['precio_venta']),
-                    'price_includes_tax' => strtoupper($data['precio_incluye_impuesto'] ?? '') === 'SI',
-                    'is_active' => true,
-                    'has_commission' => strtoupper($data['tiene_comision'] ?? '') === 'SI',
-                    'commission_type' => strtoupper($data['tipo_comision'] ?? '') === 'FIJO' ? 'fixed' : 'percentage',
-                    'commission_value' => floatval($data['valor_comision'] ?? 0),
-                ]);
-
-                ActivityLogService::logCreate('product_children', $child, "Variante '{$child->name}' importada desde CSV");
-                $successCount++;
-            } catch (\Exception $e) {
-                $errorCount++;
-                $this->importErrors[] = ['row' => $row['row'], 'message' => 'Error al crear variante: ' . $e->getMessage()];
             }
         }
 
+        // Process variants in chunks with transaction
+        $variantChunks = array_chunk($variants, 100, true);
+        
+        foreach ($variantChunks as $chunk) {
+            \DB::beginTransaction();
+            try {
+                foreach ($chunk as $row) {
+                    $data = $row['data'];
+
+                    $parentSku = $data['producto_padre_sku'];
+                    $parentId = $createdParentSkus[$parentSku] ?? null;
+
+                    if (!$parentId) {
+                        $parent = Product::where('sku', $parentSku)->first();
+                        $parentId = $parent?->id;
+                    }
+
+                    if (!$parentId) {
+                        $errorCount++;
+                        $this->importErrors[] = ['row' => $row['row'], 'message' => "Producto padre con SKU '{$parentSku}' no encontrado"];
+                        continue;
+                    }
+
+                    ProductChild::create([
+                        'product_id' => $parentId,
+                        'name' => $data['nombre'],
+                        'barcode' => !empty($data['codigo_barras']) ? $data['codigo_barras'] : null,
+                        'unit_quantity' => floatval($data['cantidad_unidades'] ?? 1),
+                        'sale_price' => floatval($data['precio_venta']),
+                        'price_includes_tax' => strtoupper($data['precio_incluye_impuesto'] ?? '') === 'SI',
+                        'is_active' => true,
+                        'has_commission' => strtoupper($data['tiene_comision'] ?? '') === 'SI',
+                        'commission_type' => strtoupper($data['tipo_comision'] ?? '') === 'FIJO' ? 'fixed' : 'percentage',
+                        'commission_value' => floatval($data['valor_comision'] ?? 0),
+                    ]);
+
+                    $successCount++;
+                    $this->importProgress = $successCount;
+                }
+                
+                \DB::commit();
+            } catch (\Exception $e) {
+                \DB::rollBack();
+                foreach ($chunk as $row) {
+                    $errorCount++;
+                    $this->importErrors[] = ['row' => $row['row'], 'message' => 'Error en lote variantes: ' . $e->getMessage()];
+                }
+            }
+        }
+
+        // Re-enable query logging
+        \DB::enableQueryLog();
+
+        $this->isImporting = false;
         $this->importProcessed = true;
         $this->importSuccessCount = $successCount;
         $this->importErrorCount = $errorCount;
@@ -1592,7 +1629,7 @@ class Products extends Component
         if ($successCount > 0) {
             $this->dispatch('notify', message: "{$successCount} productos importados correctamente", type: 'success');
         }
-        
+
         if ($errorCount > 0) {
             $this->dispatch('notify', message: "{$errorCount} productos con errores", type: 'warning');
         }
