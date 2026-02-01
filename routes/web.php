@@ -207,4 +207,19 @@ Route::middleware(['auth'])->group(function () {
         
         return view('receipts.refund-receipt', compact('refund'));
     })->name('refund-receipt.show');
+
+    // Reports
+    Route::prefix('reports')->name('reports.')->middleware('permission:reports.view')->group(function () {
+        Route::get('/products-sold', App\Livewire\Reports\ProductsSold::class)
+            ->name('products-sold')
+            ->middleware('permission:reports.products_sold');
+        
+        Route::get('/products-sold/pdf', [App\Http\Controllers\ReportExportController::class, 'productsSoldPdf'])
+            ->name('products-sold.pdf')
+            ->middleware('permission:reports.export');
+        
+        Route::get('/products-sold/excel', [App\Http\Controllers\ReportExportController::class, 'productsSoldExcel'])
+            ->name('products-sold.excel')
+            ->middleware('permission:reports.export');
+    });
 });

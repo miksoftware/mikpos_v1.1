@@ -540,6 +540,66 @@
                         @endif
                     </div>
                 </div>
+
+                <!-- Reportes Section -->
+                @if (auth()->user()->hasPermission('reports.view'))
+                <div x-data="{ reportesOpen: {{ request()->routeIs('reports.*') ? 'true' : 'false' }} }">
+                    <button @click="reportesOpen = !reportesOpen"
+                        class="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-slate-400 hover:bg-white/5 hover:text-white">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5 flex-shrink-0 group-hover:text-[#a855f7]" fill="none"
+                                stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            <span x-show="sidebarOpen" class="font-medium">Reportes</span>
+                        </div>
+                        <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform duration-200"
+                            :class="reportesOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
+                            </path>
+                        </svg>
+                    </button>
+
+                    <div x-show="reportesOpen && sidebarOpen" x-collapse
+                        class="mt-1 ml-4 pl-4 border-l border-white/10 space-y-1">
+                        <!-- Ventas Submenu -->
+                        <div x-data="{ ventasReportOpen: {{ request()->routeIs('reports.products-sold') ? 'true' : 'false' }} }">
+                            <button @click="ventasReportOpen = !ventasReportOpen"
+                                class="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-slate-400 hover:bg-white/5 hover:text-white">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                    </svg>
+                                    <span class="text-sm">Ventas</span>
+                                </div>
+                                <svg class="w-3 h-3 transition-transform duration-200"
+                                    :class="ventasReportOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+
+                            <div x-show="ventasReportOpen" x-collapse
+                                class="mt-1 ml-4 pl-3 border-l border-white/5 space-y-1">
+                                @if (auth()->user()->hasPermission('reports.products_sold'))
+                                <a href="{{ route('reports.products-sold') }}"
+                                    class="flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all duration-200 {{ request()->routeIs('reports.products-sold') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                    </svg>
+                                    <span class="text-xs">Productos Vendidos</span>
+                                </a>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endif
             </nav>
 
             <!-- Toggle Button -->

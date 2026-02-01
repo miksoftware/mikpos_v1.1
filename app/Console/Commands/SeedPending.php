@@ -35,6 +35,7 @@ class SeedPending extends Command
         'BillingSettingsModuleSeeder',
         'SalesModuleSeeder',
         'ServicesModuleSeeder',
+        'ReportsModuleSeeder',
         // Add new seeders here
     ];
 
