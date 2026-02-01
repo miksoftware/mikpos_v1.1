@@ -122,20 +122,48 @@ class PointOfSale extends Component
 
     public function updatedBarcodeSearch()
     {
-        if (strlen($this->barcodeSearch) >= 3) {
-            // Search by barcode in product children
-            $child = ProductChild::where('barcode', $this->barcodeSearch)
-                ->where('is_active', true)
-                ->whereHas('product', function ($q) {
-                    $q->where('is_active', true)
-                      ->forBranch($this->branchId);
-                })
-                ->first();
-            
-            if ($child) {
-                $this->addToCart($child->product_id, $child->id);
-                $this->barcodeSearch = '';
-            }
+        $this->searchByBarcode();
+    }
+
+    public function searchByBarcode()
+    {
+        $barcode = trim($this->barcodeSearch);
+        
+        if (strlen($barcode) < 3) {
+            return;
+        }
+
+        // First, search exact match in product children
+        $child = ProductChild::where('barcode', $barcode)
+            ->where('is_active', true)
+            ->whereHas('product', function ($q) {
+                $q->where('is_active', true)
+                  ->forBranch($this->branchId);
+            })
+            ->first();
+        
+        if ($child) {
+            $this->addToCart($child->product_id, $child->id);
+            $this->barcodeSearch = '';
+            return;
+        }
+
+        // Then, search exact match in parent products
+        $product = Product::where('barcode', $barcode)
+            ->where('is_active', true)
+            ->forBranch($this->branchId)
+            ->first();
+        
+        if ($product) {
+            $this->addToCart($product->id);
+            $this->barcodeSearch = '';
+            return;
+        }
+
+        // If barcode looks complete (8+ digits) but not found, show notification
+        if (strlen($barcode) >= 8 && preg_match('/^\d+$/', $barcode)) {
+            $this->dispatch('notify', message: 'Producto no encontrado: ' . $barcode, type: 'warning');
+            $this->barcodeSearch = '';
         }
     }
 
