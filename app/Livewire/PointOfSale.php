@@ -240,6 +240,7 @@ class PointOfSale extends Component
         if ($child) {
             $this->addToCart($child->product_id, $child->id);
             $this->barcodeSearch = '';
+            $this->dispatch('focus-barcode-search');
             return;
         }
 
@@ -252,6 +253,7 @@ class PointOfSale extends Component
         if ($product) {
             $this->addToCart($product->id);
             $this->barcodeSearch = '';
+            $this->dispatch('focus-barcode-search');
             return;
         }
 
@@ -259,6 +261,7 @@ class PointOfSale extends Component
         if (strlen($barcode) >= 8 && preg_match('/^\d+$/', $barcode)) {
             $this->dispatch('notify', message: 'Producto no encontrado: ' . $barcode, type: 'warning');
             $this->barcodeSearch = '';
+            $this->dispatch('focus-barcode-search');
         }
     }
 
@@ -340,6 +343,10 @@ class PointOfSale extends Component
                 'max_stock' => (int)$product->current_stock,
             ];
         }
+        
+        // Clear search and refocus
+        $this->productSearch = '';
+        $this->dispatch('focus-product-search');
     }
 
     public function addServiceToCart($serviceId)
@@ -385,6 +392,10 @@ class PointOfSale extends Component
                 'max_stock' => PHP_INT_MAX, // Services have no stock limit
             ];
         }
+        
+        // Clear search and refocus
+        $this->productSearch = '';
+        $this->dispatch('focus-product-search');
     }
 
     protected function updateCartItemTotals($cartKey)
