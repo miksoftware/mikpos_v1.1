@@ -18,7 +18,7 @@
         <aside :class="sidebarOpen ? 'w-64' : 'w-20'"
             class="fixed inset-y-0 left-0 z-50 bg-gradient-to-b from-[#1a1225] via-[#231730] to-[#1a1225] transition-all duration-300 ease-in-out hidden lg:flex lg:flex-col">
             <!-- Logo -->
-            <div class="h-16 flex items-center justify-between px-4 border-b border-white/10">
+            <div class="flex flex-col items-start px-4 py-3 border-b border-white/10">
                 <a href="{{ route('dashboard') }}" class="flex items-center gap-3">
                     <div
                         class="w-10 h-10 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
@@ -29,7 +29,7 @@
                     </div>
                     <span x-show="sidebarOpen" x-transition:enter="transition-opacity duration-200"
                         x-transition:leave="transition-opacity duration-200"
-                        class="text-xl font-bold text-white">MikPOS</span>
+                        class="text-lg font-bold text-white truncate max-w-[160px]">{{ auth()->user()->branch?->name ?? 'MikPOS' }}</span>
                 </a>
             </div>
 
@@ -649,24 +649,26 @@
             x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0"
             x-transition:leave-end="-translate-x-full"
             class="fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-[#1a1225] via-[#231730] to-[#1a1225] z-50 lg:hidden">
-            <div class="h-16 flex items-center justify-between px-4 border-b border-white/10">
-                <a href="{{ route('dashboard') }}" class="flex items-center gap-3">
-                    <div
-                        class="w-10 h-10 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-xl flex items-center justify-center">
-                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex flex-col px-4 py-3 border-b border-white/10">
+                <div class="flex items-center justify-between">
+                    <a href="{{ route('dashboard') }}" class="flex items-center gap-3">
+                        <div
+                            class="w-10 h-10 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-xl flex items-center justify-center">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                            </svg>
+                        </div>
+                        <span class="text-lg font-bold text-white truncate max-w-[140px]">{{ auth()->user()->branch?->name ?? 'MikPOS' }}</span>
+                    </a>
+                    <button @click="mobileMenuOpen = false"
+                        class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                                d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
-                    </div>
-                    <span class="text-xl font-bold text-white">MikPOS</span>
-                </a>
-                <button @click="mobileMenuOpen = false"
-                    class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
+                    </button>
+                </div>
             </div>
             <nav class="px-3 py-4 space-y-1">
                 <a href="{{ route('dashboard') }}"

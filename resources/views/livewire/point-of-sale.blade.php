@@ -1,4 +1,6 @@
-<div class="h-screen flex flex-col bg-slate-100" x-data="{ showCustomerSearch: false }" @keydown.f7.window.prevent="showCustomerSearch = true; $nextTick(() => $refs.customerSearchInput?.focus())">
+<div class="h-screen flex flex-col bg-slate-100" x-data="{ showCustomerSearch: false }" 
+    @keydown.f7.window.prevent="showCustomerSearch = true; $nextTick(() => $refs.customerSearchInput?.focus())"
+    @close-customer-modal.window="showCustomerSearch = false">
     <!-- Top Header Bar -->
     <header class="h-14 bg-gradient-to-r from-[#1a1225] to-[#2d1f3d] flex items-center justify-between px-4 flex-shrink-0">
         <div class="flex items-center gap-4">
@@ -15,7 +17,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
                     </svg>
                 </div>
-                <span class="text-white font-bold">MikPOS</span>
+                <span class="text-white font-bold">{{ auth()->user()->branch?->name ?? 'MikPOS' }}</span>
             </div>
         </div>
         <div class="flex items-center gap-4">
@@ -77,7 +79,14 @@
             <div class="p-4 border-b border-slate-200">
                 <div class="flex items-center justify-between mb-2">
                     <label class="text-sm font-medium text-slate-700">Cliente</label>
-                    <button @click="showCustomerSearch = true" class="text-xs text-slate-400 hover:text-[#ff7261] px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 transition">F7</button>
+                    <div class="flex items-center gap-1">
+                        <button @click="showCustomerSearch = true; $nextTick(() => $refs.customerSearchInput?.focus())" class="p-1.5 text-slate-400 hover:text-[#ff7261] hover:bg-slate-100 rounded-lg transition" title="Buscar cliente (F7)">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                        </button>
+                        <span class="text-xs text-slate-400 px-1.5 py-0.5 rounded bg-slate-100">F7</span>
+                    </div>
                 </div>
                 @if($selectedCustomer)
                 <div class="flex items-center justify-between p-3 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border border-slate-200">
@@ -90,17 +99,27 @@
                             <p class="text-xs text-slate-500">{{ $selectedCustomer->document_number }}</p>
                         </div>
                     </div>
-                    @if(!$selectedCustomer->is_default)
-                    <button wire:click="clearCustomer" class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                    @endif
+                    <div class="flex items-center gap-1">
+                        <button @click="showCustomerSearch = true" class="p-1.5 text-slate-400 hover:text-[#ff7261] hover:bg-slate-100 rounded-lg transition" title="Cambiar cliente">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                            </svg>
+                        </button>
+                        @if(!$selectedCustomer->is_default)
+                        <button wire:click="clearCustomer" class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Quitar cliente">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                        @endif
+                    </div>
                 </div>
                 @else
-                <button @click="showCustomerSearch = true" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 border-dashed rounded-xl text-slate-500 hover:border-[#ff7261] hover:text-[#ff7261] transition text-sm text-left">
-                    Presiona F7 o haz clic para buscar cliente...
+                <button @click="showCustomerSearch = true; $nextTick(() => $refs.customerSearchInput?.focus())" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 border-dashed rounded-xl text-slate-500 hover:border-[#ff7261] hover:text-[#ff7261] transition text-sm text-left flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    Buscar o crear cliente (F7)
                 </button>
                 @endif
             </div>
@@ -365,11 +384,13 @@
     </div>
 
     <!-- Customer Search Modal (F7) -->
-    <div x-show="showCustomerSearch" x-transition class="fixed inset-0 z-[100]" @keydown.escape.window="showCustomerSearch = false">
-        <div class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100]" @click="showCustomerSearch = false"></div>
+    <div x-show="showCustomerSearch" x-transition class="fixed inset-0 z-[100]" @keydown.escape.window="showCustomerSearch = false; $wire.showCreateCustomer = false">
+        <div class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100]" @click="showCustomerSearch = false; $wire.showCreateCustomer = false"></div>
         <div class="fixed inset-0 z-[101] overflow-y-auto">
             <div class="flex min-h-full items-start justify-center p-4 pt-20">
-                <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl" @click.away="showCustomerSearch = false">
+                <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl" @click.away="showCustomerSearch = false; $wire.showCreateCustomer = false">
+                    @if(!$showCreateCustomer)
+                    {{-- Search View --}}
                     <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
                         <h3 class="text-lg font-bold text-slate-900">Buscar Cliente</h3>
                         <button @click="showCustomerSearch = false" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
@@ -410,6 +431,115 @@
                             </div>
                         @endif
                     </div>
+                    {{-- Create Customer Button --}}
+                    <div class="px-4 py-3 border-t border-slate-200">
+                        <button wire:click="openCreateCustomer" class="w-full px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] rounded-xl transition flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                            </svg>
+                            Crear Nuevo Cliente
+                        </button>
+                    </div>
+                    @else
+                    {{-- Create Customer Form --}}
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <button wire:click="closeCreateCustomer" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                                </svg>
+                            </button>
+                            <h3 class="text-lg font-bold text-slate-900">Crear Cliente</h3>
+                        </div>
+                        <button @click="showCustomerSearch = false; $wire.closeCreateCustomer()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                        {{-- Customer Type --}}
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Tipo de Cliente</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button type="button" wire:click="$set('newCustomerType', 'natural')" class="p-3 rounded-xl border-2 transition-all flex items-center gap-2 {{ $newCustomerType === 'natural' ? 'border-[#ff7261] bg-[#ff7261]/5' : 'border-slate-200 hover:border-slate-300' }}">
+                                    <div class="w-8 h-8 rounded-full {{ $newCustomerType === 'natural' ? 'bg-[#ff7261]/20' : 'bg-slate-100' }} flex items-center justify-center">
+                                        <svg class="w-4 h-4 {{ $newCustomerType === 'natural' ? 'text-[#ff7261]' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                        </svg>
+                                    </div>
+                                    <span class="text-sm font-medium {{ $newCustomerType === 'natural' ? 'text-[#ff7261]' : 'text-slate-600' }}">Persona Natural</span>
+                                </button>
+                                <button type="button" wire:click="$set('newCustomerType', 'juridico')" class="p-3 rounded-xl border-2 transition-all flex items-center gap-2 {{ $newCustomerType === 'juridico' ? 'border-[#a855f7] bg-[#a855f7]/5' : 'border-slate-200 hover:border-slate-300' }}">
+                                    <div class="w-8 h-8 rounded-full {{ $newCustomerType === 'juridico' ? 'bg-[#a855f7]/20' : 'bg-slate-100' }} flex items-center justify-center">
+                                        <svg class="w-4 h-4 {{ $newCustomerType === 'juridico' ? 'text-[#a855f7]' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                        </svg>
+                                    </div>
+                                    <span class="text-sm font-medium {{ $newCustomerType === 'juridico' ? 'text-[#a855f7]' : 'text-slate-600' }}">Persona Jurídica</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {{-- Document Type & Number --}}
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Tipo Documento</label>
+                                <select wire:model="newCustomerDocumentType" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                                    <option value="">Seleccionar...</option>
+                                    @foreach($taxDocuments as $doc)
+                                    <option value="{{ $doc->id }}">{{ $doc->abbreviation ?: $doc->description }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Número Documento <span class="text-red-500">*</span></label>
+                                <input wire:model="newCustomerDocument" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm" placeholder="Ej: 123456789">
+                            </div>
+                        </div>
+
+                        {{-- Name Fields (Natural Person) --}}
+                        @if($newCustomerType === 'natural')
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Nombres <span class="text-red-500">*</span></label>
+                                <input wire:model="newCustomerFirstName" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm" placeholder="Nombres">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Apellidos</label>
+                                <input wire:model="newCustomerLastName" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm" placeholder="Apellidos">
+                            </div>
+                        </div>
+                        @else
+                        {{-- Business Name (Legal Entity) --}}
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Razón Social <span class="text-red-500">*</span></label>
+                            <input wire:model="newCustomerBusinessName" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm" placeholder="Nombre de la empresa">
+                        </div>
+                        @endif
+
+                        {{-- Contact Info --}}
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Teléfono</label>
+                                <input wire:model="newCustomerPhone" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm" placeholder="Ej: 3001234567">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                                <input wire:model="newCustomerEmail" type="email" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm" placeholder="correo@ejemplo.com">
+                            </div>
+                        </div>
+                    </div>
+                    {{-- Footer --}}
+                    <div class="px-4 py-3 border-t border-slate-200 flex gap-3">
+                        <button wire:click="closeCreateCustomer" class="flex-1 px-4 py-3 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
+                            Cancelar
+                        </button>
+                        <button wire:click="saveNewCustomer" class="flex-1 px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea]">
+                            Guardar Cliente
+                        </button>
+                    </div>
+                    @endif
                 </div>
             </div>
         </div>

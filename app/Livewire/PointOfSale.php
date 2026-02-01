@@ -11,6 +11,7 @@ use App\Models\CashRegister;
 use App\Models\CashReconciliation;
 use App\Models\PaymentMethod;
 use App\Models\BillingSetting;
+use App\Models\TaxDocument;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SalePayment;
@@ -28,6 +29,17 @@ class PointOfSale extends Component
     public $customerId = null;
     public $customerSearch = '';
     public $selectedCustomer = null;
+    
+    // Create customer form
+    public $showCreateCustomer = false;
+    public $newCustomerType = 'natural';
+    public $newCustomerDocumentType = null;
+    public $newCustomerDocument = '';
+    public $newCustomerFirstName = '';
+    public $newCustomerLastName = '';
+    public $newCustomerBusinessName = '';
+    public $newCustomerPhone = '';
+    public $newCustomerEmail = '';
     
     // Product search
     public $productSearch = '';
@@ -118,6 +130,88 @@ class PointOfSale extends Component
     {
         $this->loadDefaultCustomer();
         $this->customerSearch = '';
+    }
+
+    public function openCreateCustomer()
+    {
+        $this->showCreateCustomer = true;
+        $this->resetCreateCustomerForm();
+    }
+
+    public function closeCreateCustomer()
+    {
+        $this->showCreateCustomer = false;
+        $this->resetCreateCustomerForm();
+    }
+
+    public function resetCreateCustomerForm()
+    {
+        $this->newCustomerType = 'natural';
+        $this->newCustomerDocumentType = null;
+        $this->newCustomerDocument = '';
+        $this->newCustomerFirstName = '';
+        $this->newCustomerLastName = '';
+        $this->newCustomerBusinessName = '';
+        $this->newCustomerPhone = '';
+        $this->newCustomerEmail = '';
+    }
+
+    public function saveNewCustomer()
+    {
+        // Basic validation
+        if ($this->newCustomerType === 'natural') {
+            if (empty($this->newCustomerFirstName)) {
+                $this->dispatch('notify', message: 'El nombre es obligatorio', type: 'error');
+                return;
+            }
+        } else {
+            if (empty($this->newCustomerBusinessName)) {
+                $this->dispatch('notify', message: 'La razón social es obligatoria', type: 'error');
+                return;
+            }
+        }
+
+        if (empty($this->newCustomerDocument)) {
+            $this->dispatch('notify', message: 'El número de documento es obligatorio', type: 'error');
+            return;
+        }
+
+        // Check if document already exists
+        $exists = Customer::where('document_number', $this->newCustomerDocument)
+            ->forBranch($this->branchId)
+            ->exists();
+
+        if ($exists) {
+            $this->dispatch('notify', message: 'Ya existe un cliente con ese documento', type: 'error');
+            return;
+        }
+
+        try {
+            $customer = Customer::create([
+                'branch_id' => $this->branchId,
+                'customer_type' => $this->newCustomerType,
+                'tax_document_id' => $this->newCustomerDocumentType,
+                'document_number' => $this->newCustomerDocument,
+                'first_name' => $this->newCustomerType === 'natural' ? $this->newCustomerFirstName : null,
+                'last_name' => $this->newCustomerType === 'natural' ? $this->newCustomerLastName : null,
+                'business_name' => $this->newCustomerType === 'juridico' ? $this->newCustomerBusinessName : null,
+                'phone' => $this->newCustomerPhone ?: null,
+                'email' => $this->newCustomerEmail ?: null,
+                'is_active' => true,
+                'is_default' => false,
+            ]);
+
+            // Select the new customer
+            $this->selectCustomer($customer->id);
+            $this->showCreateCustomer = false;
+            $this->resetCreateCustomerForm();
+            
+            // Close the modal via Alpine.js
+            $this->dispatch('close-customer-modal');
+            $this->dispatch('notify', message: 'Cliente creado correctamente', type: 'success');
+        } catch (\Exception $e) {
+            $this->dispatch('notify', message: 'Error al crear cliente: ' . $e->getMessage(), type: 'error');
+        }
     }
 
     public function updatedBarcodeSearch()
@@ -804,6 +898,9 @@ class PointOfSale extends Component
         // Get payment methods
         $paymentMethods = PaymentMethod::where('is_active', true)->get();
         
+        // Get tax documents for customer creation
+        $taxDocuments = TaxDocument::where('is_active', true)->orderBy('description')->get();
+        
         // Check if electronic invoicing is enabled
         $billingSettings = BillingSetting::getSettings();
         $isElectronicInvoicingEnabled = $billingSettings->is_enabled && $billingSettings->isConfigured();
@@ -813,6 +910,7 @@ class PointOfSale extends Component
             'categories' => $categories,
             'sellableItems' => $sellableItems,
             'paymentMethods' => $paymentMethods,
+            'taxDocuments' => $taxDocuments,
             'subtotal' => $this->getSubtotalProperty(),
             'taxTotal' => $this->getTaxTotalProperty(),
             'total' => $this->getTotalProperty(),
