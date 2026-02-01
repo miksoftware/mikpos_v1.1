@@ -8,6 +8,8 @@ use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\Branch;
 use App\Models\Category;
+use App\Models\Brand;
+use App\Models\Subcategory;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -24,6 +26,7 @@ class ProductsSold extends Component
     public ?string $endDate = null;
     public ?int $selectedBranchId = null;
     public ?int $selectedCategoryId = null;
+    public ?int $selectedBrandId = null;
     public string $search = '';
     public string $sortBy = 'quantity';
     public string $sortDirection = 'desc';
@@ -36,12 +39,20 @@ class ProductsSold extends Component
     public array $topProducts = [];
     public array $salesByDay = [];
     public array $salesByCategory = [];
+    public array $salesByBrand = [];
+    public array $salesBySubcategory = [];
+    public array $salesByPaymentMethod = [];
+    public array $salesByHour = [];
+    public array $salesByDayOfWeek = [];
+    public array $revenueVsQuantity = [];
 
     // Summary
     public float $totalRevenue = 0;
     public int $totalQuantity = 0;
     public int $totalTransactions = 0;
     public float $averageTicket = 0;
+    public float $averageUnitPrice = 0;
+    public int $uniqueProducts = 0;
 
     public function mount()
     {
@@ -149,6 +160,12 @@ class ProductsSold extends Component
             });
         }
 
+        if ($this->selectedBrandId) {
+            $query->whereHas('product', function ($q) {
+                $q->where('brand_id', $this->selectedBrandId);
+            });
+        }
+
         return $query;
     }
 
@@ -158,6 +175,10 @@ class ProductsSold extends Component
         
         $this->totalQuantity = (int) (clone $query)->sum('sale_items.quantity');
         $this->totalRevenue = (float) (clone $query)->sum('sale_items.total');
+        $this->uniqueProducts = (int) (clone $query)->distinct('sale_items.product_id')->count('sale_items.product_id');
+        $this->averageUnitPrice = $this->totalQuantity > 0 
+            ? $this->totalRevenue / $this->totalQuantity 
+            : 0;
         
         $salesQuery = Sale::query()
             ->where('status', 'completed')
@@ -200,10 +221,8 @@ class ProductsSold extends Component
         
         if ($groupBy === 'week') {
             $format = '%Y-%u'; // Year-Week
-            $labelFormat = 'Sem %u';
         } else {
             $format = '%Y-%m-%d';
-            $labelFormat = 'd M';
         }
 
         $query = $this->getBaseQuery()
@@ -216,7 +235,7 @@ class ProductsSold extends Component
             ->orderBy('period')
             ->get();
 
-        return $query->map(function ($item) use ($groupBy, $labelFormat) {
+        return $query->map(function ($item) use ($groupBy) {
             if ($groupBy === 'week') {
                 $parts = explode('-', $item->period);
                 $label = 'Sem ' . $parts[1];
@@ -248,6 +267,130 @@ class ProductsSold extends Component
             ->toArray();
     }
 
+    private function getSalesByBrand()
+    {
+        return $this->getBaseQuery()
+            ->leftJoin('products', 'sale_items.product_id', '=', 'products.id')
+            ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
+            ->select(
+                DB::raw("COALESCE(brands.name, 'Sin marca') as brand_name"),
+                DB::raw('SUM(sale_items.quantity) as quantity'),
+                DB::raw('SUM(sale_items.total) as revenue')
+            )
+            ->groupBy('brands.name')
+            ->orderByDesc('revenue')
+            ->limit(10)
+            ->get()
+            ->toArray();
+    }
+
+    private function getSalesBySubcategory()
+    {
+        return $this->getBaseQuery()
+            ->leftJoin('products', 'sale_items.product_id', '=', 'products.id')
+            ->leftJoin('subcategories', 'products.subcategory_id', '=', 'subcategories.id')
+            ->select(
+                DB::raw("COALESCE(subcategories.name, 'Sin subcategoría') as subcategory_name"),
+                DB::raw('SUM(sale_items.quantity) as quantity'),
+                DB::raw('SUM(sale_items.total) as revenue')
+            )
+            ->groupBy('subcategories.name')
+            ->orderByDesc('revenue')
+            ->limit(10)
+            ->get()
+            ->toArray();
+    }
+
+    private function getSalesByPaymentMethod()
+    {
+        $salesQuery = Sale::query()
+            ->join('sale_payments', 'sales.id', '=', 'sale_payments.sale_id')
+            ->join('payment_methods', 'sale_payments.payment_method_id', '=', 'payment_methods.id')
+            ->where('sales.status', 'completed')
+            ->whereDate('sales.created_at', '>=', $this->startDate)
+            ->whereDate('sales.created_at', '<=', $this->endDate);
+
+        if ($this->selectedBranchId) {
+            $salesQuery->where('sales.branch_id', $this->selectedBranchId);
+        } elseif (!auth()->user()->isSuperAdmin()) {
+            $salesQuery->where('sales.branch_id', auth()->user()->branch_id);
+        }
+
+        return $salesQuery
+            ->select(
+                'payment_methods.name as method_name',
+                DB::raw('SUM(sale_payments.amount) as total_amount'),
+                DB::raw('COUNT(DISTINCT sales.id) as transactions')
+            )
+            ->groupBy('payment_methods.name')
+            ->orderByDesc('total_amount')
+            ->get()
+            ->toArray();
+    }
+
+    private function getSalesByHour()
+    {
+        return $this->getBaseQuery()
+            ->select(
+                DB::raw("HOUR(sales.created_at) as hour"),
+                DB::raw('SUM(sale_items.quantity) as quantity'),
+                DB::raw('SUM(sale_items.total) as revenue')
+            )
+            ->groupBy('hour')
+            ->orderBy('hour')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'hour' => sprintf('%02d:00', $item->hour),
+                    'quantity' => (int) $item->quantity,
+                    'revenue' => (float) $item->revenue,
+                ];
+            })
+            ->toArray();
+    }
+
+    private function getSalesByDayOfWeek()
+    {
+        $dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+        
+        return $this->getBaseQuery()
+            ->select(
+                DB::raw("DAYOFWEEK(sales.created_at) as day_num"),
+                DB::raw('SUM(sale_items.quantity) as quantity'),
+                DB::raw('SUM(sale_items.total) as revenue')
+            )
+            ->groupBy('day_num')
+            ->orderBy('day_num')
+            ->get()
+            ->map(function ($item) use ($dayNames) {
+                return [
+                    'day' => $dayNames[$item->day_num - 1],
+                    'day_num' => $item->day_num,
+                    'quantity' => (int) $item->quantity,
+                    'revenue' => (float) $item->revenue,
+                ];
+            })
+            ->toArray();
+    }
+
+    private function getRevenueVsQuantity()
+    {
+        return $this->getBaseQuery()
+            ->leftJoin('products', 'sale_items.product_id', '=', 'products.id')
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->select(
+                DB::raw("COALESCE(categories.name, 'Sin categoría') as category_name"),
+                DB::raw('SUM(sale_items.quantity) as quantity'),
+                DB::raw('SUM(sale_items.total) as revenue'),
+                DB::raw('AVG(sale_items.unit_price) as avg_price')
+            )
+            ->groupBy('categories.name')
+            ->orderByDesc('revenue')
+            ->limit(6)
+            ->get()
+            ->toArray();
+    }
+
     public function render()
     {
         $user = auth()->user();
@@ -260,6 +403,12 @@ class ProductsSold extends Component
         $this->topProducts = $this->getTopProducts();
         $this->salesByDay = $this->getSalesByDay();
         $this->salesByCategory = $this->getSalesByCategory();
+        $this->salesByBrand = $this->getSalesByBrand();
+        $this->salesBySubcategory = $this->getSalesBySubcategory();
+        $this->salesByPaymentMethod = $this->getSalesByPaymentMethod();
+        $this->salesByHour = $this->getSalesByHour();
+        $this->salesByDayOfWeek = $this->getSalesByDayOfWeek();
+        $this->revenueVsQuantity = $this->getRevenueVsQuantity();
 
         // Get detailed items with pagination
         $query = $this->getBaseQuery()
@@ -302,11 +451,13 @@ class ProductsSold extends Component
         // Get filter options
         $branches = $isSuperAdmin ? Branch::where('is_active', true)->orderBy('name')->get() : collect();
         $categories = Category::where('is_active', true)->orderBy('name')->get();
+        $brands = Brand::where('is_active', true)->orderBy('name')->get();
 
         return view('livewire.reports.products-sold', [
             'items' => $items,
             'branches' => $branches,
             'categories' => $categories,
+            'brands' => $brands,
             'isSuperAdmin' => $isSuperAdmin,
         ]);
     }

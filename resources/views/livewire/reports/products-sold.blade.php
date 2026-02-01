@@ -25,7 +25,7 @@
 
     <!-- Filters -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-4">
             <div>
                 <label class="block text-xs font-medium text-slate-500 mb-1">Período</label>
                 <select wire:model.live="dateRange" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
@@ -67,75 +67,110 @@
                     @endforeach
                 </select>
             </div>
-            <div class="{{ $isSuperAdmin ? '' : 'lg:col-span-2' }}">
+            <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">Marca</label>
+                <select wire:model.live="selectedBrandId" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                    <option value="">Todas</option>
+                    @foreach($brands as $brand)
+                    <option value="{{ $brand->id }}">{{ $brand->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
                 <label class="block text-xs font-medium text-slate-500 mb-1">Buscar</label>
                 <div class="relative">
                     <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
-                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Producto, SKU, factura..." class="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Producto, SKU..." class="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Summary Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-slate-500">Ingresos Totales</p>
-                    <p class="text-2xl font-bold text-slate-800 mt-1">${{ number_format($totalRevenue, 0, ',', '.') }}</p>
+                    <p class="text-xs font-medium text-slate-500">Ingresos</p>
+                    <p class="text-xl font-bold text-slate-800 mt-1">${{ number_format($totalRevenue, 0, ',', '.') }}</p>
                 </div>
-                <div class="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-slate-500">Unidades Vendidas</p>
-                    <p class="text-2xl font-bold text-slate-800 mt-1">{{ number_format($totalQuantity, 0, ',', '.') }}</p>
+                    <p class="text-xs font-medium text-slate-500">Unidades</p>
+                    <p class="text-xl font-bold text-slate-800 mt-1">{{ number_format($totalQuantity, 0, ',', '.') }}</p>
                 </div>
-                <div class="w-12 h-12 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="w-10 h-10 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-xl flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                     </svg>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-slate-500">Transacciones</p>
-                    <p class="text-2xl font-bold text-slate-800 mt-1">{{ number_format($totalTransactions, 0, ',', '.') }}</p>
+                    <p class="text-xs font-medium text-slate-500">Transacciones</p>
+                    <p class="text-xl font-bold text-slate-800 mt-1">{{ number_format($totalTransactions, 0, ',', '.') }}</p>
                 </div>
-                <div class="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                     </svg>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-slate-500">Ticket Promedio</p>
-                    <p class="text-2xl font-bold text-slate-800 mt-1">${{ number_format($averageTicket, 0, ',', '.') }}</p>
+                    <p class="text-xs font-medium text-slate-500">Ticket Prom.</p>
+                    <p class="text-xl font-bold text-slate-800 mt-1">${{ number_format($averageTicket, 0, ',', '.') }}</p>
                 </div>
-                <div class="w-12 h-12 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="w-10 h-10 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">Precio Prom.</p>
+                    <p class="text-xl font-bold text-slate-800 mt-1">${{ number_format($averageUnitPrice, 0, ',', '.') }}</p>
+                </div>
+                <div class="w-10 h-10 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-xl flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">Productos</p>
+                    <p class="text-xl font-bold text-slate-800 mt-1">{{ number_format($uniqueProducts, 0, ',', '.') }}</p>
+                </div>
+                <div class="w-10 h-10 bg-gradient-to-br from-pink-400 to-pink-600 rounded-xl flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
                     </svg>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Charts Section -->
+    <!-- Charts Row 1: Trend & Top Products -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
             <h3 class="text-lg font-semibold text-slate-800 mb-4">Tendencia de Ventas</h3>
@@ -169,49 +204,130 @@
         </div>
     </div>
 
-    <!-- Category Distribution -->
+    <!-- Charts Row 2: Category, Brand, Subcategory -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <h3 class="text-lg font-semibold text-slate-800 mb-4">Ventas por Categoría</h3>
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">Por Categoría</h3>
             <div class="h-64" id="categoryContainer">
                 @if(count($salesByCategory) > 0)
                 <canvas id="categoryChart"></canvas>
                 @else
                 <div class="flex items-center justify-center h-full text-slate-400">
                     <div class="text-center">
-                        <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+                        <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path></svg>
                         <p>No hay datos para mostrar</p>
                     </div>
                 </div>
                 @endif
             </div>
         </div>
-        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <h3 class="text-lg font-semibold text-slate-800 mb-4">Productos Más Vendidos</h3>
-            <div class="space-y-3">
-                @forelse($topProducts as $index => $product)
-                <div class="flex items-center gap-4 p-3 rounded-xl {{ $index < 3 ? 'bg-gradient-to-r from-[#ff7261]/5 to-[#a855f7]/5' : 'bg-slate-50' }}">
-                    <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm {{ $index === 0 ? 'bg-yellow-400 text-yellow-900' : ($index === 1 ? 'bg-slate-300 text-slate-700' : ($index === 2 ? 'bg-amber-600 text-white' : 'bg-slate-200 text-slate-600')) }}">
-                        {{ $index + 1 }}
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="font-medium text-slate-800 truncate">{{ $product['product_name'] }}</p>
-                        <p class="text-xs text-slate-500">{{ $product['product_sku'] }}</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="font-semibold text-slate-800">{{ number_format($product['total_quantity']) }} uds</p>
-                        <p class="text-xs text-slate-500">${{ number_format($product['total_revenue'], 0, ',', '.') }}</p>
-                    </div>
-                </div>
-                @empty
-                <div class="flex items-center justify-center py-8 text-slate-400">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">Por Marca</h3>
+            <div class="h-64" id="brandContainer">
+                @if(count($salesByBrand) > 0)
+                <canvas id="brandChart"></canvas>
+                @else
+                <div class="flex items-center justify-center h-full text-slate-400">
                     <div class="text-center">
-                        <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                        <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path></svg>
                         <p>No hay datos para mostrar</p>
                     </div>
                 </div>
-                @endforelse
+                @endif
             </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">Por Subcategoría</h3>
+            <div class="h-64" id="subcategoryContainer">
+                @if(count($salesBySubcategory) > 0)
+                <canvas id="subcategoryChart"></canvas>
+                @else
+                <div class="flex items-center justify-center h-full text-slate-400">
+                    <div class="text-center">
+                        <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path></svg>
+                        <p>No hay datos para mostrar</p>
+                    </div>
+                </div>
+                @endif
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row 3: Payment Methods, Hour, Day of Week -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">Métodos de Pago</h3>
+            <div class="h-64" id="paymentContainer">
+                @if(count($salesByPaymentMethod) > 0)
+                <canvas id="paymentChart"></canvas>
+                @else
+                <div class="flex items-center justify-center h-full text-slate-400">
+                    <div class="text-center">
+                        <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                        <p>No hay datos para mostrar</p>
+                    </div>
+                </div>
+                @endif
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">Ventas por Hora</h3>
+            <div class="h-64" id="hourContainer">
+                @if(count($salesByHour) > 0)
+                <canvas id="hourChart"></canvas>
+                @else
+                <div class="flex items-center justify-center h-full text-slate-400">
+                    <div class="text-center">
+                        <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <p>No hay datos para mostrar</p>
+                    </div>
+                </div>
+                @endif
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">Ventas por Día</h3>
+            <div class="h-64" id="dayContainer">
+                @if(count($salesByDayOfWeek) > 0)
+                <canvas id="dayChart"></canvas>
+                @else
+                <div class="flex items-center justify-center h-full text-slate-400">
+                    <div class="text-center">
+                        <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        <p>No hay datos para mostrar</p>
+                    </div>
+                </div>
+                @endif
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Products List -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Ranking de Productos</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            @forelse($topProducts as $index => $product)
+            <div class="flex items-center gap-4 p-3 rounded-xl {{ $index < 3 ? 'bg-gradient-to-r from-[#ff7261]/5 to-[#a855f7]/5' : 'bg-slate-50' }}">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm {{ $index === 0 ? 'bg-yellow-400 text-yellow-900' : ($index === 1 ? 'bg-slate-300 text-slate-700' : ($index === 2 ? 'bg-amber-600 text-white' : 'bg-slate-200 text-slate-600')) }}">
+                    {{ $index + 1 }}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-medium text-slate-800 truncate text-sm">{{ $product['product_name'] }}</p>
+                    <p class="text-xs text-slate-500">{{ $product['product_sku'] }}</p>
+                </div>
+                <div class="text-right">
+                    <p class="font-semibold text-slate-800">{{ number_format($product['total_quantity']) }} uds</p>
+                    <p class="text-xs text-slate-500">${{ number_format($product['total_revenue'], 0, ',', '.') }}</p>
+                </div>
+            </div>
+            @empty
+            <div class="col-span-2 flex items-center justify-center py-8 text-slate-400">
+                <div class="text-center">
+                    <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                    <p>No hay datos para mostrar</p>
+                </div>
+            </div>
+            @endforelse
         </div>
     </div>
 
@@ -244,13 +360,13 @@
                         <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente</th>
                         <th class="px-6 py-4 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
                             <button wire:click="sortByColumn('quantity')" class="flex items-center gap-1 hover:text-slate-700 mx-auto">
-                                Cantidad
+                                Cant.
                                 @if($sortBy === 'quantity')
                                 <svg class="w-4 h-4 {{ $sortDirection === 'asc' ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                                 @endif
                             </button>
                         </th>
-                        <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">P. Unitario</th>
+                        <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">P. Unit.</th>
                         <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
                             <button wire:click="sortByColumn('total')" class="flex items-center gap-1 hover:text-slate-700 ml-auto">
                                 Total
@@ -272,12 +388,12 @@
                         </td>
                         <td class="px-6 py-4">
                             <div>
-                                <p class="font-medium text-slate-800">{{ $item->product_name }}</p>
+                                <p class="font-medium text-slate-800 text-sm">{{ $item->product_name }}</p>
                                 <p class="text-xs text-slate-500">{{ $item->product_sku }}</p>
                             </div>
                         </td>
                         <td class="px-6 py-4">
-                            <span class="text-sm text-slate-600">{{ $item->sale->customer?->name ?? 'Consumidor Final' }}</span>
+                            <span class="text-sm text-slate-600">{{ $item->sale->customer?->full_name ?? 'Consumidor Final' }}</span>
                         </td>
                         <td class="px-6 py-4 text-center">
                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-[#a855f7]/10 text-[#a855f7]">
@@ -316,39 +432,21 @@
         @endif
     </div>
 
-    @if(count($topProducts) > 0 || count($salesByDay) > 0 || count($salesByCategory) > 0)
+    <!-- Charts JavaScript -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Top Products Chart
-            @if(count($topProducts) > 0)
-            const topCtx = document.getElementById('topProductsChart');
-            if (topCtx) {
-                new Chart(topCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: @json(collect($topProducts)->pluck('product_name')->map(fn($n) => substr($n, 0, 20))),
-                        datasets: [{
-                            label: 'Cantidad Vendida',
-                            data: @json(collect($topProducts)->pluck('total_quantity')),
-                            backgroundColor: 'rgba(168, 85, 247, 0.8)',
-                            borderColor: 'rgba(168, 85, 247, 1)',
-                            borderWidth: 1,
-                            borderRadius: 8,
-                        }]
-                    },
-                    options: {
-                        indexAxis: 'y',
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            x: { beginAtZero: true, grid: { display: false } },
-                            y: { grid: { display: false } }
-                        }
-                    }
-                });
-            }
-            @endif
+            const chartColors = [
+                'rgba(255,114,97,0.8)',
+                'rgba(168,85,247,0.8)',
+                'rgba(59,130,246,0.8)',
+                'rgba(16,185,129,0.8)',
+                'rgba(245,158,11,0.8)',
+                'rgba(239,68,68,0.8)',
+                'rgba(99,102,241,0.8)',
+                'rgba(236,72,153,0.8)',
+                'rgba(20,184,166,0.8)',
+                'rgba(132,204,22,0.8)'
+            ];
 
             // Sales Trend Chart
             @if(count($salesByDay) > 0)
@@ -384,7 +482,36 @@
             }
             @endif
 
-            // Category Chart
+            // Top Products Chart
+            @if(count($topProducts) > 0)
+            const topCtx = document.getElementById('topProductsChart');
+            if (topCtx) {
+                new Chart(topCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: @json(collect($topProducts)->pluck('product_name')->map(fn($n) => strlen($n) > 20 ? substr($n, 0, 20) . '...' : $n)),
+                        datasets: [{
+                            label: 'Cantidad',
+                            data: @json(collect($topProducts)->pluck('total_quantity')),
+                            backgroundColor: 'rgba(168, 85, 247, 0.8)',
+                            borderRadius: 6,
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { beginAtZero: true, grid: { display: false } },
+                            y: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+            @endif
+
+            // Category Chart (Doughnut)
             @if(count($salesByCategory) > 0)
             const catCtx = document.getElementById('categoryChart');
             if (catCtx) {
@@ -394,7 +521,7 @@
                         labels: @json(collect($salesByCategory)->pluck('category_name')),
                         datasets: [{
                             data: @json(collect($salesByCategory)->pluck('revenue')),
-                            backgroundColor: ['rgba(255,114,97,0.8)','rgba(168,85,247,0.8)','rgba(59,130,246,0.8)','rgba(16,185,129,0.8)','rgba(245,158,11,0.8)','rgba(239,68,68,0.8)','rgba(99,102,241,0.8)','rgba(236,72,153,0.8)'],
+                            backgroundColor: chartColors,
                             borderWidth: 0,
                             hoverOffset: 10
                         }]
@@ -402,9 +529,152 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        cutout: '65%',
+                        cutout: '60%',
                         plugins: {
-                            legend: { position: 'right', labels: { usePointStyle: true, padding: 15, font: { size: 11 } } }
+                            legend: { position: 'right', labels: { usePointStyle: true, padding: 10, font: { size: 10 } } }
+                        }
+                    }
+                });
+            }
+            @endif
+
+            // Brand Chart (Pie)
+            @if(count($salesByBrand) > 0)
+            const brandCtx = document.getElementById('brandChart');
+            if (brandCtx) {
+                new Chart(brandCtx, {
+                    type: 'pie',
+                    data: {
+                        labels: @json(collect($salesByBrand)->pluck('brand_name')),
+                        datasets: [{
+                            data: @json(collect($salesByBrand)->pluck('revenue')),
+                            backgroundColor: chartColors,
+                            borderWidth: 0,
+                            hoverOffset: 10
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right', labels: { usePointStyle: true, padding: 10, font: { size: 10 } } }
+                        }
+                    }
+                });
+            }
+            @endif
+
+            // Subcategory Chart (Polar Area)
+            @if(count($salesBySubcategory) > 0)
+            const subCtx = document.getElementById('subcategoryChart');
+            if (subCtx) {
+                new Chart(subCtx, {
+                    type: 'polarArea',
+                    data: {
+                        labels: @json(collect($salesBySubcategory)->pluck('subcategory_name')),
+                        datasets: [{
+                            data: @json(collect($salesBySubcategory)->pluck('revenue')),
+                            backgroundColor: chartColors.map(c => c.replace('0.8', '0.6')),
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right', labels: { usePointStyle: true, padding: 8, font: { size: 9 } } }
+                        }
+                    }
+                });
+            }
+            @endif
+
+            // Payment Methods Chart (Horizontal Bar)
+            @if(count($salesByPaymentMethod) > 0)
+            const payCtx = document.getElementById('paymentChart');
+            if (payCtx) {
+                new Chart(payCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: @json(collect($salesByPaymentMethod)->pluck('method_name')),
+                        datasets: [{
+                            label: 'Monto',
+                            data: @json(collect($salesByPaymentMethod)->pluck('total_amount')),
+                            backgroundColor: chartColors,
+                            borderRadius: 6,
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { beginAtZero: true, grid: { display: false } },
+                            y: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+            @endif
+
+            // Sales by Hour Chart (Bar)
+            @if(count($salesByHour) > 0)
+            const hourCtx = document.getElementById('hourChart');
+            if (hourCtx) {
+                new Chart(hourCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: @json(collect($salesByHour)->pluck('hour')),
+                        datasets: [{
+                            label: 'Ingresos',
+                            data: @json(collect($salesByHour)->pluck('revenue')),
+                            backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                            borderRadius: 4,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+            @endif
+
+            // Sales by Day of Week Chart (Radar)
+            @if(count($salesByDayOfWeek) > 0)
+            const dayCtx = document.getElementById('dayChart');
+            if (dayCtx) {
+                new Chart(dayCtx, {
+                    type: 'radar',
+                    data: {
+                        labels: @json(collect($salesByDayOfWeek)->pluck('day')),
+                        datasets: [{
+                            label: 'Ingresos',
+                            data: @json(collect($salesByDayOfWeek)->pluck('revenue')),
+                            backgroundColor: 'rgba(168, 85, 247, 0.2)',
+                            borderColor: 'rgba(168, 85, 247, 1)',
+                            borderWidth: 2,
+                            pointBackgroundColor: 'rgba(168, 85, 247, 1)',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(0,0,0,0.05)' },
+                                angleLines: { color: 'rgba(0,0,0,0.05)' }
+                            }
                         }
                     }
                 });
@@ -412,5 +682,4 @@
             @endif
         });
     </script>
-    @endif
 </div>
