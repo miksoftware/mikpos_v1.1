@@ -1406,22 +1406,50 @@
                         <div>
                             @php
                                 $validCount = count(array_filter($importPreview, fn($r) => $r['valid']));
-                                $invalidCount = count($importPreview) - $validCount;
-                                $filteredPreview = $showOnlyErrors 
-                                    ? array_filter($importPreview, fn($r) => !$r['valid'])
-                                    : $importPreview;
+                                $invalidCount = count(array_filter($importPreview, fn($r) => !$r['valid']));
+                                $warningCount = count(array_filter($importPreview, fn($r) => $r['hasWarnings'] ?? false));
+                                
+                                // Apply filter
+                                if ($importFilter === 'errors') {
+                                    $filteredPreview = array_filter($importPreview, fn($r) => !$r['valid']);
+                                } elseif ($importFilter === 'warnings') {
+                                    $filteredPreview = array_filter($importPreview, fn($r) => $r['hasWarnings'] ?? false);
+                                } else {
+                                    $filteredPreview = $importPreview;
+                                }
                             @endphp
-                            <div class="flex items-center justify-between mb-3">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
                                 <h4 class="text-sm font-semibold text-slate-700 flex items-center gap-2">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
                                     Vista Previa ({{ count($importPreview) }} registros)
                                 </h4>
-                                @if($invalidCount > 0)
-                                <label class="inline-flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" wire:model.live="showOnlyErrors" class="w-4 h-4 text-red-600 border-slate-300 rounded focus:ring-red-500">
-                                    <span class="text-sm text-red-600 font-medium">Solo errores ({{ $invalidCount }})</span>
-                                </label>
-                                @endif
+                                {{-- Filter buttons --}}
+                                <div class="flex items-center gap-2">
+                                    <button 
+                                        wire:click="$set('importFilter', 'all')"
+                                        class="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors {{ $importFilter === 'all' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}"
+                                    >
+                                        Todos
+                                    </button>
+                                    @if($invalidCount > 0)
+                                    <button 
+                                        wire:click="$set('importFilter', 'errors')"
+                                        class="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors {{ $importFilter === 'errors' ? 'bg-red-600 text-white' : 'bg-red-100 text-red-700 hover:bg-red-200' }}"
+                                    >
+                                        <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                        Errores ({{ $invalidCount }})
+                                    </button>
+                                    @endif
+                                    @if($warningCount > 0)
+                                    <button 
+                                        wire:click="$set('importFilter', 'warnings')"
+                                        class="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors {{ $importFilter === 'warnings' ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-700 hover:bg-amber-200' }}"
+                                    >
+                                        <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                        Advertencias ({{ $warningCount }})
+                                    </button>
+                                    @endif
+                                </div>
                             </div>
                             <div class="border border-slate-200 rounded-xl overflow-hidden">
                                 <div class="overflow-x-auto max-h-64">
@@ -1437,7 +1465,11 @@
                                         </thead>
                                         <tbody class="divide-y divide-slate-200">
                                             @forelse($filteredPreview as $row)
-                                            <tr class="{{ $row['valid'] ? 'bg-white' : 'bg-red-50' }}">
+                                            @php
+                                                $hasWarnings = $row['hasWarnings'] ?? false;
+                                                $bgClass = !$row['valid'] ? 'bg-red-50' : ($hasWarnings ? 'bg-amber-50' : 'bg-white');
+                                            @endphp
+                                            <tr class="{{ $bgClass }}">
                                                 <td class="px-3 py-2 text-slate-600">{{ $row['row'] }}</td>
                                                 <td class="px-3 py-2">
                                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ strtoupper($row['data']['tipo'] ?? '') === 'PADRE' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700' }}">
@@ -1447,12 +1479,7 @@
                                                 <td class="px-3 py-2 text-slate-900 max-w-xs truncate">{{ $row['data']['nombre'] ?? '-' }}</td>
                                                 <td class="px-3 py-2 text-right text-slate-600">${{ number_format(floatval($row['data']['precio_venta'] ?? 0), 0, ',', '.') }}</td>
                                                 <td class="px-3 py-2 text-center">
-                                                    @if($row['valid'])
-                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                                                        Válido
-                                                    </span>
-                                                    @else
+                                                    @if(!$row['valid'])
                                                     <div class="flex flex-col items-center gap-1">
                                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
                                                             <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -1462,14 +1489,36 @@
                                                             {{ implode(', ', $row['errors']) }}
                                                         </span>
                                                     </div>
+                                                    @elseif($hasWarnings)
+                                                    <div class="flex flex-col items-center gap-1">
+                                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                                            Advertencia
+                                                        </span>
+                                                        <span class="text-xs text-amber-600 max-w-xs" title="{{ implode(', ', $row['warnings'] ?? []) }}">
+                                                            {{ implode(', ', $row['warnings'] ?? []) }}
+                                                        </span>
+                                                    </div>
+                                                    @else
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                                        Válido
+                                                    </span>
                                                     @endif
                                                 </td>
                                             </tr>
                                             @empty
                                             <tr>
                                                 <td colspan="5" class="px-3 py-8 text-center text-slate-500">
+                                                    @if($importFilter === 'errors')
                                                     <svg class="w-8 h-8 mx-auto text-green-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                                     No hay errores, todos los registros son válidos
+                                                    @elseif($importFilter === 'warnings')
+                                                    <svg class="w-8 h-8 mx-auto text-green-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                    No hay advertencias
+                                                    @else
+                                                    No hay registros para mostrar
+                                                    @endif
                                                 </td>
                                             </tr>
                                             @endforelse
@@ -1486,6 +1535,12 @@
                                 <span class="text-red-600">
                                     <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                     {{ $invalidCount }} con errores
+                                </span>
+                                @endif
+                                @if($warningCount > 0)
+                                <span class="text-amber-600">
+                                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                    {{ $warningCount }} con advertencias
                                 </span>
                                 @endif
                             </div>

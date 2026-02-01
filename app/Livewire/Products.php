@@ -130,6 +130,8 @@ class Products extends Component
     public int $importProgress = 0;
     public int $importTotal = 0;
     public bool $showOnlyErrors = false;
+    public bool $showOnlyWarnings = false;
+    public string $importFilter = 'all'; // all, errors, warnings
 
     public function mount()
     {
@@ -1078,6 +1080,8 @@ class Products extends Component
         $this->importProgress = 0;
         $this->importTotal = 0;
         $this->showOnlyErrors = false;
+        $this->showOnlyWarnings = false;
+        $this->importFilter = 'all';
     }
 
     public function downloadTemplate()
@@ -1313,9 +1317,19 @@ class Products extends Component
         // Clean BOM if present
         $content = preg_replace('/^\xEF\xBB\xBF/', '', $content);
         
-        // Detect separator (comma or semicolon)
+        // Detect separator (comma, semicolon, or tab)
         $firstLine = strtok($content, "\n");
-        $separator = (substr_count($firstLine, ';') > substr_count($firstLine, ',')) ? ';' : ',';
+        $commaCount = substr_count($firstLine, ',');
+        $semicolonCount = substr_count($firstLine, ';');
+        $tabCount = substr_count($firstLine, "\t");
+        
+        if ($tabCount > $commaCount && $tabCount > $semicolonCount) {
+            $separator = "\t";
+        } elseif ($semicolonCount > $commaCount) {
+            $separator = ';';
+        } else {
+            $separator = ',';
+        }
         
         // Parse CSV with detected separator
         $lines = array_filter(explode("\n", $content), fn($line) => trim($line) !== '');
@@ -1334,12 +1348,13 @@ class Products extends Component
         $missingColumns = array_diff($requiredColumns, $header);
         
         if (!empty($missingColumns)) {
-            $this->importErrors[] = ['row' => 0, 'message' => 'Columnas faltantes: ' . implode(', ', $missingColumns) . '. Separador detectado: ' . ($separator === ';' ? 'punto y coma' : 'coma')];
+            $this->importErrors[] = ['row' => 0, 'message' => 'Columnas faltantes: ' . implode(', ', $missingColumns) . '. Separador detectado: ' . ($separator === ';' ? 'punto y coma' : ($separator === "\t" ? 'tabulador' : 'coma'))];
             return;
         }
 
-        // First pass: collect all parent SKUs from the file
+        // First pass: collect all parent SKUs and barcodes from the file
         $parentSkusInFile = [];
+        $barcodesInFile = []; // Track barcodes and their first occurrence row
         $rowNumber = 1;
         foreach ($lines as $line) {
             $rowNumber++;
@@ -1350,12 +1365,20 @@ class Products extends Component
                 if ($tipo === 'PADRE' && !empty($data['sku'])) {
                     $parentSkusInFile[] = $data['sku'];
                 }
+                // Track barcodes
+                if (!empty($data['codigo_barras'])) {
+                    $barcode = $data['codigo_barras'];
+                    if (!isset($barcodesInFile[$barcode])) {
+                        $barcodesInFile[$barcode] = $rowNumber;
+                    }
+                }
             }
         }
 
         // Second pass: validate and preview
         $rowNumber = 1;
         $preview = [];
+        $seenBarcodes = []; // Track barcodes we've already seen in this pass
 
         foreach ($lines as $line) {
             $rowNumber++;
@@ -1367,22 +1390,32 @@ class Products extends Component
             }
 
             $data = array_combine($header, array_map('trim', $row));
-            $errors = $this->validateImportRow($data, $rowNumber, $parentSkusInFile);
+            $result = $this->validateImportRow($data, $rowNumber, $parentSkusInFile, $seenBarcodes);
+            $errors = $result['errors'];
+            $warnings = $result['warnings'];
+            
+            // Track seen barcodes for duplicate detection
+            if (!empty($data['codigo_barras'])) {
+                $seenBarcodes[$data['codigo_barras']] = $rowNumber;
+            }
 
             $preview[] = [
                 'row' => $rowNumber,
                 'data' => $data,
                 'errors' => $errors,
+                'warnings' => $warnings,
                 'valid' => empty($errors),
+                'hasWarnings' => !empty($warnings),
             ];
         }
 
         $this->importPreview = $preview;
     }
 
-    private function validateImportRow(array $data, int $rowNumber, array $parentSkusInFile = []): array
+    private function validateImportRow(array $data, int $rowNumber, array $parentSkusInFile = [], array $seenBarcodes = []): array
     {
         $errors = [];
+        $warnings = [];
         $tipo = strtoupper($data['tipo'] ?? '');
 
         // Validate type
@@ -1451,19 +1484,30 @@ class Products extends Component
             }
         }
 
-        // Validate barcode uniqueness if provided
+        // Validate barcode - check for duplicates (warning, not error)
         if (!empty($data['codigo_barras'])) {
-            $barcodeExists = Product::where('barcode', $data['codigo_barras'])->exists() ||
-                             ProductChild::where('barcode', $data['codigo_barras'])->exists();
-            if ($barcodeExists) {
-                $errors[] = "Código de barras '{$data['codigo_barras']}' ya existe";
+            $barcode = $data['codigo_barras'];
+            
+            // Check if barcode exists in database
+            $barcodeExistsInDb = Product::where('barcode', $barcode)->exists() ||
+                                 ProductChild::where('barcode', $barcode)->exists();
+            if ($barcodeExistsInDb) {
+                $warnings[] = "Código de barras '{$barcode}' ya existe en el sistema (se omitirá)";
+            }
+            
+            // Check if barcode is duplicated within the file
+            if (isset($seenBarcodes[$barcode])) {
+                $warnings[] = "Código de barras '{$barcode}' duplicado en fila {$seenBarcodes[$barcode]} (se omitirá)";
             }
         }
 
-        return $errors;
+        return [
+            'errors' => $errors,
+            'warnings' => $warnings,
+        ];
     }
 
-        public function executeImport()
+    public function executeImport()
     {
         if (!auth()->user()->hasPermission('products.create')) {
             $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
@@ -1511,6 +1555,9 @@ class Products extends Component
         $successCount = 0;
         $errorCount = 0;
         $createdParentSkus = [];
+        
+        // Track used barcodes during import to avoid duplicates
+        $usedBarcodes = [];
 
         // Separate parents and variants
         $parents = array_filter($this->importPreview, fn($row) => strtoupper($row['data']['tipo'] ?? '') === 'PADRE' && $row['valid']);
@@ -1525,133 +1572,164 @@ class Products extends Component
         // Disable query logging for performance
         \DB::disableQueryLog();
 
-        // Process parents in chunks with transaction
-        $parentChunks = array_chunk($parents, 100, true);
-        
-        foreach ($parentChunks as $chunk) {
+        // Process each parent individually with its own transaction
+        foreach ($parents as $row) {
             \DB::beginTransaction();
             try {
-                foreach ($chunk as $row) {
-                    $data = $row['data'];
+                $data = $row['data'];
 
-                    // Find tax if specified
-                    $taxId = null;
-                    if (!empty($data['impuesto_nombre']) && isset($taxesMap[$data['impuesto_nombre']])) {
-                        $taxId = $taxesMap[$data['impuesto_nombre']];
-                    }
-
-                    $sku = !empty($data['sku']) ? $data['sku'] : null;
-
-                    $product = Product::create([
-                        'branch_id' => $branchId,
-                        'sku' => $sku,
-                        'name' => $data['nombre'],
-                        'description' => $data['descripcion'] ?? null,
-                        'barcode' => !empty($data['codigo_barras']) ? $data['codigo_barras'] : null,
-                        'category_id' => $defaultCategory->id,
-                        'unit_id' => $defaultUnit->id,
-                        'tax_id' => $taxId,
-                        'purchase_price' => floatval($data['precio_compra'] ?? 0),
-                        'sale_price' => floatval($data['precio_venta']),
-                        'price_includes_tax' => strtoupper($data['precio_incluye_impuesto'] ?? '') === 'SI',
-                        'current_stock' => intval($data['stock_inicial'] ?? 0),
-                        'min_stock' => 0,
-                        'is_active' => true,
-                        'has_commission' => strtoupper($data['tiene_comision'] ?? '') === 'SI',
-                        'commission_type' => strtoupper($data['tipo_comision'] ?? '') === 'FIJO' ? 'fixed' : 'percentage',
-                        'commission_value' => floatval($data['valor_comision'] ?? 0),
-                    ]);
-
-                    if (!$product->sku) {
-                        $product->generateSku();
-                        $product->save();
-                    }
-
-                    if (!empty($data['sku'])) {
-                        $createdParentSkus[$data['sku']] = $product->id;
-                    }
-                    $createdParentSkus[$product->sku] = $product->id;
-
-                    $stockInicial = intval($data['stock_inicial'] ?? 0);
-                    if ($stockInicial > 0 && $systemDocument) {
-                        \App\Models\InventoryMovement::create([
-                            'system_document_id' => $systemDocument->id,
-                            'document_number' => $systemDocument->generateNextNumber(),
-                            'product_id' => $product->id,
-                            'branch_id' => $branchId,
-                            'user_id' => auth()->id(),
-                            'movement_type' => 'in',
-                            'quantity' => $stockInicial,
-                            'stock_before' => 0,
-                            'stock_after' => $stockInicial,
-                            'unit_cost' => floatval($data['precio_compra'] ?? 0),
-                            'total_cost' => floatval($data['precio_compra'] ?? 0) * $stockInicial,
-                            'notes' => "Stock inicial importado",
-                            'movement_date' => now(),
-                        ]);
-                    }
-
-                    $successCount++;
-                    $this->importProgress = $successCount;
+                // Find tax if specified
+                $taxId = null;
+                if (!empty($data['impuesto_nombre']) && isset($taxesMap[$data['impuesto_nombre']])) {
+                    $taxId = $taxesMap[$data['impuesto_nombre']];
                 }
+
+                $sku = !empty($data['sku']) ? $data['sku'] : null;
                 
+                // Handle barcode: only use if not already used
+                $barcode = null;
+                if (!empty($data['codigo_barras'])) {
+                    $barcodeValue = $data['codigo_barras'];
+                    if (!isset($usedBarcodes[$barcodeValue])) {
+                        // Check if barcode exists in database
+                        $barcodeExists = Product::where('barcode', $barcodeValue)->exists() ||
+                                        ProductChild::where('barcode', $barcodeValue)->exists();
+                        if (!$barcodeExists) {
+                            $barcode = $barcodeValue;
+                            $usedBarcodes[$barcodeValue] = true;
+                        }
+                    }
+                }
+
+                $product = Product::create([
+                    'branch_id' => $branchId,
+                    'sku' => $sku,
+                    'name' => $data['nombre'],
+                    'description' => $data['descripcion'] ?? null,
+                    'barcode' => $barcode,
+                    'category_id' => $defaultCategory->id,
+                    'unit_id' => $defaultUnit->id,
+                    'tax_id' => $taxId,
+                    'purchase_price' => floatval($data['precio_compra'] ?? 0),
+                    'sale_price' => floatval($data['precio_venta']),
+                    'price_includes_tax' => strtoupper($data['precio_incluye_impuesto'] ?? '') === 'SI',
+                    'current_stock' => intval($data['stock_inicial'] ?? 0),
+                    'min_stock' => 0,
+                    'is_active' => true,
+                    'has_commission' => strtoupper($data['tiene_comision'] ?? '') === 'SI',
+                    'commission_type' => strtoupper($data['tipo_comision'] ?? '') === 'FIJO' ? 'fixed' : 'percentage',
+                    'commission_value' => floatval($data['valor_comision'] ?? 0),
+                ]);
+
+                if (!$product->sku) {
+                    $product->generateSku();
+                    $product->save();
+                }
+
+                // Store the product ID mapped to SKU
+                if (!empty($data['sku'])) {
+                    $createdParentSkus[$data['sku']] = $product->id;
+                }
+                $createdParentSkus[$product->sku] = $product->id;
+
+                $stockInicial = intval($data['stock_inicial'] ?? 0);
+                if ($stockInicial > 0 && $systemDocument) {
+                    \App\Models\InventoryMovement::create([
+                        'system_document_id' => $systemDocument->id,
+                        'document_number' => $systemDocument->generateNextNumber(),
+                        'product_id' => $product->id,
+                        'branch_id' => $branchId,
+                        'user_id' => auth()->id(),
+                        'movement_type' => 'in',
+                        'quantity' => $stockInicial,
+                        'stock_before' => 0,
+                        'stock_after' => $stockInicial,
+                        'unit_cost' => floatval($data['precio_compra'] ?? 0),
+                        'total_cost' => floatval($data['precio_compra'] ?? 0) * $stockInicial,
+                        'notes' => "Stock inicial importado",
+                        'movement_date' => now(),
+                    ]);
+                }
+
                 \DB::commit();
+                $successCount++;
+                $this->importProgress = $successCount;
             } catch (\Exception $e) {
                 \DB::rollBack();
-                foreach ($chunk as $row) {
-                    $errorCount++;
-                    $this->importErrors[] = ['row' => $row['row'], 'message' => 'Error en lote: ' . $e->getMessage()];
-                }
+                $errorCount++;
+                $this->importErrors[] = ['row' => $row['row'], 'message' => 'Error: ' . $e->getMessage()];
             }
         }
 
-        // Process variants in chunks with transaction
-        $variantChunks = array_chunk($variants, 100, true);
-        
-        foreach ($variantChunks as $chunk) {
+        // Process each variant individually with its own transaction
+        foreach ($variants as $row) {
             \DB::beginTransaction();
             try {
-                foreach ($chunk as $row) {
-                    $data = $row['data'];
+                $data = $row['data'];
 
-                    $parentSku = $data['producto_padre_sku'];
-                    $parentId = $createdParentSkus[$parentSku] ?? null;
+                $parentSku = $data['producto_padre_sku'];
+                $parentId = $createdParentSkus[$parentSku] ?? null;
 
-                    if (!$parentId) {
-                        $parent = Product::where('sku', $parentSku)->first();
-                        $parentId = $parent?->id;
+                if (!$parentId) {
+                    // Query the database to find the parent
+                    $parent = Product::where('sku', $parentSku)->first();
+                    if ($parent) {
+                        $parentId = $parent->id;
+                        $createdParentSkus[$parentSku] = $parentId;
                     }
-
-                    if (!$parentId) {
-                        $errorCount++;
-                        $this->importErrors[] = ['row' => $row['row'], 'message' => "Producto padre con SKU '{$parentSku}' no encontrado"];
-                        continue;
-                    }
-
-                    ProductChild::create([
-                        'product_id' => $parentId,
-                        'name' => $data['nombre'],
-                        'barcode' => !empty($data['codigo_barras']) ? $data['codigo_barras'] : null,
-                        'unit_quantity' => floatval($data['cantidad_unidades'] ?? 1),
-                        'sale_price' => floatval($data['precio_venta']),
-                        'price_includes_tax' => strtoupper($data['precio_incluye_impuesto'] ?? '') === 'SI',
-                        'is_active' => true,
-                        'has_commission' => strtoupper($data['tiene_comision'] ?? '') === 'SI',
-                        'commission_type' => strtoupper($data['tipo_comision'] ?? '') === 'FIJO' ? 'fixed' : 'percentage',
-                        'commission_value' => floatval($data['valor_comision'] ?? 0),
-                    ]);
-
-                    $successCount++;
-                    $this->importProgress = $successCount;
                 }
-                
+
+                if (!$parentId) {
+                    \DB::rollBack();
+                    $errorCount++;
+                    $this->importErrors[] = ['row' => $row['row'], 'message' => "Producto padre con SKU '{$parentSku}' no encontrado"];
+                    continue;
+                }
+
+                // Verify parent exists in database before creating child
+                $parentExists = Product::where('id', $parentId)->exists();
+                if (!$parentExists) {
+                    \DB::rollBack();
+                    $errorCount++;
+                    $this->importErrors[] = ['row' => $row['row'], 'message' => "Producto padre ID {$parentId} no existe en la base de datos"];
+                    continue;
+                }
+
+                // Handle barcode: only use if not already used
+                $barcode = null;
+                if (!empty($data['codigo_barras'])) {
+                    $barcodeValue = $data['codigo_barras'];
+                    if (!isset($usedBarcodes[$barcodeValue])) {
+                        // Check if barcode exists in database
+                        $barcodeExists = Product::where('barcode', $barcodeValue)->exists() ||
+                                        ProductChild::where('barcode', $barcodeValue)->exists();
+                        if (!$barcodeExists) {
+                            $barcode = $barcodeValue;
+                            $usedBarcodes[$barcodeValue] = true;
+                        }
+                    }
+                }
+
+                ProductChild::create([
+                    'product_id' => $parentId,
+                    'name' => $data['nombre'],
+                    'barcode' => $barcode,
+                    'unit_quantity' => floatval($data['cantidad_unidades'] ?? 1),
+                    'sale_price' => floatval($data['precio_venta']),
+                    'price_includes_tax' => strtoupper($data['precio_incluye_impuesto'] ?? '') === 'SI',
+                    'is_active' => true,
+                    'has_commission' => strtoupper($data['tiene_comision'] ?? '') === 'SI',
+                    'commission_type' => strtoupper($data['tipo_comision'] ?? '') === 'FIJO' ? 'fixed' : 'percentage',
+                    'commission_value' => floatval($data['valor_comision'] ?? 0),
+                ]);
+
                 \DB::commit();
+                $successCount++;
+                $this->importProgress = $successCount;
             } catch (\Exception $e) {
                 \DB::rollBack();
-                foreach ($chunk as $row) {
-                    $errorCount++;
-                    $this->importErrors[] = ['row' => $row['row'], 'message' => 'Error en lote variantes: ' . $e->getMessage()];
-                }
+                $errorCount++;
+                $this->importErrors[] = ['row' => $row['row'], 'message' => 'Error variante: ' . $e->getMessage()];
             }
         }
 
