@@ -551,6 +551,95 @@
         </div>
     </div>
 
+    <!-- Variant Selection Modal -->
+    @if($showVariantModal && $variantProduct)
+    <div class="fixed inset-0 z-[100]">
+        <div class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100]" wire:click="closeVariantModal"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl">
+                    <!-- Header -->
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-slate-900">Seleccionar Variante</h3>
+                        <button wire:click="closeVariantModal" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <!-- Product Info -->
+                    <div class="px-6 py-3 bg-slate-50 border-b border-slate-200">
+                        <div class="flex items-center gap-3">
+                            @if($variantProduct['image'])
+                            <img src="{{ Storage::url($variantProduct['image']) }}" class="w-12 h-12 rounded-lg object-cover">
+                            @else
+                            <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-[#ff7261]/10 to-[#a855f7]/10 flex items-center justify-center">
+                                <svg class="w-6 h-6 text-[#a855f7]/50" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2z"/>
+                                </svg>
+                            </div>
+                            @endif
+                            <div>
+                                <p class="font-semibold text-slate-800">{{ $variantProduct['name'] }}</p>
+                                <p class="text-xs text-slate-500">{{ $variantProduct['sku'] }} · {{ $variantProduct['brand'] ?? 'Sin marca' }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Options -->
+                    <div class="p-4 max-h-80 overflow-y-auto space-y-2">
+                        <!-- Parent Product Option -->
+                        <button wire:click="selectVariant(null)" class="w-full p-3 rounded-xl border-2 border-slate-200 hover:border-[#ff7261] hover:bg-[#ff7261]/5 transition-all flex items-center justify-between group">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                    </svg>
+                                </div>
+                                <div class="text-left">
+                                    <p class="font-medium text-slate-800 group-hover:text-[#ff7261]">Producto Principal</p>
+                                    <p class="text-xs text-slate-500">Stock: {{ $variantProduct['current_stock'] }}</p>
+                                </div>
+                            </div>
+                            <span class="font-bold text-[#ff7261]">${{ number_format($variantProduct['sale_price'], 0) }}</span>
+                        </button>
+                        
+                        <!-- Variant Options -->
+                        @foreach($variantOptions as $variant)
+                        <button wire:click="selectVariant({{ $variant['id'] }})" class="w-full p-3 rounded-xl border-2 border-slate-200 hover:border-[#a855f7] hover:bg-[#a855f7]/5 transition-all flex items-center justify-between group">
+                            <div class="flex items-center gap-3">
+                                @if($variant['image'])
+                                <img src="{{ Storage::url($variant['image']) }}" class="w-10 h-10 rounded-lg object-cover">
+                                @else
+                                <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                                    </svg>
+                                </div>
+                                @endif
+                                <div class="text-left">
+                                    <p class="font-medium text-slate-800 group-hover:text-[#a855f7]">{{ $variant['name'] }}</p>
+                                    <p class="text-xs text-slate-500">{{ $variant['sku'] }} · Stock: {{ $variant['current_stock'] }}</p>
+                                </div>
+                            </div>
+                            <span class="font-bold text-[#a855f7]">${{ number_format($variant['sale_price'], 0) }}</span>
+                        </button>
+                        @endforeach
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200">
+                        <button wire:click="closeVariantModal" class="w-full px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition">
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <!-- Payment Modal with Multiple Methods -->
     @if($showPaymentModal)
     <div class="fixed inset-0 z-[100]">

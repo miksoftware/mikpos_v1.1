@@ -78,6 +78,11 @@ class PointOfSale extends Component
     // Branch
     public $branchId = null;
 
+    // Variant selection modal
+    public $showVariantModal = false;
+    public $variantProduct = null;
+    public $variantOptions = [];
+
     public function mount()
     {
         $user = auth()->user();
@@ -248,12 +253,23 @@ class PointOfSale extends Component
         $product = Product::where('barcode', $barcode)
             ->where('is_active', true)
             ->forBranch($this->branchId)
+            ->with(['children' => function ($q) {
+                $q->where('is_active', true);
+            }, 'brand'])
             ->first();
         
         if ($product) {
-            $this->addToCart($product->id);
-            $this->barcodeSearch = '';
-            $this->dispatch('focus-barcode-search');
+            // Check if product has active variants
+            if ($product->children->count() > 0) {
+                // Open variant selection modal
+                $this->openVariantModal($product);
+                $this->barcodeSearch = '';
+            } else {
+                // No variants, add directly
+                $this->addToCart($product->id);
+                $this->barcodeSearch = '';
+                $this->dispatch('focus-barcode-search');
+            }
             return;
         }
 
@@ -263,6 +279,48 @@ class PointOfSale extends Component
             $this->barcodeSearch = '';
             $this->dispatch('focus-barcode-search');
         }
+    }
+
+    public function openVariantModal($product)
+    {
+        $this->variantProduct = [
+            'id' => $product->id,
+            'name' => $product->name,
+            'sku' => $product->sku,
+            'image' => $product->image,
+            'brand' => $product->brand?->name,
+            'sale_price' => (float) $product->sale_price,
+            'current_stock' => (int) $product->current_stock,
+        ];
+        
+        $this->variantOptions = $product->children->map(function ($child) {
+            return [
+                'id' => $child->id,
+                'name' => $child->name,
+                'sku' => $child->sku,
+                'image' => $child->image,
+                'sale_price' => (float) $child->sale_price,
+                'current_stock' => (int) $child->current_stock,
+            ];
+        })->toArray();
+        
+        $this->showVariantModal = true;
+    }
+
+    public function selectVariant($childId = null)
+    {
+        if ($this->variantProduct) {
+            $this->addToCart($this->variantProduct['id'], $childId);
+        }
+        $this->closeVariantModal();
+    }
+
+    public function closeVariantModal()
+    {
+        $this->showVariantModal = false;
+        $this->variantProduct = null;
+        $this->variantOptions = [];
+        $this->dispatch('focus-barcode-search');
     }
 
     public function selectCategory($categoryId)
