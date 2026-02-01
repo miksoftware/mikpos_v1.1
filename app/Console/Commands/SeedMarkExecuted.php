@@ -30,6 +30,7 @@ class SeedMarkExecuted extends Command
         'InventoryTransfersModuleSeeder',
         'BillingSettingsModuleSeeder',
         'SalesModuleSeeder',
+        'ServicesModuleSeeder',
     ];
 
     public function handle(): int

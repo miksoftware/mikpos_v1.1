@@ -328,16 +328,22 @@
                 @if($sellableItems->count() > 0)
                 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                     @foreach($sellableItems as $item)
-                    <button wire:click="addToCart({{ $item['id'] }}, {{ $item['child_id'] ?? 'null' }})" class="bg-white rounded-xl border border-slate-200 hover:border-[#ff7261] hover:shadow-lg transition-all duration-200 overflow-hidden group text-left">
+                    <button wire:click="{{ $item['type'] === 'service' ? 'addServiceToCart(' . $item['id'] . ')' : 'addToCart(' . $item['id'] . ', ' . ($item['child_id'] ?? 'null') . ')' }}" class="bg-white rounded-xl border border-slate-200 hover:border-[#ff7261] hover:shadow-lg transition-all duration-200 overflow-hidden group text-left">
                         <div class="aspect-square bg-slate-50 relative overflow-hidden">
                             @if($item['image'])
                             <img src="{{ Storage::url($item['image']) }}" alt="{{ $item['name'] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200">
                             @else
                             <div class="w-full h-full bg-gradient-to-br from-[#ff7261]/5 to-[#a855f7]/10 flex items-center justify-center">
                                 <div class="text-center">
+                                    @if($item['type'] === 'service')
+                                    <svg class="w-12 h-12 mx-auto text-[#a855f7]/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                    </svg>
+                                    @else
                                     <svg class="w-12 h-12 mx-auto text-[#a855f7]/30" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm-1 14H5c-.55 0-1-.45-1-1V7c0-.55.45-1 1-1h14c.55 0 1 .45 1 1v10c0 .55-.45 1-1 1zm-7-7c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z"/>
                                     </svg>
+                                    @endif
                                     <span class="text-xs text-slate-400 mt-1 block">Sin imagen</span>
                                 </div>
                             </div>
@@ -345,9 +351,15 @@
                             <div class="absolute top-2 right-2 px-2 py-1 bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white text-xs font-bold rounded-lg shadow">
                                 ${{ number_format($item['price'], 0) }}
                             </div>
+                            @if($item['type'] === 'service')
+                            <div class="absolute top-2 left-2 px-2 py-1 text-xs font-medium rounded-lg bg-indigo-500 text-white">
+                                Servicio
+                            </div>
+                            @else
                             <div class="absolute top-2 left-2 px-2 py-1 text-xs font-medium rounded-lg {{ $item['stock'] <= 5 ? 'bg-red-500 text-white' : 'bg-green-500 text-white' }}">
                                 {{ $item['stock'] }} {{ $item['unit'] ?? 'uds' }}
                             </div>
+                            @endif
                             @if($item['type'] === 'child')
                             <div class="absolute bottom-2 left-2 px-2 py-0.5 bg-blue-500 text-white text-[10px] font-medium rounded">
                                 Variante

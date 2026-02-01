@@ -240,3 +240,93 @@ Inventarios
 ├── Ajustes Inventario
 └── Transferencias
 ```
+
+
+## Console Commands
+
+### Custom Artisan Commands
+Located in `app/Console/Commands/`
+
+- **SeedPending** (`db:seed-pending`) - Run only new/pending seeders
+- **SeedMarkExecuted** (`db:seed-mark-executed`) - Mark seeders as already executed
+
+### Common Commands
+
+```bash
+# Development
+composer dev              # Start dev server
+npm run build            # Build assets
+
+# Database
+php artisan migrate                    # Run migrations
+php artisan migrate:fresh --seed       # Fresh DB with seeders
+php artisan db:seed-pending --force    # Run only new seeders
+
+# Cache
+php artisan optimize:clear   # Clear all caches
+php artisan optimize         # Cache config, routes, views
+
+# Code Quality
+./vendor/bin/pint           # Format code
+php artisan pail            # View logs
+```
+
+## Deployment
+
+### Deploy Script
+Located at `deploy.sh` in project root.
+
+```bash
+./deploy.sh   # Run from server
+```
+
+### Docker Commands (Production)
+```bash
+docker compose exec -T php php artisan migrate --force
+docker compose exec -T php php artisan db:seed-pending --force
+docker compose exec -T php php artisan optimize
+```
+
+## File Structure - Additional
+
+```
+/
+├── app/
+│   └── Console/
+│       └── Commands/
+│           ├── SeedPending.php        # Run pending seeders
+│           └── SeedMarkExecuted.php   # Mark seeders executed
+├── deploy.sh                          # Production deploy script
+```
+
+
+## Services Module
+
+### Overview
+Services are similar to products but without inventory/stock management.
+
+### Service Model Fields
+- `branch_id`: Branch ownership
+- `sku`: Auto-generated (SRV-XXXXX)
+- `name`, `description`: Basic info
+- `category_id`: Optional category
+- `tax_id`: Tax rate
+- `cost`, `sale_price`: Pricing
+- `price_includes_tax`: Boolean
+- `has_commission`, `commission_type`, `commission_value`: Commission settings
+- `image`: Optional image
+- `is_active`: Status
+
+### Key Differences from Products
+- No barcode
+- No stock/inventory tracking
+- No variants/children
+- Unlimited quantity in POS (no stock check)
+- SKU prefix: SRV- instead of category-based
+
+### POS Integration
+- Services appear in the same grid as products
+- Identified by "Servicio" badge (indigo color)
+- No stock indicator shown
+- Uses `addServiceToCart()` method
+- `sale_items.service_id` stores the service reference

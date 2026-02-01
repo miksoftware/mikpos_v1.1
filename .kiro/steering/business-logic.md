@@ -309,3 +309,100 @@ $pdf = $factusService->getCreditNotePdf($creditNote);
 - System tracks credited/refunded quantities per item
 - Reason is required (min 5-10 characters)
 - At least one item must be selected
+
+
+## Deployment & Seeders
+
+### Automated Seeder System
+Similar to migrations, seeders are tracked to avoid duplicates during deployment.
+
+**Table**: `seeder_history`
+- `seeder`: Seeder class name
+- `batch`: Execution batch number (0 = initial/manual mark)
+- `executed_at`: Timestamp
+
+### Artisan Commands
+
+**Run pending seeders:**
+```bash
+php artisan db:seed-pending --force
+```
+
+**Mark existing seeders as executed (initial setup):**
+```bash
+php artisan db:seed-mark-executed --all
+```
+
+### Adding New Seeders
+1. Create the seeder: `php artisan make:seeder NewFeatureSeeder`
+2. Add to `$trackedSeeders` array in both:
+   - `app/Console/Commands/SeedPending.php`
+   - `app/Console/Commands/SeedMarkExecuted.php`
+3. Commit and push - deploy will run it automatically
+
+### Current Tracked Seeders
+```php
+$trackedSeeders = [
+    'RolesAndPermissionsSeeder',
+    'DepartmentSeeder',
+    'MunicipalitySeeder',
+    'TaxDocumentsSeeder',
+    'PaymentMethodsSeeder',
+    'SystemDocumentsSeeder',
+    'ProductCatalogPermissionsSeeder',
+    'CustomerModuleSeeder',
+    'SupplierModuleSeeder',
+    'ProductsModuleSeeder',
+    'CombosModuleSeeder',
+    'PurchasesModuleSeeder',
+    'CashRegistersModuleSeeder',
+    'CashReconciliationsModuleSeeder',
+    'InventoryAdjustmentsModuleSeeder',
+    'InventoryTransfersModuleSeeder',
+    'BillingSettingsModuleSeeder',
+    'SalesModuleSeeder',
+];
+```
+
+### Deploy Script
+Located at `deploy.sh` in project root. Key steps:
+1. Maintenance mode on
+2. Git pull from origin/main
+3. Composer install (no-dev)
+4. NPM install + build
+5. Run migrations
+6. Run pending seeders (`db:seed-pending --force`)
+7. Optimize (cache config, routes, views)
+8. Maintenance mode off
+
+**Error handling**: If deploy fails, automatically reactivates the app.
+
+### Production Setup (First Time)
+After deploying the seeder system to production:
+```bash
+# Run migration for seeder_history table
+docker compose exec -T php php artisan migrate --force
+
+# Mark all existing seeders as executed
+docker compose exec -T php php artisan db:seed-mark-executed --all
+```
+
+
+## POS Features
+
+### Customer Creation from POS
+- Accessible via F7 modal or search button (lupa icon)
+- Toggle between search and create views
+- Fields: type (natural/juridico), document type, document number, name/business name, phone, email
+- New customer automatically selected after creation
+
+### Barcode Auto-Search
+- Barcode input auto-triggers search after 300ms of no typing
+- Works for barcodes 8+ digits
+- Enter key still works for manual search
+- Searches both ProductChild and Product tables
+
+### Branch Name Display
+- Sidebar logo shows branch name instead of "MikPOS"
+- POS header shows branch name
+- Falls back to "MikPOS" if no branch assigned

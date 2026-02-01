@@ -130,6 +130,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('combos')
         ->middleware('permission:combos.view');
 
+    // Services Management Routes
+    Route::get('/services', App\Livewire\Services::class)
+        ->name('services')
+        ->middleware('permission:services.view');
+
     // Purchases Management Routes
     Route::get('/purchases', App\Livewire\Purchases::class)
         ->name('purchases')

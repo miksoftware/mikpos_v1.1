@@ -5,6 +5,7 @@ namespace App\Livewire;
 use Livewire\Component;
 use App\Models\Product;
 use App\Models\ProductChild;
+use App\Models\Service;
 use App\Models\Customer;
 use App\Models\Category;
 use App\Models\CashRegister;
@@ -323,6 +324,8 @@ class PointOfSale extends Component
             $this->cart[$cartKey] = [
                 'product_id' => $productId,
                 'child_id' => $childId,
+                'service_id' => null,
+                'is_service' => false,
                 'name' => $displayName,
                 'sku' => $child ? $child->sku : $product->sku,
                 'price' => round($priceWithTax, 2), // Price shown to customer (with tax)
@@ -335,6 +338,51 @@ class PointOfSale extends Component
                 'price_includes_tax' => $priceIncludesTax,
                 'image' => $displayImage,
                 'max_stock' => (int)$product->current_stock,
+            ];
+        }
+    }
+
+    public function addServiceToCart($serviceId)
+    {
+        $service = Service::with('tax')->find($serviceId);
+        
+        if (!$service) return;
+        
+        $cartKey = 'service-' . $serviceId;
+        
+        if (isset($this->cart[$cartKey])) {
+            $this->cart[$cartKey]['quantity']++;
+            $this->updateCartItemTotals($cartKey);
+        } else {
+            $priceIncludesTax = $service->price_includes_tax;
+            $taxRate = $service->tax?->value ?? 0;
+            $price = (float) $service->sale_price;
+            
+            if ($priceIncludesTax) {
+                $priceWithTax = $price;
+                $basePrice = $taxRate > 0 ? $price / (1 + ($taxRate / 100)) : $price;
+            } else {
+                $basePrice = $price;
+                $priceWithTax = $taxRate > 0 ? $price * (1 + ($taxRate / 100)) : $price;
+            }
+            
+            $this->cart[$cartKey] = [
+                'product_id' => null,
+                'child_id' => null,
+                'service_id' => $serviceId,
+                'is_service' => true,
+                'name' => $service->name,
+                'sku' => $service->sku,
+                'price' => round($priceWithTax, 2),
+                'base_price' => round($basePrice, 2),
+                'quantity' => 1,
+                'subtotal' => round($basePrice, 2),
+                'tax_id' => $service->tax_id,
+                'tax_rate' => $taxRate,
+                'tax_amount' => round($priceWithTax - $basePrice, 2),
+                'price_includes_tax' => $priceIncludesTax,
+                'image' => $service->image,
+                'max_stock' => PHP_INT_MAX, // Services have no stock limit
             ];
         }
     }
@@ -515,6 +563,7 @@ class PointOfSale extends Component
                     'sale_id' => $sale->id,
                     'product_id' => $item['product_id'],
                     'product_child_id' => $item['child_id'],
+                    'service_id' => $item['service_id'] ?? null,
                     'product_name' => $item['name'],
                     'product_sku' => $item['sku'],
                     'unit_price' => $item['base_price'], // Price without tax
@@ -525,10 +574,12 @@ class PointOfSale extends Component
                     'total' => $item['subtotal'] + $item['tax_amount'],
                 ]);
                 
-                // Update product stock
-                $product = Product::find($item['product_id']);
-                if ($product) {
-                    $product->decrement('current_stock', $item['quantity']);
+                // Update product stock (only for products, not services)
+                if ($item['product_id']) {
+                    $product = Product::find($item['product_id']);
+                    if ($product) {
+                        $product->decrement('current_stock', $item['quantity']);
+                    }
                 }
             }
             
@@ -893,6 +944,43 @@ class PointOfSale extends Component
                     ]);
                 }
             }
+        }
+        
+        // Add services to sellable items
+        $servicesQuery = Service::with(['category', 'tax'])
+            ->where('is_active', true)
+            ->forBranch($this->branchId);
+        
+        if ($this->selectedCategory) {
+            $servicesQuery->where('category_id', $this->selectedCategory);
+        }
+        
+        if (strlen($this->productSearch) >= 2) {
+            $search = $this->productSearch;
+            $servicesQuery->where(function ($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhere('sku', 'like', '%' . $search . '%')
+                  ->orWhere('description', 'like', '%' . $search . '%');
+            });
+        }
+        
+        $services = $servicesQuery->orderBy('name')->limit(20)->get();
+        
+        foreach ($services as $service) {
+            $sellableItems->push([
+                'type' => 'service',
+                'id' => $service->id,
+                'child_id' => null,
+                'name' => $service->name,
+                'sku' => $service->sku,
+                'brand' => null,
+                'price' => $service->price_includes_tax 
+                    ? $service->sale_price 
+                    : $service->getSalePriceWithTax(),
+                'stock' => null, // Services have no stock
+                'image' => $service->image,
+                'unit' => 'SRV',
+            ]);
         }
         
         // Get payment methods

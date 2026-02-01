@@ -14,6 +14,7 @@ class SaleItem extends Model
         'sale_id',
         'product_id',
         'product_child_id',
+        'service_id',
         'product_name',
         'product_sku',
         'unit_price',
@@ -50,5 +51,18 @@ class SaleItem extends Model
     public function productChild(): BelongsTo
     {
         return $this->belongsTo(ProductChild::class);
+    }
+
+    public function service(): BelongsTo
+    {
+        return $this->belongsTo(Service::class);
+    }
+
+    /**
+     * Check if this item is a service.
+     */
+    public function isService(): bool
+    {
+        return $this->service_id !== null;
     }
 }
