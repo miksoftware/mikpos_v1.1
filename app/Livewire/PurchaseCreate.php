@@ -118,6 +118,7 @@ class PurchaseCreate extends Component
                 'unit' => $item->product?->unit?->abbreviation ?? 'und',
                 'quantity' => $item->quantity,
                 'unit_cost' => (float) $item->unit_cost,
+                'sale_price' => (float) ($item->product?->sale_price ?? 0),
                 'tax_rate' => (float) $item->tax_rate,
                 'tax_amount' => (float) $item->tax_amount,
                 'discount' => (float) $item->discount,
@@ -205,6 +206,7 @@ class PurchaseCreate extends Component
             'unit' => $product->unit?->abbreviation ?? 'und',
             'quantity' => 1,
             'unit_cost' => (float) $product->purchase_price,
+            'sale_price' => (float) $product->sale_price,
             'tax_rate' => (float) ($product->tax?->value ?? 0),
             'tax_amount' => 0,
             'discount' => 0,
@@ -282,6 +284,14 @@ class PurchaseCreate extends Component
         $this->cartItems[$index]['discount'] = $discount;
         $this->calculateItemTotal($index);
         $this->calculateTotals();
+    }
+
+    public function updateSalePrice(int $index, float $price)
+    {
+        if ($price < 0) {
+            $price = 0;
+        }
+        $this->cartItems[$index]['sale_price'] = $price;
     }
 
     public function removeItem(int $index)
@@ -446,6 +456,21 @@ class PurchaseCreate extends Component
                 'subtotal' => $item['subtotal'],
                 'total' => $item['total'],
             ]);
+
+            // Update product prices if changed
+            $product = Product::find($item['product_id']);
+            if ($product) {
+                $updates = [];
+                if ($item['unit_cost'] != $product->purchase_price) {
+                    $updates['purchase_price'] = $item['unit_cost'];
+                }
+                if (isset($item['sale_price']) && $item['sale_price'] != $product->sale_price) {
+                    $updates['sale_price'] = $item['sale_price'];
+                }
+                if (!empty($updates)) {
+                    $product->update($updates);
+                }
+            }
         }
 
         if ($status === 'completed') {
@@ -495,6 +520,21 @@ class PurchaseCreate extends Component
                 'subtotal' => $item['subtotal'],
                 'total' => $item['total'],
             ]);
+
+            // Update product prices if changed
+            $product = Product::find($item['product_id']);
+            if ($product) {
+                $updates = [];
+                if ($item['unit_cost'] != $product->purchase_price) {
+                    $updates['purchase_price'] = $item['unit_cost'];
+                }
+                if (isset($item['sale_price']) && $item['sale_price'] != $product->sale_price) {
+                    $updates['sale_price'] = $item['sale_price'];
+                }
+                if (!empty($updates)) {
+                    $product->update($updates);
+                }
+            }
         }
 
         // If completing or was completed, update stock

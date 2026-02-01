@@ -123,11 +123,20 @@
                     </div>
 
                     {{-- Unit Cost --}}
-                    <div class="w-28">
-                        <label class="text-xs text-slate-500 block mb-1">Costo Unit.</label>
+                    <div class="w-24">
+                        <label class="text-xs text-slate-500 block mb-1">Costo</label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-slate-400 text-sm">$</span>
-                            <input type="number" wire:change="updateUnitCost({{ $index }}, $event.target.value)" value="{{ $item['unit_cost'] }}" step="0.01" min="0" class="w-full pl-6 pr-2 py-1.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-right text-sm">
+                            <input type="number" wire:change="updateUnitCost({{ $index }}, $event.target.value)" value="{{ $item['unit_cost'] }}" step="0.01" min="0" class="w-full pl-6 pr-1 py-1.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-right text-sm">
+                        </div>
+                    </div>
+
+                    {{-- Sale Price --}}
+                    <div class="w-24">
+                        <label class="text-xs text-slate-500 block mb-1">P. Venta</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-slate-400 text-sm">$</span>
+                            <input type="number" wire:change="updateSalePrice({{ $index }}, $event.target.value)" value="{{ $item['sale_price'] ?? 0 }}" step="0.01" min="0" class="w-full pl-6 pr-1 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/50 focus:border-green-500 text-right text-sm bg-green-50">
                         </div>
                     </div>
 
