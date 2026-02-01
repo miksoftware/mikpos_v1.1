@@ -171,51 +171,48 @@
             </div>
 
             <!-- Cart Items -->
-            <div class="flex-1 overflow-y-auto custom-scrollbar p-4">
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-2">
                 @if(count($cart) > 0)
-                <div class="space-y-2">
+                <div class="space-y-1">
                     @foreach($cart as $key => $item)
-                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-100 hover:border-slate-200 transition">
-                        <div class="flex gap-3">
-                            <div class="w-14 h-14 rounded-lg bg-white border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <div class="bg-slate-50 rounded-lg p-2 border border-slate-100 hover:border-slate-200 transition">
+                        <div class="flex items-center gap-2">
+                            <div class="w-10 h-10 rounded-md bg-white border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
                                 @if($item['image'])
                                 <img src="{{ Storage::url($item['image']) }}" alt="" class="w-full h-full object-cover">
                                 @else
                                 <div class="w-full h-full bg-gradient-to-br from-[#ff7261]/10 to-[#a855f7]/10 flex items-center justify-center">
-                                    <svg class="w-7 h-7 text-[#a855f7]/50" fill="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-5 h-5 text-[#a855f7]/50" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm-1 14H5c-.55 0-1-.45-1-1V7c0-.55.45-1 1-1h14c.55 0 1 .45 1 1v10c0 .55-.45 1-1 1zm-7-7c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z"/>
                                     </svg>
                                 </div>
                                 @endif
                             </div>
                             <div class="flex-1 min-w-0">
-                                <p class="font-medium text-slate-800 text-sm truncate">{{ $item['name'] }}</p>
-                                <p class="text-xs text-slate-500">{{ $item['sku'] }}</p>
-                                <p class="text-sm font-semibold text-[#ff7261] mt-1">${{ number_format($item['price'], 2) }}</p>
+                                <p class="font-medium text-slate-800 text-xs truncate">{{ $item['name'] }}</p>
+                                <p class="text-[10px] text-slate-500">{{ $item['sku'] }} · ${{ number_format($item['price'], 0) }} c/u</p>
                             </div>
-                            <div class="flex flex-col items-end gap-2">
+                            <div class="flex items-center gap-1">
+                                <div class="flex items-center bg-white rounded-md border border-slate-200">
+                                    <button wire:click="decrementQuantity('{{ $key }}')" class="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-[#ff7261] transition">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                                        </svg>
+                                    </button>
+                                    <span class="w-6 text-center text-xs font-medium">{{ $item['quantity'] }}</span>
+                                    <button wire:click="incrementQuantity('{{ $key }}')" class="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-[#ff7261] transition">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                    </button>
+                                </div>
                                 <button wire:click="removeFromCart('{{ $key }}')" class="p-1 text-slate-400 hover:text-red-500 transition">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                     </svg>
                                 </button>
-                                <div class="flex items-center gap-1 bg-white rounded-lg border border-slate-200">
-                                    <button wire:click="decrementQuantity('{{ $key }}')" class="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-[#ff7261] transition">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
-                                        </svg>
-                                    </button>
-                                    <span class="w-8 text-center text-sm font-medium">{{ $item['quantity'] }}</span>
-                                    <button wire:click="incrementQuantity('{{ $key }}')" class="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-[#ff7261] transition">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                        </svg>
-                                    </button>
-                                </div>
                             </div>
-                        </div>
-                        <div class="flex justify-end mt-2 pt-2 border-t border-slate-200">
-                            <span class="text-sm font-semibold text-slate-700">${{ number_format($item['subtotal'], 2) }}</span>
+                            <span class="text-sm font-bold text-[#ff7261] min-w-[70px] text-right">${{ number_format($item['subtotal'] + $item['tax_amount'], 0) }}</span>
                         </div>
                     </div>
                     @endforeach
@@ -326,9 +323,9 @@
             <!-- Products Grid -->
             <div class="flex-1 overflow-y-auto p-4">
                 @if($sellableItems->count() > 0)
-                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                <div class="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
                     @foreach($sellableItems as $item)
-                    <button wire:click="{{ $item['type'] === 'service' ? 'addServiceToCart(' . $item['id'] . ')' : 'addToCart(' . $item['id'] . ', ' . ($item['child_id'] ?? 'null') . ')' }}" class="bg-white rounded-xl border border-slate-200 hover:border-[#ff7261] hover:shadow-lg transition-all duration-200 overflow-hidden group text-left">
+                    <button wire:click="{{ $item['type'] === 'service' ? 'addServiceToCart(' . $item['id'] . ')' : 'addToCart(' . $item['id'] . ', ' . ($item['child_id'] ?? 'null') . ')' }}" class="bg-white rounded-lg border border-slate-200 hover:border-[#ff7261] hover:shadow-md transition-all duration-200 overflow-hidden group text-left">
                         <div class="aspect-square bg-slate-50 relative overflow-hidden">
                             @if($item['image'])
                             <img src="{{ Storage::url($item['image']) }}" alt="{{ $item['name'] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200">
@@ -336,46 +333,43 @@
                             <div class="w-full h-full bg-gradient-to-br from-[#ff7261]/5 to-[#a855f7]/10 flex items-center justify-center">
                                 <div class="text-center">
                                     @if($item['type'] === 'service')
-                                    <svg class="w-12 h-12 mx-auto text-[#a855f7]/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-6 h-6 mx-auto text-[#a855f7]/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                                     </svg>
                                     @else
-                                    <svg class="w-12 h-12 mx-auto text-[#a855f7]/30" fill="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-6 h-6 mx-auto text-[#a855f7]/30" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm-1 14H5c-.55 0-1-.45-1-1V7c0-.55.45-1 1-1h14c.55 0 1 .45 1 1v10c0 .55-.45 1-1 1zm-7-7c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z"/>
                                     </svg>
                                     @endif
-                                    <span class="text-xs text-slate-400 mt-1 block">Sin imagen</span>
+                                    <span class="text-[9px] text-slate-400 mt-0.5 block">Sin imagen</span>
                                 </div>
                             </div>
                             @endif
-                            <div class="absolute top-2 right-2 px-2 py-1 bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white text-xs font-bold rounded-lg shadow">
+                            <div class="absolute top-1 right-1 px-1.5 py-0.5 bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white text-[10px] font-bold rounded shadow">
                                 ${{ number_format($item['price'], 0) }}
                             </div>
                             @if($item['type'] === 'service')
-                            <div class="absolute top-2 left-2 px-2 py-1 text-xs font-medium rounded-lg bg-indigo-500 text-white">
-                                Servicio
+                            <div class="absolute top-1 left-1 px-1.5 py-0.5 text-[9px] font-medium rounded bg-indigo-500 text-white">
+                                Serv.
                             </div>
                             @else
-                            <div class="absolute top-2 left-2 px-2 py-1 text-xs font-medium rounded-lg {{ $item['stock'] <= 5 ? 'bg-red-500 text-white' : 'bg-green-500 text-white' }}">
+                            <div class="absolute top-1 left-1 px-1.5 py-0.5 text-[9px] font-medium rounded {{ $item['stock'] <= 5 ? 'bg-red-500 text-white' : 'bg-green-500 text-white' }}">
                                 {{ $item['stock'] }} {{ $item['unit'] ?? 'uds' }}
                             </div>
                             @endif
                             @if($item['type'] === 'child')
-                            <div class="absolute bottom-2 left-2 px-2 py-0.5 bg-blue-500 text-white text-[10px] font-medium rounded">
-                                Variante
+                            <div class="absolute bottom-1 left-1 px-1 py-0.5 bg-blue-500 text-white text-[8px] font-medium rounded">
+                                Var.
                             </div>
                             @elseif(isset($item['has_variants']) && $item['has_variants'])
-                            <div class="absolute bottom-2 left-2 px-2 py-0.5 bg-purple-500 text-white text-[10px] font-medium rounded">
-                                {{ $item['variant_count'] }} variantes
+                            <div class="absolute bottom-1 left-1 px-1 py-0.5 bg-purple-500 text-white text-[8px] font-medium rounded">
+                                {{ $item['variant_count'] }} var.
                             </div>
                             @endif
                         </div>
-                        <div class="p-3">
-                            <p class="font-medium text-slate-800 text-sm line-clamp-2 leading-tight mb-1">{{ $item['name'] }}</p>
-                            @if($item['type'] === 'child' && isset($item['parent_name']))
-                            <p class="text-[10px] text-slate-400 truncate">{{ $item['parent_name'] }}</p>
-                            @endif
-                            <p class="text-xs text-slate-500">{{ $item['brand'] ?? 'Sin marca' }}</p>
+                        <div class="p-1.5">
+                            <p class="font-medium text-slate-800 text-[10px] line-clamp-2 leading-tight mb-0.5">{{ $item['name'] }}</p>
+                            <p class="text-[9px] text-slate-500 truncate">{{ $item['brand'] ?? 'Sin marca' }}</p>
                         </div>
                     </button>
                     @endforeach
