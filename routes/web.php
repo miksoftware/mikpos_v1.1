@@ -221,5 +221,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/products-sold/excel', [App\Http\Controllers\ReportExportController::class, 'productsSoldExcel'])
             ->name('products-sold.excel')
             ->middleware('permission:reports.export');
+        
+        Route::get('/commissions', App\Livewire\Reports\Commissions::class)
+            ->name('commissions')
+            ->middleware('permission:reports.commissions');
     });
 });

@@ -25,6 +25,7 @@ class ReportsModuleSeeder extends Seeder
         $permissions = [
             ['name' => 'reports.view', 'display_name' => 'Ver Reportes', 'description' => 'Acceso al módulo de reportes'],
             ['name' => 'reports.products_sold', 'display_name' => 'Reporte Productos Vendidos', 'description' => 'Ver reporte de productos vendidos'],
+            ['name' => 'reports.commissions', 'display_name' => 'Reporte Comisiones', 'description' => 'Ver reporte de comisiones'],
             ['name' => 'reports.export', 'display_name' => 'Exportar Reportes', 'description' => 'Exportar reportes a PDF/Excel'],
         ];
 
@@ -58,11 +59,15 @@ class ReportsModuleSeeder extends Seeder
         if ($supervisor) {
             $viewPermission = Permission::where('name', 'reports.view')->first();
             $productsSoldPermission = Permission::where('name', 'reports.products_sold')->first();
+            $commissionsPermission = Permission::where('name', 'reports.commissions')->first();
             if ($viewPermission) {
                 $supervisor->permissions()->syncWithoutDetaching([$viewPermission->id]);
             }
             if ($productsSoldPermission) {
                 $supervisor->permissions()->syncWithoutDetaching([$productsSoldPermission->id]);
+            }
+            if ($commissionsPermission) {
+                $supervisor->permissions()->syncWithoutDetaching([$commissionsPermission->id]);
             }
         }
     }
