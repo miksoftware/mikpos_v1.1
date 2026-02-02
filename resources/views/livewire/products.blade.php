@@ -621,6 +621,14 @@
                                     </div>
                                     @error('sale_price')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
                                 </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Precio Especial</label>
+                                    <div class="relative">
+                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-green-600">$</span>
+                                        <input wire:model="special_price" type="number" step="0.01" min="0" class="w-full pl-7 pr-3 py-2 border border-green-300 rounded-xl focus:ring-2 focus:ring-green-500/50 focus:border-green-500 bg-green-50" placeholder="0.00">
+                                    </div>
+                                    <p class="text-xs text-slate-500 mt-1">Precio promocional o descuento</p>
+                                </div>
                             </div>
                             <div class="mt-3 flex flex-wrap items-center gap-4">
                                 <label class="flex items-center gap-2 cursor-pointer">

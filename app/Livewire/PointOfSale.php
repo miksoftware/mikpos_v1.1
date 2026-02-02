@@ -382,6 +382,10 @@ class PointOfSale extends Component
             $displayName = $child ? $child->name : $product->name;
             $displayImage = $child ? ($child->image ?? $product->image) : $product->image;
             
+            // Get special price if available
+            $specialPrice = $child ? $child->special_price : $product->special_price;
+            $hasSpecialPrice = $specialPrice && $specialPrice > 0;
+            
             $this->cart[$cartKey] = [
                 'product_id' => $productId,
                 'child_id' => $childId,
@@ -391,6 +395,10 @@ class PointOfSale extends Component
                 'sku' => $child ? $child->sku : $product->sku,
                 'price' => round($priceWithTax, 2), // Price shown to customer (with tax)
                 'base_price' => round($basePrice, 2), // Price without tax for calculations
+                'original_price' => round($priceWithTax, 2), // Store original price
+                'original_base_price' => round($basePrice, 2), // Store original base price
+                'special_price' => $hasSpecialPrice ? round((float) $specialPrice, 2) : null,
+                'using_special_price' => false,
                 'quantity' => 1,
                 'subtotal' => round($basePrice, 2), // Subtotal is base price * quantity
                 'tax_id' => $product->tax_id,
@@ -405,6 +413,47 @@ class PointOfSale extends Component
         // Clear search and refocus
         $this->productSearch = '';
         $this->dispatch('focus-product-search');
+    }
+
+    public function toggleSpecialPrice($cartKey)
+    {
+        if (!isset($this->cart[$cartKey])) return;
+        
+        $item = &$this->cart[$cartKey];
+        
+        // Services don't have special price
+        if ($item['is_service']) return;
+        
+        // Check if special price is available
+        if (!$item['special_price']) {
+            $this->dispatch('notify', message: 'Este producto no tiene precio especial', type: 'warning');
+            return;
+        }
+        
+        $item['using_special_price'] = !$item['using_special_price'];
+        
+        if ($item['using_special_price']) {
+            // Switch to special price
+            $specialPrice = $item['special_price'];
+            $taxRate = $item['tax_rate'];
+            
+            if ($item['price_includes_tax']) {
+                $priceWithTax = $specialPrice;
+                $basePrice = $taxRate > 0 ? $specialPrice / (1 + ($taxRate / 100)) : $specialPrice;
+            } else {
+                $basePrice = $specialPrice;
+                $priceWithTax = $taxRate > 0 ? $specialPrice * (1 + ($taxRate / 100)) : $specialPrice;
+            }
+            
+            $item['price'] = round($priceWithTax, 2);
+            $item['base_price'] = round($basePrice, 2);
+        } else {
+            // Switch back to original price
+            $item['price'] = $item['original_price'];
+            $item['base_price'] = $item['original_base_price'];
+        }
+        
+        $this->updateCartItemTotals($cartKey);
     }
 
     public function addServiceToCart($serviceId)

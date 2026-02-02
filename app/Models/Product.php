@@ -32,6 +32,7 @@ class Product extends Model
         'image',
         'purchase_price',
         'sale_price',
+        'special_price',
         'price_includes_tax',
         'min_stock',
         'max_stock',
@@ -50,6 +51,7 @@ class Product extends Model
             'has_commission' => 'boolean',
             'purchase_price' => 'decimal:2',
             'sale_price' => 'decimal:2',
+            'special_price' => 'decimal:2',
             'commission_value' => 'decimal:2',
         ];
     }

@@ -65,6 +65,7 @@ class Products extends Component
     public ?int $tax_id = null;
     public float $purchase_price = 0;
     public float $sale_price = 0;
+    public ?float $special_price = null;
     public bool $price_includes_tax = false;
     public int $min_stock = 0;
     public ?int $max_stock = null;
@@ -268,6 +269,7 @@ class Products extends Component
         $this->tax_id = $item->tax_id;
         $this->purchase_price = (float) $item->purchase_price;
         $this->sale_price = (float) $item->sale_price;
+        $this->special_price = $item->special_price ? (float) $item->special_price : null;
         $this->price_includes_tax = $item->price_includes_tax;
         $this->min_stock = $item->min_stock;
         $this->max_stock = $item->max_stock;
@@ -343,6 +345,7 @@ class Products extends Component
             'tax_id' => $this->tax_id ?: null,
             'purchase_price' => $this->purchase_price,
             'sale_price' => $this->sale_price,
+            'special_price' => $this->special_price ?: null,
             'price_includes_tax' => $this->price_includes_tax,
             'min_stock' => $this->min_stock,
             'max_stock' => $this->max_stock ?: null,
@@ -1030,6 +1033,7 @@ class Products extends Component
         $this->tax_id = null;
         $this->purchase_price = 0;
         $this->sale_price = 0;
+        $this->special_price = null;
         $this->price_includes_tax = false;
         $this->min_stock = 0;
         $this->max_stock = null;

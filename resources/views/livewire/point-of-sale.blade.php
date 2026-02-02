@@ -176,9 +176,9 @@
                 @if(count($cart) > 0)
                 <div class="space-y-1">
                     @foreach($cart as $key => $item)
-                    <div class="bg-slate-50 rounded-lg p-2 border border-slate-100 hover:border-slate-200 transition">
+                    <div class="bg-slate-50 rounded-lg p-2 border {{ ($item['using_special_price'] ?? false) ? 'border-green-300 bg-green-50/50' : 'border-slate-100' }} hover:border-slate-200 transition">
                         <div class="flex items-center gap-2">
-                            <div class="w-10 h-10 rounded-md bg-white border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                            <div class="w-10 h-10 rounded-md bg-white border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                                 @if($item['image'])
                                 <img src="{{ Storage::url($item['image']) }}" alt="" class="w-full h-full object-cover">
                                 @else
@@ -188,12 +188,32 @@
                                     </svg>
                                 </div>
                                 @endif
+                                @if($item['using_special_price'] ?? false)
+                                <div class="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                                    <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
+                                </div>
+                                @endif
                             </div>
                             <div class="flex-1 min-w-0">
                                 <p class="font-medium text-slate-800 text-xs truncate">{{ $item['name'] }}</p>
-                                <p class="text-[10px] text-slate-500">{{ $item['sku'] }} · ${{ number_format($item['price'], 0) }} c/u</p>
+                                <div class="flex items-center gap-1 text-[10px]">
+                                    <span class="text-slate-500">{{ $item['sku'] }}</span>
+                                    @if($item['using_special_price'] ?? false)
+                                    <span class="text-slate-400 line-through">${{ number_format($item['original_price'] ?? $item['price'], 0) }}</span>
+                                    <span class="text-green-600 font-medium">${{ number_format($item['price'], 0) }}</span>
+                                    @else
+                                    <span class="text-slate-500">${{ number_format($item['price'], 0) }} c/u</span>
+                                    @endif
+                                </div>
                             </div>
                             <div class="flex items-center gap-1">
+                                @if(!($item['is_service'] ?? false) && ($item['special_price'] ?? null))
+                                <button wire:click="toggleSpecialPrice('{{ $key }}')" class="p-1 rounded transition {{ ($item['using_special_price'] ?? false) ? 'text-green-600 bg-green-100 hover:bg-green-200' : 'text-slate-400 hover:text-green-600 hover:bg-green-50' }}" title="{{ ($item['using_special_price'] ?? false) ? 'Usar precio normal' : 'Usar precio especial $' . number_format($item['special_price'], 0) }}">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                </button>
+                                @endif
                                 <div class="flex items-center bg-white rounded-md border border-slate-200">
                                     <button wire:click="decrementQuantity('{{ $key }}')" class="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-[#ff7261] transition">
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -213,7 +233,7 @@
                                     </svg>
                                 </button>
                             </div>
-                            <span class="text-sm font-bold text-[#ff7261] min-w-[70px] text-right">${{ number_format($item['subtotal'] + $item['tax_amount'], 0) }}</span>
+                            <span class="text-sm font-bold {{ ($item['using_special_price'] ?? false) ? 'text-green-600' : 'text-[#ff7261]' }} min-w-[70px] text-right">${{ number_format($item['subtotal'] + $item['tax_amount'], 0) }}</span>
                         </div>
                     </div>
                     @endforeach
