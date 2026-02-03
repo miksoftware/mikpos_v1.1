@@ -327,6 +327,14 @@ class Commissions extends Component
         $branches = $isSuperAdmin ? Branch::where('is_active', true)->orderBy('name')->get() : collect();
         $users = User::whereHas('roles')->orderBy('name')->get();
 
+        // Dispatch event to update charts
+        $this->dispatch('charts-updated', [
+            'trend' => $this->commissionsByDay,
+            'users' => $this->commissionsByUser,
+            'products' => $this->commissionsByProduct,
+            'categories' => $this->commissionsByCategory,
+        ]);
+
         return view('livewire.reports.commissions', [
             'branches' => $branches,
             'users' => $users,

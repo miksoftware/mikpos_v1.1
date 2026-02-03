@@ -1,4 +1,4 @@
-<div class="p-6">
+<div class="p-6" wire:ignore.self>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Header -->
@@ -129,32 +129,26 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
             <h3 class="text-lg font-semibold text-slate-800 mb-4">Tendencia de Comisiones</h3>
-            <div class="h-64" id="trendContainer">
-                @if(count($commissionsByDay) > 0)
-                <canvas id="trendChart"></canvas>
-                @else
-                <div class="flex items-center justify-center h-full text-slate-400">
+            <div class="h-64" wire:ignore>
+                <div id="trendEmpty" class="flex items-center justify-center h-full text-slate-400 {{ count($commissionsByDay) > 0 ? 'hidden' : '' }}">
                     <div class="text-center">
                         <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
                         <p>No hay datos para mostrar</p>
                     </div>
                 </div>
-                @endif
+                <canvas id="trendChart" class="{{ count($commissionsByDay) > 0 ? '' : 'hidden' }}"></canvas>
             </div>
         </div>
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
             <h3 class="text-lg font-semibold text-slate-800 mb-4">Comisiones por Vendedor</h3>
-            <div class="h-64" id="userContainer">
-                @if(count($commissionsByUser) > 0)
-                <canvas id="userChart"></canvas>
-                @else
-                <div class="flex items-center justify-center h-full text-slate-400">
+            <div class="h-64" wire:ignore>
+                <div id="userEmpty" class="flex items-center justify-center h-full text-slate-400 {{ count($commissionsByUser) > 0 ? 'hidden' : '' }}">
                     <div class="text-center">
                         <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                         <p>No hay datos para mostrar</p>
                     </div>
                 </div>
-                @endif
+                <canvas id="userChart" class="{{ count($commissionsByUser) > 0 ? '' : 'hidden' }}"></canvas>
             </div>
         </div>
     </div>
@@ -163,32 +157,26 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
             <h3 class="text-lg font-semibold text-slate-800 mb-4">Top 10 Productos con Comisión</h3>
-            <div class="h-64" id="productContainer">
-                @if(count($commissionsByProduct) > 0)
-                <canvas id="productChart"></canvas>
-                @else
-                <div class="flex items-center justify-center h-full text-slate-400">
+            <div class="h-64" wire:ignore>
+                <div id="productEmpty" class="flex items-center justify-center h-full text-slate-400 {{ count($commissionsByProduct) > 0 ? 'hidden' : '' }}">
                     <div class="text-center">
                         <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
                         <p>No hay datos para mostrar</p>
                     </div>
                 </div>
-                @endif
+                <canvas id="productChart" class="{{ count($commissionsByProduct) > 0 ? '' : 'hidden' }}"></canvas>
             </div>
         </div>
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
             <h3 class="text-lg font-semibold text-slate-800 mb-4">Comisiones por Categoría</h3>
-            <div class="h-64" id="categoryContainer">
-                @if(count($commissionsByCategory) > 0)
-                <canvas id="categoryChart"></canvas>
-                @else
-                <div class="flex items-center justify-center h-full text-slate-400">
+            <div class="h-64" wire:ignore>
+                <div id="categoryEmpty" class="flex items-center justify-center h-full text-slate-400 {{ count($commissionsByCategory) > 0 ? 'hidden' : '' }}">
                     <div class="text-center">
                         <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path></svg>
                         <p>No hay datos para mostrar</p>
                     </div>
                 </div>
-                @endif
+                <canvas id="categoryChart" class="{{ count($commissionsByCategory) > 0 ? '' : 'hidden' }}"></canvas>
             </div>
         </div>
     </div>
@@ -282,33 +270,59 @@
         </div>
     </div>
 
+    <!-- Chart Data for JavaScript -->
+    <div id="chartData" 
+         data-trend='@json($commissionsByDay)'
+         data-users='@json($commissionsByUser)'
+         data-products='@json($commissionsByProduct)'
+         data-categories='@json($commissionsByCategory)'
+         class="hidden"></div>
+
     <!-- Charts JavaScript -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const chartColors = [
-                'rgba(16,185,129,0.8)',
-                'rgba(168,85,247,0.8)',
-                'rgba(59,130,246,0.8)',
-                'rgba(255,114,97,0.8)',
-                'rgba(245,158,11,0.8)',
-                'rgba(239,68,68,0.8)',
-                'rgba(99,102,241,0.8)',
-                'rgba(236,72,153,0.8)',
-                'rgba(20,184,166,0.8)',
-                'rgba(132,204,22,0.8)'
-            ];
+        const chartColors = [
+            'rgba(16,185,129,0.8)',
+            'rgba(168,85,247,0.8)',
+            'rgba(59,130,246,0.8)',
+            'rgba(255,114,97,0.8)',
+            'rgba(245,158,11,0.8)',
+            'rgba(239,68,68,0.8)',
+            'rgba(99,102,241,0.8)',
+            'rgba(236,72,153,0.8)',
+            'rgba(20,184,166,0.8)',
+            'rgba(132,204,22,0.8)'
+        ];
 
-            // Trend Chart (Line)
-            @if(count($commissionsByDay) > 0)
+        let trendChart = null;
+        let userChart = null;
+        let productChart = null;
+        let categoryChart = null;
+
+        function initCharts() {
+            const dataEl = document.getElementById('chartData');
+            if (!dataEl) return;
+
+            const trendData = JSON.parse(dataEl.dataset.trend || '[]');
+            const usersData = JSON.parse(dataEl.dataset.users || '[]');
+            const productsData = JSON.parse(dataEl.dataset.products || '[]');
+            const categoriesData = JSON.parse(dataEl.dataset.categories || '[]');
+
+            // Destroy existing charts
+            if (trendChart) trendChart.destroy();
+            if (userChart) userChart.destroy();
+            if (productChart) productChart.destroy();
+            if (categoryChart) categoryChart.destroy();
+
+            // Trend Chart
             const trendCtx = document.getElementById('trendChart');
-            if (trendCtx) {
-                new Chart(trendCtx, {
+            if (trendCtx && trendData.length > 0) {
+                trendChart = new Chart(trendCtx, {
                     type: 'line',
                     data: {
-                        labels: @json(collect($commissionsByDay)->pluck('label')),
+                        labels: trendData.map(d => d.label),
                         datasets: [{
                             label: 'Comisiones',
-                            data: @json(collect($commissionsByDay)->pluck('commission')),
+                            data: trendData.map(d => d.commission),
                             borderColor: 'rgba(16, 185, 129, 1)',
                             backgroundColor: 'rgba(16, 185, 129, 0.1)',
                             fill: true,
@@ -330,19 +344,17 @@
                     }
                 });
             }
-            @endif
 
-            // User Chart (Horizontal Bar)
-            @if(count($commissionsByUser) > 0)
+            // User Chart
             const userCtx = document.getElementById('userChart');
-            if (userCtx) {
-                new Chart(userCtx, {
+            if (userCtx && usersData.length > 0) {
+                userChart = new Chart(userCtx, {
                     type: 'bar',
                     data: {
-                        labels: @json(collect($commissionsByUser)->pluck('user_name')->map(fn($n) => strlen($n) > 15 ? substr($n, 0, 15) . '...' : $n)),
+                        labels: usersData.map(d => d.user_name.length > 15 ? d.user_name.substring(0, 15) + '...' : d.user_name),
                         datasets: [{
                             label: 'Comisión',
-                            data: @json(collect($commissionsByUser)->pluck('commission')),
+                            data: usersData.map(d => d.commission),
                             backgroundColor: chartColors,
                             borderRadius: 6,
                         }]
@@ -359,19 +371,17 @@
                     }
                 });
             }
-            @endif
 
-            // Product Chart (Bar)
-            @if(count($commissionsByProduct) > 0)
+            // Product Chart
             const productCtx = document.getElementById('productChart');
-            if (productCtx) {
-                new Chart(productCtx, {
+            if (productCtx && productsData.length > 0) {
+                productChart = new Chart(productCtx, {
                     type: 'bar',
                     data: {
-                        labels: @json(collect($commissionsByProduct)->pluck('name')->map(fn($n) => strlen($n) > 15 ? substr($n, 0, 15) . '...' : $n)),
+                        labels: productsData.map(d => d.name.length > 15 ? d.name.substring(0, 15) + '...' : d.name),
                         datasets: [{
                             label: 'Comisión',
-                            data: @json(collect($commissionsByProduct)->pluck('commission')),
+                            data: productsData.map(d => d.commission),
                             backgroundColor: 'rgba(168, 85, 247, 0.8)',
                             borderRadius: 6,
                         }]
@@ -388,18 +398,16 @@
                     }
                 });
             }
-            @endif
 
-            // Category Chart (Doughnut)
-            @if(count($commissionsByCategory) > 0)
+            // Category Chart
             const catCtx = document.getElementById('categoryChart');
-            if (catCtx) {
-                new Chart(catCtx, {
+            if (catCtx && categoriesData.length > 0) {
+                categoryChart = new Chart(catCtx, {
                     type: 'doughnut',
                     data: {
-                        labels: @json(collect($commissionsByCategory)->pluck('category_name')),
+                        labels: categoriesData.map(d => d.category_name),
                         datasets: [{
-                            data: @json(collect($commissionsByCategory)->pluck('commission')),
+                            data: categoriesData.map(d => d.commission),
                             backgroundColor: chartColors,
                             borderWidth: 0,
                             hoverOffset: 10
@@ -415,7 +423,178 @@
                     }
                 });
             }
-            @endif
+        }
+
+        function updateCharts(data) {
+            const trendData = data.trend || [];
+            const usersData = data.users || [];
+            const productsData = data.products || [];
+            const categoriesData = data.categories || [];
+
+            // Destroy existing charts
+            if (trendChart) trendChart.destroy();
+            if (userChart) userChart.destroy();
+            if (productChart) productChart.destroy();
+            if (categoryChart) categoryChart.destroy();
+
+            // Toggle empty states
+            const trendEmpty = document.getElementById('trendEmpty');
+            const trendCanvas = document.getElementById('trendChart');
+            const userEmpty = document.getElementById('userEmpty');
+            const userCanvas = document.getElementById('userChart');
+            const productEmpty = document.getElementById('productEmpty');
+            const productCanvas = document.getElementById('productChart');
+            const categoryEmpty = document.getElementById('categoryEmpty');
+            const categoryCanvas = document.getElementById('categoryChart');
+
+            // Trend Chart
+            if (trendData.length > 0) {
+                if (trendEmpty) trendEmpty.classList.add('hidden');
+                if (trendCanvas) trendCanvas.classList.remove('hidden');
+                const trendCtx = document.getElementById('trendChart');
+                if (trendCtx) {
+                    trendChart = new Chart(trendCtx, {
+                        type: 'line',
+                        data: {
+                            labels: trendData.map(d => d.label),
+                            datasets: [{
+                                label: 'Comisiones',
+                                data: trendData.map(d => d.commission),
+                                borderColor: 'rgba(16, 185, 129, 1)',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                fill: true,
+                                tension: 0.4,
+                                pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 2,
+                                pointRadius: 4,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                                x: { grid: { display: false } }
+                            }
+                        }
+                    });
+                }
+            } else {
+                if (trendEmpty) trendEmpty.classList.remove('hidden');
+                if (trendCanvas) trendCanvas.classList.add('hidden');
+            }
+
+            // User Chart
+            if (usersData.length > 0) {
+                if (userEmpty) userEmpty.classList.add('hidden');
+                if (userCanvas) userCanvas.classList.remove('hidden');
+                const userCtx = document.getElementById('userChart');
+                if (userCtx) {
+                    userChart = new Chart(userCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: usersData.map(d => d.user_name.length > 15 ? d.user_name.substring(0, 15) + '...' : d.user_name),
+                            datasets: [{
+                                label: 'Comisión',
+                                data: usersData.map(d => d.commission),
+                                backgroundColor: chartColors,
+                                borderRadius: 6,
+                            }]
+                        },
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { beginAtZero: true, grid: { display: false } },
+                                y: { grid: { display: false } }
+                            }
+                        }
+                    });
+                }
+            } else {
+                if (userEmpty) userEmpty.classList.remove('hidden');
+                if (userCanvas) userCanvas.classList.add('hidden');
+            }
+
+            // Product Chart
+            if (productsData.length > 0) {
+                if (productEmpty) productEmpty.classList.add('hidden');
+                if (productCanvas) productCanvas.classList.remove('hidden');
+                const productCtx = document.getElementById('productChart');
+                if (productCtx) {
+                    productChart = new Chart(productCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: productsData.map(d => d.name.length > 15 ? d.name.substring(0, 15) + '...' : d.name),
+                            datasets: [{
+                                label: 'Comisión',
+                                data: productsData.map(d => d.commission),
+                                backgroundColor: 'rgba(168, 85, 247, 0.8)',
+                                borderRadius: 6,
+                            }]
+                        },
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { beginAtZero: true, grid: { display: false } },
+                                y: { grid: { display: false } }
+                            }
+                        }
+                    });
+                }
+            } else {
+                if (productEmpty) productEmpty.classList.remove('hidden');
+                if (productCanvas) productCanvas.classList.add('hidden');
+            }
+
+            // Category Chart
+            if (categoriesData.length > 0) {
+                if (categoryEmpty) categoryEmpty.classList.add('hidden');
+                if (categoryCanvas) categoryCanvas.classList.remove('hidden');
+                const catCtx = document.getElementById('categoryChart');
+                if (catCtx) {
+                    categoryChart = new Chart(catCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: categoriesData.map(d => d.category_name),
+                            datasets: [{
+                                data: categoriesData.map(d => d.commission),
+                                backgroundColor: chartColors,
+                                borderWidth: 0,
+                                hoverOffset: 10
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '60%',
+                            plugins: {
+                                legend: { position: 'right', labels: { usePointStyle: true, padding: 10, font: { size: 10 } } }
+                            }
+                        }
+                    });
+                }
+            } else {
+                if (categoryEmpty) categoryEmpty.classList.remove('hidden');
+                if (categoryCanvas) categoryCanvas.classList.add('hidden');
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initCharts);
+
+        // Listen for Livewire events
+        document.addEventListener('livewire:initialized', () => {
+            Livewire.on('charts-updated', (data) => {
+                setTimeout(() => updateCharts(data[0]), 100);
+            });
         });
     </script>
 </div>
