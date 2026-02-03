@@ -36,6 +36,7 @@ class SeedPending extends Command
         'SalesModuleSeeder',
         'ServicesModuleSeeder',
         'ReportsModuleSeeder',
+        'CommissionsReportPermissionSeeder',
         // Add new seeders here
     ];
 
