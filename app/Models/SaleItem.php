@@ -22,6 +22,10 @@ class SaleItem extends Model
         'tax_rate',
         'tax_amount',
         'subtotal',
+        'discount_type_value',
+        'discount_type',
+        'discount_amount',
+        'discount_reason',
         'total',
     ];
 
@@ -32,6 +36,8 @@ class SaleItem extends Model
             'tax_rate' => 'decimal:2',
             'tax_amount' => 'decimal:2',
             'subtotal' => 'decimal:2',
+            'discount_type_value' => 'decimal:2',
+            'discount_amount' => 'decimal:2',
             'total' => 'decimal:2',
         ];
     }

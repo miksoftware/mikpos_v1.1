@@ -176,7 +176,7 @@
                 @if(count($cart) > 0)
                 <div class="space-y-1">
                     @foreach($cart as $key => $item)
-                    <div class="bg-slate-50 rounded-lg p-2 border {{ ($item['using_special_price'] ?? false) ? 'border-green-300 bg-green-50/50' : 'border-slate-100' }} hover:border-slate-200 transition">
+                    <div class="bg-slate-50 rounded-lg p-2 border {{ ($item['discount_amount'] ?? 0) > 0 ? 'border-amber-300 bg-amber-50/50' : (($item['using_special_price'] ?? false) ? 'border-green-300 bg-green-50/50' : 'border-slate-100') }} hover:border-slate-200 transition">
                         <div class="flex items-center gap-2">
                             <div class="w-10 h-10 rounded-md bg-white border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                                 @if($item['image'])
@@ -188,7 +188,11 @@
                                     </svg>
                                 </div>
                                 @endif
-                                @if($item['using_special_price'] ?? false)
+                                @if(($item['discount_amount'] ?? 0) > 0)
+                                <div class="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
+                                    <span class="text-[8px] text-white font-bold">%</span>
+                                </div>
+                                @elseif($item['using_special_price'] ?? false)
                                 <div class="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
                                     <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
                                 </div>
@@ -198,7 +202,9 @@
                                 <p class="font-medium text-slate-800 text-xs truncate">{{ $item['name'] }}</p>
                                 <div class="flex items-center gap-1 text-[10px]">
                                     <span class="text-slate-500">{{ $item['sku'] }}</span>
-                                    @if($item['using_special_price'] ?? false)
+                                    @if(($item['discount_amount'] ?? 0) > 0)
+                                    <span class="text-amber-600 font-medium">-${{ number_format($item['discount_amount'], 0) }}</span>
+                                    @elseif($item['using_special_price'] ?? false)
                                     <span class="text-slate-400 line-through">${{ number_format($item['original_price'] ?? $item['price'], 0) }}</span>
                                     <span class="text-green-600 font-medium">${{ number_format($item['price'], 0) }}</span>
                                     @else
@@ -207,6 +213,12 @@
                                 </div>
                             </div>
                             <div class="flex items-center gap-1">
+                                {{-- Discount button --}}
+                                <button wire:click="openDiscountModal('{{ $key }}')" class="p-1 rounded transition {{ ($item['discount_amount'] ?? 0) > 0 ? 'text-amber-600 bg-amber-100 hover:bg-amber-200' : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50' }}" title="Aplicar descuento">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                                    </svg>
+                                </button>
                                 @if(!($item['is_service'] ?? false) && ($item['special_price'] ?? null))
                                 <button wire:click="toggleSpecialPrice('{{ $key }}')" class="p-1 rounded transition {{ ($item['using_special_price'] ?? false) ? 'text-green-600 bg-green-100 hover:bg-green-200' : 'text-slate-400 hover:text-green-600 hover:bg-green-50' }}" title="{{ ($item['using_special_price'] ?? false) ? 'Usar precio normal' : 'Usar precio especial $' . number_format($item['special_price'], 0) }}">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -233,7 +245,7 @@
                                     </svg>
                                 </button>
                             </div>
-                            <span class="text-sm font-bold {{ ($item['using_special_price'] ?? false) ? 'text-green-600' : 'text-[#ff7261]' }} min-w-[70px] text-right">${{ number_format($item['subtotal'] + $item['tax_amount'], 0) }}</span>
+                            <span class="text-sm font-bold {{ ($item['discount_amount'] ?? 0) > 0 ? 'text-amber-600' : (($item['using_special_price'] ?? false) ? 'text-green-600' : 'text-[#ff7261]') }} min-w-[70px] text-right">${{ number_format($item['subtotal'] - ($item['discount_amount'] ?? 0) + $item['tax_amount'], 0) }}</span>
                         </div>
                     </div>
                     @endforeach
@@ -258,6 +270,12 @@
                         <span class="text-slate-500">Subtotal ({{ $itemCount }} items)</span>
                         <span class="font-medium">${{ number_format($subtotal, 2) }}</span>
                     </div>
+                    @if($this->getDiscountTotalProperty() > 0)
+                    <div class="flex justify-between text-sm">
+                        <span class="text-amber-600">Descuentos</span>
+                        <span class="font-medium text-amber-600">-${{ number_format($this->getDiscountTotalProperty(), 2) }}</span>
+                    </div>
+                    @endif
                     <div class="flex justify-between text-sm">
                         <span class="text-slate-500">Impuestos</span>
                         <span class="font-medium">${{ number_format($taxTotal, 2) }}</span>
@@ -664,6 +682,64 @@
                     <div class="px-6 py-4 bg-slate-50 border-t border-slate-200">
                         <button wire:click="closeVariantModal" class="w-full px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition">
                             Cancelar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Discount Modal -->
+    @if($showDiscountModal && $discountCartKey && isset($cart[$discountCartKey]))
+    <div class="fixed inset-0 z-[100]">
+        <div class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100]" wire:click="closeDiscountModal"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl">
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-slate-900">Aplicar Descuento</h3>
+                        <button wire:click="closeDiscountModal" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="px-6 py-4 space-y-4">
+                        <div class="p-3 bg-slate-50 rounded-xl">
+                            <p class="font-medium text-slate-800">{{ $cart[$discountCartKey]['name'] }}</p>
+                            <p class="text-sm text-slate-500">Precio: ${{ number_format($cart[$discountCartKey]['price'], 0) }} x {{ $cart[$discountCartKey]['quantity'] }}</p>
+                            <p class="text-sm font-medium text-slate-700">Subtotal: ${{ number_format($cart[$discountCartKey]['subtotal'], 0) }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Tipo de descuento</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button wire:click="$set('discountType', 'percentage')" class="px-4 py-2 text-sm font-medium rounded-xl border-2 transition {{ $discountType === 'percentage' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600 hover:border-amber-300' }}">
+                                    Porcentaje (%)
+                                </button>
+                                <button wire:click="$set('discountType', 'fixed')" class="px-4 py-2 text-sm font-medium rounded-xl border-2 transition {{ $discountType === 'fixed' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600 hover:border-amber-300' }}">
+                                    Valor Fijo ($)
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">{{ $discountType === 'percentage' ? 'Porcentaje' : 'Valor' }}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">{{ $discountType === 'percentage' ? '%' : '$' }}</span>
+                                <input wire:model="discountValue" type="number" step="0.01" min="0" max="{{ $discountType === 'percentage' ? '100' : $cart[$discountCartKey]['subtotal'] }}" class="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500" placeholder="0">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Razón (opcional)</label>
+                            <input wire:model="discountReason" type="text" class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500" placeholder="Ej: Cliente frecuente, promoción...">
+                        </div>
+                    </div>
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                        <button wire:click="closeDiscountModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
+                            Cancelar
+                        </button>
+                        <button wire:click="applyDiscount" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-amber-600 rounded-xl hover:from-amber-600 hover:to-amber-700">
+                            Aplicar Descuento
                         </button>
                     </div>
                 </div>

@@ -446,8 +446,17 @@
                 <div class="item-name">{{ $item->product_name }}</div>
                 <div class="item-details">
                     <span class="item-qty-price">{{ $item->quantity }} x ${{ number_format($item->unit_price, 0) }}</span>
-                    <span class="item-total">${{ number_format($item->total, 0) }}</span>
+                    <span class="item-total">${{ number_format($item->subtotal, 0) }}</span>
                 </div>
+                @if($item->discount_amount > 0)
+                <div class="item-details" style="color: #d97706; font-size: 12px;">
+                    <span>
+                        Desc: {{ $item->discount_type === 'percentage' ? $item->discount_type_value . '%' : '$' . number_format($item->discount_type_value, 0) }}
+                        @if($item->discount_reason) ({{ $item->discount_reason }}) @endif
+                    </span>
+                    <span>-${{ number_format($item->discount_amount, 0) }}</span>
+                </div>
+                @endif
             </div>
             @endforeach
         </div>

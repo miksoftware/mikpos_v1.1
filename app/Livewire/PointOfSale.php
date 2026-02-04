@@ -84,6 +84,13 @@ class PointOfSale extends Component
     public $variantProduct = null;
     public $variantOptions = [];
 
+    // Discount modal
+    public $showDiscountModal = false;
+    public $discountCartKey = null;
+    public $discountType = 'percentage'; // 'percentage' or 'fixed'
+    public $discountValue = '';
+    public $discountReason = '';
+
     public function mount()
     {
         $user = auth()->user();
@@ -453,6 +460,11 @@ class PointOfSale extends Component
                 'price_includes_tax' => $priceIncludesTax,
                 'image' => $displayImage,
                 'max_stock' => (int)$product->current_stock,
+                // Discount fields
+                'discount_type' => null,
+                'discount_type_value' => 0,
+                'discount_amount' => 0,
+                'discount_reason' => null,
             ];
         }
         
@@ -588,6 +600,11 @@ class PointOfSale extends Component
                 'price_includes_tax' => $priceIncludesTax,
                 'image' => $service->image,
                 'max_stock' => PHP_INT_MAX, // Services have no stock limit
+                // Discount fields
+                'discount_type' => null,
+                'discount_type_value' => 0,
+                'discount_amount' => 0,
+                'discount_reason' => null,
             ];
         }
         
@@ -602,7 +619,22 @@ class PointOfSale extends Component
         
         $item = &$this->cart[$cartKey];
         $item['subtotal'] = round($item['base_price'] * $item['quantity'], 2);
-        $item['tax_amount'] = round($item['subtotal'] * ($item['tax_rate'] / 100), 2);
+        
+        // Recalculate discount if exists
+        if ($item['discount_type'] && $item['discount_type_value'] > 0) {
+            if ($item['discount_type'] === 'percentage') {
+                $item['discount_amount'] = round($item['subtotal'] * ($item['discount_type_value'] / 100), 2);
+            } else {
+                // Fixed discount per unit * quantity
+                $item['discount_amount'] = round($item['discount_type_value'] * $item['quantity'], 2);
+            }
+            // Ensure discount doesn't exceed subtotal
+            $item['discount_amount'] = min($item['discount_amount'], $item['subtotal']);
+        }
+        
+        // Tax is calculated on subtotal after discount
+        $taxableAmount = $item['subtotal'] - $item['discount_amount'];
+        $item['tax_amount'] = round($taxableAmount * ($item['tax_rate'] / 100), 2);
     }
 
     public function getPrice($product, $child = null)
@@ -662,9 +694,112 @@ class PointOfSale extends Component
         $this->cart = [];
     }
 
+    // Discount methods
+    public function openDiscountModal($cartKey)
+    {
+        if (!isset($this->cart[$cartKey])) return;
+        
+        $this->discountCartKey = $cartKey;
+        $item = $this->cart[$cartKey];
+        
+        // Load existing discount if any
+        $this->discountType = $item['discount_type'] ?? 'percentage';
+        $this->discountValue = $item['discount_type_value'] > 0 ? (string) $item['discount_type_value'] : '';
+        $this->discountReason = $item['discount_reason'] ?? '';
+        
+        $this->showDiscountModal = true;
+    }
+
+    public function applyDiscount()
+    {
+        if (!$this->discountCartKey || !isset($this->cart[$this->discountCartKey])) {
+            $this->closeDiscountModal();
+            return;
+        }
+
+        $value = (float) str_replace(',', '.', $this->discountValue);
+        
+        if ($value < 0) {
+            $this->dispatch('notify', message: 'El descuento no puede ser negativo', type: 'error');
+            return;
+        }
+
+        $item = &$this->cart[$this->discountCartKey];
+        
+        // Validate percentage doesn't exceed 100%
+        if ($this->discountType === 'percentage' && $value > 100) {
+            $this->dispatch('notify', message: 'El porcentaje no puede ser mayor a 100%', type: 'error');
+            return;
+        }
+
+        // Calculate discount amount
+        if ($value > 0) {
+            if ($this->discountType === 'percentage') {
+                $discountAmount = round($item['subtotal'] * ($value / 100), 2);
+            } else {
+                // Fixed discount per unit * quantity
+                $discountAmount = round($value * $item['quantity'], 2);
+            }
+            
+            // Ensure discount doesn't exceed subtotal
+            if ($discountAmount > $item['subtotal']) {
+                $this->dispatch('notify', message: 'El descuento no puede ser mayor al subtotal', type: 'error');
+                return;
+            }
+
+            $item['discount_type'] = $this->discountType;
+            $item['discount_type_value'] = $value;
+            $item['discount_amount'] = $discountAmount;
+            $item['discount_reason'] = trim($this->discountReason) ?: null;
+        } else {
+            // Remove discount
+            $item['discount_type'] = null;
+            $item['discount_type_value'] = 0;
+            $item['discount_amount'] = 0;
+            $item['discount_reason'] = null;
+        }
+
+        // Recalculate tax after discount
+        $taxableAmount = $item['subtotal'] - $item['discount_amount'];
+        $item['tax_amount'] = round($taxableAmount * ($item['tax_rate'] / 100), 2);
+
+        $this->closeDiscountModal();
+        $this->dispatch('notify', message: $value > 0 ? 'Descuento aplicado' : 'Descuento eliminado');
+    }
+
+    public function removeDiscount($cartKey)
+    {
+        if (!isset($this->cart[$cartKey])) return;
+        
+        $item = &$this->cart[$cartKey];
+        $item['discount_type'] = null;
+        $item['discount_type_value'] = 0;
+        $item['discount_amount'] = 0;
+        $item['discount_reason'] = null;
+        
+        // Recalculate tax
+        $item['tax_amount'] = round($item['subtotal'] * ($item['tax_rate'] / 100), 2);
+        
+        $this->dispatch('notify', message: 'Descuento eliminado');
+    }
+
+    public function closeDiscountModal()
+    {
+        $this->showDiscountModal = false;
+        $this->discountCartKey = null;
+        $this->discountType = 'percentage';
+        $this->discountValue = '';
+        $this->discountReason = '';
+    }
+
     public function getSubtotalProperty()
     {
         return collect($this->cart)->sum('subtotal');
+    }
+
+    public function getDiscountTotalProperty()
+    {
+        return collect($this->cart)->sum('discount_amount');
     }
 
     public function getTaxTotalProperty()
@@ -674,7 +809,7 @@ class PointOfSale extends Component
 
     public function getTotalProperty()
     {
-        return $this->getSubtotalProperty() + $this->getTaxTotalProperty();
+        return $this->getSubtotalProperty() - $this->getDiscountTotalProperty() + $this->getTaxTotalProperty();
     }
 
     public function getItemCountProperty()
@@ -768,7 +903,7 @@ class PointOfSale extends Component
                 'invoice_number' => Sale::generateInvoiceNumber($this->branchId),
                 'subtotal' => $this->getSubtotalProperty(),
                 'tax_total' => $this->getTaxTotalProperty(),
-                'discount' => 0,
+                'discount' => $this->getDiscountTotalProperty(),
                 'total' => $this->getTotalProperty(),
                 'status' => 'completed',
                 'notes' => $this->paymentNotes ?: null,
@@ -788,7 +923,11 @@ class PointOfSale extends Component
                     'tax_rate' => $item['tax_rate'],
                     'tax_amount' => $item['tax_amount'],
                     'subtotal' => $item['subtotal'],
-                    'total' => $item['subtotal'] + $item['tax_amount'],
+                    'discount_type' => $item['discount_type'] ?? null,
+                    'discount_type_value' => $item['discount_type_value'] ?? 0,
+                    'discount_amount' => $item['discount_amount'] ?? 0,
+                    'discount_reason' => $item['discount_reason'] ?? null,
+                    'total' => $item['subtotal'] - ($item['discount_amount'] ?? 0) + $item['tax_amount'],
                 ]);
                 
                 // Update product stock (only for products, not services)
