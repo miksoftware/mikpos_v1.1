@@ -225,5 +225,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/commissions', App\Livewire\Reports\Commissions::class)
             ->name('commissions')
             ->middleware('permission:reports.commissions');
+        
+        Route::get('/commissions/pdf', [App\Http\Controllers\ReportExportController::class, 'commissionsPdf'])
+            ->name('commissions.pdf')
+            ->middleware('permission:reports.export');
     });
 });

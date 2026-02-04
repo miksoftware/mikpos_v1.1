@@ -9,6 +9,8 @@ use App\Models\SaleItem;
 use App\Models\Branch;
 use App\Models\User;
 use App\Models\Product;
+use App\Models\Category;
+use App\Models\Brand;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Carbon\Carbon;
@@ -24,7 +26,13 @@ class Commissions extends Component
     public ?string $endDate = null;
     public ?int $selectedBranchId = null;
     public ?int $selectedUserId = null;
+    public ?int $selectedCategoryId = null;
+    public ?int $selectedBrandId = null;
     public string $search = '';
+    
+    // Detail view
+    public ?int $expandedUserId = null;
+    public array $userSalesDetail = [];
 
     // Summary
     public float $totalCommissions = 0;
@@ -112,6 +120,14 @@ class Commissions extends Component
             $query->where('sales.user_id', $this->selectedUserId);
         }
 
+        if ($this->selectedCategoryId) {
+            $query->where('products.category_id', $this->selectedCategoryId);
+        }
+
+        if ($this->selectedBrandId) {
+            $query->where('products.brand_id', $this->selectedBrandId);
+        }
+
         return $query;
     }
 
@@ -191,6 +207,7 @@ class Commissions extends Component
             $userId = $item->user_id;
             if (!isset($userCommissions[$userId])) {
                 $userCommissions[$userId] = [
+                    'user_id' => $userId,
                     'user_name' => $item->user_name,
                     'commission' => 0,
                     'sales' => 0,
@@ -312,6 +329,71 @@ class Commissions extends Component
         })->values()->take(8)->toArray();
     }
 
+    public function toggleUserDetail($userId)
+    {
+        if ($this->expandedUserId === $userId) {
+            $this->expandedUserId = null;
+            $this->userSalesDetail = [];
+        } else {
+            $this->expandedUserId = $userId;
+            $this->loadUserSalesDetail($userId);
+        }
+    }
+
+    private function loadUserSalesDetail($userId)
+    {
+        $items = $this->getBaseQuery()
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
+            ->where('sales.user_id', $userId)
+            ->select(
+                'sale_items.*',
+                'sales.invoice_number',
+                'sales.created_at as sale_date',
+                'products.has_commission',
+                'products.commission_type',
+                'products.commission_value',
+                DB::raw("COALESCE(categories.name, 'Sin categoría') as category_name"),
+                DB::raw("COALESCE(brands.name, 'Sin marca') as brand_name")
+            )
+            ->with('product')
+            ->orderBy('sales.created_at', 'desc')
+            ->get();
+
+        $this->userSalesDetail = $items->map(function ($item) {
+            return [
+                'invoice_number' => $item->invoice_number,
+                'date' => Carbon::parse($item->sale_date)->format('d/m/Y H:i'),
+                'product_name' => $item->product_name,
+                'product_sku' => $item->product_sku,
+                'category' => $item->category_name,
+                'brand' => $item->brand_name,
+                'quantity' => (int) $item->quantity,
+                'unit_price' => (float) $item->unit_price,
+                'subtotal' => (float) $item->subtotal,
+                'total' => (float) $item->total,
+                'commission_type' => $item->commission_type,
+                'commission_value' => (float) $item->commission_value,
+                'commission' => $this->calculateCommission($item),
+            ];
+        })->toArray();
+    }
+
+    public function exportPdf()
+    {
+        // Generate URL with current filters
+        $params = http_build_query([
+            'start_date' => $this->startDate,
+            'end_date' => $this->endDate,
+            'branch_id' => $this->selectedBranchId,
+            'user_id' => $this->selectedUserId,
+            'category_id' => $this->selectedCategoryId,
+            'brand_id' => $this->selectedBrandId,
+        ]);
+        
+        return redirect()->to(route('reports.commissions.pdf') . '?' . $params);
+    }
+
     public function render()
     {
         $user = auth()->user();
@@ -326,6 +408,8 @@ class Commissions extends Component
 
         $branches = $isSuperAdmin ? Branch::where('is_active', true)->orderBy('name')->get() : collect();
         $users = User::whereHas('roles')->orderBy('name')->get();
+        $categories = Category::where('is_active', true)->orderBy('name')->get();
+        $brands = Brand::where('is_active', true)->orderBy('name')->get();
 
         // Dispatch event to update charts
         $this->dispatch('charts-updated', [
@@ -338,6 +422,8 @@ class Commissions extends Component
         return view('livewire.reports.commissions', [
             'branches' => $branches,
             'users' => $users,
+            'categories' => $categories,
+            'brands' => $brands,
             'isSuperAdmin' => $isSuperAdmin,
         ]);
     }

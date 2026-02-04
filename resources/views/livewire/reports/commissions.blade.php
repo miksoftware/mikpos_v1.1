@@ -7,11 +7,17 @@
             <h1 class="text-2xl font-bold text-slate-800">Comisiones</h1>
             <p class="text-slate-500 text-sm mt-1">Análisis de comisiones por vendedor y producto</p>
         </div>
+        <button wire:click="exportPdf" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            Exportar PDF
+        </button>
     </div>
 
     <!-- Filters -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
             <div>
                 <label class="block text-xs font-medium text-slate-500 mb-1">Período</label>
                 <select wire:model.live="dateRange" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
@@ -50,6 +56,24 @@
                     <option value="">Todos</option>
                     @foreach($users as $user)
                     <option value="{{ $user->id }}">{{ $user->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">Categoría</label>
+                <select wire:model.live="selectedCategoryId" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                    <option value="">Todas</option>
+                    @foreach($categories as $category)
+                    <option value="{{ $category->id }}">{{ $category->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">Marca</label>
+                <select wire:model.live="selectedBrandId" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                    <option value="">Todas</option>
+                    @foreach($brands as $brand)
+                    <option value="{{ $brand->id }}">{{ $brand->name }}</option>
                     @endforeach
                 </select>
             </div>
@@ -181,29 +205,85 @@
         </div>
     </div>
 
-    <!-- User Ranking -->
+    <!-- User Ranking with Expandable Detail -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6">
-        <h3 class="text-lg font-semibold text-slate-800 mb-4">Ranking de Vendedores</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            @forelse($userRanking as $index => $user)
-            <div class="flex items-center gap-4 p-4 rounded-xl {{ $index < 3 ? 'bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200' : 'bg-slate-50' }}">
-                <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm {{ $index === 0 ? 'bg-yellow-400 text-yellow-900' : ($index === 1 ? 'bg-slate-300 text-slate-700' : ($index === 2 ? 'bg-amber-600 text-white' : 'bg-slate-200 text-slate-600')) }}">
-                    {{ $index + 1 }}
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Detalle por Vendedor</h3>
+        <p class="text-sm text-slate-500 mb-4">Haz clic en un vendedor para ver el detalle de sus ventas con comisión</p>
+        
+        <div class="space-y-3">
+            @forelse($commissionsByUser as $index => $user)
+            <div class="border border-slate-200 rounded-xl overflow-hidden">
+                {{-- User Header (clickable) --}}
+                <button wire:click="toggleUserDetail({{ $user['user_id'] }})" class="w-full flex items-center gap-4 p-4 hover:bg-slate-50 transition {{ $index < 3 ? 'bg-gradient-to-r from-green-50 to-emerald-50' : 'bg-white' }}">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 {{ $index === 0 ? 'bg-yellow-400 text-yellow-900' : ($index === 1 ? 'bg-slate-300 text-slate-700' : ($index === 2 ? 'bg-amber-600 text-white' : 'bg-slate-200 text-slate-600')) }}">
+                        {{ $index + 1 }}
+                    </div>
+                    <div class="flex-1 min-w-0 text-left">
+                        <p class="font-medium text-slate-800 truncate">{{ $user['user_name'] }}</p>
+                        <p class="text-xs text-slate-500">{{ number_format($user['items']) }} items vendidos</p>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        <p class="font-bold text-green-600">${{ number_format($user['commission'], 0, ',', '.') }}</p>
+                        <p class="text-xs text-slate-500">${{ number_format($user['sales'], 0, ',', '.') }} ventas</p>
+                    </div>
+                    <svg class="w-5 h-5 text-slate-400 flex-shrink-0 transition-transform {{ $expandedUserId === $user['user_id'] ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                
+                {{-- Expanded Detail --}}
+                @if($expandedUserId === $user['user_id'] && count($userSalesDetail) > 0)
+                <div class="border-t border-slate-200 bg-slate-50 p-4">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-xs text-slate-500 uppercase">
+                                    <th class="px-3 py-2 text-left">Fecha</th>
+                                    <th class="px-3 py-2 text-left">Factura</th>
+                                    <th class="px-3 py-2 text-left">Producto</th>
+                                    <th class="px-3 py-2 text-left">Categoría</th>
+                                    <th class="px-3 py-2 text-left">Marca</th>
+                                    <th class="px-3 py-2 text-center">Cant.</th>
+                                    <th class="px-3 py-2 text-right">Total</th>
+                                    <th class="px-3 py-2 text-right">Comisión</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200">
+                                @foreach($userSalesDetail as $detail)
+                                <tr class="bg-white hover:bg-slate-50">
+                                    <td class="px-3 py-2 text-slate-600">{{ $detail['date'] }}</td>
+                                    <td class="px-3 py-2 text-slate-800 font-medium">{{ $detail['invoice_number'] }}</td>
+                                    <td class="px-3 py-2 text-slate-800">{{ Str::limit($detail['product_name'], 30) }}</td>
+                                    <td class="px-3 py-2 text-slate-600">{{ $detail['category'] }}</td>
+                                    <td class="px-3 py-2 text-slate-600">{{ $detail['brand'] }}</td>
+                                    <td class="px-3 py-2 text-center">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#a855f7]/10 text-[#a855f7]">
+                                            {{ $detail['quantity'] }}
+                                        </span>
+                                    </td>
+                                    <td class="px-3 py-2 text-right text-slate-600">${{ number_format($detail['total'], 0, ',', '.') }}</td>
+                                    <td class="px-3 py-2 text-right font-semibold text-green-600">${{ number_format($detail['commission'], 0, ',', '.') }}</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot class="bg-green-50">
+                                <tr>
+                                    <td colspan="6" class="px-3 py-2 text-right font-semibold text-slate-700">Total:</td>
+                                    <td class="px-3 py-2 text-right font-semibold text-slate-700">${{ number_format($user['sales'], 0, ',', '.') }}</td>
+                                    <td class="px-3 py-2 text-right font-bold text-green-600">${{ number_format($user['commission'], 0, ',', '.') }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                 </div>
-                <div class="flex-1 min-w-0">
-                    <p class="font-medium text-slate-800 truncate">{{ $user['user_name'] }}</p>
-                    <p class="text-xs text-slate-500">{{ number_format($user['items']) }} items vendidos</p>
-                </div>
-                <div class="text-right">
-                    <p class="font-bold text-green-600">${{ number_format($user['commission'], 0, ',', '.') }}</p>
-                    <p class="text-xs text-slate-500">${{ number_format($user['sales'], 0, ',', '.') }} ventas</p>
-                </div>
+                @endif
             </div>
             @empty
-            <div class="col-span-3 flex items-center justify-center py-8 text-slate-400">
+            <div class="flex items-center justify-center py-12 text-slate-400">
                 <div class="text-center">
                     <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                    <p>No hay datos para mostrar</p>
+                    <p>No hay datos de comisiones para mostrar</p>
+                    <p class="text-sm mt-1">Ajusta los filtros o verifica que haya productos con comisión configurada</p>
                 </div>
             </div>
             @endforelse

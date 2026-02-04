@@ -6,6 +6,9 @@ use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\Branch;
 use App\Models\Category;
+use App\Models\Brand;
+use App\Models\User;
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -20,6 +23,179 @@ use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
 class ReportExportController extends Controller
 {
+    public function commissionsPdf(Request $request)
+    {
+        $data = $this->getCommissionsData($request);
+        
+        $pdf = Pdf::loadView('reports.commissions-pdf', $data);
+        $pdf->setPaper('a4', 'portrait');
+        
+        $filename = 'comisiones-' . now()->format('Y-m-d') . '.pdf';
+        
+        return $pdf->download($filename);
+    }
+
+    private function getCommissionsData(Request $request): array
+    {
+        $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->get('end_date', now()->format('Y-m-d'));
+        $branchId = $request->get('branch_id');
+        $userId = $request->get('user_id');
+        $categoryId = $request->get('category_id');
+        $brandId = $request->get('brand_id');
+
+        $user = auth()->user();
+
+        $query = SaleItem::query()
+            ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->leftJoin('products', 'sale_items.product_id', '=', 'products.id')
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
+            ->join('users', 'sales.user_id', '=', 'users.id')
+            ->where('sales.status', 'completed')
+            ->whereDate('sales.created_at', '>=', $startDate)
+            ->whereDate('sales.created_at', '<=', $endDate)
+            ->where(function ($q) {
+                $q->where('products.has_commission', true)
+                  ->whereNotNull('products.commission_value')
+                  ->where('products.commission_value', '>', 0);
+            });
+
+        if ($branchId) {
+            $query->where('sales.branch_id', $branchId);
+        } elseif (!$user->isSuperAdmin()) {
+            $query->where('sales.branch_id', $user->branch_id);
+        }
+
+        if ($userId) {
+            $query->where('sales.user_id', $userId);
+        }
+
+        if ($categoryId) {
+            $query->where('products.category_id', $categoryId);
+        }
+
+        if ($brandId) {
+            $query->where('products.brand_id', $brandId);
+        }
+
+        $items = (clone $query)
+            ->select(
+                'sale_items.*',
+                'sales.invoice_number',
+                'sales.created_at as sale_date',
+                'users.id as user_id',
+                'users.name as user_name',
+                'products.has_commission',
+                'products.commission_type',
+                'products.commission_value',
+                DB::raw("COALESCE(categories.name, 'Sin categoría') as category_name"),
+                DB::raw("COALESCE(brands.name, 'Sin marca') as brand_name")
+            )
+            ->with('product')
+            ->orderBy('users.name')
+            ->orderBy('sales.created_at', 'desc')
+            ->get();
+
+        // Group by user
+        $userCommissions = [];
+        $totalCommissions = 0;
+        $totalSales = 0;
+
+        foreach ($items as $item) {
+            $userId = $item->user_id;
+            if (!isset($userCommissions[$userId])) {
+                $userCommissions[$userId] = [
+                    'user_name' => $item->user_name,
+                    'commission' => 0,
+                    'sales' => 0,
+                    'items_count' => 0,
+                    'items' => [],
+                ];
+            }
+
+            $commission = $this->calculateCommission($item);
+            $userCommissions[$userId]['commission'] += $commission;
+            $userCommissions[$userId]['sales'] += (float) $item->total;
+            $userCommissions[$userId]['items_count'] += (int) $item->quantity;
+            $userCommissions[$userId]['items'][] = [
+                'invoice_number' => $item->invoice_number,
+                'date' => Carbon::parse($item->sale_date)->format('d/m/Y'),
+                'product_name' => $item->product_name,
+                'category' => $item->category_name,
+                'brand' => $item->brand_name,
+                'quantity' => (int) $item->quantity,
+                'unit_price' => (float) $item->unit_price,
+                'total' => (float) $item->total,
+                'commission' => $commission,
+            ];
+
+            $totalCommissions += $commission;
+            $totalSales += (float) $item->total;
+        }
+
+        // Sort by commission desc
+        uasort($userCommissions, fn($a, $b) => $b['commission'] <=> $a['commission']);
+
+        // Get filter names
+        $branchName = 'Todas las sucursales';
+        if ($branchId) {
+            $branch = Branch::find($branchId);
+            $branchName = $branch ? $branch->name : 'Sucursal no encontrada';
+        } elseif (!$user->isSuperAdmin() && $user->branch_id) {
+            $branchName = $user->branch?->name ?? 'Mi sucursal';
+        }
+
+        $userName = 'Todos los vendedores';
+        if ($userId) {
+            $selectedUser = User::find($userId);
+            $userName = $selectedUser ? $selectedUser->name : 'Vendedor no encontrado';
+        }
+
+        $categoryName = 'Todas las categorías';
+        if ($categoryId) {
+            $category = Category::find($categoryId);
+            $categoryName = $category ? $category->name : 'Categoría no encontrada';
+        }
+
+        $brandName = 'Todas las marcas';
+        if ($brandId) {
+            $brand = Brand::find($brandId);
+            $brandName = $brand ? $brand->name : 'Marca no encontrada';
+        }
+
+        return [
+            'startDate' => Carbon::parse($startDate)->format('d/m/Y'),
+            'endDate' => Carbon::parse($endDate)->format('d/m/Y'),
+            'branchName' => $branchName,
+            'userName' => $userName,
+            'categoryName' => $categoryName,
+            'brandName' => $brandName,
+            'totalCommissions' => $totalCommissions,
+            'totalSales' => $totalSales,
+            'userCommissions' => array_values($userCommissions),
+            'generatedAt' => now()->format('d/m/Y H:i:s'),
+        ];
+    }
+
+    private function calculateCommission($item): float
+    {
+        if (!$item->has_commission || !$item->commission_value) {
+            return 0;
+        }
+
+        $basePrice = (float) $item->unit_price;
+        $quantity = (int) $item->quantity;
+        $commissionValue = (float) $item->commission_value;
+        $commissionType = $item->commission_type;
+
+        if ($commissionType === 'percentage') {
+            return ($basePrice * ($commissionValue / 100)) * $quantity;
+        }
+
+        return $commissionValue * $quantity;
+    }
+
     public function productsSoldPdf(Request $request)
     {
         $data = $this->getReportData($request);
