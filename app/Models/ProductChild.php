@@ -70,6 +70,27 @@ class ProductChild extends Model
         return $this->belongsTo(ProductModel::class);
     }
 
+    public function barcodes(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ProductBarcode::class);
+    }
+
+    /**
+     * Get the primary barcode for this product child.
+     */
+    public function getPrimaryBarcode(): ?string
+    {
+        return $this->barcodes()->where('is_primary', true)->value('barcode');
+    }
+
+    /**
+     * Get all barcode strings for this product child.
+     */
+    public function getAllBarcodes(): array
+    {
+        return $this->barcodes()->pluck('barcode')->toArray();
+    }
+
     // Scopes
 
     public function scopeActive(Builder $query): Builder

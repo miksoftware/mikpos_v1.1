@@ -1,5 +1,6 @@
 <div class="h-screen flex flex-col bg-slate-100" x-data="{ showCustomerSearch: false }" 
     @keydown.f7.window.prevent="showCustomerSearch = true; $nextTick(() => $refs.customerSearchInput?.focus())"
+    @keydown.f3.window.prevent="$wire.applyAllSpecialPrices()"
     @close-customer-modal.window="showCustomerSearch = false">
     <!-- Top Header Bar -->
     <header class="h-14 bg-gradient-to-r from-[#1a1225] to-[#2d1f3d] flex items-center justify-between px-4 flex-shrink-0">
@@ -139,13 +140,12 @@
                         clearTimeout(this.scannerTimeout);
                     }
                     
-                    // If typing is fast (< 50ms between keys), it's likely a scanner
-                    // Or if the input looks like a complete barcode (8+ digits)
                     const value = e.target.value.trim();
                     
-                    // Auto-search after 300ms of no typing (scanner usually finishes quickly)
+                    // Auto-search after 300ms of no typing
+                    // Works for any barcode with 3+ characters
                     this.scannerTimeout = setTimeout(() => {
-                        if (value.length >= 8 && /^\d+$/.test(value)) {
+                        if (value.length >= 3) {
                             $wire.searchByBarcode();
                         }
                     }, 300);
@@ -161,7 +161,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
                         </svg>
                     </div>
-                    <input wire:model="barcodeSearch" 
+                    <input wire:model.live="barcodeSearch" 
                         type="text" 
                         x-ref="barcodeInput"
                         x-on:input="handleInput($event)"
@@ -267,6 +267,18 @@
                         <span class="font-bold text-[#ff7261]">${{ number_format($total, 2) }}</span>
                     </div>
                 </div>
+                
+                {{-- Special Price Button --}}
+                @if(count($cart) > 0)
+                <button wire:click="applyAllSpecialPrices" class="w-full mb-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl transition flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Aplicar Precio Especial a Todo
+                    <span class="text-xs px-1.5 py-0.5 rounded bg-green-200 text-green-800">F3</span>
+                </button>
+                @endif
+
                 <div class="grid grid-cols-3 gap-2">
                     <button wire:click="clearCart" class="px-4 py-3 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition flex items-center justify-center gap-2" {{ count($cart) === 0 ? 'disabled' : '' }}>
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -387,9 +399,9 @@
                             </div>
                             @endif
                         </div>
-                        <div class="p-1.5">
-                            <p class="font-medium text-slate-800 text-[10px] line-clamp-2 leading-tight mb-0.5">{{ $item['name'] }}</p>
-                            <p class="text-[9px] text-slate-500 truncate">{{ $item['brand'] ?? 'Sin marca' }}</p>
+                        <div class="p-1.5 min-h-[52px] flex flex-col">
+                            <p class="font-medium text-slate-800 text-[10px] leading-tight mb-0.5 break-words hyphens-auto" title="{{ $item['name'] }}">{{ $item['name'] }}</p>
+                            <p class="text-[9px] text-slate-500 truncate mt-auto">{{ $item['brand'] ?? 'Sin marca' }}</p>
                         </div>
                     </button>
                     @endforeach

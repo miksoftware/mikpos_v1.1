@@ -9,6 +9,7 @@ use App\Models\Color;
 use App\Models\InventoryMovement;
 use App\Models\Presentation;
 use App\Models\Product;
+use App\Models\ProductBarcode;
 use App\Models\ProductChild;
 use App\Models\ProductFieldSetting;
 use App\Models\ProductModel;
@@ -133,6 +134,15 @@ class Products extends Component
     public bool $showOnlyErrors = false;
     public bool $showOnlyWarnings = false;
     public string $importFilter = 'all'; // all, errors, warnings
+
+    // Barcode management
+    public bool $isBarcodeModalOpen = false;
+    public ?int $barcodeProductId = null;
+    public ?int $barcodeProductChildId = null;
+    public string $barcodeProductName = '';
+    public array $productBarcodes = [];
+    public string $newBarcode = '';
+    public string $newBarcodeDescription = '';
 
     public function mount()
     {
@@ -402,6 +412,29 @@ class Products extends Component
             }
         }
 
+        // Handle barcode - save to product_barcodes table
+        if ($this->barcode) {
+            $existingBarcode = ProductBarcode::where('product_id', $item->id)
+                ->whereNull('product_child_id')
+                ->where('barcode', $this->barcode)
+                ->first();
+            
+            if (!$existingBarcode) {
+                // Check if product has any barcodes to determine if this should be primary
+                $hasBarcodes = ProductBarcode::where('product_id', $item->id)
+                    ->whereNull('product_child_id')
+                    ->exists();
+                
+                ProductBarcode::create([
+                    'product_id' => $item->id,
+                    'product_child_id' => null,
+                    'barcode' => $this->barcode,
+                    'description' => $isNew ? 'Código principal' : null,
+                    'is_primary' => !$hasBarcodes, // Primary if no other barcodes exist
+                ]);
+            }
+        }
+
         $isNew
             ? ActivityLogService::logCreate('products', $item, "Producto '{$item->name}' creado")
             : ActivityLogService::logUpdate('products', $item, $oldValues, "Producto '{$item->name}' actualizado");
@@ -619,6 +652,26 @@ class Products extends Component
 
         $parentName = $this->parentProduct?->name ?? 'Producto';
         
+        // Handle barcode - save to product_barcodes table
+        if ($this->childBarcode) {
+            $existingBarcode = ProductBarcode::where('product_child_id', $child->id)
+                ->where('barcode', $this->childBarcode)
+                ->first();
+            
+            if (!$existingBarcode) {
+                // Check if child has any barcodes to determine if this should be primary
+                $hasBarcodes = ProductBarcode::where('product_child_id', $child->id)->exists();
+                
+                ProductBarcode::create([
+                    'product_id' => $this->childProductId,
+                    'product_child_id' => $child->id,
+                    'barcode' => $this->childBarcode,
+                    'description' => $isNew ? 'Código principal' : null,
+                    'is_primary' => !$hasBarcodes, // Primary if no other barcodes exist
+                ]);
+            }
+        }
+
         $isNew
             ? ActivityLogService::logCreate('product_children', $child, "Variante '{$child->name}' creada para '{$parentName}'")
             : ActivityLogService::logUpdate('product_children', $child, $oldValues, "Variante '{$child->name}' actualizada");
@@ -768,11 +821,11 @@ class Products extends Component
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ];
 
-        // Barcode - configurable
+        // Barcode - configurable, validate against product_barcodes table
         if ($this->isParentFieldVisible('barcode')) {
             $rules['barcode'] = $this->isParentFieldRequired('barcode') 
-                ? 'required|unique:products,barcode,' . $this->itemId
-                : 'nullable|unique:products,barcode,' . $this->itemId;
+                ? 'required|unique:product_barcodes,barcode'
+                : 'nullable|unique:product_barcodes,barcode';
         }
 
         // Presentation - configurable
@@ -866,11 +919,11 @@ class Products extends Component
             'childSalePrice' => 'required|numeric|min:0',
         ];
 
-        // Add barcode validation
+        // Add barcode validation against product_barcodes table
         if ($this->isChildFieldVisible('barcode')) {
             $rules['childBarcode'] = $this->isChildFieldRequired('barcode')
-                ? 'required|unique:product_children,barcode,' . $this->childId
-                : 'nullable|unique:product_children,barcode,' . $this->childId;
+                ? 'required|unique:product_barcodes,barcode'
+                : 'nullable|unique:product_barcodes,barcode';
         }
 
         // Add presentation validation
@@ -1752,5 +1805,175 @@ class Products extends Component
         if ($errorCount > 0) {
             $this->dispatch('notify', message: "{$errorCount} productos con errores", type: 'warning');
         }
+    }
+
+    // ==================== BARCODE MANAGEMENT METHODS ====================
+
+    /**
+     * Open barcode management modal for a product.
+     */
+    public function manageBarcodes(int $productId)
+    {
+        if (!auth()->user()->hasPermission('products.edit')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        $product = Product::findOrFail($productId);
+        $this->barcodeProductId = $productId;
+        $this->barcodeProductChildId = null;
+        $this->barcodeProductName = $product->name;
+        $this->loadProductBarcodes();
+        $this->newBarcode = '';
+        $this->newBarcodeDescription = '';
+        $this->isBarcodeModalOpen = true;
+    }
+
+    /**
+     * Open barcode management modal for a product child (variant).
+     */
+    public function manageChildBarcodes(int $childId)
+    {
+        if (!auth()->user()->hasPermission('products.edit')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        $child = ProductChild::with('product')->findOrFail($childId);
+        $this->barcodeProductId = null;
+        $this->barcodeProductChildId = $childId;
+        $this->barcodeProductName = $child->product->name . ' - ' . $child->name;
+        $this->loadProductBarcodes();
+        $this->newBarcode = '';
+        $this->newBarcodeDescription = '';
+        $this->isBarcodeModalOpen = true;
+    }
+
+    /**
+     * Load barcodes for the current product or product child.
+     */
+    private function loadProductBarcodes()
+    {
+        if ($this->barcodeProductChildId) {
+            $this->productBarcodes = ProductBarcode::where('product_child_id', $this->barcodeProductChildId)
+                ->orderByDesc('is_primary')
+                ->orderBy('created_at')
+                ->get()
+                ->toArray();
+        } elseif ($this->barcodeProductId) {
+            $this->productBarcodes = ProductBarcode::where('product_id', $this->barcodeProductId)
+                ->whereNull('product_child_id')
+                ->orderByDesc('is_primary')
+                ->orderBy('created_at')
+                ->get()
+                ->toArray();
+        }
+    }
+
+    /**
+     * Add a new barcode to the product.
+     */
+    public function addBarcode()
+    {
+        if (!auth()->user()->hasPermission('products.edit')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        $this->validate([
+            'newBarcode' => 'required|min:3|unique:product_barcodes,barcode',
+        ], [
+            'newBarcode.required' => 'El código de barras es obligatorio',
+            'newBarcode.min' => 'El código de barras debe tener al menos 3 caracteres',
+            'newBarcode.unique' => 'Este código de barras ya existe en el sistema',
+        ]);
+
+        // Determine if this is the first barcode (make it primary)
+        $isPrimary = count($this->productBarcodes) === 0;
+
+        ProductBarcode::create([
+            'product_id' => $this->barcodeProductId,
+            'product_child_id' => $this->barcodeProductChildId,
+            'barcode' => trim($this->newBarcode),
+            'description' => trim($this->newBarcodeDescription) ?: null,
+            'is_primary' => $isPrimary,
+        ]);
+
+        $this->newBarcode = '';
+        $this->newBarcodeDescription = '';
+        $this->loadProductBarcodes();
+        $this->dispatch('notify', message: 'Código de barras agregado');
+    }
+
+    /**
+     * Set a barcode as primary.
+     */
+    public function setPrimaryBarcode(int $barcodeId)
+    {
+        if (!auth()->user()->hasPermission('products.edit')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        $barcode = ProductBarcode::findOrFail($barcodeId);
+
+        // Remove primary from all other barcodes of this product/child
+        if ($barcode->product_child_id) {
+            ProductBarcode::where('product_child_id', $barcode->product_child_id)
+                ->update(['is_primary' => false]);
+        } else {
+            ProductBarcode::where('product_id', $barcode->product_id)
+                ->whereNull('product_child_id')
+                ->update(['is_primary' => false]);
+        }
+
+        // Set this one as primary
+        $barcode->update(['is_primary' => true]);
+
+        $this->loadProductBarcodes();
+        $this->dispatch('notify', message: 'Código principal actualizado');
+    }
+
+    /**
+     * Delete a barcode.
+     */
+    public function deleteBarcode(int $barcodeId)
+    {
+        if (!auth()->user()->hasPermission('products.edit')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        $barcode = ProductBarcode::findOrFail($barcodeId);
+        $wasPrimary = $barcode->is_primary;
+        $barcode->delete();
+
+        // If deleted barcode was primary, make the first remaining one primary
+        if ($wasPrimary) {
+            $this->loadProductBarcodes();
+            if (count($this->productBarcodes) > 0) {
+                $firstBarcode = ProductBarcode::find($this->productBarcodes[0]['id']);
+                if ($firstBarcode) {
+                    $firstBarcode->update(['is_primary' => true]);
+                }
+            }
+        }
+
+        $this->loadProductBarcodes();
+        $this->dispatch('notify', message: 'Código de barras eliminado');
+    }
+
+    /**
+     * Close barcode modal.
+     */
+    public function closeBarcodeModal()
+    {
+        $this->isBarcodeModalOpen = false;
+        $this->barcodeProductId = null;
+        $this->barcodeProductChildId = null;
+        $this->barcodeProductName = '';
+        $this->productBarcodes = [];
+        $this->newBarcode = '';
+        $this->newBarcodeDescription = '';
     }
 }

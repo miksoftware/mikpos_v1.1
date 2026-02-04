@@ -5,6 +5,7 @@ namespace App\Livewire;
 use Livewire\Component;
 use App\Models\Product;
 use App\Models\ProductChild;
+use App\Models\ProductBarcode;
 use App\Models\Service;
 use App\Models\Customer;
 use App\Models\Category;
@@ -233,7 +234,56 @@ class PointOfSale extends Component
             return;
         }
 
-        // First, search exact match in product children
+        // Search in product_barcodes table
+        $barcodeRecord = ProductBarcode::where('barcode', $barcode)->first();
+
+        if ($barcodeRecord) {
+            // Found a barcode - check if it's for a product child
+            if ($barcodeRecord->product_child_id) {
+                $child = ProductChild::where('id', $barcodeRecord->product_child_id)
+                    ->where('is_active', true)
+                    ->whereHas('product', function ($q) {
+                        $q->where('is_active', true)
+                          ->forBranch($this->branchId);
+                    })
+                    ->first();
+                
+                if ($child) {
+                    $this->addToCart($child->product_id, $child->id);
+                    $this->barcodeSearch = '';
+                    $this->dispatch('focus-barcode-search');
+                    return;
+                }
+            }
+            
+            // Check if it's for a parent product
+            if ($barcodeRecord->product_id) {
+                $product = Product::where('id', $barcodeRecord->product_id)
+                    ->where('is_active', true)
+                    ->forBranch($this->branchId)
+                    ->with(['children' => function ($q) {
+                        $q->where('is_active', true);
+                    }, 'brand'])
+                    ->first();
+                
+                if ($product) {
+                    // Check if product has active variants
+                    if ($product->children->count() > 0) {
+                        // Open variant selection modal
+                        $this->openVariantModal($product);
+                        $this->barcodeSearch = '';
+                    } else {
+                        // No variants, add directly
+                        $this->addToCart($product->id);
+                        $this->barcodeSearch = '';
+                        $this->dispatch('focus-barcode-search');
+                    }
+                    return;
+                }
+            }
+        }
+
+        // Fallback: search in legacy barcode fields (for backwards compatibility)
         $child = ProductChild::where('barcode', $barcode)
             ->where('is_active', true)
             ->whereHas('product', function ($q) {
@@ -249,7 +299,6 @@ class PointOfSale extends Component
             return;
         }
 
-        // Then, search exact match in parent products
         $product = Product::where('barcode', $barcode)
             ->where('is_active', true)
             ->forBranch($this->branchId)
@@ -259,13 +308,10 @@ class PointOfSale extends Component
             ->first();
         
         if ($product) {
-            // Check if product has active variants
             if ($product->children->count() > 0) {
-                // Open variant selection modal
                 $this->openVariantModal($product);
                 $this->barcodeSearch = '';
             } else {
-                // No variants, add directly
                 $this->addToCart($product->id);
                 $this->barcodeSearch = '';
                 $this->dispatch('focus-barcode-search');
@@ -456,6 +502,51 @@ class PointOfSale extends Component
         $this->updateCartItemTotals($cartKey);
     }
 
+    /**
+     * Apply special price to all cart items that have it available.
+     * Triggered by F3 shortcut.
+     */
+    public function applyAllSpecialPrices()
+    {
+        $appliedCount = 0;
+        
+        foreach ($this->cart as $cartKey => &$item) {
+            // Skip services and items without special price
+            if ($item['is_service'] || !$item['special_price']) {
+                continue;
+            }
+            
+            // Skip if already using special price
+            if ($item['using_special_price']) {
+                continue;
+            }
+            
+            // Apply special price
+            $item['using_special_price'] = true;
+            $specialPrice = $item['special_price'];
+            $taxRate = $item['tax_rate'];
+            
+            if ($item['price_includes_tax']) {
+                $priceWithTax = $specialPrice;
+                $basePrice = $taxRate > 0 ? $specialPrice / (1 + ($taxRate / 100)) : $specialPrice;
+            } else {
+                $basePrice = $specialPrice;
+                $priceWithTax = $taxRate > 0 ? $specialPrice * (1 + ($taxRate / 100)) : $specialPrice;
+            }
+            
+            $item['price'] = round($priceWithTax, 2);
+            $item['base_price'] = round($basePrice, 2);
+            $this->updateCartItemTotals($cartKey);
+            $appliedCount++;
+        }
+        
+        if ($appliedCount > 0) {
+            $this->dispatch('notify', message: "Precio especial aplicado a {$appliedCount} producto(s)", type: 'success');
+        } else {
+            $this->dispatch('notify', message: 'No hay productos con precio especial disponible', type: 'info');
+        }
+    }
+
     public function addServiceToCart($serviceId)
     {
         $service = Service::with('tax')->find($serviceId);
@@ -622,9 +713,17 @@ class PointOfSale extends Component
             return;
         }
         
+        // Get default payment method (Efectivo/Cash)
+        $defaultPaymentMethod = \App\Models\PaymentMethod::where('is_active', true)
+            ->where(function ($q) {
+                $q->where('name', 'like', '%efectivo%')
+                  ->orWhere('dian_code', '10'); // DIAN code 10 = Efectivo
+            })
+            ->first();
+        
         // Initialize with one payment method with the total amount
         $this->payments = [
-            ['method_id' => '', 'amount' => $this->getTotalProperty()]
+            ['method_id' => $defaultPaymentMethod?->id ?? '', 'amount' => $this->getTotalProperty()]
         ];
         $this->showPaymentModal = true;
     }

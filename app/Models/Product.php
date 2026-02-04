@@ -118,6 +118,27 @@ class Product extends Model
         return $this->hasMany(InventoryMovement::class);
     }
 
+    public function barcodes(): HasMany
+    {
+        return $this->hasMany(ProductBarcode::class)->whereNull('product_child_id');
+    }
+
+    /**
+     * Get the primary barcode for this product.
+     */
+    public function getPrimaryBarcode(): ?string
+    {
+        return $this->barcodes()->where('is_primary', true)->value('barcode');
+    }
+
+    /**
+     * Get all barcode strings for this product.
+     */
+    public function getAllBarcodes(): array
+    {
+        return $this->barcodes()->pluck('barcode')->toArray();
+    }
+
     // Scopes
 
     public function scopeActive(Builder $query): Builder
