@@ -360,6 +360,32 @@
                 @endif
             </div>
         </div>
+
+        <!-- Inventarios Submenu -->
+        <div x-data="{ inventariosReportOpen: {{ request()->routeIs('reports.kardex') ? 'true' : 'false' }} }">
+            <button @click="inventariosReportOpen = !inventariosReportOpen"
+                class="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-slate-400 hover:bg-white/5 hover:text-white">
+                <div class="flex items-center gap-3">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                    </svg>
+                    <span class="text-sm">Inventarios</span>
+                </div>
+                <svg class="w-3 h-3 transition-transform duration-200" :class="inventariosReportOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+            <div x-show="inventariosReportOpen" x-collapse class="{{ $subSectionClass }}">
+                @if (auth()->user()->hasPermission('reports.kardex'))
+                <a href="{{ route('reports.kardex') }}" class="flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all duration-200 {{ request()->routeIs('reports.kardex') ? $activeClass : $inactiveClass }}">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                    </svg>
+                    <span class="text-xs">Kardex</span>
+                </a>
+                @endif
+            </div>
+        </div>
     </div>
 </div>
 @endif

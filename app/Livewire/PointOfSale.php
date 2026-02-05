@@ -17,6 +17,7 @@ use App\Models\TaxDocument;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SalePayment;
+use App\Models\InventoryMovement;
 use App\Services\ActivityLogService;
 use App\Services\FactusService;
 use Illuminate\Support\Facades\DB;
@@ -934,6 +935,19 @@ class PointOfSale extends Component
                 if ($item['product_id']) {
                     $product = Product::find($item['product_id']);
                     if ($product) {
+                        // Create inventory movement for sale
+                        InventoryMovement::createMovement(
+                            'sale',
+                            $product,
+                            'out',
+                            $item['quantity'],
+                            (float) $item['base_price'],
+                            "Venta #{$sale->invoice_number}",
+                            $sale,
+                            $this->branchId
+                        );
+
+                        // Update stock
                         $product->decrement('current_stock', $item['quantity']);
                     }
                 }

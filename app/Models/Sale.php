@@ -94,6 +94,12 @@ class Sale extends Model
         return $this->hasMany(Refund::class);
     }
 
+    public function inventoryMovements(): HasMany
+    {
+        return $this->hasMany(InventoryMovement::class, 'reference_id')
+            ->where('reference_type', self::class);
+    }
+
     // Scopes
 
     public function scopeForBranch(Builder $query, ?int $branchId = null): Builder

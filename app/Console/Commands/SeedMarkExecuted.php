@@ -33,6 +33,7 @@ class SeedMarkExecuted extends Command
         'ServicesModuleSeeder',
         'ReportsModuleSeeder',
         'CommissionsReportPermissionSeeder',
+        'KardexReportPermissionSeeder',
     ];
 
     public function handle(): int
