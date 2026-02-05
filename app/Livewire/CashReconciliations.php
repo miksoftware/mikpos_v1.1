@@ -84,13 +84,13 @@ class CashReconciliations extends Component
         $query = CashReconciliation::query()
             ->with(['branch', 'cashRegister', 'openedByUser', 'closedByUser']);
 
-        // Apply branch filter
-        if ($this->needsBranchSelection) {
-            if ($this->filterBranch) {
-                $query->where('branch_id', $this->filterBranch);
-            }
-        } else {
-            $query->where('branch_id', $user->branch_id);
+        // Filter by user for non-super admins
+        if (!$user->isSuperAdmin()) {
+            // Non-super admin users only see their own reconciliations
+            $query->where('opened_by', $user->id);
+        } elseif ($this->filterBranch) {
+            // Super admin can filter by branch
+            $query->where('branch_id', $this->filterBranch);
         }
 
         // Apply status filter

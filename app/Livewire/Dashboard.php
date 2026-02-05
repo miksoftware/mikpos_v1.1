@@ -49,8 +49,9 @@ class Dashboard extends Component
         $query = Sale::where('status', 'completed');
         
         $user = auth()->user();
-        if (!$user->isSuperAdmin() && $user->branch_id) {
-            $query->where('branch_id', $user->branch_id);
+        if (!$user->isSuperAdmin()) {
+            // Non-super admin users only see their own sales
+            $query->where('user_id', $user->id);
         }
 
         return $query;
@@ -166,8 +167,9 @@ class Dashboard extends Component
             ->whereMonth('sales.created_at', now()->month)
             ->whereYear('sales.created_at', now()->year);
         
-        if (!$user->isSuperAdmin() && $user->branch_id) {
-            $topProductsQuery->where('sales.branch_id', $user->branch_id);
+        if (!$user->isSuperAdmin()) {
+            // Non-super admin users only see their own sales
+            $topProductsQuery->where('sales.user_id', $user->id);
         }
 
         $this->topProducts = $topProductsQuery
@@ -190,8 +192,9 @@ class Dashboard extends Component
             ->whereMonth('sales.created_at', now()->month)
             ->whereYear('sales.created_at', now()->year);
 
-        if (!$user->isSuperAdmin() && $user->branch_id) {
-            $paymentQuery->where('sales.branch_id', $user->branch_id);
+        if (!$user->isSuperAdmin()) {
+            // Non-super admin users only see their own sales
+            $paymentQuery->where('sales.user_id', $user->id);
         }
 
         $this->salesByPaymentMethod = $paymentQuery
