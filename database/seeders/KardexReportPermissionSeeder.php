@@ -15,7 +15,6 @@ class KardexReportPermissionSeeder extends Seeder
         $reportsModule = Module::where('name', 'reports')->first();
 
         if (!$reportsModule) {
-            $this->command->info('Reports module not found, skipping...');
             return;
         }
 
@@ -35,7 +34,5 @@ class KardexReportPermissionSeeder extends Seeder
         foreach ($roles as $role) {
             $role->permissions()->syncWithoutDetaching([$permission->id]);
         }
-
-        $this->command->info('Kardex report permission created and assigned successfully.');
     }
 }
