@@ -369,4 +369,14 @@
             @endif
         </div>
     </div>
+
+    <script>
+        document.addEventListener('livewire:init', () => {
+            Livewire.on('print-purchase', (event) => {
+                const purchaseId = event.purchaseId;
+                const url = `/purchase-receipt/${purchaseId}`;
+                window.open(url, '_blank', 'width=800,height=600');
+            });
+        });
+    </script>
 </div>

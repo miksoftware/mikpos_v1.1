@@ -159,6 +159,11 @@
                                 <button wire:click="viewPurchase({{ $item->id }})" class="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Ver detalle">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                 </button>
+                                @if($item->status === 'completed')
+                                <button wire:click="printPurchase({{ $item->id }})" class="p-2 text-slate-400 hover:text-[#a855f7] hover:bg-[#a855f7]/10 rounded-lg transition-colors" title="Imprimir">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                                </button>
+                                @endif
                                 @if($item->payment_type === 'credit' && $item->payment_status !== 'paid' && $item->status === 'completed' && auth()->user()->hasPermission('purchases.edit'))
                                 <button wire:click="openPaymentModal({{ $item->id }})" class="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors" title="Registrar pago">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -484,4 +489,14 @@
         </div>
     </div>
     @endif
+
+    <script>
+        document.addEventListener('livewire:init', () => {
+            Livewire.on('print-purchase', (event) => {
+                const purchaseId = event.purchaseId;
+                const url = `/purchase-receipt/${purchaseId}`;
+                window.open(url, '_blank', 'width=800,height=600');
+            });
+        });
+    </script>
 </div>

@@ -481,6 +481,11 @@ class PurchaseCreate extends Component
 
         $this->dispatch('notify', message: $status === 'completed' ? 'Compra completada' : 'Borrador guardado');
         
+        // Auto-print if completed
+        if ($status === 'completed') {
+            $this->dispatch('print-purchase', purchaseId: $purchase->id);
+        }
+        
         return $this->redirect(route('purchases'), navigate: true);
     }
 
@@ -548,6 +553,11 @@ class PurchaseCreate extends Component
         ActivityLogService::logUpdate('purchases', $this->purchase, $oldData, "Compra '{$this->purchase->purchase_number}' actualizada");
 
         $this->dispatch('notify', message: 'Compra actualizada');
+        
+        // Auto-print if completed
+        if ($status === 'completed' || $wasCompleted) {
+            $this->dispatch('print-purchase', purchaseId: $this->purchase->id);
+        }
         
         return $this->redirect(route('purchases'), navigate: true);
     }

@@ -208,6 +208,19 @@ Route::middleware(['auth'])->group(function () {
         return view('receipts.refund-receipt', compact('refund'));
     })->name('refund-receipt.show');
 
+    // Purchase Receipt
+    Route::get('/purchase-receipt/{purchase}', function (App\Models\Purchase $purchase) {
+        $purchase->load([
+            'branch',
+            'supplier',
+            'user',
+            'items.product.unit',
+            'paymentMethod',
+        ]);
+        
+        return view('receipts.purchase-receipt', compact('purchase'));
+    })->name('purchase-receipt.show')->middleware('permission:purchases.view');
+
     // Reports
     Route::prefix('reports')->name('reports.')->middleware('permission:reports.view')->group(function () {
         Route::get('/products-sold', App\Livewire\Reports\ProductsSold::class)

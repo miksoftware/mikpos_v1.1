@@ -349,4 +349,16 @@ class Purchases extends Component
         $this->paymentMethodId = null;
         $this->paymentNotes = '';
     }
+
+    public function printPurchase(int $id)
+    {
+        $purchase = Purchase::with(['supplier', 'branch', 'user', 'items.product.unit', 'paymentMethod'])->find($id);
+        
+        if (!$purchase) {
+            $this->dispatch('notify', message: 'Compra no encontrada', type: 'error');
+            return;
+        }
+
+        $this->dispatch('print-purchase', purchaseId: $id);
+    }
 }
