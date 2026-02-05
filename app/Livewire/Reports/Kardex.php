@@ -23,6 +23,8 @@ class Kardex extends Component
     public ?int $selectedBrandId = null;
     public string $stockFilter = 'all'; // all, zero, positive, negative
     public string $search = '';
+    public ?string $dateFrom = null;
+    public ?string $dateTo = null;
 
     // Summary stats
     public int $totalProducts = 0;
@@ -31,6 +33,7 @@ class Kardex extends Component
     public int $productsNegativeStock = 0;
     public float $totalInventoryValue = 0;
     public float $totalInventoryCost = 0;
+    public float $totalPotentialProfit = 0;
 
     // Chart data
     public array $stockByCategory = [];
@@ -49,6 +52,10 @@ class Kardex extends Component
         if (!$user->isSuperAdmin() && $user->branch_id) {
             $this->selectedBranchId = $user->branch_id;
         }
+        
+        // No default date filter - show all data from the beginning
+        $this->dateFrom = null;
+        $this->dateTo = null;
     }
 
     private function getBaseQuery()
@@ -127,6 +134,9 @@ class Kardex extends Component
             ->where('current_stock', '>', 0)
             ->selectRaw('SUM(current_stock * purchase_price) as total')
             ->value('total') ?? 0;
+
+        // Calculate potential profit (value - cost)
+        $this->totalPotentialProfit = $this->totalInventoryValue - $this->totalInventoryCost;
     }
 
     private function loadChartData()
@@ -204,30 +214,9 @@ class Kardex extends Component
     public function viewProductKardex(int $productId)
     {
         $this->selectedProductId = $productId;
-        
-        $this->productMovements = InventoryMovement::where('product_id', $productId)
-            ->with(['systemDocument', 'user', 'branch'])
-            ->orderByDesc('created_at')
-            ->limit(50)
-            ->get()
-            ->map(function ($movement) {
-                return [
-                    'id' => $movement->id,
-                    'date' => $movement->created_at->format('d/m/Y H:i'),
-                    'document' => $movement->systemDocument?->name ?? 'N/A',
-                    'document_number' => $movement->document_number,
-                    'type' => $movement->movement_type,
-                    'quantity' => $movement->quantity,
-                    'stock_before' => $movement->stock_before,
-                    'stock_after' => $movement->stock_after,
-                    'unit_cost' => $movement->unit_cost,
-                    'total_cost' => $movement->total_cost,
-                    'user' => $movement->user?->name ?? 'Sistema',
-                    'notes' => $movement->notes,
-                ];
-            })
-            ->toArray();
-
+        $this->dateFrom = null;
+        $this->dateTo = null;
+        $this->loadProductMovements();
         $this->isDetailModalOpen = true;
     }
 
@@ -263,12 +252,64 @@ class Kardex extends Component
         $this->resetPage();
     }
 
+    public function updatedDateFrom()
+    {
+        if ($this->selectedProductId) {
+            $this->loadProductMovements();
+        }
+    }
+
+    public function updatedDateTo()
+    {
+        if ($this->selectedProductId) {
+            $this->loadProductMovements();
+        }
+    }
+
+    private function loadProductMovements()
+    {
+        $query = InventoryMovement::where('product_id', $this->selectedProductId)
+            ->with(['systemDocument', 'user', 'branch']);
+
+        // Apply date filters
+        if ($this->dateFrom) {
+            $query->whereDate('created_at', '>=', $this->dateFrom);
+        }
+        if ($this->dateTo) {
+            $query->whereDate('created_at', '<=', $this->dateTo);
+        }
+
+        $this->productMovements = $query
+            ->orderByDesc('created_at')
+            ->limit(100)
+            ->get()
+            ->map(function ($movement) {
+                return [
+                    'id' => $movement->id,
+                    'date' => $movement->created_at->format('d/m/Y H:i'),
+                    'document' => $movement->systemDocument?->name ?? 'N/A',
+                    'document_number' => $movement->document_number,
+                    'type' => $movement->movement_type,
+                    'quantity' => $movement->quantity,
+                    'stock_before' => $movement->stock_before,
+                    'stock_after' => $movement->stock_after,
+                    'unit_cost' => $movement->unit_cost,
+                    'total_cost' => $movement->total_cost,
+                    'user' => $movement->user?->name ?? 'Sistema',
+                    'notes' => $movement->notes,
+                ];
+            })
+            ->toArray();
+    }
+
     public function clearFilters()
     {
         $this->search = '';
         $this->stockFilter = 'all';
         $this->selectedCategoryId = null;
         $this->selectedBrandId = null;
+        $this->dateFrom = null;
+        $this->dateTo = null;
         if (auth()->user()->isSuperAdmin()) {
             $this->selectedBranchId = null;
         }

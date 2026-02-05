@@ -8,7 +8,7 @@
     </div>
 
     {{-- Summary Cards --}}
-    <div class="grid grid-cols-2 lg:grid-cols-6 gap-4">
+    <div class="grid grid-cols-2 lg:grid-cols-7 gap-4">
         {{-- Total Products --}}
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
             <div class="flex items-center gap-3">
@@ -95,6 +95,21 @@
                 <div>
                     <p class="text-xs text-slate-500">Costo Inventario</p>
                     <p class="text-lg font-bold text-indigo-600">${{ number_format($totalInventoryCost, 0) }}</p>
+                </div>
+            </div>
+        </div>
+
+        {{-- Potential Profit --}}
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 col-span-2 lg:col-span-1">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500">Ganancia Potencial</p>
+                    <p class="text-lg font-bold text-emerald-600">${{ number_format($totalPotentialProfit, 0) }}</p>
                 </div>
             </div>
         </div>
@@ -328,6 +343,7 @@
                         <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">P. Compra</th>
                         <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">P. Venta</th>
                         <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Valor Stock</th>
+                        <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Ganancia</th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Acciones</th>
                     </tr>
                 </thead>
@@ -367,6 +383,12 @@
                         <td class="px-6 py-4 text-right font-medium {{ $product->current_stock > 0 ? 'text-purple-600' : 'text-slate-400' }}">
                             ${{ number_format($product->current_stock * $product->sale_price, 0) }}
                         </td>
+                        <td class="px-6 py-4 text-right font-medium {{ $product->current_stock > 0 ? 'text-emerald-600' : 'text-slate-400' }}">
+                            @php
+                                $profit = ($product->sale_price - $product->purchase_price) * $product->current_stock;
+                            @endphp
+                            ${{ number_format($profit, 0) }}
+                        </td>
                         <td class="px-6 py-4 text-center">
                             <button wire:click="viewProductKardex({{ $product->id }})" class="p-2 text-slate-400 hover:text-[#a855f7] hover:bg-[#a855f7]/10 rounded-lg transition-colors" title="Ver Kardex">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -377,7 +399,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8" class="px-6 py-12 text-center">
+                        <td colspan="9" class="px-6 py-12 text-center">
                             <svg class="w-12 h-12 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                             </svg>
@@ -441,11 +463,36 @@
 
                     {{-- Content --}}
                     <div class="px-6 py-4 max-h-[60vh] overflow-y-auto">
+                        {{-- Date Filters for Movements --}}
+                        <div class="flex flex-wrap items-center gap-4 mb-4 p-3 bg-slate-50 rounded-xl">
+                            <span class="text-sm font-medium text-slate-600">Filtrar movimientos:</span>
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm text-slate-500">Desde:</label>
+                                <input wire:model.live="dateFrom" type="date" 
+                                    class="px-3 py-1.5 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm text-slate-500">Hasta:</label>
+                                <input wire:model.live="dateTo" type="date" 
+                                    class="px-3 py-1.5 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                            </div>
+                            @if($dateFrom || $dateTo)
+                            <button wire:click="$set('dateFrom', null); $set('dateTo', null)" class="text-sm text-slate-500 hover:text-slate-700">
+                                Limpiar fechas
+                            </button>
+                            @endif
+                        </div>
+
                         <h4 class="font-semibold text-slate-800 mb-3 flex items-center gap-2">
                             <svg class="w-5 h-5 text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                             </svg>
                             Movimientos de Inventario
+                            @if($dateFrom || $dateTo)
+                            <span class="text-xs font-normal text-slate-500">
+                                ({{ $dateFrom ? \Carbon\Carbon::parse($dateFrom)->format('d/m/Y') : 'Inicio' }} - {{ $dateTo ? \Carbon\Carbon::parse($dateTo)->format('d/m/Y') : 'Hoy' }})
+                            </span>
+                            @endif
                         </h4>
 
                         @if(count($productMovements) > 0)

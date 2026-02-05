@@ -406,3 +406,78 @@ docker compose exec -T php php artisan db:seed-mark-executed --all
 - Sidebar logo shows branch name instead of "MikPOS"
 - POS header shows branch name
 - Falls back to "MikPOS" if no branch assigned
+
+
+## Model Column Reference (IMPORTANT)
+
+### CRITICAL: Always prefix columns in JOINs
+When doing JOINs between tables, ALWAYS prefix column names with the table name to avoid ambiguity errors:
+```php
+// BAD - will cause "Column 'status' is ambiguous" error
+$query->where('status', 'completed');
+
+// GOOD - always prefix with table name
+$query->where('sales.status', 'completed');
+```
+
+Tables that share common column names:
+- `status`: sales, cash_reconciliations, credit_notes, refunds
+- `created_at`: ALL tables
+- `name`: users, branches, categories, brands, etc.
+- `is_active`: most configuration tables
+
+### Module Model
+- Uses `name` (NOT `code`) as identifier
+- Fields: `name`, `display_name`, `icon`, `order`, `is_active`
+
+### Permission Model
+- Uses `name` (NOT `code`) as identifier
+- Fields: `name`, `display_name`, `description`, `module_id`
+
+### Role Model
+- Uses `name` (NOT `code`) as identifier
+- Fields: `name`, `display_name`, `description`, `is_active`
+
+### Customer Model
+- Does NOT have a `name` column
+- Uses `first_name`, `last_name` for natural persons
+- Uses `business_name` for juridical persons
+- Has computed `full_name` and `display_name` attributes
+- Order by: `orderBy('first_name')` NOT `orderBy('name')`
+
+### User Model
+- Has `name` column (full name)
+- Check super admin: `$user->isSuperAdmin()` (NOT `hasRole()`)
+
+### Seeder Best Practices
+- Do NOT use `$this->command->info()` in seeders - causes null error when run from custom commands
+- Use `firstOrCreate()` with correct column names for the model
+- Always check model fillable/columns before writing seeders
+
+
+## Reports Module
+
+### Reports Structure
+Located in `app/Livewire/Reports/` with views in `resources/views/livewire/reports/`
+
+Current reports:
+- **ProductsSold** - Products sold report with filters
+- **Commissions** - Sales commissions report
+- **Kardex** - Inventory kardex report
+- **SalesBook** - Complete sales book report
+
+### Report Permissions
+- `reports.view` - Base permission to access reports section
+- `reports.products_sold` - Products sold report
+- `reports.commissions` - Commissions report
+- `reports.kardex` - Kardex inventory report
+- `reports.sales_book` - Sales book report
+- `reports.export` - Export reports to PDF/Excel
+
+### Adding New Reports
+1. Create Livewire component in `app/Livewire/Reports/`
+2. Create view in `resources/views/livewire/reports/`
+3. Create permission seeder (use correct model column names!)
+4. Add seeder to tracked seeders in both commands
+5. Add route in `routes/web.php` under reports group
+6. Add menu item in `resources/views/components/sidebar-menu.blade.php`

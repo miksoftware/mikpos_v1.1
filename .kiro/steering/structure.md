@@ -77,6 +77,12 @@ Root application is in the workspace root directory.
 - **InventoryAdjustments** - Inventory adjustments
 - **InventoryTransfers** - Inventory transfers between branches
 
+### Reports
+- **Reports/ProductsSold** - Products sold report
+- **Reports/Commissions** - Sales commissions report  
+- **Reports/Kardex** - Inventory kardex report
+- **Reports/SalesBook** - Complete sales book report
+
 ## Current Models
 
 ### Core

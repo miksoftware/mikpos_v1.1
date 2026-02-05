@@ -246,5 +246,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/kardex', App\Livewire\Reports\Kardex::class)
             ->name('kardex')
             ->middleware('permission:reports.kardex');
+
+        Route::get('/sales-book', App\Livewire\Reports\SalesBook::class)
+            ->name('sales-book')
+            ->middleware('permission:reports.sales_book');
     });
 });
