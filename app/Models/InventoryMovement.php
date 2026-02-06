@@ -30,9 +30,9 @@ class InventoryMovement extends Model
     ];
 
     protected $casts = [
-        'quantity' => 'integer',
-        'stock_before' => 'integer',
-        'stock_after' => 'integer',
+        'quantity' => 'decimal:3',
+        'stock_before' => 'decimal:3',
+        'stock_after' => 'decimal:3',
         'unit_cost' => 'decimal:2',
         'total_cost' => 'decimal:2',
         'movement_date' => 'date',
@@ -70,7 +70,7 @@ class InventoryMovement extends Model
         string $documentCode,
         Product $product,
         string $movementType,
-        int $quantity,
+        float $quantity,
         ?float $unitCost = null,
         ?string $notes = null,
         ?Model $reference = null,

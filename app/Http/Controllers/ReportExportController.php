@@ -117,14 +117,14 @@ class ReportExportController extends Controller
             $commission = $this->calculateCommission($item);
             $userCommissions[$userId]['commission'] += $commission;
             $userCommissions[$userId]['sales'] += (float) $item->total;
-            $userCommissions[$userId]['items_count'] += (int) $item->quantity;
+            $userCommissions[$userId]['items_count'] += (float) $item->quantity;
             $userCommissions[$userId]['items'][] = [
                 'invoice_number' => $item->invoice_number,
                 'date' => Carbon::parse($item->sale_date)->format('d/m/Y'),
                 'product_name' => $item->product_name,
                 'category' => $item->category_name,
                 'brand' => $item->brand_name,
-                'quantity' => (int) $item->quantity,
+                'quantity' => (float) $item->quantity,
                 'unit_price' => (float) $item->unit_price,
                 'total' => (float) $item->total,
                 'commission' => $commission,
@@ -185,7 +185,7 @@ class ReportExportController extends Controller
         }
 
         $basePrice = (float) $item->unit_price;
-        $quantity = (int) $item->quantity;
+        $quantity = (float) $item->quantity;
         $commissionValue = (float) $item->commission_value;
         $commissionType = $item->commission_type;
 

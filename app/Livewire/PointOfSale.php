@@ -92,6 +92,11 @@ class PointOfSale extends Component
     public $discountValue = '';
     public $discountReason = '';
 
+    // Weight quantity modal
+    public $showWeightModal = false;
+    public $weightModalProduct = null;
+    public $weightModalQuantity = '';
+
     public function mount()
     {
         $user = auth()->user();
@@ -344,7 +349,7 @@ class PointOfSale extends Component
             'image' => $product->image,
             'brand' => $product->brand?->name,
             'sale_price' => (float) $product->sale_price,
-            'current_stock' => (int) $product->current_stock,
+            'current_stock' => (float) $product->current_stock,
         ];
         
         $this->variantOptions = $product->children->map(function ($child) {
@@ -354,7 +359,7 @@ class PointOfSale extends Component
                 'sku' => $child->sku,
                 'image' => $child->image,
                 'sale_price' => (float) $child->sale_price,
-                'current_stock' => (int) $child->current_stock,
+                'current_stock' => (float) $child->current_stock,
             ];
         })->toArray();
         
@@ -384,7 +389,7 @@ class PointOfSale extends Component
 
     public function addToCart($productId, $childId = null)
     {
-        $product = Product::with(['tax', 'children' => function ($q) {
+        $product = Product::with(['tax', 'unit', 'children' => function ($q) {
             $q->where('is_active', true);
         }])->find($productId);
         
@@ -393,6 +398,12 @@ class PointOfSale extends Component
         // Check if product has stock
         if ($product->current_stock <= 0) {
             $this->dispatch('notify', message: 'Producto sin stock disponible', type: 'error');
+            return;
+        }
+        
+        // Check if weight-based product - show quantity modal instead of adding directly
+        if ($this->isWeightBasedProduct($product)) {
+            $this->openWeightModal($productId, $childId);
             return;
         }
         
@@ -409,7 +420,7 @@ class PointOfSale extends Component
         // Check stock availability
         $currentQtyInCart = isset($this->cart[$cartKey]) ? $this->cart[$cartKey]['quantity'] : 0;
         if ($currentQtyInCart >= $product->current_stock) {
-            $this->dispatch('notify', message: 'Stock insuficiente. Disponible: ' . (int)$product->current_stock, type: 'warning');
+            $this->dispatch('notify', message: 'Stock insuficiente. Disponible: ' . number_format($product->current_stock, 3), type: 'warning');
             return;
         }
         
@@ -460,7 +471,7 @@ class PointOfSale extends Component
                 'tax_amount' => round($priceWithTax - $basePrice, 2), // Tax for 1 unit
                 'price_includes_tax' => $priceIncludesTax,
                 'image' => $displayImage,
-                'max_stock' => (int)$product->current_stock,
+                'max_stock' => (float) $product->current_stock,
                 // Discount fields
                 'discount_type' => null,
                 'discount_type_value' => 0,
@@ -614,6 +625,243 @@ class PointOfSale extends Component
         $this->dispatch('focus-product-search');
     }
 
+    /**
+     * Check if a product uses a weight-based unit.
+     * 
+     * @param Product $product The product to check
+     * @return bool True if the product has a weight-based unit, false otherwise
+     */
+    protected function isWeightBasedProduct($product): bool
+    {
+        // Load unit relationship if not already loaded
+        if (!$product->relationLoaded('unit')) {
+            $product->load('unit');
+        }
+        
+        // Return true only if product has a unit and it's a weight unit
+        return $product->unit && $product->unit->is_weight_unit;
+    }
+
+    /**
+     * Open the weight quantity modal for a product.
+     * 
+     * @param int $productId The product ID
+     * @param int|null $childId The product child ID (if variant)
+     */
+    public function openWeightModal($productId, $childId = null): void
+    {
+        // Load product with required relationships
+        $product = Product::with(['tax', 'unit', 'children' => function ($q) {
+            $q->where('is_active', true);
+        }])->find($productId);
+        
+        if (!$product) {
+            return;
+        }
+        
+        // Get child if specified
+        $child = $childId ? ProductChild::find($childId) : null;
+        
+        // Get price based on price type
+        $price = $this->getPrice($product, $child);
+        
+        // Determine if price includes tax
+        $priceIncludesTax = $child ? $child->price_includes_tax : $product->price_includes_tax;
+        $taxRate = $product->tax?->value ?? 0;
+        
+        // Calculate price with tax for display
+        if ($priceIncludesTax) {
+            $priceWithTax = $price;
+        } else {
+            $priceWithTax = $taxRate > 0 ? $price * (1 + ($taxRate / 100)) : $price;
+        }
+        
+        // Determine display name and image
+        $displayName = $child ? $child->name : $product->name;
+        $displayImage = $child ? ($child->image ?? $product->image) : $product->image;
+        
+        // Populate modal data
+        $this->weightModalProduct = [
+            'product_id' => $productId,
+            'child_id' => $childId,
+            'name' => $displayName,
+            'price' => round($priceWithTax, 2),
+            'unit' => $product->unit?->abbreviation ?? 'UND',
+            'stock' => (float) $product->current_stock,
+            'image' => $displayImage,
+        ];
+        
+        // Clear quantity and show modal
+        $this->weightModalQuantity = '';
+        $this->showWeightModal = true;
+    }
+
+    /**
+     * Confirm the weight quantity and add to cart.
+     * Validates quantity and adds the product with the specified weight.
+     */
+    public function confirmWeightModal(): void
+    {
+        // Ensure modal is open and has product data
+        if (!$this->showWeightModal || !$this->weightModalProduct) {
+            return;
+        }
+
+        // Parse quantity - handle both comma and period as decimal separator
+        $quantityStr = trim($this->weightModalQuantity);
+        
+        // Check for empty or invalid input
+        if ($quantityStr === '' || $quantityStr === null) {
+            $this->dispatch('notify', message: 'Ingresa una cantidad válida', type: 'error');
+            return;
+        }
+
+        // Replace comma with period for decimal parsing
+        $quantityStr = str_replace(',', '.', $quantityStr);
+        
+        // Validate it's a valid numeric value
+        if (!is_numeric($quantityStr)) {
+            $this->dispatch('notify', message: 'Ingresa una cantidad válida', type: 'error');
+            return;
+        }
+
+        $quantity = (float) $quantityStr;
+
+        // Validate quantity > 0
+        if ($quantity <= 0) {
+            $this->dispatch('notify', message: 'La cantidad debe ser mayor a cero', type: 'error');
+            return;
+        }
+
+        // Round quantity to 3 decimal places
+        $quantity = round($quantity, 3);
+
+        // Validate quantity <= stock
+        $stock = $this->weightModalProduct['stock'];
+        if ($quantity > $stock) {
+            $formattedStock = rtrim(rtrim(number_format($stock, 3), '0'), '.');
+            $this->dispatch('notify', message: "Stock insuficiente. Disponible: {$formattedStock}", type: 'error');
+            return;
+        }
+
+        // Get product data from modal
+        $productId = $this->weightModalProduct['product_id'];
+        $childId = $this->weightModalProduct['child_id'];
+
+        // Add product to cart with specified quantity
+        $this->addProductToCartWithQuantity($productId, $childId, $quantity);
+
+        // Close modal and reset state
+        $this->closeWeightModal();
+    }
+
+    /**
+     * Close the weight modal without adding to cart.
+     */
+    public function closeWeightModal(): void
+    {
+        $this->showWeightModal = false;
+        $this->weightModalProduct = null;
+        $this->weightModalQuantity = '';
+        $this->dispatch('focus-barcode-search');
+    }
+
+    /**
+     * Add a product to cart with a specific quantity.
+     * Used by weight modal and can be used for other quantity-specific additions.
+     * 
+     * @param int $productId The product ID
+     * @param int|null $childId The product child ID (if variant)
+     * @param float $quantity The quantity to add
+     */
+    protected function addProductToCartWithQuantity($productId, $childId, $quantity): void
+    {
+        $product = Product::with(['tax', 'children' => function ($q) {
+            $q->where('is_active', true);
+        }])->find($productId);
+        
+        if (!$product) return;
+        
+        // Get child if specified
+        $child = $childId ? ProductChild::find($childId) : null;
+        
+        // Get price based on price type
+        $price = $this->getPrice($product, $child);
+        
+        // Cart key: use 'parent' suffix when selling parent directly, child_id otherwise
+        $cartKey = $productId . '-' . ($childId ?? 'parent');
+        
+        // Check stock availability (including existing cart quantity)
+        $currentQtyInCart = isset($this->cart[$cartKey]) ? $this->cart[$cartKey]['quantity'] : 0;
+        $totalQty = $currentQtyInCart + $quantity;
+        
+        if ($totalQty > $product->current_stock) {
+            $available = $product->current_stock - $currentQtyInCart;
+            $formattedAvailable = rtrim(rtrim(number_format($available, 3), '0'), '.');
+            $this->dispatch('notify', message: "Stock insuficiente. Disponible: {$formattedAvailable}", type: 'warning');
+            return;
+        }
+        
+        if (isset($this->cart[$cartKey])) {
+            // Update existing cart item quantity
+            $this->cart[$cartKey]['quantity'] = round($this->cart[$cartKey]['quantity'] + $quantity, 3);
+            $this->updateCartItemTotals($cartKey);
+        } else {
+            // Determine if price includes tax
+            $priceIncludesTax = $child ? $child->price_includes_tax : $product->price_includes_tax;
+            $taxRate = $product->tax?->value ?? 0;
+            
+            // Calculate base price (without tax) and price with tax
+            if ($priceIncludesTax) {
+                $priceWithTax = $price;
+                $basePrice = $taxRate > 0 ? $price / (1 + ($taxRate / 100)) : $price;
+            } else {
+                $basePrice = $price;
+                $priceWithTax = $taxRate > 0 ? $price * (1 + ($taxRate / 100)) : $price;
+            }
+            
+            // Determine display name and image
+            $displayName = $child ? $child->name : $product->name;
+            $displayImage = $child ? ($child->image ?? $product->image) : $product->image;
+            
+            // Get special price if available
+            $specialPrice = $child ? $child->special_price : $product->special_price;
+            $hasSpecialPrice = $specialPrice && $specialPrice > 0;
+            
+            $this->cart[$cartKey] = [
+                'product_id' => $productId,
+                'child_id' => $childId,
+                'service_id' => null,
+                'is_service' => false,
+                'name' => $displayName,
+                'sku' => $child ? $child->sku : $product->sku,
+                'price' => round($priceWithTax, 2),
+                'base_price' => round($basePrice, 2),
+                'original_price' => round($priceWithTax, 2),
+                'original_base_price' => round($basePrice, 2),
+                'special_price' => $hasSpecialPrice ? round((float) $specialPrice, 2) : null,
+                'using_special_price' => false,
+                'quantity' => round($quantity, 3),
+                'subtotal' => round($basePrice * $quantity, 2),
+                'tax_id' => $product->tax_id,
+                'tax_rate' => $taxRate,
+                'tax_amount' => round(($priceWithTax - $basePrice) * $quantity, 2),
+                'price_includes_tax' => $priceIncludesTax,
+                'image' => $displayImage,
+                'max_stock' => (float) $product->current_stock,
+                // Discount fields
+                'discount_type' => null,
+                'discount_type_value' => 0,
+                'discount_amount' => 0,
+                'discount_reason' => null,
+            ];
+        }
+        
+        // Clear search and refocus
+        $this->productSearch = '';
+        $this->dispatch('focus-product-search');
+    }
+
     protected function updateCartItemTotals($cartKey)
     {
         if (!isset($this->cart[$cartKey])) return;
@@ -648,13 +896,24 @@ class PointOfSale extends Component
 
     public function updateQuantity($cartKey, $quantity)
     {
+        $quantity = (float) $quantity;
+        
         if ($quantity <= 0) {
             $this->removeFromCart($cartKey);
             return;
         }
         
         if (isset($this->cart[$cartKey])) {
-            $this->cart[$cartKey]['quantity'] = $quantity;
+            // Check stock limit for products (not services)
+            if (!($this->cart[$cartKey]['is_service'] ?? false)) {
+                $maxStock = $this->cart[$cartKey]['max_stock'] ?? PHP_INT_MAX;
+                if ($quantity > $maxStock) {
+                    $this->dispatch('notify', message: 'Stock insuficiente. Disponible: ' . number_format($maxStock, 3), type: 'warning');
+                    $quantity = $maxStock;
+                }
+            }
+            
+            $this->cart[$cartKey]['quantity'] = round($quantity, 3);
             $this->updateCartItemTotals($cartKey);
         }
     }
@@ -665,7 +924,7 @@ class PointOfSale extends Component
             // Check stock limit
             $maxStock = $this->cart[$cartKey]['max_stock'] ?? PHP_INT_MAX;
             if ($this->cart[$cartKey]['quantity'] >= $maxStock) {
-                $this->dispatch('notify', message: 'Stock insuficiente. Disponible: ' . $maxStock, type: 'warning');
+                $this->dispatch('notify', message: 'Stock insuficiente. Disponible: ' . number_format($maxStock, 3), type: 'warning');
                 return;
             }
             $this->cart[$cartKey]['quantity']++;
@@ -677,7 +936,7 @@ class PointOfSale extends Component
     {
         if (isset($this->cart[$cartKey])) {
             if ($this->cart[$cartKey]['quantity'] > 1) {
-                $this->cart[$cartKey]['quantity']--;
+                $this->cart[$cartKey]['quantity'] = round($this->cart[$cartKey]['quantity'] - 1, 3);
                 $this->updateCartItemTotals($cartKey);
             } else {
                 $this->removeFromCart($cartKey);
@@ -1271,7 +1530,7 @@ class PointOfSale extends Component
                     'price' => $product->price_includes_tax 
                         ? $product->sale_price 
                         : $product->getSalePriceWithTax(),
-                    'stock' => (int) $product->current_stock,
+                    'stock' => (float) $product->current_stock,
                     'image' => $product->image,
                     'unit' => $product->unit?->abbreviation ?? 'UND',
                 ]);
@@ -1288,7 +1547,7 @@ class PointOfSale extends Component
                     'price' => $product->price_includes_tax 
                         ? $product->sale_price 
                         : $product->getSalePriceWithTax(),
-                    'stock' => (int) $product->current_stock,
+                    'stock' => (float) $product->current_stock,
                     'image' => $product->image,
                     'unit' => $product->unit?->abbreviation ?? 'UND',
                     'has_variants' => true,
@@ -1308,7 +1567,7 @@ class PointOfSale extends Component
                         'price' => $child->price_includes_tax 
                             ? $child->sale_price 
                             : $child->getSalePriceWithTax(),
-                        'stock' => (int) $product->current_stock, // Stock is at parent level
+                        'stock' => (float) $product->current_stock, // Stock is at parent level
                         'image' => $child->image ?? $product->image,
                         'unit' => $product->unit?->abbreviation ?? 'UND',
                     ]);

@@ -23,6 +23,7 @@ class UnitFactory extends Factory
             'name' => $this->faker->unique()->words(2, true),
             'abbreviation' => strtoupper($this->faker->unique()->lexify('???')),
             'is_active' => true,
+            'is_weight_unit' => false,
         ];
     }
 
@@ -33,6 +34,16 @@ class UnitFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'is_active' => false,
+        ]);
+    }
+
+    /**
+     * Indicate that the unit is a weight unit.
+     */
+    public function weightUnit(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_weight_unit' => true,
         ]);
     }
 }

@@ -307,7 +307,7 @@ class FactusService
             $items[] = [
                 'code_reference' => $item->product_sku ?? (string) $item->product_id,
                 'name' => $item->product_name,
-                'quantity' => (int) $item->quantity,
+                'quantity' => round((float) $item->quantity, 3),
                 'discount_rate' => 0, // No discount at item level for now
                 'price' => round($unitPriceWithTax, 2), // Unit price with tax included
                 'tax_rate' => number_format($taxRate, 2, '.', ''),
@@ -518,7 +518,7 @@ class FactusService
             $items[] = [
                 'code_reference' => $item->product_sku ?? (string) $item->product_id,
                 'name' => $item->product_name,
-                'quantity' => (int) $item->quantity,
+                'quantity' => round((float) $item->quantity, 3),
                 'discount_rate' => 0,
                 'price' => round($unitPriceWithTax, 2),
                 'tax_rate' => number_format($taxRate, 2, '.', ''),

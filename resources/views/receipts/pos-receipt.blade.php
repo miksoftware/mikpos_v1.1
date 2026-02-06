@@ -445,7 +445,7 @@
             <div class="item">
                 <div class="item-name">{{ $item->product_name }}</div>
                 <div class="item-details">
-                    <span class="item-qty-price">{{ $item->quantity }} x ${{ number_format($item->unit_price, 0) }}</span>
+                    <span class="item-qty-price">{{ rtrim(rtrim(number_format($item->quantity, 3), '0'), '.') }} x ${{ number_format($item->unit_price, 0) }}</span>
                     <span class="item-total">${{ number_format($item->subtotal, 0) }}</span>
                 </div>
                 @if($item->discount_amount > 0)

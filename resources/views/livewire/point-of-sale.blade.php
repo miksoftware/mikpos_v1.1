@@ -232,7 +232,14 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
                                         </svg>
                                     </button>
-                                    <span class="w-6 text-center text-xs font-medium">{{ $item['quantity'] }}</span>
+                                    <input 
+                                        type="number" 
+                                        step="0.001" 
+                                        min="0.001"
+                                        value="{{ $item['quantity'] }}"
+                                        wire:change="updateQuantity('{{ $key }}', $event.target.value)"
+                                        class="w-12 text-center text-xs font-medium border-0 focus:ring-0 p-0"
+                                    >
                                     <button wire:click="incrementQuantity('{{ $key }}')" class="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-[#ff7261] transition">
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -1003,6 +1010,87 @@
                         </button>
                         <button wire:click="storeOpenCash" class="flex-1 px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea]">
                             Abrir Caja
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Weight Quantity Modal -->
+    @if($showWeightModal && $weightModalProduct)
+    <div class="relative z-[100]" role="dialog" aria-modal="true"
+        x-data="{ quantity: @entangle('weightModalQuantity') }"
+        @keydown.escape.window="$wire.closeWeightModal()"
+        @keydown.enter.window="$wire.confirmWeightModal()">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" 
+            wire:click="closeWeightModal"></div>
+        
+        <!-- Modal -->
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-sm bg-white rounded-2xl shadow-xl">
+                    <!-- Header -->
+                    <div class="px-6 py-4 border-b border-slate-200">
+                        <h3 class="text-lg font-bold text-slate-900 text-center">
+                            Ingresar Cantidad
+                        </h3>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div class="px-6 py-6 space-y-4">
+                        <!-- Product Info -->
+                        <div class="text-center">
+                            <p class="font-medium text-slate-800">
+                                {{ $weightModalProduct['name'] }}
+                            </p>
+                            <p class="text-sm text-slate-500">
+                                ${{ number_format($weightModalProduct['price'], 2) }} / 
+                                {{ $weightModalProduct['unit'] }}
+                            </p>
+                        </div>
+                        
+                        <!-- Quantity Input -->
+                        <div>
+                            <input type="number" 
+                                wire:model="weightModalQuantity"
+                                x-ref="weightInput"
+                                x-init="$nextTick(() => $refs.weightInput.focus())"
+                                step="0.001"
+                                min="0.001"
+                                class="w-full text-center text-3xl font-bold px-4 py-4 
+                                    border border-slate-300 rounded-xl 
+                                    focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]"
+                                placeholder="0.000">
+                            <p class="text-center text-lg text-slate-600 mt-2">
+                                {{ $weightModalProduct['unit'] }}
+                            </p>
+                        </div>
+                        
+                        <!-- Stock Info -->
+                        <p class="text-center text-sm text-slate-500">
+                            Stock disponible: 
+                            {{ number_format($weightModalProduct['stock'], 3) }} 
+                            {{ $weightModalProduct['unit'] }}
+                        </p>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 
+                        flex justify-center gap-3">
+                        <button wire:click="closeWeightModal" 
+                            class="px-6 py-2.5 text-sm font-medium text-slate-700 
+                                bg-white border border-slate-300 rounded-xl 
+                                hover:bg-slate-50">
+                            Cancelar
+                        </button>
+                        <button wire:click="confirmWeightModal" 
+                            class="px-6 py-2.5 text-sm font-medium text-white 
+                                bg-gradient-to-r from-[#ff7261] to-[#a855f7] 
+                                rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea]">
+                            Agregar
                         </button>
                     </div>
                 </div>

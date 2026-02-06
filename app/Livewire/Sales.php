@@ -233,7 +233,7 @@ class Sales extends Component
         $total = 0;
         foreach ($this->creditNoteItems as $item) {
             if (!empty($item['selected']) && $item['quantity'] > 0) {
-                $subtotal = (float) $item['unit_price'] * (int) $item['quantity'];
+                $subtotal = (float) $item['unit_price'] * (float) $item['quantity'];
                 $tax = $subtotal * ((float) $item['tax_rate'] / 100);
                 $total += $subtotal + $tax;
             }
@@ -276,7 +276,7 @@ class Sales extends Component
             
             foreach ($this->creditNoteItems as $item) {
                 if (!empty($item['selected']) && $item['quantity'] > 0) {
-                    $itemSubtotal = (float) $item['unit_price'] * (int) $item['quantity'];
+                    $itemSubtotal = (float) $item['unit_price'] * (float) $item['quantity'];
                     $itemTax = $itemSubtotal * ((float) $item['tax_rate'] / 100);
                     $subtotal += $itemSubtotal;
                     $taxTotal += $itemTax;
@@ -299,7 +299,7 @@ class Sales extends Component
 
             foreach ($this->creditNoteItems as $item) {
                 if (!empty($item['selected']) && $item['quantity'] > 0) {
-                    $itemSubtotal = (float) $item['unit_price'] * (int) $item['quantity'];
+                    $itemSubtotal = (float) $item['unit_price'] * (float) $item['quantity'];
                     $itemTax = $itemSubtotal * ((float) $item['tax_rate'] / 100);
                     
                     CreditNoteItem::create([
@@ -463,7 +463,7 @@ class Sales extends Component
         $total = 0;
         foreach ($this->refundItems as $item) {
             if (!empty($item['selected']) && $item['quantity'] > 0) {
-                $subtotal = (float) $item['unit_price'] * (int) $item['quantity'];
+                $subtotal = (float) $item['unit_price'] * (float) $item['quantity'];
                 $tax = $subtotal * ((float) $item['tax_rate'] / 100);
                 $total += $subtotal + $tax;
             }
@@ -509,7 +509,7 @@ class Sales extends Component
             
             foreach ($this->refundItems as $item) {
                 if (!empty($item['selected']) && $item['quantity'] > 0) {
-                    $itemSubtotal = (float) $item['unit_price'] * (int) $item['quantity'];
+                    $itemSubtotal = (float) $item['unit_price'] * (float) $item['quantity'];
                     $itemTax = $itemSubtotal * ((float) $item['tax_rate'] / 100);
                     $subtotal += $itemSubtotal;
                     $taxTotal += $itemTax;
@@ -532,7 +532,7 @@ class Sales extends Component
 
             foreach ($this->refundItems as $item) {
                 if (!empty($item['selected']) && $item['quantity'] > 0) {
-                    $itemSubtotal = (float) $item['unit_price'] * (int) $item['quantity'];
+                    $itemSubtotal = (float) $item['unit_price'] * (float) $item['quantity'];
                     $itemTax = $itemSubtotal * ((float) $item['tax_rate'] / 100);
                     
                     RefundItem::create([

@@ -39,6 +39,7 @@ class SeedPending extends Command
         'CommissionsReportPermissionSeeder',
         'KardexReportPermissionSeeder',
         'SalesBookReportPermissionSeeder',
+        'WeightUnitsSeeder',
         // Add new seeders here
     ];
 

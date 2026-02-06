@@ -173,7 +173,7 @@ class ProductsSold extends Component
     {
         $query = $this->getBaseQuery();
         
-        $this->totalQuantity = (int) (clone $query)->sum('sale_items.quantity');
+        $this->totalQuantity = (float) (clone $query)->sum('sale_items.quantity');
         $this->totalRevenue = (float) (clone $query)->sum('sale_items.total');
         $this->uniqueProducts = (int) (clone $query)->distinct('sale_items.product_id')->count('sale_items.product_id');
         $this->averageUnitPrice = $this->totalQuantity > 0 
@@ -244,7 +244,7 @@ class ProductsSold extends Component
             }
             return [
                 'label' => $label,
-                'quantity' => (int) $item->quantity,
+                'quantity' => (float) $item->quantity,
                 'revenue' => (float) $item->revenue,
             ];
         })->toArray();
@@ -342,7 +342,7 @@ class ProductsSold extends Component
             ->map(function ($item) {
                 return [
                     'hour' => sprintf('%02d:00', $item->hour),
-                    'quantity' => (int) $item->quantity,
+                    'quantity' => (float) $item->quantity,
                     'revenue' => (float) $item->revenue,
                 ];
             })
@@ -366,7 +366,7 @@ class ProductsSold extends Component
                 return [
                     'day' => $dayNames[$item->day_num - 1],
                     'day_num' => $item->day_num,
-                    'quantity' => (int) $item->quantity,
+                    'quantity' => (float) $item->quantity,
                     'revenue' => (float) $item->revenue,
                 ];
             })

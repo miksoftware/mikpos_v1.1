@@ -138,7 +138,7 @@ class Commissions extends Component
         }
 
         $basePrice = (float) $item->unit_price;
-        $quantity = (int) $item->quantity;
+        $quantity = (float) $item->quantity;
         $commissionValue = (float) $item->product->commission_value;
         $commissionType = $item->product->commission_type;
 
@@ -163,7 +163,7 @@ class Commissions extends Component
         foreach ($items as $item) {
             $this->totalCommissions += $this->calculateCommission($item);
             $this->totalSales += (float) $item->total;
-            $this->totalItemsSold += (int) $item->quantity;
+            $this->totalItemsSold += (float) $item->quantity;
         }
 
         $salesQuery = Sale::query()
@@ -216,7 +216,7 @@ class Commissions extends Component
             }
             $userCommissions[$userId]['commission'] += $this->calculateCommission($item);
             $userCommissions[$userId]['sales'] += (float) $item->total;
-            $userCommissions[$userId]['items'] += (int) $item->quantity;
+            $userCommissions[$userId]['items'] += (float) $item->quantity;
         }
 
         uasort($userCommissions, fn($a, $b) => $b['commission'] <=> $a['commission']);
@@ -285,7 +285,7 @@ class Commissions extends Component
                 ];
             }
             $productCommissions[$key]['commission'] += $this->calculateCommission($item);
-            $productCommissions[$key]['quantity'] += (int) $item->quantity;
+            $productCommissions[$key]['quantity'] += (float) $item->quantity;
             $productCommissions[$key]['sales'] += (float) $item->total;
         }
 
@@ -368,7 +368,7 @@ class Commissions extends Component
                 'product_sku' => $item->product_sku,
                 'category' => $item->category_name,
                 'brand' => $item->brand_name,
-                'quantity' => (int) $item->quantity,
+                'quantity' => (float) $item->quantity,
                 'unit_price' => (float) $item->unit_price,
                 'subtotal' => (float) $item->subtotal,
                 'total' => (float) $item->total,

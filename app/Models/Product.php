@@ -53,6 +53,9 @@ class Product extends Model
             'sale_price' => 'decimal:2',
             'special_price' => 'decimal:2',
             'commission_value' => 'decimal:2',
+            'min_stock' => 'decimal:3',
+            'max_stock' => 'decimal:3',
+            'current_stock' => 'decimal:3',
         ];
     }
 

@@ -481,3 +481,52 @@ Current reports:
 4. Add seeder to tracked seeders in both commands
 5. Add route in `routes/web.php` under reports group
 6. Add menu item in `resources/views/components/sidebar-menu.blade.php`
+
+
+## Decimal Quantities (Products by Weight)
+
+### Overview
+The system supports decimal quantities for products sold by weight (kg, lb, etc.).
+
+### Database Columns (DECIMAL 12,3)
+- `sale_items.quantity` - Supports up to 3 decimal places
+- `inventory_movements.quantity`, `stock_before`, `stock_after` - Decimal stock tracking
+- `products.current_stock`, `min_stock`, `max_stock` - Decimal stock levels
+
+### Model Casts
+```php
+// SaleItem
+'quantity' => 'decimal:3'
+
+// InventoryMovement
+'quantity' => 'decimal:3'
+'stock_before' => 'decimal:3'
+'stock_after' => 'decimal:3'
+
+// Product
+'current_stock' => 'decimal:3'
+'min_stock' => 'decimal:3'
+'max_stock' => 'decimal:3'
+```
+
+### POS Quantity Input
+- Input field allows decimal values with `step="0.001"`
+- Quantity is validated and rounded to 3 decimal places
+- Stock validation uses float comparison
+
+### Display Formatting
+For clean display of quantities (removes trailing zeros):
+```blade
+{{ rtrim(rtrim(number_format($quantity, 3), '0'), '.') }}
+```
+Examples: 1.5 → "1.5", 2.000 → "2", 1.125 → "1.125"
+
+### IMPORTANT: Never cast quantity to int
+When working with quantities, always use `(float)` cast, never `(int)`:
+```php
+// BAD - loses decimal precision
+$quantity = (int) $item->quantity;
+
+// GOOD - preserves decimals
+$quantity = (float) $item->quantity;
+```

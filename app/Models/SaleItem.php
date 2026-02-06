@@ -33,6 +33,7 @@ class SaleItem extends Model
     {
         return [
             'unit_price' => 'decimal:2',
+            'quantity' => 'decimal:3',
             'tax_rate' => 'decimal:2',
             'tax_amount' => 'decimal:2',
             'subtotal' => 'decimal:2',
