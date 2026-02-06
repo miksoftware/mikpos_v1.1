@@ -97,6 +97,10 @@ class PointOfSale extends Component
     public $weightModalProduct = null;
     public $weightModalQuantity = '';
 
+    // Print confirmation modal
+    public $showPrintConfirmModal = false;
+    public $pendingPrintSaleId = null;
+
     public function mount()
     {
         $user = auth()->user();
@@ -767,6 +771,27 @@ class PointOfSale extends Component
     }
 
     /**
+     * Confirm print and open receipt window.
+     */
+    public function confirmPrint(): void
+    {
+        if ($this->pendingPrintSaleId) {
+            $this->dispatch('print-receipt', saleId: $this->pendingPrintSaleId);
+        }
+        $this->closePrintConfirmModal();
+    }
+
+    /**
+     * Close print confirmation modal without printing.
+     */
+    public function closePrintConfirmModal(): void
+    {
+        $this->showPrintConfirmModal = false;
+        $this->pendingPrintSaleId = null;
+        $this->dispatch('focus-barcode-search');
+    }
+
+    /**
      * Add a product to cart with a specific quantity.
      * Used by weight modal and can be used for other quantity-specific additions.
      * 
@@ -1248,10 +1273,11 @@ class PointOfSale extends Component
                 type: $electronicInvoiceResult['sent'] && !$electronicInvoiceResult['success'] ? 'warning' : 'success'
             );
             
-            // Open print receipt window
-            $this->dispatch('print-receipt', saleId: $sale->id);
+            // Store sale ID and show print confirmation modal
+            $this->pendingPrintSaleId = $sale->id;
+            $this->showPrintConfirmModal = true;
             
-            // Reset
+            // Reset cart and payment modal
             $this->cart = [];
             $this->showPaymentModal = false;
             $this->payments = [];

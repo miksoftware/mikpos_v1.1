@@ -1098,6 +1098,59 @@
         </div>
     </div>
     @endif
+
+    <!-- Print Confirmation Modal -->
+    @if($showPrintConfirmModal)
+    <div class="relative z-[100]" role="dialog" aria-modal="true"
+        x-data
+        x-init="$el.querySelector('button[data-focus]')?.focus()"
+        @keydown.escape.window="$wire.closePrintConfirmModal()"
+        @keydown.enter.window="$wire.confirmPrint()">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]"></div>
+        
+        <!-- Modal -->
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-sm bg-white rounded-2xl shadow-xl">
+                    <!-- Content -->
+                    <div class="px-6 py-8 text-center">
+                        <!-- Printer Icon -->
+                        <div class="mx-auto w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                            <svg class="w-8 h-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                        </div>
+                        
+                        <h3 class="text-lg font-bold text-slate-900 mb-2">
+                            ¿Desea imprimir?
+                        </h3>
+                        <p class="text-sm text-slate-500 mb-6">
+                            Presiona Enter para imprimir o Esc para cancelar
+                        </p>
+                        
+                        <!-- Buttons -->
+                        <div class="flex justify-center gap-3">
+                            <button wire:click="closePrintConfirmModal" 
+                                class="px-6 py-2.5 text-sm font-medium text-slate-700 
+                                    bg-white border border-slate-300 rounded-xl 
+                                    hover:bg-slate-50">
+                                No
+                            </button>
+                            <button wire:click="confirmPrint" 
+                                data-focus
+                                class="px-6 py-2.5 text-sm font-medium text-white 
+                                    bg-gradient-to-r from-[#ff7261] to-[#a855f7] 
+                                    rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea]">
+                                Sí, imprimir
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 </div>
 
 @script
