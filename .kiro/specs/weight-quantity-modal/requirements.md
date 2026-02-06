@@ -23,7 +23,7 @@ This feature enhances the MikPOS Point of Sale system by automatically displayin
 
 1. THE Unit model SHALL have an `is_weight_unit` boolean field to identify weight-based units
 2. WHEN a new unit is created, THE System SHALL default `is_weight_unit` to false
-3. THE System SHALL mark the following unit abbreviations as weight units by default: KG, KILO, KILOGRAMO, LB, LIBRA, GR, G, GRAMO, OZ, ONZA, MG, MILIGRAMO
+3. THE System SHALL mark the following unit abbreviations as weight units by default: KG, KL, KILO, KILOS, KILOGRAMO, KILOGRAMOS, LB, LBS, LIBRA, LIBRAS, GR, G, GRAMO, GRAMOS, OZ, ONZA, ONZAS, MG, MILIGRAMO, MILIGRAMOS
 
 ### Requirement 2: Automatic Quantity Modal for Weight Products
 

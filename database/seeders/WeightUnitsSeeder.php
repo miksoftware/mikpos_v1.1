@@ -18,17 +18,25 @@ class WeightUnitsSeeder extends Seeder
         // Weight unit abbreviations to mark (case-insensitive)
         $weightAbbreviations = [
             'KG',
+            'KL',
             'KILO',
+            'KILOS',
             'KILOGRAMO',
+            'KILOGRAMOS',
             'LB',
+            'LBS',
             'LIBRA',
+            'LIBRAS',
             'GR',
             'G',
             'GRAMO',
+            'GRAMOS',
             'OZ',
             'ONZA',
+            'ONZAS',
             'MG',
             'MILIGRAMO',
+            'MILIGRAMOS',
         ];
 
         // Update existing units that match weight abbreviations
