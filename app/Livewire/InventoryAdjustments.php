@@ -5,6 +5,8 @@ namespace App\Livewire;
 use App\Models\Branch;
 use App\Models\InventoryMovement;
 use App\Models\Product;
+use App\Models\ProductBarcode;
+use App\Models\ProductChild;
 use App\Models\SystemDocument;
 use App\Services\ActivityLogService;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +35,7 @@ class InventoryAdjustments extends Component
 
     public $productSearch = '';
     public $showProductDropdown = false;
+    public $barcodeSearch = '';
 
     // Branch control
     public bool $needsBranchSelection = false;
@@ -142,6 +145,81 @@ class InventoryAdjustments extends Component
 
         $this->productSearch = '';
         $this->showProductDropdown = false;
+    }
+
+    public function searchByBarcode()
+    {
+        $barcode = trim($this->barcodeSearch);
+
+        if (strlen($barcode) < 3) {
+            return;
+        }
+
+        // Determine branch for filtering
+        $user = auth()->user();
+        $branchId = $this->branch_id ?? $user->branch_id;
+
+        // Search in product_barcodes table first
+        $barcodeRecord = ProductBarcode::where('barcode', $barcode)->first();
+
+        if ($barcodeRecord) {
+            if ($barcodeRecord->product_child_id) {
+                $child = ProductChild::where('id', $barcodeRecord->product_child_id)
+                    ->where('is_active', true)
+                    ->whereHas('product', fn($q) => $q->where('is_active', true)->forBranch($branchId))
+                    ->first();
+
+                if ($child) {
+                    $this->addProduct($child->product_id);
+                    $this->barcodeSearch = '';
+                    $this->dispatch('focus-barcode-adjustment');
+                    return;
+                }
+            }
+
+            if ($barcodeRecord->product_id) {
+                $product = Product::where('id', $barcodeRecord->product_id)
+                    ->where('is_active', true)
+                    ->forBranch($branchId)
+                    ->first();
+
+                if ($product) {
+                    $this->addProduct($product->id);
+                    $this->barcodeSearch = '';
+                    $this->dispatch('focus-barcode-adjustment');
+                    return;
+                }
+            }
+        }
+
+        // Fallback: search in legacy barcode fields
+        $child = ProductChild::where('barcode', $barcode)
+            ->where('is_active', true)
+            ->whereHas('product', fn($q) => $q->where('is_active', true)->forBranch($branchId))
+            ->first();
+
+        if ($child) {
+            $this->addProduct($child->product_id);
+            $this->barcodeSearch = '';
+            $this->dispatch('focus-barcode-adjustment');
+            return;
+        }
+
+        $product = Product::where('barcode', $barcode)
+            ->where('is_active', true)
+            ->forBranch($branchId)
+            ->first();
+
+        if ($product) {
+            $this->addProduct($product->id);
+            $this->barcodeSearch = '';
+            $this->dispatch('focus-barcode-adjustment');
+            return;
+        }
+
+        $this->dispatch('notify', message: 'Producto no encontrado: ' . $barcode, type: 'warning');
+        $this->barcodeSearch = '';
+        $this->dispatch('focus-barcode-adjustment');
     }
 
     public function removeItem($index)
@@ -341,6 +419,7 @@ class InventoryAdjustments extends Component
         $this->items = [];
         $this->branch_id = null;
         $this->productSearch = '';
+        $this->barcodeSearch = '';
         $this->showProductDropdown = false;
     }
 }
