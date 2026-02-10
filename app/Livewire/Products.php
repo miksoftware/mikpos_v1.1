@@ -187,10 +187,17 @@ class Products extends Component
                     $query->where('name', 'like', "%{$this->search}%")
                         ->orWhere('sku', 'like', "%{$this->search}%")
                         ->orWhere('description', 'like', "%{$this->search}%")
+                        ->orWhere('barcode', 'like', "%{$this->search}%")
+                        ->orWhereHas('barcodes', function ($bq) {
+                            $bq->where('barcode', 'like', "%{$this->search}%");
+                        })
                         ->orWhereHas('children', function ($childQuery) {
                             $childQuery->where('name', 'like', "%{$this->search}%")
                                 ->orWhere('sku', 'like', "%{$this->search}%")
                                 ->orWhere('barcode', 'like', "%{$this->search}%");
+                        })
+                        ->orWhereHas('children.barcodes', function ($cbq) {
+                            $cbq->where('barcode', 'like', "%{$this->search}%");
                         });
                 });
             })
@@ -355,8 +362,8 @@ class Products extends Component
         $item = Product::updateOrCreate(['id' => $this->itemId], [
             'branch_id' => $branchId,
             'barcode' => $this->barcode ?: null,
-            'name' => $this->name,
-            'description' => $this->description,
+            'name' => mb_strtoupper($this->name),
+            'description' => $this->description ? mb_strtoupper($this->description) : null,
             'category_id' => $this->category_id,
             'subcategory_id' => $this->subcategory_id ?: null,
             'brand_id' => $this->brand_id ?: null,
@@ -643,7 +650,7 @@ class Products extends Component
             'unit_quantity' => $this->childUnitQuantity,
             'sku' => $this->childSku ?: null,
             'barcode' => $this->childBarcode ?: null,
-            'name' => $this->childName,
+            'name' => mb_strtoupper($this->childName),
             'presentation_id' => $this->childPresentationId ?: null,
             'color_id' => $this->childColorId ?: null,
             'product_model_id' => $this->childProductModelId ?: null,
@@ -1776,8 +1783,8 @@ class Products extends Component
                 $product = Product::create([
                     'branch_id' => $branchId,
                     'sku' => $sku,
-                    'name' => $data['nombre'],
-                    'description' => $data['descripcion'] ?? null,
+                    'name' => mb_strtoupper($data['nombre']),
+                    'description' => !empty($data['descripcion']) ? mb_strtoupper($data['descripcion']) : null,
                     'barcode' => $barcode,
                     'category_id' => $defaultCategory->id,
                     'unit_id' => $defaultUnit->id,
@@ -1884,7 +1891,7 @@ class Products extends Component
 
                 ProductChild::create([
                     'product_id' => $parentId,
-                    'name' => $data['nombre'],
+                    'name' => mb_strtoupper($data['nombre']),
                     'barcode' => $barcode,
                     'unit_quantity' => floatval($data['cantidad_unidades'] ?? 1),
                     'sale_price' => floatval($data['precio_venta']),
