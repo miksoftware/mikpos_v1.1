@@ -18,6 +18,6 @@
     <!-- Toast Notifications -->
     <x-toast />
 
-    @livewireScripts
+    @livewireScriptConfig
 </body>
 </html>

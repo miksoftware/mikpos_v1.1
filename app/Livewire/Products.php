@@ -1107,6 +1107,112 @@ class Products extends Component
         $this->imei = null;
     }
 
+    // ==================== CSV EXPORT METHOD ====================
+
+    public function exportProducts()
+    {
+        if (!auth()->user()->hasPermission('products.view')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        $user = auth()->user();
+
+        // Determine branch
+        $branchId = null;
+        if ($this->needsBranchSelection) {
+            if (!$this->filterBranch) {
+                $this->dispatch('notify', message: 'Selecciona una sucursal antes de exportar', type: 'error');
+                return;
+            }
+            $branchId = $this->filterBranch;
+        } else {
+            $branchId = $user->branch_id;
+        }
+
+        $products = Product::with(['tax', 'children.barcodes', 'barcodes'])
+            ->where('branch_id', $branchId)
+            ->orderBy('name')
+            ->get();
+
+        if ($products->isEmpty()) {
+            $this->dispatch('notify', message: 'No hay productos para exportar', type: 'warning');
+            return;
+        }
+
+        // Build CSV rows in the same format as the import template
+        $headers = [
+            'tipo', 'sku', 'nombre', 'descripcion', 'producto_padre_sku',
+            'cantidad_unidades', 'stock_inicial', 'precio_compra', 'precio_venta',
+            'codigo_barras', 'tiene_comision', 'tipo_comision', 'valor_comision',
+            'precio_incluye_impuesto', 'impuesto_nombre',
+        ];
+
+        $rows = [];
+
+        foreach ($products as $product) {
+            // Get primary barcode
+            $barcode = $product->getPrimaryBarcode() ?? $product->barcode ?? '';
+
+            $rows[] = [
+                'PADRE',
+                $product->sku ?? '',
+                $product->name,
+                $product->description ?? '',
+                '', // producto_padre_sku (empty for parents)
+                '', // cantidad_unidades (empty for parents)
+                (float) $product->current_stock,
+                (float) $product->purchase_price,
+                (float) $product->sale_price,
+                $barcode,
+                $product->has_commission ? 'SI' : 'NO',
+                $product->has_commission ? strtoupper($product->commission_type === 'percentage' ? 'PORCENTAJE' : 'FIJO') : '',
+                $product->has_commission ? (float) $product->commission_value : '',
+                $product->price_includes_tax ? 'SI' : 'NO',
+                $product->tax?->name ?? '',
+            ];
+
+            // Export children
+            foreach ($product->children as $child) {
+                $childBarcode = $child->getPrimaryBarcode() ?? $child->barcode ?? '';
+
+                $rows[] = [
+                    'VARIANTE',
+                    $child->sku ?? '',
+                    $child->name,
+                    '', // description (children don't have it)
+                    $product->sku ?? '', // producto_padre_sku
+                    (float) $child->unit_quantity,
+                    '', // stock_inicial (empty for variants)
+                    '', // precio_compra (empty for variants)
+                    (float) $child->sale_price,
+                    $childBarcode,
+                    $child->has_commission ? 'SI' : 'NO',
+                    $child->has_commission ? strtoupper($child->commission_type === 'percentage' ? 'PORCENTAJE' : 'FIJO') : '',
+                    $child->has_commission ? (float) $child->commission_value : '',
+                    $child->price_includes_tax ? 'SI' : 'NO',
+                    '', // impuesto_nombre (inherited from parent)
+                ];
+            }
+        }
+
+        // Generate CSV
+        $filename = 'productos_export_' . date('Y-m-d_His') . '.csv';
+
+        return response()->streamDownload(function () use ($headers, $rows) {
+            $output = fopen('php://output', 'w');
+            // UTF-8 BOM for Excel compatibility
+            fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fputcsv($output, $headers);
+            foreach ($rows as $row) {
+                fputcsv($output, $row);
+            }
+            fclose($output);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
     // ==================== CSV IMPORT METHODS ====================
 
     public function openImportModal()

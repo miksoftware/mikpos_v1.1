@@ -6,6 +6,13 @@
             <p class="text-slate-500 mt-1">Gestiona los productos y sus variantes</p>
         </div>
         <div class="flex items-center gap-2">
+            @if(auth()->user()->hasPermission('products.view'))
+            <button wire:click="exportProducts" wire:loading.attr="disabled" wire:target="exportProducts" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200 disabled:opacity-50">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                <span wire:loading.remove wire:target="exportProducts">Exportar CSV</span>
+                <span wire:loading wire:target="exportProducts">Exportando...</span>
+            </button>
+            @endif
             @if(auth()->user()->hasPermission('products.create'))
             <button wire:click="openImportModal" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>

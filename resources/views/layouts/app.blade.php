@@ -158,7 +158,7 @@
     <!-- Toast Notifications -->
     <x-toast />
 
-    @livewireScripts
+    @livewireScriptConfig
     @stack('scripts')
 </body>
 

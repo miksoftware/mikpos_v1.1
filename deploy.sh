@@ -50,6 +50,10 @@ run npm ci --production=false 2>/dev/null || run npm install --production=false
 echo "🔨 Compilando assets con Vite..."
 run npm run build
 
+# Publicar assets de Livewire (respaldo)
+echo "📄 Publicando assets de Livewire..."
+run php artisan livewire:publish --assets 2>/dev/null || true
+
 # Ejecutar migraciones
 echo "🗄️  Ejecutando migraciones..."
 run php artisan migrate --force
