@@ -123,12 +123,25 @@ class Users extends Component
 
     public function confirmDelete($id)
     {
+        // Prevent deleting the first user (super admin created during installation)
+        if ((int) $id === 1) {
+            $this->dispatch('notify', message: 'El usuario administrador principal no puede ser eliminado', type: 'error');
+            return;
+        }
+
         $this->userIdToDelete = $id;
         $this->isDeleteModalOpen = true;
     }
 
     public function delete()
     {
+        // Double-check protection
+        if ((int) $this->userIdToDelete === 1) {
+            $this->dispatch('notify', message: 'El usuario administrador principal no puede ser eliminado', type: 'error');
+            $this->isDeleteModalOpen = false;
+            return;
+        }
+
         User::find($this->userIdToDelete)->delete();
         $this->isDeleteModalOpen = false;
         $this->dispatch('notify', message: 'Usuario eliminado correctamente');
