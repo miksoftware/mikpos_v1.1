@@ -13,6 +13,12 @@
                 <span wire:loading wire:target="exportProducts">Exportando...</span>
             </button>
             @endif
+            @if(auth()->user()->hasPermission('products.delete'))
+            <button wire:click="openBulkDeleteModal" class="inline-flex items-center px-4 py-2 bg-white border border-red-300 hover:bg-red-50 text-red-600 text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                Eliminación Masiva
+            </button>
+            @endif
             @if(auth()->user()->hasPermission('products.create'))
             <button wire:click="openImportModal" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
@@ -1751,6 +1757,143 @@
                         <button wire:click="closeBarcodeModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
                             Cerrar
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Bulk Delete Modal --}}
+    @if($isBulkDeleteModalOpen)
+    <div class="relative z-[100]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="closeBulkDeleteModal"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-3xl bg-white rounded-2xl shadow-xl">
+                    {{-- Header --}}
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">Eliminación Masiva de Productos</h3>
+                            <p class="text-sm text-slate-500 mt-0.5">Filtra y selecciona los productos a eliminar</p>
+                        </div>
+                        <button wire:click="closeBulkDeleteModal" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    {{-- Filters --}}
+                    <div class="px-6 py-4 border-b border-slate-200 space-y-3">
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <div class="relative flex-1">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </div>
+                                <input wire:model.live.debounce.300ms="bulkDeleteSearch" type="text" class="block w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm" placeholder="Buscar por nombre o SKU...">
+                            </div>
+                            <select wire:model.live="bulkDeleteStockFilter" class="px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm">
+                                <option value="">Stock: Todos</option>
+                                <option value="zero">Sin stock (0)</option>
+                                <option value="low">Stock bajo</option>
+                                <option value="has">Con stock</option>
+                            </select>
+                            <select wire:model.live="bulkDeleteStatusFilter" class="px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm">
+                                <option value="">Estado: Todos</option>
+                                <option value="1">Activos</option>
+                                <option value="0">Inactivos</option>
+                            </select>
+                            <select wire:model.live="bulkDeleteCategoryFilter" class="px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm">
+                                <option value="">Categoría: Todas</option>
+                                @foreach($categories as $cat)
+                                <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <button wire:click="selectAllBulkDelete" class="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+                                    Seleccionar todos
+                                </button>
+                                <button wire:click="deselectAllBulkDelete" class="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+                                    Deseleccionar todos
+                                </button>
+                            </div>
+                            <span class="text-sm font-medium {{ count($bulkDeleteSelected) > 0 ? 'text-red-600' : 'text-slate-500' }}">
+                                {{ count($bulkDeleteSelected) }} seleccionado(s)
+                            </span>
+                        </div>
+                    </div>
+
+                    {{-- Product List --}}
+                    <div class="px-6 py-4 max-h-[400px] overflow-y-auto">
+                        @php $bulkProducts = $this->bulkDeleteProducts; @endphp
+                        @if($bulkProducts->count() > 0)
+                        <div class="space-y-1">
+                            @foreach($bulkProducts as $product)
+                            @php $hasActiveChildren = $product->active_children_count > 0; @endphp
+                            <label class="flex items-center gap-3 p-3 rounded-xl transition-colors {{ $hasActiveChildren ? 'opacity-50 cursor-not-allowed bg-slate-50' : 'hover:bg-slate-50 cursor-pointer' }} {{ in_array($product->id, $bulkDeleteSelected) ? 'bg-red-50 border border-red-200' : 'border border-transparent' }}">
+                                <input
+                                    type="checkbox"
+                                    wire:click="toggleBulkDeleteProduct({{ $product->id }})"
+                                    {{ in_array($product->id, $bulkDeleteSelected) ? 'checked' : '' }}
+                                    {{ $hasActiveChildren ? 'disabled' : '' }}
+                                    class="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                                >
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-medium text-sm text-slate-900 truncate">{{ $product->name }}</span>
+                                        @if($product->category)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 flex-shrink-0">{{ $product->category->name }}</span>
+                                        @endif
+                                    </div>
+                                    <div class="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                                        <span>SKU: {{ $product->sku ?? '-' }}</span>
+                                        <span>Stock: {{ rtrim(rtrim(number_format($product->current_stock, 3), '0'), '.') }}</span>
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs {{ $product->is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
+                                            {{ $product->is_active ? 'Activo' : 'Inactivo' }}
+                                        </span>
+                                        @if($hasActiveChildren)
+                                        <span class="text-amber-600 font-medium">Tiene variantes activas</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </label>
+                            @endforeach
+                        </div>
+                        @else
+                        <div class="text-center py-8 text-slate-500">
+                            <svg class="w-12 h-12 mx-auto text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                            <p class="text-sm">No se encontraron productos con los filtros aplicados</p>
+                            @if($needsBranchSelection && !$filterBranch)
+                            <p class="text-xs text-amber-600 mt-1">Selecciona una sucursal en los filtros principales primero</p>
+                            @endif
+                        </div>
+                        @endif
+                    </div>
+
+                    {{-- Footer --}}
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                        <p class="text-xs text-slate-500">Los productos con variantes activas no pueden eliminarse</p>
+                        <div class="flex gap-3">
+                            <button wire:click="closeBulkDeleteModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
+                                Cancelar
+                            </button>
+                            <button
+                                wire:click="executeBulkDelete"
+                                wire:loading.attr="disabled"
+                                wire:target="executeBulkDelete"
+                                {{ empty($bulkDeleteSelected) ? 'disabled' : '' }}
+                                class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <span wire:loading.remove wire:target="executeBulkDelete">
+                                    Eliminar {{ count($bulkDeleteSelected) }} producto(s)
+                                </span>
+                                <span wire:loading wire:target="executeBulkDelete" class="flex items-center gap-2">
+                                    <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                    Eliminando...
+                                </span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

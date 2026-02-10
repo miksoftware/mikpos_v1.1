@@ -144,6 +144,15 @@ class Products extends Component
     public string $newBarcode = '';
     public string $newBarcodeDescription = '';
 
+    // Bulk delete
+    public bool $isBulkDeleteModalOpen = false;
+    public string $bulkDeleteSearch = '';
+    public string $bulkDeleteStockFilter = ''; // '', 'zero', 'low', 'has'
+    public string $bulkDeleteStatusFilter = ''; // '', '1', '0'
+    public ?int $bulkDeleteCategoryFilter = null;
+    public array $bulkDeleteSelected = []; // array of product IDs
+    public bool $isBulkDeleting = false;
+
     public function mount()
     {
         $user = auth()->user();
@@ -2082,4 +2091,171 @@ class Products extends Component
         $this->newBarcode = '';
         $this->newBarcodeDescription = '';
     }
+
+    // ==================== BULK DELETE METHODS ====================
+
+    public function openBulkDeleteModal()
+    {
+        if (!auth()->user()->hasPermission('products.delete')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+        $this->resetBulkDeleteForm();
+        $this->isBulkDeleteModalOpen = true;
+    }
+
+    public function closeBulkDeleteModal()
+    {
+        $this->isBulkDeleteModalOpen = false;
+        $this->resetBulkDeleteForm();
+    }
+
+    private function resetBulkDeleteForm()
+    {
+        $this->bulkDeleteSearch = '';
+        $this->bulkDeleteStockFilter = '';
+        $this->bulkDeleteStatusFilter = '';
+        $this->bulkDeleteCategoryFilter = null;
+        $this->bulkDeleteSelected = [];
+        $this->isBulkDeleting = false;
+    }
+
+    public function getBulkDeleteProductsProperty()
+    {
+        $user = auth()->user();
+        $query = Product::query()
+            ->with(['category', 'brand'])
+            ->withCount('activeChildren');
+
+        // Branch filter
+        if ($this->needsBranchSelection) {
+            if ($this->filterBranch) {
+                $query->where('branch_id', $this->filterBranch);
+            } else {
+                return collect();
+            }
+        } else {
+            $query->where('branch_id', $user->branch_id);
+        }
+
+        // Search
+        if ($this->bulkDeleteSearch) {
+            $query->where(function ($q) {
+                $q->where('name', 'like', "%{$this->bulkDeleteSearch}%")
+                  ->orWhere('sku', 'like', "%{$this->bulkDeleteSearch}%");
+            });
+        }
+
+        // Stock filter
+        if ($this->bulkDeleteStockFilter === 'zero') {
+            $query->where('current_stock', '<=', 0);
+        } elseif ($this->bulkDeleteStockFilter === 'low') {
+            $query->whereRaw('current_stock <= min_stock')->where('current_stock', '>', 0);
+        } elseif ($this->bulkDeleteStockFilter === 'has') {
+            $query->where('current_stock', '>', 0);
+        }
+
+        // Status filter
+        if ($this->bulkDeleteStatusFilter !== '') {
+            $query->where('is_active', $this->bulkDeleteStatusFilter === '1');
+        }
+
+        // Category filter
+        if ($this->bulkDeleteCategoryFilter) {
+            $query->where('category_id', $this->bulkDeleteCategoryFilter);
+        }
+
+        return $query->orderBy('name')->limit(100)->get();
+    }
+
+    public function toggleBulkDeleteProduct($productId)
+    {
+        $productId = (int) $productId;
+        if (in_array($productId, $this->bulkDeleteSelected)) {
+            $this->bulkDeleteSelected = array_values(array_diff($this->bulkDeleteSelected, [$productId]));
+        } else {
+            $this->bulkDeleteSelected[] = $productId;
+        }
+    }
+
+    public function selectAllBulkDelete()
+    {
+        $products = $this->getBulkDeleteProductsProperty();
+        // Only select products that can be deleted (no active children)
+        $deletable = $products->filter(fn($p) => $p->active_children_count === 0);
+        $this->bulkDeleteSelected = $deletable->pluck('id')->toArray();
+    }
+
+    public function deselectAllBulkDelete()
+    {
+        $this->bulkDeleteSelected = [];
+    }
+
+    public function executeBulkDelete()
+    {
+        if (!auth()->user()->hasPermission('products.delete')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        if (empty($this->bulkDeleteSelected)) {
+            $this->dispatch('notify', message: 'No hay productos seleccionados', type: 'warning');
+            return;
+        }
+
+        $this->isBulkDeleting = true;
+        $deleted = 0;
+        $skipped = 0;
+
+        try {
+            DB::beginTransaction();
+
+            foreach ($this->bulkDeleteSelected as $productId) {
+                $product = Product::with('children')->find($productId);
+                if (!$product) continue;
+
+                if (!$product->canDelete()) {
+                    $skipped++;
+                    continue;
+                }
+
+                // Delete child images
+                foreach ($product->children as $child) {
+                    if ($child->image && Storage::disk('public')->exists($child->image)) {
+                        Storage::disk('public')->delete($child->image);
+                    }
+                }
+                $product->children()->delete();
+
+                // Delete product barcodes
+                $product->barcodes()->delete();
+
+                // Delete product image
+                if ($product->image && Storage::disk('public')->exists($product->image)) {
+                    Storage::disk('public')->delete($product->image);
+                }
+
+                ActivityLogService::logDelete('products', $product, "Producto '{$product->name}' eliminado (masivo)");
+                $product->delete();
+                $deleted++;
+            }
+
+            DB::commit();
+
+            $message = "{$deleted} producto(s) eliminado(s)";
+            if ($skipped > 0) {
+                $message .= ". {$skipped} omitido(s) por tener variantes activas";
+            }
+
+            $this->dispatch('notify', message: $message, type: $skipped > 0 ? 'warning' : 'success');
+            $this->closeBulkDeleteModal();
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->dispatch('notify', message: 'Error al eliminar: ' . $e->getMessage(), type: 'error');
+        }
+
+        $this->isBulkDeleting = false;
+    }
+
 }
