@@ -17,8 +17,8 @@ class CheckInstallation
     {
         $lockFile = storage_path('installed.lock');
         
-        // If not installed and not on install route, redirect to install
-        if (!File::exists($lockFile) && !$request->is('install*')) {
+        // If not installed and not on install route or livewire route, redirect to install
+        if (!File::exists($lockFile) && !$request->is('install*') && !$request->is('livewire/*')) {
             return redirect('/install');
         }
         

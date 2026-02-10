@@ -72,70 +72,32 @@ class Install extends Component
 
     protected function checkRequirements(): void
     {
-        $this->requirements = [
-            'php_version' => [
-                'name' => 'PHP >= 8.2',
-                'passed' => version_compare(PHP_VERSION, '8.2.0', '>='),
-                'current' => PHP_VERSION,
-            ],
-            'pdo' => [
-                'name' => 'PDO Extension',
-                'passed' => extension_loaded('pdo'),
-                'current' => extension_loaded('pdo') ? 'Instalado' : 'No instalado',
-            ],
-            'pdo_mysql' => [
-                'name' => 'PDO MySQL Extension',
-                'passed' => extension_loaded('pdo_mysql'),
-                'current' => extension_loaded('pdo_mysql') ? 'Instalado' : 'No instalado',
-            ],
-            'mbstring' => [
-                'name' => 'Mbstring Extension',
-                'passed' => extension_loaded('mbstring'),
-                'current' => extension_loaded('mbstring') ? 'Instalado' : 'No instalado',
-            ],
-            'openssl' => [
-                'name' => 'OpenSSL Extension',
-                'passed' => extension_loaded('openssl'),
-                'current' => extension_loaded('openssl') ? 'Instalado' : 'No instalado',
-            ],
-            'tokenizer' => [
-                'name' => 'Tokenizer Extension',
-                'passed' => extension_loaded('tokenizer'),
-                'current' => extension_loaded('tokenizer') ? 'Instalado' : 'No instalado',
-            ],
-            'json' => [
-                'name' => 'JSON Extension',
-                'passed' => extension_loaded('json'),
-                'current' => extension_loaded('json') ? 'Instalado' : 'No instalado',
-            ],
-            'curl' => [
-                'name' => 'cURL Extension',
-                'passed' => extension_loaded('curl'),
-                'current' => extension_loaded('curl') ? 'Instalado' : 'No instalado',
-            ],
-            'fileinfo' => [
-                'name' => 'Fileinfo Extension',
-                'passed' => extension_loaded('fileinfo'),
-                'current' => extension_loaded('fileinfo') ? 'Instalado' : 'No instalado',
-            ],
-            'storage_writable' => [
-                'name' => 'Directorio storage/ escribible',
-                'passed' => is_writable(storage_path()),
-                'current' => is_writable(storage_path()) ? 'Escribible' : 'No escribible',
-            ],
-            'bootstrap_cache_writable' => [
-                'name' => 'Directorio bootstrap/cache/ escribible',
-                'passed' => is_writable(base_path('bootstrap/cache')),
-                'current' => is_writable(base_path('bootstrap/cache')) ? 'Escribible' : 'No escribible',
-            ],
-            'env_writable' => [
-                'name' => 'Archivo .env escribible',
-                'passed' => is_writable(base_path('.env')) || is_writable(base_path()),
-                'current' => (is_writable(base_path('.env')) || is_writable(base_path())) ? 'Escribible' : 'No escribible',
-            ],
+        $this->requirements = [];
+        
+        $checks = [
+            ['name' => 'PHP >= 8.2', 'passed' => version_compare(PHP_VERSION, '8.2.0', '>='), 'current' => PHP_VERSION],
+            ['name' => 'PDO Extension', 'passed' => extension_loaded('pdo'), 'current' => extension_loaded('pdo') ? 'Instalado' : 'No instalado'],
+            ['name' => 'PDO MySQL Extension', 'passed' => extension_loaded('pdo_mysql'), 'current' => extension_loaded('pdo_mysql') ? 'Instalado' : 'No instalado'],
+            ['name' => 'Mbstring Extension', 'passed' => extension_loaded('mbstring'), 'current' => extension_loaded('mbstring') ? 'Instalado' : 'No instalado'],
+            ['name' => 'OpenSSL Extension', 'passed' => extension_loaded('openssl'), 'current' => extension_loaded('openssl') ? 'Instalado' : 'No instalado'],
+            ['name' => 'Tokenizer Extension', 'passed' => extension_loaded('tokenizer'), 'current' => extension_loaded('tokenizer') ? 'Instalado' : 'No instalado'],
+            ['name' => 'JSON Extension', 'passed' => extension_loaded('json'), 'current' => extension_loaded('json') ? 'Instalado' : 'No instalado'],
+            ['name' => 'cURL Extension', 'passed' => extension_loaded('curl'), 'current' => extension_loaded('curl') ? 'Instalado' : 'No instalado'],
+            ['name' => 'Fileinfo Extension', 'passed' => extension_loaded('fileinfo'), 'current' => extension_loaded('fileinfo') ? 'Instalado' : 'No instalado'],
+            ['name' => 'Directorio storage/ escribible', 'passed' => is_writable(storage_path()), 'current' => is_writable(storage_path()) ? 'Escribible' : 'No escribible'],
+            ['name' => 'Directorio bootstrap/cache/ escribible', 'passed' => is_writable(base_path('bootstrap/cache')), 'current' => is_writable(base_path('bootstrap/cache')) ? 'Escribible' : 'No escribible'],
+            ['name' => 'Archivo .env escribible', 'passed' => is_writable(base_path('.env')) || is_writable(base_path()), 'current' => (is_writable(base_path('.env')) || is_writable(base_path())) ? 'Escribible' : 'No escribible'],
         ];
 
-        $this->requirementsPassed = collect($this->requirements)->every(fn($req) => $req['passed']);
+        foreach ($checks as $check) {
+            $this->requirements[] = [
+                'name' => $check['name'],
+                'passed' => (bool) $check['passed'],
+                'current' => $check['current'],
+            ];
+        }
+
+        $this->requirementsPassed = collect($this->requirements)->every(fn($req) => $req['passed'] === true);
     }
 
     public function testDatabaseConnection()
@@ -167,9 +129,15 @@ class Install extends Component
 
     public function nextStep()
     {
-        if ($this->currentStep === 1 && !$this->requirementsPassed) {
-            $this->dispatch('notify', message: 'Debe cumplir todos los requisitos', type: 'error');
-            return;
+        if ($this->currentStep === 1) {
+            // Recheck requirements before advancing
+            $this->checkRequirements();
+            
+            if (!$this->requirementsPassed) {
+                $failed = collect($this->requirements)->filter(fn($req) => !$req['passed'])->pluck('name')->implode(', ');
+                $this->dispatch('notify', message: 'Requisitos faltantes: ' . ($failed ?: 'Verificación fallida'), type: 'error');
+                return;
+            }
         }
 
         if ($this->currentStep === 2) {
@@ -300,8 +268,20 @@ class Install extends Component
             $this->updateStatus('Configurando documentos del sistema...', 87);
             Artisan::call('db:seed', ['--class' => 'SystemDocumentsSeeder', '--force' => true]);
 
+            $this->updateStatus('Configurando permisos de servicios...', 88);
+            Artisan::call('db:seed', ['--class' => 'ServicesModuleSeeder', '--force' => true]);
+
+            $this->updateStatus('Configurando permisos de reportes...', 89);
+            Artisan::call('db:seed', ['--class' => 'ReportsModuleSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'CommissionsReportPermissionSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'KardexReportPermissionSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'SalesBookReportPermissionSeeder', '--force' => true]);
+
+            $this->updateStatus('Configurando unidades de peso...', 90);
+            Artisan::call('db:seed', ['--class' => 'WeightUnitsSeeder', '--force' => true]);
+
             // Step 5: Create branch
-            $this->updateStatus('Creando sucursal...', 88);
+            $this->updateStatus('Creando sucursal...', 92);
             $branch = \App\Models\Branch::create([
                 'code' => $this->branch_code,
                 'name' => $this->branch_name,
@@ -316,7 +296,7 @@ class Install extends Component
             ]);
 
             // Step 6: Create super admin
-            $this->updateStatus('Creando usuario administrador...', 92);
+            $this->updateStatus('Creando usuario administrador...', 94);
             $superAdminRole = \App\Models\Role::where('name', 'super_admin')->first();
             
             $admin = \App\Models\User::create([

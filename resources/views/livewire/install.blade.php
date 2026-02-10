@@ -44,7 +44,7 @@
             </div>
 
             <div class="space-y-3 max-h-[400px] overflow-y-auto">
-                @foreach($requirements as $key => $req)
+                @foreach($requirements as $index => $req)
                 <div class="flex items-center justify-between p-3 rounded-xl {{ $req['passed'] ? 'bg-green-50' : 'bg-red-50' }}">
                     <div class="flex items-center gap-3">
                         @if($req['passed'])
@@ -294,8 +294,9 @@
             @endif
 
             @if($currentStep < $totalSteps)
-            <button wire:click="nextStep" class="px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all">
-                Siguiente
+            <button wire:click="nextStep" wire:loading.attr="disabled" class="px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all disabled:opacity-50">
+                <span wire:loading.remove wire:target="nextStep">Siguiente</span>
+                <span wire:loading wire:target="nextStep">Procesando...</span>
             </button>
             @else
             <button wire:click="install" class="px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all">
