@@ -839,9 +839,20 @@ class Products extends Component
 
         // Barcode - configurable, validate against product_barcodes table
         if ($this->isParentFieldVisible('barcode')) {
+            $barcodeRule = 'unique:product_barcodes,barcode';
+            // When editing, exclude the current product's existing barcode
+            if ($this->itemId && $this->barcode) {
+                $existingBarcode = ProductBarcode::where('product_id', $this->itemId)
+                    ->whereNull('product_child_id')
+                    ->where('barcode', $this->barcode)
+                    ->first();
+                if ($existingBarcode) {
+                    $barcodeRule = 'unique:product_barcodes,barcode,' . $existingBarcode->id;
+                }
+            }
             $rules['barcode'] = $this->isParentFieldRequired('barcode') 
-                ? 'required|unique:product_barcodes,barcode'
-                : 'nullable|unique:product_barcodes,barcode';
+                ? "required|{$barcodeRule}"
+                : "nullable|{$barcodeRule}";
         }
 
         // Presentation - configurable
@@ -937,9 +948,19 @@ class Products extends Component
 
         // Add barcode validation against product_barcodes table
         if ($this->isChildFieldVisible('barcode')) {
+            $barcodeRule = 'unique:product_barcodes,barcode';
+            // When editing, exclude the current child's existing barcode
+            if ($this->childId && $this->childBarcode) {
+                $existingBarcode = ProductBarcode::where('product_child_id', $this->childId)
+                    ->where('barcode', $this->childBarcode)
+                    ->first();
+                if ($existingBarcode) {
+                    $barcodeRule = 'unique:product_barcodes,barcode,' . $existingBarcode->id;
+                }
+            }
             $rules['childBarcode'] = $this->isChildFieldRequired('barcode')
-                ? 'required|unique:product_barcodes,barcode'
-                : 'nullable|unique:product_barcodes,barcode';
+                ? "required|{$barcodeRule}"
+                : "nullable|{$barcodeRule}";
         }
 
         // Add presentation validation
