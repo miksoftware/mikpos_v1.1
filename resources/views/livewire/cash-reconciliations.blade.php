@@ -1,6 +1,14 @@
 <div>
     <x-toast />
 
+    @script
+    <script>
+        $wire.on('print-cash-reconciliation', ({ id }) => {
+            window.open(`/cash-reconciliation-receipt/${id}`, '_blank');
+        });
+    </script>
+    @endscript
+
     <!-- Header -->
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-slate-800">Arqueos de Caja</h1>
@@ -135,6 +143,15 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                     </svg>
                                 </button>
+                                @if($item->status === 'closed')
+                                <a href="{{ route('cash-reconciliation-receipt.show', $item->id) }}" target="_blank"
+                                    class="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                                    title="Imprimir cierre">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                    </svg>
+                                </a>
+                                @endif
                                 @if($item->status === 'open' && auth()->user()->hasPermission('cash_reconciliations.edit'))
                                 <button wire:click="openMovementModal({{ $item->id }})"
                                     class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
@@ -567,7 +584,18 @@
                     </div>
                     @endif
                 </div>
-                <div class="px-6 py-4 flex justify-end border-t border-slate-200 bg-white rounded-b-2xl">
+                <div class="px-6 py-4 flex justify-between border-t border-slate-200 bg-white rounded-b-2xl">
+                    <div>
+                        @if($viewReconciliation->status === 'closed')
+                        <a href="{{ route('cash-reconciliation-receipt.show', $viewReconciliation->id) }}" target="_blank"
+                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                            Imprimir Cierre
+                        </a>
+                        @endif
+                    </div>
                     <button wire:click="$set('isViewModalOpen', false)" type="button"
                         class="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-xl transition-colors">
                         Cerrar

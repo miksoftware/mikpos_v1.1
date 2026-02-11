@@ -298,6 +298,7 @@ class CashReconciliations extends Component
 
         $this->isCloseModalOpen = false;
         $this->dispatch('notify', message: 'Caja cerrada correctamente');
+        $this->dispatch('print-cash-reconciliation', id: $reconciliation->id);
     }
 
     public function viewReconciliation(int $id)

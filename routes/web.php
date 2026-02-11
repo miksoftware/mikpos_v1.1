@@ -221,6 +221,20 @@ Route::middleware(['auth'])->group(function () {
         return view('receipts.purchase-receipt', compact('purchase'));
     })->name('purchase-receipt.show')->middleware('permission:purchases.view');
 
+    // Cash Reconciliation Receipt
+    Route::get('/cash-reconciliation-receipt/{reconciliation}', function (App\Models\CashReconciliation $reconciliation) {
+        $reconciliation->load([
+            'branch.department',
+            'branch.municipality',
+            'cashRegister',
+            'openedByUser',
+            'closedByUser',
+            'movements.user',
+        ]);
+        
+        return view('receipts.cash-reconciliation-receipt', compact('reconciliation'));
+    })->name('cash-reconciliation-receipt.show')->middleware('permission:cash_reconciliations.view');
+
     // Reports
     Route::prefix('reports')->name('reports.')->middleware('permission:reports.view')->group(function () {
         Route::get('/products-sold', App\Livewire\Reports\ProductsSold::class)
