@@ -87,6 +87,20 @@
                     </button>
                     @endforeach
                 </div>
+                @elseif(strlen($productSearch) >= 2)
+                {{-- No results - show create option --}}
+                <div class="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl p-4">
+                    <div class="text-center">
+                        <svg class="w-10 h-10 text-slate-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        <p class="text-sm text-slate-500 mb-3">No se encontró "<span class="font-medium text-slate-700">{{ $productSearch }}</span>"</p>
+                        @if(auth()->user()->hasPermission('products.create'))
+                        <button type="button" wire:click="openQuickCreate" class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] text-white text-sm font-medium rounded-xl transition-all">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            Crear Producto
+                        </button>
+                        @endif
+                    </div>
+                </div>
                 @endif
             </div>
             @endif
@@ -194,7 +208,7 @@
                         </svg>
                         <div class="flex-1">
                             <p class="text-xs font-medium text-amber-800">Selecciona la sucursal</p>
-                            <select wire:model="branch_id" class="mt-1.5 w-full px-3 py-2 border border-amber-300 rounded-lg bg-white focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 text-sm @error('branch_id') border-red-300 @enderror">
+                            <select wire:model.live="branch_id" class="mt-1.5 w-full px-3 py-2 border border-amber-300 rounded-lg bg-white focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 text-sm @error('branch_id') border-red-300 @enderror">
                                 <option value="">Seleccionar sucursal...</option>
                                 @foreach($branches as $branch)
                                 <option value="{{ $branch->id }}">{{ $branch->name }}</option>
@@ -369,6 +383,99 @@
             @endif
         </div>
     </div>
+
+    {{-- Quick Product Create Modal --}}
+    @if($isQuickCreateOpen)
+    <div class="relative z-[100]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="$set('isQuickCreateOpen', false)"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-xl">
+                    {{-- Header --}}
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-r from-[#ff7261] to-[#a855f7] flex items-center justify-center">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-900">Crear Producto Rápido</h3>
+                        </div>
+                        <button wire:click="$set('isQuickCreateOpen', false)" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+                    {{-- Content --}}
+                    <div class="px-6 py-4 space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
+                            <input wire:model="quickName" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Nombre del producto">
+                            @error('quickName') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Categoría *</label>
+                                <select wire:model="quickCategoryId" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                    <option value="">Seleccionar...</option>
+                                    @foreach($quickCategories as $cat)
+                                    <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('quickCategoryId') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Unidad *</label>
+                                <select wire:model="quickUnitId" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                    <option value="">Seleccionar...</option>
+                                    @foreach($quickUnits as $u)
+                                    <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->abbreviation }})</option>
+                                    @endforeach
+                                </select>
+                                @error('quickUnitId') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Impuesto</label>
+                            <select wire:model="quickTaxId" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                <option value="">Sin impuesto</option>
+                                @foreach($quickTaxes as $t)
+                                <option value="{{ $t->id }}">{{ $t->name }} ({{ $t->value }}%)</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Precio Compra *</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">$</span>
+                                    <input wire:model="quickPurchasePrice" type="number" step="0.01" min="0" class="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                </div>
+                                @error('quickPurchasePrice') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Precio Venta *</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">$</span>
+                                    <input wire:model="quickSalePrice" type="number" step="0.01" min="0" class="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                </div>
+                                @error('quickSalePrice') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                            </div>
+                        </div>
+                        <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                            <p class="text-xs text-blue-600">El producto se creará con stock en 0 y se asignará automáticamente a la sucursal actual. El SKU se generará automáticamente.</p>
+                        </div>
+                    </div>
+                    {{-- Footer --}}
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 rounded-b-2xl">
+                        <button wire:click="$set('isQuickCreateOpen', false)" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
+                        <button wire:click="storeQuickProduct" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea]">
+                            <span wire:loading.remove wire:target="storeQuickProduct">Crear y Agregar</span>
+                            <span wire:loading wire:target="storeQuickProduct">Creando...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 
     <script>
         document.addEventListener('livewire:init', () => {

@@ -3,11 +3,14 @@
 namespace App\Livewire;
 
 use App\Models\Branch;
+use App\Models\Category;
 use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\Supplier;
+use App\Models\Tax;
+use App\Models\Unit;
 use App\Services\ActivityLogService;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -57,6 +60,18 @@ class PurchaseCreate extends Component
     public float $taxAmount = 0;
     public float $discountAmount = 0;
     public float $total = 0;
+
+    // Quick product creation
+    public bool $isQuickCreateOpen = false;
+    public string $quickName = '';
+    public ?int $quickCategoryId = null;
+    public ?int $quickUnitId = null;
+    public ?int $quickTaxId = null;
+    public float $quickPurchasePrice = 0;
+    public float $quickSalePrice = 0;
+    public $quickCategories = [];
+    public $quickUnits = [];
+    public $quickTaxes = [];
 
     public function mount(?int $id = null)
     {
@@ -328,6 +343,13 @@ class PurchaseCreate extends Component
         }
     }
 
+    public function updatedBranchId()
+    {
+        // Clear search results when branch changes
+        $this->productSearch = '';
+        $this->searchResults = [];
+    }
+
     public function updatedPaymentType()
     {
         if ($this->payment_type === 'cash') {
@@ -344,6 +366,74 @@ class PurchaseCreate extends Component
     public function saveDraft()
     {
         $this->savePurchase('draft');
+    }
+
+    public function openQuickCreate()
+    {
+        $this->quickCategories = Category::where('is_active', true)->orderBy('name')->get();
+        $this->quickUnits = Unit::where('is_active', true)->orderBy('name')->get();
+        $this->quickTaxes = Tax::where('is_active', true)->orderBy('name')->get();
+
+        $this->quickName = mb_strtoupper($this->productSearch);
+        $this->quickCategoryId = null;
+        $this->quickUnitId = null;
+        $this->quickTaxId = null;
+        $this->quickPurchasePrice = 0;
+        $this->quickSalePrice = 0;
+
+        $this->isQuickCreateOpen = true;
+    }
+
+    public function storeQuickProduct()
+    {
+        if (!auth()->user()->hasPermission('products.create')) {
+            $this->dispatch('notify', message: 'No tienes permiso para crear productos', type: 'error');
+            return;
+        }
+
+        $this->validate([
+            'quickName' => 'required|min:2',
+            'quickCategoryId' => 'required|exists:categories,id',
+            'quickUnitId' => 'required|exists:units,id',
+            'quickPurchasePrice' => 'required|numeric|min:0',
+            'quickSalePrice' => 'required|numeric|min:0',
+        ], [
+            'quickName.required' => 'El nombre es obligatorio',
+            'quickName.min' => 'El nombre debe tener al menos 2 caracteres',
+            'quickCategoryId.required' => 'La categoría es obligatoria',
+            'quickUnitId.required' => 'La unidad es obligatoria',
+            'quickPurchasePrice.required' => 'El precio de compra es obligatorio',
+            'quickSalePrice.required' => 'El precio de venta es obligatorio',
+        ]);
+
+        $branchId = $this->needsBranchSelection ? $this->branch_id : auth()->user()->branch_id;
+
+        $product = Product::create([
+            'branch_id' => $branchId,
+            'name' => mb_strtoupper($this->quickName),
+            'category_id' => $this->quickCategoryId,
+            'unit_id' => $this->quickUnitId,
+            'tax_id' => $this->quickTaxId ?: null,
+            'purchase_price' => $this->quickPurchasePrice,
+            'sale_price' => $this->quickSalePrice,
+            'current_stock' => 0,
+            'min_stock' => 0,
+            'is_active' => true,
+        ]);
+
+        $product->generateSku();
+        $product->save();
+
+        ActivityLogService::logCreate('products', $product, "Producto '{$product->name}' creado desde compras");
+
+        $this->isQuickCreateOpen = false;
+        $this->productSearch = '';
+        $this->searchResults = [];
+
+        // Auto-add to cart
+        $this->addProduct($product->id);
+
+        $this->dispatch('notify', message: "Producto '{$product->name}' creado y agregado", type: 'success');
     }
 
     public function completePurchase()
