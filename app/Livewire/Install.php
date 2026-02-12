@@ -280,6 +280,9 @@ class Install extends Component
             $this->updateStatus('Configurando unidades de peso...', 90);
             Artisan::call('db:seed', ['--class' => 'WeightUnitsSeeder', '--force' => true]);
 
+            $this->updateStatus('Configurando reporte P&G...', 91);
+            Artisan::call('db:seed', ['--class' => 'ProfitLossReportPermissionSeeder', '--force' => true]);
+
             // Step 5: Create branch
             $this->updateStatus('Creando sucursal...', 92);
             $branch = \App\Models\Branch::create([

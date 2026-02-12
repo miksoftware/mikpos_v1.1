@@ -264,5 +264,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/sales-book', App\Livewire\Reports\SalesBook::class)
             ->name('sales-book')
             ->middleware('permission:reports.sales_book');
+
+        Route::get('/profit-loss', App\Livewire\Reports\ProfitLoss::class)
+            ->name('profit-loss')
+            ->middleware('permission:reports.profit_loss');
+
+        Route::get('/profit-loss/excel', [App\Http\Controllers\ReportExportController::class, 'profitLossExcel'])
+            ->name('profit-loss.excel')
+            ->middleware('permission:reports.export');
     });
 });

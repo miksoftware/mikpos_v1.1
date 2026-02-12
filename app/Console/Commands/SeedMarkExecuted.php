@@ -36,6 +36,7 @@ class SeedMarkExecuted extends Command
         'KardexReportPermissionSeeder',
         'SalesBookReportPermissionSeeder',
         'WeightUnitsSeeder',
+        'ProfitLossReportPermissionSeeder',
     ];
 
     public function handle(): int
