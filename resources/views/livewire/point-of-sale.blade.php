@@ -778,10 +778,44 @@
                             <p class="text-4xl font-bold text-[#ff7261]">${{ number_format($total, 2) }}</p>
                         </div>
 
+                        <!-- Credit Toggle (only if customer has credit) -->
+                        @if($creditInfo['available'])
+                        <div class="p-4 rounded-xl border-2 transition-all {{ $isCredit ? 'border-purple-500 bg-purple-50' : 'border-slate-200 bg-slate-50' }}">
+                            <label class="flex items-center justify-between cursor-pointer">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full {{ $isCredit ? 'bg-purple-100' : 'bg-slate-200' }} flex items-center justify-center">
+                                        <svg class="w-5 h-5 {{ $isCredit ? 'text-purple-600' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <span class="text-sm font-semibold {{ $isCredit ? 'text-purple-700' : 'text-slate-700' }}">Venta a Crédito</span>
+                                        <p class="text-xs {{ $isCredit ? 'text-purple-500' : 'text-slate-400' }}">
+                                            Disponible: ${{ number_format($creditInfo['remaining'], 2) }}
+                                            @if($creditInfo['limit'] > 0)
+                                            / Límite: ${{ number_format($creditInfo['limit'], 2) }}
+                                            @endif
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="relative">
+                                    <input wire:model.live="isCredit" type="checkbox" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                </div>
+                            </label>
+                            @if($isCredit && $creditInfo['limit'] > 0 && ($total - $totalReceived) > $creditInfo['remaining'])
+                            <p class="text-xs text-red-500 mt-2 flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
+                                El monto a crédito excede el disponible
+                            </p>
+                            @endif
+                        </div>
+                        @endif
+
                         <!-- Payment Methods List -->
                         <div>
                             <div class="flex items-center justify-between mb-3">
-                                <label class="text-sm font-medium text-slate-700">Métodos de Pago</label>
+                                <label class="text-sm font-medium text-slate-700">
+                                    {{ $isCredit ? 'Anticipo (opcional)' : 'Métodos de Pago' }}
+                                </label>
                                 <button wire:click="addPaymentMethod" class="text-xs text-[#ff7261] hover:text-[#e55a4a] font-medium flex items-center gap-1">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -821,6 +855,16 @@
                                 <span class="text-slate-500">Total a pagar</span>
                                 <span class="font-medium">${{ number_format($total, 2) }}</span>
                             </div>
+                            @if($isCredit)
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-500">Anticipo</span>
+                                <span class="font-medium text-green-600">${{ number_format($totalReceived, 2) }}</span>
+                            </div>
+                            <div class="flex justify-between text-sm pt-2 border-t border-slate-200">
+                                <span class="text-purple-600 font-medium">Monto a crédito</span>
+                                <span class="font-bold text-purple-600">${{ number_format(max(0, $total - $totalReceived), 2) }}</span>
+                            </div>
+                            @else
                             <div class="flex justify-between text-sm">
                                 <span class="text-slate-500">Total recibido</span>
                                 <span class="font-medium text-green-600">${{ number_format($totalReceived, 2) }}</span>
@@ -836,6 +880,7 @@
                                 <span class="font-bold text-green-600">${{ number_format($change, 2) }}</span>
                             </div>
                             @endif
+                            @endif
                         </div>
                     </div>
 
@@ -843,9 +888,20 @@
                         <button wire:click="cancelPayment" class="flex-1 px-4 py-3 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
                             Cancelar
                         </button>
-                        <button wire:click="processPayment" class="flex-1 px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] disabled:opacity-50" {{ $pendingAmount > 0 ? 'disabled' : '' }}>
-                            Confirmar Pago
+                        @if($isCredit)
+                        <button wire:click="processPayment" class="flex-1 px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-purple-500 to-[#a855f7] rounded-xl hover:from-purple-600 hover:to-[#9333ea] disabled:opacity-50"
+                            wire:loading.attr="disabled" wire:target="processPayment">
+                            <span wire:loading.remove wire:target="processPayment">Confirmar Crédito</span>
+                            <span wire:loading wire:target="processPayment">Procesando...</span>
                         </button>
+                        @else
+                        <button wire:click="processPayment" class="flex-1 px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] disabled:opacity-50"
+                            {{ $pendingAmount > 0 ? 'disabled' : '' }}
+                            wire:loading.attr="disabled" wire:target="processPayment">
+                            <span wire:loading.remove wire:target="processPayment">Confirmar Pago</span>
+                            <span wire:loading wire:target="processPayment">Procesando...</span>
+                        </button>
+                        @endif
                     </div>
                 </div>
             </div>

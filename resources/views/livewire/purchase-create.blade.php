@@ -111,59 +111,109 @@
             @if(count($cartItems) > 0)
             <div class="space-y-3">
                 @foreach($cartItems as $index => $item)
-                <div class="flex items-center gap-4 p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                    @if($item['image'])
-                    <img src="{{ Storage::url($item['image']) }}" class="w-14 h-14 rounded-lg object-cover">
-                    @else
-                    <div class="w-14 h-14 rounded-lg bg-slate-200 flex items-center justify-center">
-                        <svg class="w-7 h-7 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-                    </div>
-                    @endif
-                    
-                    <div class="flex-1 min-w-0">
-                        <p class="font-semibold text-slate-800 truncate">{{ $item['name'] }}</p>
-                        <p class="text-sm text-slate-500">{{ $item['sku'] ?? 'Sin SKU' }} · {{ $item['unit'] }}</p>
-                    </div>
+                <div class="p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors" x-data="{ showDiscount: {{ ($item['discount_type_value'] ?? 0) > 0 ? 'true' : 'false' }} }">
+                    <div class="flex items-center gap-4">
+                        @if($item['image'])
+                        <img src="{{ Storage::url($item['image']) }}" class="w-14 h-14 rounded-lg object-cover">
+                        @else
+                        <div class="w-14 h-14 rounded-lg bg-slate-200 flex items-center justify-center">
+                            <svg class="w-7 h-7 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                        </div>
+                        @endif
+                        
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-slate-800 truncate">{{ $item['name'] }}</p>
+                            <p class="text-sm text-slate-500">{{ $item['sku'] ?? 'Sin SKU' }} · {{ $item['unit'] }}</p>
+                        </div>
 
-                    {{-- Quantity --}}
-                    <div class="flex items-center gap-1">
-                        <button type="button" wire:click="updateQuantity({{ $index }}, {{ $item['quantity'] - 1 }})" class="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
-                        </button>
-                        <input type="number" wire:change="updateQuantity({{ $index }}, $event.target.value)" value="{{ $item['quantity'] }}" min="1" class="w-16 text-center py-1.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
-                        <button type="button" wire:click="updateQuantity({{ $index }}, {{ $item['quantity'] + 1 }})" class="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                        </button>
-                    </div>
+                        {{-- Quantity --}}
+                        <div class="flex items-center gap-1">
+                            <button type="button" wire:click="updateQuantity({{ $index }}, {{ $item['quantity'] - 1 }})" class="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                            </button>
+                            <input type="number" wire:change="updateQuantity({{ $index }}, $event.target.value)" value="{{ $item['quantity'] }}" min="1" class="w-16 text-center py-1.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                            <button type="button" wire:click="updateQuantity({{ $index }}, {{ $item['quantity'] + 1 }})" class="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            </button>
+                        </div>
 
-                    {{-- Unit Cost --}}
-                    <div class="w-24">
-                        <label class="text-xs text-slate-500 block mb-1">Costo</label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-slate-400 text-sm">$</span>
-                            <input type="number" wire:change="updateUnitCost({{ $index }}, $event.target.value)" value="{{ $item['unit_cost'] }}" step="0.01" min="0" class="w-full pl-6 pr-1 py-1.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-right text-sm">
+                        {{-- Unit Cost --}}
+                        <div class="w-24">
+                            <label class="text-xs text-slate-500 block mb-1">Costo</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-slate-400 text-sm">$</span>
+                                <input type="number" wire:change="updateUnitCost({{ $index }}, $event.target.value)" value="{{ $item['unit_cost'] }}" step="0.01" min="0" class="w-full pl-6 pr-1 py-1.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-right text-sm">
+                            </div>
+                        </div>
+
+                        {{-- Sale Price --}}
+                        <div class="w-24">
+                            <label class="text-xs text-slate-500 block mb-1">P. Venta</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-slate-400 text-sm">$</span>
+                                <input type="number" wire:change="updateSalePrice({{ $index }}, $event.target.value)" value="{{ $item['sale_price'] ?? 0 }}" step="0.01" min="0" class="w-full pl-6 pr-1 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/50 focus:border-green-500 text-right text-sm bg-green-50">
+                            </div>
+                        </div>
+
+                        {{-- Subtotal --}}
+                        <div class="w-24 text-right">
+                            <p class="text-xs text-slate-500">Subtotal</p>
+                            <p class="font-bold text-slate-800">${{ number_format($item['subtotal'], 2) }}</p>
+                            @if(($item['discount'] ?? 0) > 0)
+                            <p class="text-xs text-amber-600 font-medium">-${{ number_format($item['discount'], 2) }}</p>
+                            @endif
+                        </div>
+
+                        {{-- Discount Toggle + Remove --}}
+                        <div class="flex items-center gap-1">
+                            <button type="button" @click="showDiscount = !showDiscount" class="p-2 rounded-lg transition-colors" :class="showDiscount || {{ ($item['discount_type_value'] ?? 0) > 0 ? 'true' : 'false' }} ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'" title="Descuento">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                            </button>
+                            <button type="button" wire:click="removeItem({{ $index }})" class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
                         </div>
                     </div>
 
-                    {{-- Sale Price --}}
-                    <div class="w-24">
-                        <label class="text-xs text-slate-500 block mb-1">P. Venta</label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-slate-400 text-sm">$</span>
-                            <input type="number" wire:change="updateSalePrice({{ $index }}, $event.target.value)" value="{{ $item['sale_price'] ?? 0 }}" step="0.01" min="0" class="w-full pl-6 pr-1 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/50 focus:border-green-500 text-right text-sm bg-green-50">
+                    {{-- Inline Discount Row --}}
+                    <div x-show="showDiscount" x-collapse class="mt-3 pt-3 border-t border-slate-200">
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm font-medium text-amber-600 flex items-center gap-1.5 whitespace-nowrap">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                                Descuento
+                            </span>
+
+                            {{-- Type Toggle --}}
+                            <div class="flex rounded-lg border border-slate-200 overflow-hidden">
+                                <button type="button" wire:click="updateDiscountType({{ $index }}, 'percentage')" class="px-3 py-1.5 text-xs font-medium transition-colors {{ ($item['discount_type'] ?? 'percentage') === 'percentage' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50' }}">
+                                    %
+                                </button>
+                                <button type="button" wire:click="updateDiscountType({{ $index }}, 'fixed')" class="px-3 py-1.5 text-xs font-medium transition-colors border-l border-slate-200 {{ ($item['discount_type'] ?? 'percentage') === 'fixed' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50' }}">
+                                    $
+                                </button>
+                            </div>
+
+                            {{-- Value Input --}}
+                            <div class="relative w-32">
+                                <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center text-amber-500 text-sm font-medium">{{ ($item['discount_type'] ?? 'percentage') === 'percentage' ? '%' : '$' }}</span>
+                                <input type="number" 
+                                    wire:change="updateDiscount({{ $index }}, $event.target.value)" 
+                                    value="{{ ($item['discount_type_value'] ?? 0) > 0 ? $item['discount_type_value'] : '' }}" 
+                                    step="0.01" 
+                                    min="0" 
+                                    max="{{ ($item['discount_type'] ?? 'percentage') === 'percentage' ? '100' : $item['subtotal'] }}"
+                                    class="w-full pl-7 pr-2 py-1.5 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 text-right text-sm bg-amber-50" 
+                                    placeholder="0">
+                            </div>
+
+                            {{-- Calculated discount display --}}
+                            @if(($item['discount'] ?? 0) > 0)
+                            <span class="text-sm text-amber-700 font-semibold whitespace-nowrap">
+                                = -${{ number_format($item['discount'], 2) }}
+                            </span>
+                            @endif
                         </div>
                     </div>
-
-                    {{-- Subtotal --}}
-                    <div class="w-24 text-right">
-                        <p class="text-xs text-slate-500">Subtotal</p>
-                        <p class="font-bold text-slate-800">${{ number_format($item['subtotal'], 2) }}</p>
-                    </div>
-
-                    {{-- Remove --}}
-                    <button type="button" wire:click="removeItem({{ $index }})" class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                    </button>
                 </div>
                 @endforeach
             </div>

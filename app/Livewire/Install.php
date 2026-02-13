@@ -283,6 +283,12 @@ class Install extends Component
             $this->updateStatus('Configurando reporte P&G...', 91);
             Artisan::call('db:seed', ['--class' => 'ProfitLossReportPermissionSeeder', '--force' => true]);
 
+            $this->updateStatus('Configurando permisos de créditos...', 92);
+            Artisan::call('db:seed', ['--class' => 'CreditsModuleSeeder', '--force' => true]);
+
+            $this->updateStatus('Configurando reporte de créditos...', 93);
+            Artisan::call('db:seed', ['--class' => 'CreditsReportPermissionSeeder', '--force' => true]);
+
             // Step 5: Create branch
             $this->updateStatus('Creando sucursal...', 92);
             $branch = \App\Models\Branch::create([

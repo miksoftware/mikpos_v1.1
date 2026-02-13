@@ -41,6 +41,8 @@ class SeedPending extends Command
         'SalesBookReportPermissionSeeder',
         'WeightUnitsSeeder',
         'ProfitLossReportPermissionSeeder',
+        'CreditsModuleSeeder',
+        'CreditsReportPermissionSeeder',
         // Add new seeders here
     ];
 

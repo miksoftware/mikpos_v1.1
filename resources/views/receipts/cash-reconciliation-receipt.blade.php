@@ -164,6 +164,55 @@
             @endif
         </div>
 
+        <!-- Credit Payments -->
+        @php
+            $creditPayments = \App\Models\CreditPayment::with(['supplier', 'customer', 'paymentMethod'])
+                ->where('cash_reconciliation_id', $reconciliation->id)
+                ->where('affects_cash', true)
+                ->get();
+            $creditPayable = $creditPayments->where('credit_type', 'payable');
+            $creditReceivable = $creditPayments->where('credit_type', 'receivable');
+        @endphp
+        @if($creditPayments->count() > 0)
+        <div class="section">
+            <div class="section-title">Pagos de Créditos</div>
+            @foreach($creditPayable as $cp)
+            <div class="movement-item">
+                <div class="row">
+                    <span class="label">(-) Pago prov: {{ $cp->supplier->name ?? '-' }}</span>
+                    <span class="value">${{ number_format($cp->amount, 2) }}</span>
+                </div>
+                <div style="font-size: 10px; color: #666; padding-left: 4px;">
+                    {{ $cp->paymentMethod->name ?? '' }} · {{ $cp->created_at->format('H:i') }}
+                </div>
+            </div>
+            @endforeach
+            @foreach($creditReceivable as $cp)
+            <div class="movement-item">
+                <div class="row">
+                    <span class="label">(+) Cobro cliente: {{ $cp->customer->first_name ?? '-' }}</span>
+                    <span class="value">${{ number_format($cp->amount, 2) }}</span>
+                </div>
+                <div style="font-size: 10px; color: #666; padding-left: 4px;">
+                    {{ $cp->paymentMethod->name ?? '' }} · {{ $cp->created_at->format('H:i') }}
+                </div>
+            </div>
+            @endforeach
+            @if($creditPayable->count() > 0)
+            <div class="row" style="margin-top: 4px;">
+                <span class="label">Total pagos proveedores:</span>
+                <span class="value" style="color: #600;">${{ number_format($creditPayable->sum('amount'), 2) }}</span>
+            </div>
+            @endif
+            @if($creditReceivable->count() > 0)
+            <div class="row">
+                <span class="label">Total cobros clientes:</span>
+                <span class="value" style="color: #060;">${{ number_format($creditReceivable->sum('amount'), 2) }}</span>
+            </div>
+            @endif
+        </div>
+        @endif
+
         <!-- Cash Summary -->
         <div class="section">
             <div class="section-title">Resumen de Efectivo</div>

@@ -101,6 +101,9 @@ class PointOfSale extends Component
     public $showPrintConfirmModal = false;
     public $pendingPrintSaleId = null;
 
+    // Credit sale
+    public bool $isCredit = false;
+
     public function mount()
     {
         $user = auth()->user();
@@ -1111,6 +1114,10 @@ class PointOfSale extends Component
 
     public function getPendingAmountProperty()
     {
+        if ($this->isCredit) {
+            // In credit mode, no payment is required (but partial upfront is allowed)
+            return 0;
+        }
         $pending = $this->getTotalProperty() - $this->getTotalReceivedProperty();
         return max(0, $pending);
     }
@@ -1119,6 +1126,29 @@ class PointOfSale extends Component
     {
         $change = $this->getTotalReceivedProperty() - $this->getTotalProperty();
         return max(0, $change);
+    }
+
+    public function getCustomerCreditInfoProperty(): array
+    {
+        if (!$this->selectedCustomer || !$this->selectedCustomer->has_credit) {
+            return ['available' => false, 'limit' => 0, 'used' => 0, 'remaining' => 0];
+        }
+
+        $limit = (float) $this->selectedCustomer->credit_limit;
+
+        // Sum unpaid credit sales for this customer
+        $used = (float) Sale::where('customer_id', $this->selectedCustomer->id)
+            ->where('payment_type', 'credit')
+            ->whereIn('payment_status', ['pending', 'partial'])
+            ->selectRaw('COALESCE(SUM(credit_amount - paid_amount), 0) as total_used')
+            ->value('total_used');
+
+        return [
+            'available' => true,
+            'limit' => $limit,
+            'used' => $used,
+            'remaining' => max(0, $limit - $used),
+        ];
     }
 
     public function openPayment()
@@ -1145,6 +1175,7 @@ class PointOfSale extends Component
         $this->payments = [
             ['method_id' => $defaultPaymentMethod?->id ?? '', 'amount' => $this->getTotalProperty()]
         ];
+        $this->isCredit = false;
         $this->showPaymentModal = true;
     }
 
@@ -1163,21 +1194,59 @@ class PointOfSale extends Component
 
     public function processPayment()
     {
-        // Validate all payment methods have a method selected
-        foreach ($this->payments as $payment) {
-            if (empty($payment['method_id'])) {
-                $this->dispatch('notify', message: 'Selecciona un método de pago', type: 'error');
+        $total = $this->getTotalProperty();
+        $totalReceived = $this->getTotalReceivedProperty();
+
+        if ($this->isCredit) {
+            // Credit sale validation
+            if (!$this->selectedCustomer || !$this->selectedCustomer->has_credit) {
+                $this->dispatch('notify', message: 'El cliente no tiene crédito habilitado', type: 'error');
+                return;
+            }
+
+            $creditInfo = $this->getCustomerCreditInfoProperty();
+            $creditAmount = $total - $totalReceived; // Amount that goes on credit
+
+            if ($creditAmount > 0 && $creditInfo['limit'] > 0 && $creditAmount > $creditInfo['remaining']) {
+                $this->dispatch('notify', message: 'El monto excede el crédito disponible ($' . number_format($creditInfo['remaining'], 2) . ')', type: 'error');
+                return;
+            }
+
+            // Validate payment methods only if there's an upfront payment
+            if ($totalReceived > 0) {
+                foreach ($this->payments as $payment) {
+                    if ((float) ($payment['amount'] ?? 0) > 0 && empty($payment['method_id'])) {
+                        $this->dispatch('notify', message: 'Selecciona un método de pago', type: 'error');
+                        return;
+                    }
+                }
+            }
+        } else {
+            // Cash sale validation
+            foreach ($this->payments as $payment) {
+                if (empty($payment['method_id'])) {
+                    $this->dispatch('notify', message: 'Selecciona un método de pago', type: 'error');
+                    return;
+                }
+            }
+
+            if ($this->getPendingAmountProperty() > 0) {
+                $this->dispatch('notify', message: 'El monto recibido es insuficiente', type: 'error');
                 return;
             }
         }
         
-        if ($this->getPendingAmountProperty() > 0) {
-            $this->dispatch('notify', message: 'El monto recibido es insuficiente', type: 'error');
-            return;
-        }
-        
         try {
             DB::beginTransaction();
+
+            // Determine payment type and status
+            $paymentType = $this->isCredit ? 'credit' : 'cash';
+            $paidAmount = $this->isCredit ? $totalReceived : $total;
+            $creditAmount = $this->isCredit ? ($total - $totalReceived) : 0;
+            $paymentStatus = 'paid';
+            if ($this->isCredit) {
+                $paymentStatus = $paidAmount >= $total ? 'paid' : ($paidAmount > 0 ? 'partial' : 'pending');
+            }
             
             // Create sale
             $sale = Sale::create([
@@ -1189,8 +1258,12 @@ class PointOfSale extends Component
                 'subtotal' => $this->getSubtotalProperty(),
                 'tax_total' => $this->getTaxTotalProperty(),
                 'discount' => $this->getDiscountTotalProperty(),
-                'total' => $this->getTotalProperty(),
+                'total' => $total,
                 'status' => 'completed',
+                'payment_type' => $paymentType,
+                'payment_status' => $paymentStatus,
+                'credit_amount' => $this->isCredit ? $total : 0,
+                'paid_amount' => $paidAmount,
                 'notes' => $this->paymentNotes ?: null,
             ]);
             
@@ -1237,9 +1310,9 @@ class PointOfSale extends Component
                 }
             }
             
-            // Create sale payments
+            // Create sale payments (only for payments with amount > 0 and valid method)
             foreach ($this->payments as $payment) {
-                if ($payment['amount'] > 0) {
+                if ((float) ($payment['amount'] ?? 0) > 0 && !empty($payment['method_id'])) {
                     SalePayment::create([
                         'sale_id' => $sale->id,
                         'payment_method_id' => $payment['method_id'],
@@ -1250,10 +1323,11 @@ class PointOfSale extends Component
             
             DB::commit();
             
+            $creditLabel = $this->isCredit ? ' (Crédito)' : '';
             ActivityLogService::logCreate(
                 'sales',
                 $sale,
-                "Venta {$sale->invoice_number} por $" . number_format($sale->total, 2)
+                "Venta {$sale->invoice_number}{$creditLabel} por $" . number_format($sale->total, 2)
             );
             
             // Process electronic invoice if enabled
@@ -1282,6 +1356,7 @@ class PointOfSale extends Component
             $this->showPaymentModal = false;
             $this->payments = [];
             $this->paymentNotes = '';
+            $this->isCredit = false;
             $this->loadDefaultCustomer();
             
         } catch (\Exception $e) {
@@ -1333,6 +1408,18 @@ class PointOfSale extends Component
     {
         $this->showPaymentModal = false;
         $this->payments = [];
+        $this->isCredit = false;
+    }
+
+    public function updatedIsCredit($value)
+    {
+        if ($value) {
+            // When switching to credit, set payment amount to 0 (no upfront by default)
+            $this->payments = [['method_id' => $this->payments[0]['method_id'] ?? '', 'amount' => 0]];
+        } else {
+            // When switching back to cash, set payment amount to total
+            $this->payments = [['method_id' => $this->payments[0]['method_id'] ?? '', 'amount' => $this->getTotalProperty()]];
+        }
     }
 
     // Cash Opening Methods
@@ -1662,6 +1749,7 @@ class PointOfSale extends Component
             'pendingAmount' => $this->getPendingAmountProperty(),
             'change' => $this->getChangeProperty(),
             'isElectronicInvoicingEnabled' => $isElectronicInvoicingEnabled,
+            'creditInfo' => $this->getCustomerCreditInfoProperty(),
         ]);
     }
 }

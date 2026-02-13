@@ -31,6 +31,11 @@ class Sale extends Model
         'discount',
         'total',
         'status',
+        'payment_type',
+        'payment_status',
+        'credit_amount',
+        'paid_amount',
+        'payment_due_date',
         'notes',
     ];
 
@@ -41,9 +46,12 @@ class Sale extends Model
             'tax_total' => 'decimal:2',
             'discount' => 'decimal:2',
             'total' => 'decimal:2',
+            'credit_amount' => 'decimal:2',
+            'paid_amount' => 'decimal:2',
             'is_electronic' => 'boolean',
             'dian_validated_at' => 'datetime',
             'dian_response' => 'array',
+            'payment_due_date' => 'date',
         ];
     }
 
@@ -87,6 +95,11 @@ class Sale extends Model
     public function creditNotes(): HasMany
     {
         return $this->hasMany(CreditNote::class);
+    }
+
+    public function creditPayments(): HasMany
+    {
+        return $this->hasMany(CreditPayment::class);
     }
 
     public function refunds(): HasMany

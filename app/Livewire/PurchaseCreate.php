@@ -137,6 +137,8 @@ class PurchaseCreate extends Component
                 'tax_rate' => (float) $item->tax_rate,
                 'tax_amount' => (float) $item->tax_amount,
                 'discount' => (float) $item->discount,
+                'discount_type' => $item->discount_type ?? 'percentage',
+                'discount_type_value' => (float) ($item->discount_type_value ?? 0),
                 'subtotal' => (float) $item->subtotal,
                 'total' => (float) $item->total,
             ];
@@ -225,6 +227,8 @@ class PurchaseCreate extends Component
             'tax_rate' => (float) ($product->tax?->value ?? 0),
             'tax_amount' => 0,
             'discount' => 0,
+            'discount_type' => 'percentage',
+            'discount_type_value' => 0,
             'subtotal' => (float) $product->purchase_price,
             'total' => 0,
         ];
@@ -296,7 +300,41 @@ class PurchaseCreate extends Component
         if ($discount < 0) {
             $discount = 0;
         }
-        $this->cartItems[$index]['discount'] = $discount;
+
+        $item = &$this->cartItems[$index];
+        $type = $item['discount_type'] ?? 'percentage';
+
+        if ($type === 'percentage' && $discount > 100) {
+            $discount = 100;
+        }
+
+        $item['discount_type_value'] = $discount;
+
+        // Calculate actual discount amount
+        $subtotal = $item['quantity'] * $item['unit_cost'];
+        if ($type === 'percentage') {
+            $item['discount'] = round($subtotal * ($discount / 100), 2);
+        } else {
+            $item['discount'] = round($discount, 2);
+            // Don't exceed subtotal
+            if ($item['discount'] > $subtotal) {
+                $item['discount'] = $subtotal;
+            }
+        }
+
+        $this->calculateItemTotal($index);
+        $this->calculateTotals();
+    }
+
+    public function updateDiscountType(int $index, string $type)
+    {
+        if (!in_array($type, ['percentage', 'fixed'])) {
+            return;
+        }
+
+        $this->cartItems[$index]['discount_type'] = $type;
+        $this->cartItems[$index]['discount_type_value'] = 0;
+        $this->cartItems[$index]['discount'] = 0;
         $this->calculateItemTotal($index);
         $this->calculateTotals();
     }
@@ -326,7 +364,23 @@ class PurchaseCreate extends Component
     {
         $item = &$this->cartItems[$index];
         $item['subtotal'] = $item['quantity'] * $item['unit_cost'];
-        $item['tax_amount'] = $item['subtotal'] * ($item['tax_rate'] / 100);
+
+        // Recalculate discount based on type
+        $discountTypeValue = (float) ($item['discount_type_value'] ?? 0);
+        if ($discountTypeValue > 0) {
+            if (($item['discount_type'] ?? 'percentage') === 'percentage') {
+                $item['discount'] = round($item['subtotal'] * ($discountTypeValue / 100), 2);
+            } else {
+                $item['discount'] = round($discountTypeValue, 2);
+                if ($item['discount'] > $item['subtotal']) {
+                    $item['discount'] = $item['subtotal'];
+                }
+            }
+        } else {
+            $item['discount'] = 0;
+        }
+
+        $item['tax_amount'] = ($item['subtotal'] - $item['discount']) * ($item['tax_rate'] / 100);
         $item['total'] = $item['subtotal'] + $item['tax_amount'] - $item['discount'];
     }
 
@@ -543,6 +597,8 @@ class PurchaseCreate extends Component
                 'tax_rate' => $item['tax_rate'],
                 'tax_amount' => $item['tax_amount'],
                 'discount' => $item['discount'],
+                'discount_type' => $item['discount_type'] ?? 'percentage',
+                'discount_type_value' => $item['discount_type_value'] ?? 0,
                 'subtotal' => $item['subtotal'],
                 'total' => $item['total'],
             ]);
@@ -612,6 +668,8 @@ class PurchaseCreate extends Component
                 'tax_rate' => $item['tax_rate'],
                 'tax_amount' => $item['tax_amount'],
                 'discount' => $item['discount'],
+                'discount_type' => $item['discount_type'] ?? 'percentage',
+                'discount_type_value' => $item['discount_type_value'] ?? 0,
                 'subtotal' => $item['subtotal'],
                 'total' => $item['total'],
             ]);

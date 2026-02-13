@@ -174,6 +174,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('billing-settings')
         ->middleware('permission:billing_settings.view');
 
+    // Credits
+    Route::get('/credits', App\Livewire\Credits::class)
+        ->name('credits')
+        ->middleware('permission:credits.view');
+
     // Point of Sale
     Route::get('/pos', App\Livewire\PointOfSale::class)
         ->name('pos')
@@ -272,5 +277,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/profit-loss/excel', [App\Http\Controllers\ReportExportController::class, 'profitLossExcel'])
             ->name('profit-loss.excel')
             ->middleware('permission:reports.export');
+
+        Route::get('/credits', App\Livewire\Reports\CreditsReport::class)
+            ->name('credits')
+            ->middleware('permission:reports.credits');
     });
 });

@@ -114,6 +114,29 @@
 @endif
 @endif
 
+<!-- Créditos -->
+@if (auth()->user()->hasPermission('credits.view'))
+@if($mobile)
+<div class="{{ $sectionClass }}">
+    <a href="{{ route('credits') }}" @click="mobileMenuOpen = false"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-xl {{ request()->routeIs('credits') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+        </svg>
+        <span class="font-medium">Créditos</span>
+    </a>
+</div>
+@else
+<a href="{{ route('credits') }}"
+    class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group {{ request()->routeIs('credits') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
+    <svg class="w-5 h-5 flex-shrink-0 group-hover:text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+    </svg>
+    <span x-show="sidebarOpen" class="font-medium">Créditos</span>
+</a>
+@endif
+@endif
+
 <!-- Creación Section -->
 @if($mobile)
 <div class="{{ $sectionClass }}">
@@ -327,6 +350,14 @@
         <span>Pérdidas y Ganancias</span>
     </a>
     @endif
+    @if (auth()->user()->hasPermission('reports.credits'))
+    <a href="{{ route('reports.credits') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('reports.credits') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+        </svg>
+        <span>Créditos</span>
+    </a>
+    @endif
     @if (auth()->user()->hasPermission('reports.kardex'))
     <a href="{{ route('reports.kardex') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('reports.kardex') ? $activeClass : $inactiveClass }}">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -352,7 +383,7 @@
     </button>
     <div x-show="reportesOpen && sidebarOpen" x-collapse class="{{ $sectionClass }}">
         <!-- Ventas Submenu -->
-        <div x-data="{ ventasReportOpen: {{ request()->routeIs('reports.products-sold') || request()->routeIs('reports.commissions') || request()->routeIs('reports.sales-book') || request()->routeIs('reports.profit-loss') ? 'true' : 'false' }} }">
+        <div x-data="{ ventasReportOpen: {{ request()->routeIs('reports.products-sold') || request()->routeIs('reports.commissions') || request()->routeIs('reports.sales-book') || request()->routeIs('reports.profit-loss') || request()->routeIs('reports.credits') ? 'true' : 'false' }} }">
             <button @click="ventasReportOpen = !ventasReportOpen"
                 class="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-slate-400 hover:bg-white/5 hover:text-white">
                 <div class="flex items-center gap-3">
@@ -396,6 +427,14 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                     </svg>
                     <span class="text-xs">P&G</span>
+                </a>
+                @endif
+                @if (auth()->user()->hasPermission('reports.credits'))
+                <a href="{{ route('reports.credits') }}" class="flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all duration-200 {{ request()->routeIs('reports.credits') ? $activeClass : $inactiveClass }}">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                    </svg>
+                    <span class="text-xs">Créditos</span>
                 </a>
                 @endif
             </div>
