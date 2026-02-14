@@ -112,9 +112,13 @@
                             @endif
                         </td>
                         <td class="px-6 py-4 text-right">
-                            @if($item->difference !== null)
-                            <span class="text-sm font-medium {{ $item->difference >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
-                                {{ $item->difference >= 0 ? '+' : '' }}${{ number_format($item->difference, 2) }}
+                            @if($item->closing_amount !== null)
+                            @php
+                                $itemExpected = $item->calculateExpectedAmount();
+                                $itemDifference = (float) $item->closing_amount - $itemExpected;
+                            @endphp
+                            <span class="text-sm font-medium {{ $itemDifference >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
+                                {{ $itemDifference >= 0 ? '+' : '' }}${{ number_format($itemDifference, 2) }}
                             </span>
                             @else
                             <span class="text-sm text-slate-400">-</span>
@@ -564,14 +568,18 @@
                                 <span class="text-slate-500">Monto cierre:</span>
                                 <span class="font-medium text-slate-800 ml-2">${{ number_format($viewReconciliation->closing_amount, 2) }}</span>
                             </div>
+                            @php
+                                $viewExpected = $viewReconciliation->calculateExpectedAmount();
+                                $viewDifference = (float) $viewReconciliation->closing_amount - $viewExpected;
+                            @endphp
                             <div>
                                 <span class="text-slate-500">Esperado:</span>
-                                <span class="font-medium text-slate-800 ml-2">${{ number_format($viewReconciliation->expected_amount, 2) }}</span>
+                                <span class="font-medium text-slate-800 ml-2">${{ number_format($viewExpected, 2) }}</span>
                             </div>
                             <div class="col-span-2">
                                 <span class="text-slate-500">Diferencia:</span>
-                                <span class="font-medium ml-2 {{ $viewReconciliation->difference >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
-                                    {{ $viewReconciliation->difference >= 0 ? '+' : '' }}${{ number_format($viewReconciliation->difference, 2) }}
+                                <span class="font-medium ml-2 {{ $viewDifference >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
+                                    {{ $viewDifference >= 0 ? '+' : '' }}${{ number_format($viewDifference, 2) }}
                                 </span>
                             </div>
                             @if($viewReconciliation->closing_notes)

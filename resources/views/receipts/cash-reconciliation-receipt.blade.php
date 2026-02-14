@@ -63,8 +63,8 @@
         $cashSales = $reconciliation->total_cash_sales;
         $totalIncome = $reconciliation->total_income;
         $totalExpenses = $reconciliation->total_expenses;
-        $expectedAmount = $reconciliation->expected_amount ?? $reconciliation->calculateExpectedAmount();
-        $difference = $reconciliation->difference ?? ($reconciliation->closing_amount - $expectedAmount);
+        $expectedAmount = $reconciliation->calculateExpectedAmount();
+        $difference = (float) $reconciliation->closing_amount - $expectedAmount;
     @endphp
 
     <div class="receipt">
