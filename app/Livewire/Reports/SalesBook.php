@@ -146,7 +146,8 @@ class SalesBook extends Component
                 $q->where('sales.invoice_number', 'like', "%{$this->search}%")
                   ->orWhere('sales.dian_number', 'like', "%{$this->search}%")
                   ->orWhereHas('customer', function ($cq) {
-                      $cq->where('name', 'like', "%{$this->search}%")
+                      $cq->where('first_name', 'like', "%{$this->search}%")
+                        ->orWhere('last_name', 'like', "%{$this->search}%")
                         ->orWhere('business_name', 'like', "%{$this->search}%")
                         ->orWhere('document_number', 'like', "%{$this->search}%");
                   });

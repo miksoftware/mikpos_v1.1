@@ -72,6 +72,11 @@ class CashReconciliation extends Model
         return $this->hasMany(Sale::class);
     }
 
+    public function edits(): HasMany
+    {
+        return $this->hasMany(CashReconciliationEdit::class);
+    }
+
     // Scopes
 
     public function scopeOpen(Builder $query): Builder

@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Branch;
 use App\Models\CashMovement;
 use App\Models\CashReconciliation;
+use App\Models\CashReconciliationEdit;
 use App\Models\CashRegister;
 use App\Services\ActivityLogService;
 use Livewire\Attributes\Layout;
@@ -26,6 +27,8 @@ class CashReconciliations extends Component
     public bool $isCloseModalOpen = false;
     public bool $isViewModalOpen = false;
     public bool $isMovementModalOpen = false;
+    public bool $isEditModalOpen = false;
+    public bool $isHistoryModalOpen = false;
 
     // Form data for opening
     public ?int $cash_register_id = null;
@@ -47,6 +50,15 @@ class CashReconciliations extends Component
     public string $movement_amount = '';
     public string $movement_concept = '';
     public string $movement_notes = '';
+
+    // Edit form data
+    public ?int $editReconciliationId = null;
+    public string $edit_closing_amount = '0';
+    public string $edit_closing_notes = '';
+    public string $edit_comment = '';
+
+    // History data
+    public ?int $historyReconciliationId = null;
 
     // Branch control
     public bool $needsBranchSelection = false;
@@ -113,13 +125,23 @@ class CashReconciliations extends Component
         // Load view reconciliation if modal is open
         $viewReconciliation = null;
         if ($this->isViewModalOpen && $this->viewReconciliationId) {
-            $viewReconciliation = CashReconciliation::with(['branch', 'cashRegister', 'openedByUser', 'closedByUser', 'movements.user'])
+            $viewReconciliation = CashReconciliation::with(['branch', 'cashRegister', 'openedByUser', 'closedByUser', 'movements.user', 'edits.user'])
                 ->find($this->viewReconciliationId);
+        }
+
+        // Load history data
+        $historyEdits = collect();
+        if ($this->isHistoryModalOpen && $this->historyReconciliationId) {
+            $historyEdits = CashReconciliationEdit::with('user')
+                ->where('cash_reconciliation_id', $this->historyReconciliationId)
+                ->orderByDesc('created_at')
+                ->get();
         }
 
         return view('livewire.cash-reconciliations', [
             'items' => $items,
             'viewReconciliation' => $viewReconciliation,
+            'historyEdits' => $historyEdits,
         ]);
     }
 
@@ -382,6 +404,121 @@ class CashReconciliations extends Component
 
         $this->isMovementModalOpen = false;
         $this->dispatch('notify', message: "{$typeLabel} registrado correctamente");
+    }
+
+    // Edit Methods
+    public function openEditModal(int $id)
+    {
+        if (!auth()->user()->hasPermission('cash_reconciliations.edit_closed')) {
+            $this->dispatch('notify', message: 'No tienes permiso para editar arqueos cerrados', type: 'error');
+            return;
+        }
+
+        $reconciliation = CashReconciliation::find($id);
+        if (!$reconciliation || $reconciliation->status !== 'closed') {
+            $this->dispatch('notify', message: 'Solo se pueden editar arqueos cerrados', type: 'error');
+            return;
+        }
+
+        $this->resetValidation();
+        $this->editReconciliationId = $id;
+        $this->edit_closing_amount = (string) $reconciliation->closing_amount;
+        $this->edit_closing_notes = $reconciliation->closing_notes ?? '';
+        $this->edit_comment = '';
+        $this->isEditModalOpen = true;
+    }
+
+    public function storeEdit()
+    {
+        if (!auth()->user()->hasPermission('cash_reconciliations.edit_closed')) {
+            $this->dispatch('notify', message: 'No tienes permiso para editar arqueos cerrados', type: 'error');
+            return;
+        }
+
+        $this->validate([
+            'edit_closing_amount' => 'required|numeric|min:0',
+            'edit_comment' => 'required|min:5|max:500',
+        ], [
+            'edit_closing_amount.required' => 'El monto de cierre es obligatorio',
+            'edit_closing_amount.min' => 'El monto no puede ser negativo',
+            'edit_comment.required' => 'El comentario es obligatorio',
+            'edit_comment.min' => 'El comentario debe tener al menos 5 caracteres',
+        ]);
+
+        $reconciliation = CashReconciliation::find($this->editReconciliationId);
+        if (!$reconciliation || $reconciliation->status !== 'closed') {
+            $this->dispatch('notify', message: 'Arqueo no válido para edición', type: 'error');
+            $this->isEditModalOpen = false;
+            return;
+        }
+
+        $oldClosingAmount = $reconciliation->closing_amount;
+        $oldClosingNotes = $reconciliation->closing_notes;
+        $changes = [];
+
+        // Track closing amount change
+        if ((float) $this->edit_closing_amount !== (float) $oldClosingAmount) {
+            $changes[] = [
+                'field_changed' => 'closing_amount',
+                'old_value' => number_format($oldClosingAmount, 2),
+                'new_value' => number_format($this->edit_closing_amount, 2),
+            ];
+        }
+
+        // Track closing notes change
+        if ($this->edit_closing_notes !== ($oldClosingNotes ?? '')) {
+            $changes[] = [
+                'field_changed' => 'closing_notes',
+                'old_value' => $oldClosingNotes,
+                'new_value' => $this->edit_closing_notes ?: null,
+            ];
+        }
+
+        if (empty($changes)) {
+            $this->dispatch('notify', message: 'No se detectaron cambios', type: 'warning');
+            return;
+        }
+
+        // Save edit records
+        foreach ($changes as $change) {
+            CashReconciliationEdit::create([
+                'cash_reconciliation_id' => $reconciliation->id,
+                'user_id' => auth()->id(),
+                'field_changed' => $change['field_changed'],
+                'old_value' => $change['old_value'],
+                'new_value' => $change['new_value'],
+                'comment' => $this->edit_comment,
+            ]);
+        }
+
+        // Recalculate expected and difference
+        $expectedAmount = $reconciliation->calculateExpectedAmount();
+        $difference = (float) $this->edit_closing_amount - $expectedAmount;
+
+        $oldValues = $reconciliation->toArray();
+
+        $reconciliation->update([
+            'closing_amount' => $this->edit_closing_amount,
+            'closing_notes' => $this->edit_closing_notes ?: null,
+            'expected_amount' => $expectedAmount,
+            'difference' => $difference,
+        ]);
+
+        ActivityLogService::logUpdate(
+            'cash_reconciliations',
+            $reconciliation,
+            $oldValues,
+            "Arqueo editado por " . auth()->user()->name . ". Motivo: {$this->edit_comment}"
+        );
+
+        $this->isEditModalOpen = false;
+        $this->dispatch('notify', message: 'Arqueo actualizado correctamente');
+    }
+
+    public function viewHistory(int $id)
+    {
+        $this->historyReconciliationId = $id;
+        $this->isHistoryModalOpen = true;
     }
 
     private function resetOpenForm()

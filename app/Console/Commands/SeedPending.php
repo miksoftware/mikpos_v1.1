@@ -43,6 +43,7 @@ class SeedPending extends Command
         'ProfitLossReportPermissionSeeder',
         'CreditsModuleSeeder',
         'CreditsReportPermissionSeeder',
+        'CashReconciliationEditPermissionSeeder',
         // Add new seeders here
     ];
 
