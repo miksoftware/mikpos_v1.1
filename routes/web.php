@@ -281,5 +281,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/credits', App\Livewire\Reports\CreditsReport::class)
             ->name('credits')
             ->middleware('permission:reports.credits');
+
+        Route::get('/purchases', App\Livewire\Reports\PurchasesReport::class)
+            ->name('purchases')
+            ->middleware('permission:reports.purchases');
+
+        Route::get('/cash', App\Livewire\Reports\CashReport::class)
+            ->name('cash')
+            ->middleware('permission:reports.cash');
     });
 });

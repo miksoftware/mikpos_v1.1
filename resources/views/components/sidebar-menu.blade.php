@@ -358,6 +358,22 @@
         <span>Créditos</span>
     </a>
     @endif
+    @if (auth()->user()->hasPermission('reports.purchases'))
+    <a href="{{ route('reports.purchases') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('reports.purchases') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+        </svg>
+        <span>Compras</span>
+    </a>
+    @endif
+    @if (auth()->user()->hasPermission('reports.cash'))
+    <a href="{{ route('reports.cash') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('reports.cash') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+        </svg>
+        <span>Cajas</span>
+    </a>
+    @endif
     @if (auth()->user()->hasPermission('reports.kardex'))
     <a href="{{ route('reports.kardex') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('reports.kardex') ? $activeClass : $inactiveClass }}">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -383,7 +399,7 @@
     </button>
     <div x-show="reportesOpen && sidebarOpen" x-collapse class="{{ $sectionClass }}">
         <!-- Ventas Submenu -->
-        <div x-data="{ ventasReportOpen: {{ request()->routeIs('reports.products-sold') || request()->routeIs('reports.commissions') || request()->routeIs('reports.sales-book') || request()->routeIs('reports.profit-loss') || request()->routeIs('reports.credits') ? 'true' : 'false' }} }">
+        <div x-data="{ ventasReportOpen: {{ request()->routeIs('reports.products-sold') || request()->routeIs('reports.commissions') || request()->routeIs('reports.sales-book') || request()->routeIs('reports.profit-loss') || request()->routeIs('reports.credits') || request()->routeIs('reports.purchases') || request()->routeIs('reports.cash') ? 'true' : 'false' }} }">
             <button @click="ventasReportOpen = !ventasReportOpen"
                 class="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-slate-400 hover:bg-white/5 hover:text-white">
                 <div class="flex items-center gap-3">
@@ -435,6 +451,22 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
                     </svg>
                     <span class="text-xs">Créditos</span>
+                </a>
+                @endif
+                @if (auth()->user()->hasPermission('reports.purchases'))
+                <a href="{{ route('reports.purchases') }}" class="flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all duration-200 {{ request()->routeIs('reports.purchases') ? $activeClass : $inactiveClass }}">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    <span class="text-xs">Compras</span>
+                </a>
+                @endif
+                @if (auth()->user()->hasPermission('reports.cash'))
+                <a href="{{ route('reports.cash') }}" class="flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all duration-200 {{ request()->routeIs('reports.cash') ? $activeClass : $inactiveClass }}">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    <span class="text-xs">Cajas</span>
                 </a>
                 @endif
             </div>
