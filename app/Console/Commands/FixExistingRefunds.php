@@ -7,6 +7,7 @@ use App\Models\InventoryMovement;
 use App\Models\Product;
 use App\Models\Refund;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Auth;
 
 class FixExistingRefunds extends Command
 {
@@ -29,6 +30,9 @@ class FixExistingRefunds extends Command
             $this->newLine();
             $saleNumber = $refund->sale->invoice_number ?? 'N/A';
             $this->info("Refund #{$refund->number} (Sale: {$saleNumber})");
+
+            // Authenticate as the refund user for createMovement
+            Auth::loginUsingId($refund->user_id);
 
             // Check if inventory movements exist for this refund
             $hasInventoryMovements = InventoryMovement::where('reference_type', Refund::class)
