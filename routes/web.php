@@ -179,6 +179,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('credits')
         ->middleware('permission:credits.view');
 
+    // Activity Logs
+    Route::get('/activity-logs', App\Livewire\ActivityLogs::class)
+        ->name('activity-logs')
+        ->middleware('permission:activity_logs.view');
+
     // Point of Sale
     Route::get('/pos', App\Livewire\PointOfSale::class)
         ->name('pos')
