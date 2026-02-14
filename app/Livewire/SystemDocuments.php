@@ -82,31 +82,35 @@ class SystemDocuments extends Component
             return;
         }
 
-        // Generate code from name
-        $code = $this->generateCodeFromName($this->name);
-
         $this->validate([
             'name' => 'required|min:2',
             'prefix' => 'required|max:10|unique:system_documents,prefix,' . $this->itemId,
             'next_number' => 'required|integer|min:1',
         ]);
 
-        // Check if generated code is unique
-        $existingCode = SystemDocument::where('code', $code)->where('id', '!=', $this->itemId)->first();
-        if ($existingCode) {
-            $this->addError('name', 'Ya existe un documento con un nombre similar');
-            return;
-        }
-
-        $oldValues = $isNew ? null : SystemDocument::find($this->itemId)->toArray();
-        $item = SystemDocument::updateOrCreate(['id' => $this->itemId], [
-            'code' => $code,
+        $data = [
             'name' => $this->name,
             'prefix' => strtoupper($this->prefix),
             'next_number' => $this->next_number,
             'description' => $this->description,
             'is_active' => $this->is_active,
-        ]);
+        ];
+
+        // Only generate code for new documents, never overwrite existing codes
+        if ($isNew) {
+            $code = $this->generateCodeFromName($this->name);
+
+            $existingCode = SystemDocument::where('code', $code)->first();
+            if ($existingCode) {
+                $this->addError('name', 'Ya existe un documento con un nombre similar');
+                return;
+            }
+
+            $data['code'] = $code;
+        }
+
+        $oldValues = $isNew ? null : SystemDocument::find($this->itemId)->toArray();
+        $item = SystemDocument::updateOrCreate(['id' => $this->itemId], $data);
 
         $isNew ? ActivityLogService::logCreate('system_documents', $item, "Documento sistema '{$item->name}' creado")
                : ActivityLogService::logUpdate('system_documents', $item, $oldValues, "Documento sistema '{$item->name}' actualizado");
