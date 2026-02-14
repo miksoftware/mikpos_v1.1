@@ -409,10 +409,6 @@
                             <div class="absolute top-1 left-1 px-1.5 py-0.5 text-[9px] font-medium rounded bg-indigo-500 text-white">
                                 Serv.
                             </div>
-                            @else
-                            <div class="absolute top-1 left-1 px-1.5 py-0.5 text-[9px] font-medium rounded {{ $item['stock'] <= 5 ? 'bg-red-500 text-white' : 'bg-green-500 text-white' }}">
-                                {{ $item['stock'] }} {{ $item['unit'] ?? 'uds' }}
-                            </div>
                             @endif
                             @if($item['type'] === 'child')
                             <div class="absolute bottom-1 left-1 px-1 py-0.5 bg-blue-500 text-white text-[8px] font-medium rounded">
@@ -426,7 +422,12 @@
                         </div>
                         <div class="p-1.5 min-h-[52px] flex flex-col">
                             <p class="font-medium text-slate-800 text-[10px] leading-tight mb-0.5 break-words hyphens-auto" title="{{ $item['name'] }}">{{ $item['name'] }}</p>
-                            <p class="text-[9px] text-slate-500 truncate mt-auto">{{ $item['brand'] ?? 'Sin marca' }}</p>
+                            <div class="flex items-center justify-between mt-auto">
+                                <p class="text-[9px] text-slate-500 truncate">{{ $item['brand'] ?? 'Sin marca' }}</p>
+                                @if($item['type'] !== 'service')
+                                <span class="text-[9px] font-semibold {{ $item['stock'] <= 5 ? 'text-red-500' : 'text-green-600' }}">{{ rtrim(rtrim(number_format((float)$item['stock'], 3), '0'), '.') }} {{ $item['unit'] ?? 'uds' }}</span>
+                                @endif
+                            </div>
                         </div>
                     </button>
                     @endforeach
