@@ -44,6 +44,7 @@ class SeedPending extends Command
         'CreditsModuleSeeder',
         'CreditsReportPermissionSeeder',
         'CashReconciliationEditPermissionSeeder',
+        'RefundSystemDocumentSeeder',
         // Add new seeders here
     ];
 

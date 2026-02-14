@@ -77,6 +77,11 @@ class CashReconciliation extends Model
         return $this->hasMany(CashReconciliationEdit::class);
     }
 
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
+    }
+
     // Scopes
 
     public function scopeOpen(Builder $query): Builder
@@ -131,6 +136,22 @@ class CashReconciliation extends Model
     public function getTotalExpensesAttribute(): float
     {
         return (float) $this->movements()->where('type', 'expense')->sum('amount');
+    }
+
+    /**
+     * Get total refunds amount.
+     */
+    public function getTotalRefundsAttribute(): float
+    {
+        return (float) $this->refunds()->where('refunds.status', 'completed')->sum('total');
+    }
+
+    /**
+     * Get refunds count.
+     */
+    public function getRefundsCountAttribute(): int
+    {
+        return $this->refunds()->where('refunds.status', 'completed')->count();
     }
 
     /**

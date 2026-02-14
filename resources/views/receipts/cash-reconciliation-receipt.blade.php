@@ -164,6 +164,32 @@
             @endif
         </div>
 
+        <!-- Refunds -->
+        @php
+            $receiptRefunds = $reconciliation->refunds()->where('refunds.status', 'completed')->with('sale')->get();
+            $receiptRefundsTotal = $receiptRefunds->sum('total');
+        @endphp
+        @if($receiptRefunds->count() > 0)
+        <div class="section">
+            <div class="section-title">Devoluciones ({{ $receiptRefunds->count() }})</div>
+            @foreach($receiptRefunds as $refund)
+            <div class="movement-item">
+                <div class="row">
+                    <span class="label">(-) {{ $refund->number }}</span>
+                    <span class="value">${{ number_format($refund->total, 2) }}</span>
+                </div>
+                <div style="font-size: 10px; color: #666; padding-left: 4px;">
+                    Venta: {{ $refund->sale->invoice_number ?? '-' }} · {{ $refund->created_at->format('H:i') }}
+                </div>
+            </div>
+            @endforeach
+            <div class="row total">
+                <span class="label">TOTAL DEVOLUCIONES:</span>
+                <span class="value" style="color: #600;">${{ number_format($receiptRefundsTotal, 2) }}</span>
+            </div>
+        </div>
+        @endif
+
         <!-- Credit Payments -->
         @php
             $creditPayments = \App\Models\CreditPayment::with(['supplier', 'customer', 'paymentMethod'])

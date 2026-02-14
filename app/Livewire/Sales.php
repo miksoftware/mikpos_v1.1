@@ -12,6 +12,8 @@ use App\Models\Branch;
 use App\Models\CashReconciliation;
 use App\Models\CashMovement;
 use App\Models\CashRegister;
+use App\Models\InventoryMovement;
+use App\Models\Product;
 use App\Services\FactusService;
 use App\Services\ActivityLogService;
 use Livewire\Attributes\Layout;
@@ -322,6 +324,27 @@ class Sales extends Component
             // Register cash movement for the credit note (expense)
             $this->registerCashMovement($sale->branch_id, $creditNote->total, 'expense', "Nota Crédito {$creditNote->number}");
 
+            // Return inventory for credit note items
+            foreach ($this->creditNoteItems as $item) {
+                if (!empty($item['selected']) && $item['quantity'] > 0 && !empty($item['product_id'])) {
+                    $product = Product::find($item['product_id']);
+                    if ($product) {
+                        InventoryMovement::createMovement(
+                            'refund',
+                            $product,
+                            'in',
+                            (float) $item['quantity'],
+                            (float) $item['unit_price'],
+                            "Nota Crédito {$creditNote->number} - Venta {$sale->invoice_number}",
+                            $creditNote,
+                            $sale->branch_id
+                        );
+
+                        $product->increment('current_stock', (float) $item['quantity']);
+                    }
+                }
+            }
+
             // Send to DIAN via Factus
             $factusService = new FactusService();
             
@@ -554,6 +577,27 @@ class Sales extends Component
 
             // Register cash movement for the refund (expense)
             $this->registerCashMovement($sale->branch_id, $refund->total, 'expense', "Devolución {$refund->number}");
+
+            // Return inventory for refunded products
+            foreach ($this->refundItems as $item) {
+                if (!empty($item['selected']) && $item['quantity'] > 0 && !empty($item['product_id'])) {
+                    $product = Product::find($item['product_id']);
+                    if ($product) {
+                        InventoryMovement::createMovement(
+                            'refund',
+                            $product,
+                            'in',
+                            (float) $item['quantity'],
+                            (float) $item['unit_price'],
+                            "Devolución {$refund->number} - Venta {$sale->invoice_number}",
+                            $refund,
+                            $sale->branch_id
+                        );
+
+                        $product->increment('current_stock', (float) $item['quantity']);
+                    }
+                }
+            }
 
             ActivityLogService::logCreate('sales', $refund, "Devolución {$refund->number} creada para venta {$sale->invoice_number}");
 

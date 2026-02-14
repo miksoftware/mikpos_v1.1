@@ -40,6 +40,7 @@ class SeedMarkExecuted extends Command
         'CreditsModuleSeeder',
         'CreditsReportPermissionSeeder',
         'CashReconciliationEditPermissionSeeder',
+        'RefundSystemDocumentSeeder',
     ];
 
     public function handle(): int

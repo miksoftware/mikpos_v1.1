@@ -375,6 +375,40 @@
                     </div>
                     @endif
 
+                    <!-- Refunds Section -->
+                    @php
+                        $refundsTotal = $currentReconciliation->total_refunds;
+                        $refundsCount = $currentReconciliation->refunds_count;
+                    @endphp
+                    @if($refundsCount > 0)
+                    <div class="bg-white rounded-xl p-4 border border-red-200">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                                </svg>
+                                <h4 class="font-medium text-slate-800 text-sm">Devoluciones</h4>
+                            </div>
+                            <span class="text-xs text-red-500 font-medium">{{ $refundsCount }} devolución(es)</span>
+                        </div>
+                        <div class="space-y-2">
+                            @foreach($currentReconciliation->refunds()->where('refunds.status', 'completed')->with('sale')->get() as $refund)
+                            <div class="flex justify-between items-center py-2 px-3 bg-red-50 rounded-lg text-sm">
+                                <div>
+                                    <span class="text-slate-700">{{ $refund->number }}</span>
+                                    <span class="text-xs text-slate-400 ml-1">({{ $refund->sale->invoice_number ?? '-' }})</span>
+                                </div>
+                                <span class="font-medium text-red-600">-${{ number_format($refund->total, 2) }}</span>
+                            </div>
+                            @endforeach
+                            <div class="flex justify-between pt-2 border-t border-red-200">
+                                <span class="text-slate-700 font-medium">Total Devoluciones:</span>
+                                <span class="font-bold text-red-600">-${{ number_format($refundsTotal, 2) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+
                     <!-- Cash Movement Summary -->
                     <div class="bg-white rounded-xl p-4 border border-slate-200">
                         <h4 class="font-medium text-slate-800 text-sm mb-3">Resumen de Caja (Efectivo)</h4>
@@ -567,6 +601,40 @@
                         <p class="text-sm text-slate-400 text-center py-4">No hay ventas registradas</p>
                         @endif
                     </div>
+
+                    <!-- Refunds Section in View Modal -->
+                    @php
+                        $viewRefundsTotal = $viewReconciliation->total_refunds;
+                        $viewRefundsCount = $viewReconciliation->refunds_count;
+                    @endphp
+                    @if($viewRefundsCount > 0)
+                    <div class="bg-white rounded-xl p-4 border border-red-200 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                                </svg>
+                                <h4 class="font-medium text-slate-800 text-sm">Devoluciones</h4>
+                            </div>
+                            <span class="text-xs text-red-500 font-medium">{{ $viewRefundsCount }} devolución(es)</span>
+                        </div>
+                        <div class="space-y-2">
+                            @foreach($viewReconciliation->refunds()->where('refunds.status', 'completed')->with('sale')->get() as $refund)
+                            <div class="flex justify-between items-center py-2 px-3 bg-red-50 rounded-lg text-sm">
+                                <div>
+                                    <span class="text-slate-700">{{ $refund->number }}</span>
+                                    <span class="text-xs text-slate-400 ml-1">({{ $refund->sale->invoice_number ?? '-' }})</span>
+                                </div>
+                                <span class="font-medium text-red-600">-${{ number_format($refund->total, 2) }}</span>
+                            </div>
+                            @endforeach
+                            <div class="flex justify-between pt-2 border-t border-red-200">
+                                <span class="text-slate-700 font-medium">Total Devoluciones:</span>
+                                <span class="font-bold text-red-600">-${{ number_format($viewRefundsTotal, 2) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
 
                     @if($viewReconciliation->status === 'closed')
                     <div class="bg-white rounded-xl p-4 border border-slate-200 space-y-3">
