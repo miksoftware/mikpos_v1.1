@@ -7,163 +7,175 @@ use Illuminate\Support\Facades\DB;
 
 class FixUtcDates extends Command
 {
-    protected $signature = 'fix:utc-dates 
+    protected $signature = 'fix:utc-dates
         {--dry-run : Show what would be changed without applying}
-        {--revert-overcorrected : Fix records where date correction moved them to wrong day}';
-    protected $description = 'Fix dates stored in UTC to America/Bogota (subtract 5 hours)';
-
-    private int $totalUpdated = 0;
+        {--cutoff= : Only subtract hours from records created before this datetime (Y-m-d H:i:s in current DB time)}';
+    protected $description = 'Fix all dates from UTC to America/Bogota and correct day-shifted sales';
 
     public function handle(): int
     {
-        if ($this->option('revert-overcorrected')) {
-            return $this->fixOvercorrected();
-        }
-
         $isDryRun = $this->option('dry-run');
+        $cutoff = $this->option('cutoff');
 
         if ($isDryRun) {
-            $this->warn('🔍 DRY RUN - No changes will be applied');
+            $this->warn('DRY RUN - No changes will be applied');
         } else {
-            if (!$this->confirm('⚠️  This will subtract 5 hours from all datetime columns in sales-related tables. Make sure APP_TIMEZONE=America/Bogota is set in .env BEFORE running this. Continue?')) {
+            $this->warn('This command will:');
+            $this->line('  1. Subtract 5 hours from datetime columns' . ($cutoff ? " (only records before {$cutoff})" : ''));
+            $this->line('  2. Fix sales whose date shifted to wrong day');
+            $this->newLine();
+            $this->warn('Ensure APP_TIMEZONE=America/Bogota is in .env.');
+            $this->warn('Run ONLY ONCE per environment.');
+            if (!$this->confirm('Continue?')) {
                 return 0;
             }
+        }
+
+        $this->step1SubtractHours($isDryRun, $cutoff);
+        $this->step2FixDayShiftedSales($isDryRun);
+
+        $this->newLine();
+        $this->info('All done.');
+        return 0;
+    }
+
+    private function step1SubtractHours(bool $isDryRun, ?string $cutoff): void
+    {
+        $this->newLine();
+        $this->info('== STEP 1: Subtract 5 hours from datetime columns ==');
+        if ($cutoff) {
+            $this->line("  Cutoff: only records with created_at < {$cutoff}");
         }
 
         $tables = [
             'sales' => ['created_at', 'updated_at'],
             'sale_items' => ['created_at', 'updated_at'],
             'sale_payments' => ['created_at', 'updated_at'],
+            'sale_reprints' => ['created_at', 'updated_at'],
             'cash_reconciliations' => ['opened_at', 'closed_at', 'created_at', 'updated_at'],
             'cash_movements' => ['created_at', 'updated_at'],
             'credit_payments' => ['created_at', 'updated_at'],
-            'inventory_movements' => ['created_at', 'updated_at'],
             'credit_notes' => ['created_at', 'updated_at'],
+            'credit_note_items' => ['created_at', 'updated_at'],
             'refunds' => ['created_at', 'updated_at'],
+            'refund_items' => ['created_at', 'updated_at'],
+            'inventory_movements' => ['created_at', 'updated_at'],
+            'purchases' => ['created_at', 'updated_at'],
+            'purchase_items' => ['created_at', 'updated_at'],
+            'activity_logs' => ['created_at', 'updated_at'],
         ];
 
+        $count = 0;
         foreach ($tables as $table => $columns) {
             if (!DB::getSchemaBuilder()->hasTable($table)) {
-                $this->line("  ⏭  Table '{$table}' does not exist, skipping.");
                 continue;
             }
-
-            $count = DB::table($table)->count();
-            if ($count === 0) {
-                $this->line("  ⏭  Table '{$table}' is empty, skipping.");
+            if (DB::table($table)->count() === 0) {
                 continue;
             }
-
             foreach ($columns as $column) {
                 if (!DB::getSchemaBuilder()->hasColumn($table, $column)) {
                     continue;
                 }
 
-                $affected = DB::table($table)->whereNotNull($column)->count();
+                $query = DB::table($table)->whereNotNull($column);
 
-                if ($isDryRun) {
-                    $this->info("  Would update {$affected} rows in '{$table}.{$column}'");
-                } else {
-                    DB::table($table)
-                        ->whereNotNull($column)
-                        ->update([
-                            $column => DB::raw("DATE_SUB({$column}, INTERVAL 5 HOUR)"),
-                        ]);
-                    $this->info("  ✅ Updated {$affected} rows in '{$table}.{$column}'");
+                // If cutoff provided, only update records before that time
+                if ($cutoff) {
+                    // Use created_at as reference for the cutoff filter
+                    if (DB::getSchemaBuilder()->hasColumn($table, 'created_at')) {
+                        $query->where('created_at', '<', $cutoff);
+                    }
                 }
 
-                $this->totalUpdated += $affected;
+                $affected = $query->count();
+                if ($affected === 0) {
+                    continue;
+                }
+
+                if (!$isDryRun) {
+                    // Re-build query for update
+                    $updateQuery = DB::table($table)->whereNotNull($column);
+                    if ($cutoff && DB::getSchemaBuilder()->hasColumn($table, 'created_at')) {
+                        $updateQuery->where('created_at', '<', $cutoff);
+                    }
+                    $updateQuery->update([$column => DB::raw("DATE_SUB({$column}, INTERVAL 5 HOUR)")]);
+                }
+
+                $label = $isDryRun ? 'would update' : 'updated';
+                $this->line("  {$table}.{$column}: {$label} {$affected} rows");
+                $count += $affected;
             }
         }
-
-        $this->newLine();
-        if ($isDryRun) {
-            $this->warn("Total rows that would be affected: {$this->totalUpdated}");
-        } else {
-            $this->info("✅ Done. Total rows updated: {$this->totalUpdated}");
-            $this->warn('Remember: Run this command ONLY ONCE. Running it again will subtract another 5 hours.');
-        }
-
-        return 0;
+        $this->info("Step 1 complete: {$count} values processed.");
     }
 
-    /**
-     * Fix sales whose created_at was over-corrected and moved to the wrong day.
-     * Uses the invoice_number date (FAC-YYYYMMDD-XXXX) as the source of truth.
-     */
-    private function fixOvercorrected(): int
+    private function step2FixDayShiftedSales(bool $isDryRun): void
     {
-        $isDryRun = $this->option('dry-run');
+        $this->newLine();
+        $this->info('== STEP 2: Fix sales whose date shifted to wrong day ==');
 
-        if ($isDryRun) {
-            $this->warn('🔍 DRY RUN - No changes will be applied');
-        }
+        $today = now()->format('Ymd');
 
-        $this->info('Scanning for sales where created_at date does not match invoice_number date...');
-
-        // Find sales where the date in created_at doesn't match the date in invoice_number
+        // Find sales where created_at date != invoice_number date
         $mismatched = DB::table('sales')
-            ->whereRaw("DATE_FORMAT(created_at, '%Y%m%d') != SUBSTRING(invoice_number, 5, 8)")
             ->where('invoice_number', 'like', 'FAC-%')
+            ->whereRaw("DATE_FORMAT(created_at, '%Y%m%d') != SUBSTRING(invoice_number, 5, 8)")
             ->get();
 
         if ($mismatched->isEmpty()) {
-            $this->info('✅ No mismatched sales found. Everything looks correct.');
-            return 0;
+            $this->info('  No mismatched sales found. All good.');
+            return;
         }
 
-        $this->warn("Found {$mismatched->count()} sales with date mismatch.");
+        $this->warn("  Found {$mismatched->count()} sales with date mismatch.");
+        $fixed = 0;
+        $skipped = 0;
 
         foreach ($mismatched as $sale) {
-            // Extract the correct date from invoice_number (FAC-YYYYMMDD-XXXX)
             $parts = explode('-', $sale->invoice_number);
             if (count($parts) !== 3) {
                 continue;
             }
 
-            $invoiceDate = $parts[1]; // YYYYMMDD
-            $currentDate = date('Y-m-d H:i:s', strtotime($sale->created_at));
-            $currentDateOnly = date('Ymd', strtotime($sale->created_at));
+            $invoiceDateStr = $parts[1]; // YYYYMMDD
 
-            // The time part is correct (already in Colombia time), just the date rolled back
-            $timePart = date('H:i:s', strtotime($sale->created_at));
-            $correctDate = substr($invoiceDate, 0, 4) . '-' . substr($invoiceDate, 4, 2) . '-' . substr($invoiceDate, 6, 2);
-            $correctedDatetime = "{$correctDate} {$timePart}";
-
-            if ($isDryRun) {
-                $this->line("  #{$sale->id} {$sale->invoice_number}: {$currentDate} → {$correctedDatetime}");
-            } else {
-                // Update the sale
-                DB::table('sales')->where('id', $sale->id)->update([
-                    'created_at' => $correctedDatetime,
-                    'updated_at' => $correctedDatetime,
-                ]);
-
-                // Update related sale_items
-                DB::table('sale_items')->where('sale_id', $sale->id)->update([
-                    'created_at' => $correctedDatetime,
-                    'updated_at' => $correctedDatetime,
-                ]);
-
-                // Update related sale_payments
-                DB::table('sale_payments')->where('sale_id', $sale->id)->update([
-                    'created_at' => $correctedDatetime,
-                    'updated_at' => $correctedDatetime,
-                ]);
-
-                $this->info("  ✅ #{$sale->id} {$sale->invoice_number}: {$currentDate} → {$correctedDatetime}");
+            // Skip if invoice date is in the future (those were created after timezone fix)
+            if ($invoiceDateStr > $today) {
+                if ($isDryRun) {
+                    $this->line("  SKIP #{$sale->id} {$sale->invoice_number}: invoice date {$invoiceDateStr} is future, already correct");
+                }
+                $skipped++;
+                continue;
             }
 
-            $this->totalUpdated++;
+            $timePart = date('H:i:s', strtotime($sale->created_at));
+            $correctDate = substr($invoiceDateStr, 0, 4) . '-'
+                . substr($invoiceDateStr, 4, 2) . '-'
+                . substr($invoiceDateStr, 6, 2);
+            $corrected = "{$correctDate} {$timePart}";
+
+            if ($isDryRun) {
+                $this->line("  #{$sale->id} {$sale->invoice_number}: {$sale->created_at} -> {$corrected}");
+            } else {
+                DB::table('sales')->where('id', $sale->id)->update([
+                    'created_at' => $corrected,
+                    'updated_at' => $corrected,
+                ]);
+                DB::table('sale_items')->where('sale_id', $sale->id)->update([
+                    'created_at' => $corrected,
+                    'updated_at' => $corrected,
+                ]);
+                DB::table('sale_payments')->where('sale_id', $sale->id)->update([
+                    'created_at' => $corrected,
+                    'updated_at' => $corrected,
+                ]);
+                $this->line("  #{$sale->id} {$sale->invoice_number}: fixed -> {$corrected}");
+            }
+            $fixed++;
         }
 
-        $this->newLine();
-        if ($isDryRun) {
-            $this->warn("Total sales that would be fixed: {$this->totalUpdated}");
-        } else {
-            $this->info("✅ Fixed {$this->totalUpdated} sales.");
-        }
-
-        return 0;
+        $label = $isDryRun ? 'would be' : '';
+        $this->info("Step 2 complete: {$fixed} sales {$label} corrected, {$skipped} skipped (future/already correct).");
     }
 }
