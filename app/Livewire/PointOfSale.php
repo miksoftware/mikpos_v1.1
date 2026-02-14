@@ -1311,8 +1311,39 @@ class PointOfSale extends Component
             }
             
             // Create sale payments (only for payments with amount > 0 and valid method)
-            foreach ($this->payments as $payment) {
-                if ((float) ($payment['amount'] ?? 0) > 0 && !empty($payment['method_id'])) {
+            // IMPORTANT: For cash sales, we must ensure the sum of payments equals the sale total,
+            // not the amount received (which may include change/vuelto).
+            $validPayments = collect($this->payments)
+                ->filter(fn($p) => (float) ($p['amount'] ?? 0) > 0 && !empty($p['method_id']));
+            
+            if (!$this->isCredit && $validPayments->count() > 0) {
+                $saleTotal = $total;
+                $paymentsSoFar = 0;
+                $paymentsList = $validPayments->values()->all();
+                
+                foreach ($paymentsList as $i => $payment) {
+                    $isLast = ($i === count($paymentsList) - 1);
+                    
+                    if ($isLast) {
+                        // Last payment gets the remaining amount to ensure exact total
+                        $paymentAmount = round($saleTotal - $paymentsSoFar, 2);
+                    } else {
+                        // Non-last payments: use entered amount but cap at remaining
+                        $paymentAmount = min((float) $payment['amount'], round($saleTotal - $paymentsSoFar, 2));
+                    }
+                    
+                    if ($paymentAmount > 0) {
+                        SalePayment::create([
+                            'sale_id' => $sale->id,
+                            'payment_method_id' => $payment['method_id'],
+                            'amount' => $paymentAmount,
+                        ]);
+                        $paymentsSoFar += $paymentAmount;
+                    }
+                }
+            } else {
+                // Credit sales: store payments as-is (partial upfront payments)
+                foreach ($validPayments as $payment) {
                     SalePayment::create([
                         'sale_id' => $sale->id,
                         'payment_method_id' => $payment['method_id'],

@@ -138,40 +138,84 @@ class CashReconciliation extends Model
 
     /**
      * Get total cash sales (only cash payments affect the register).
+     * Adjusts for overpayments (change/vuelto) to reflect actual sale value.
      */
     public function getTotalCashSalesAttribute(): float
     {
-        return (float) \App\Models\SalePayment::whereHas('sale', function ($q) {
-            $q->where('cash_reconciliation_id', $this->id)
-              ->where('status', 'completed');
-        })->whereHas('paymentMethod', function ($q) {
-            $q->where('name', 'like', '%efectivo%')
-              ->orWhere('name', 'like', '%cash%');
-        })->sum('amount');
+        $sales = $this->sales()->where('status', 'completed')->with('payments.paymentMethod')->get();
+        $totalCash = 0;
+
+        foreach ($sales as $sale) {
+            $saleTotal = (float) $sale->total;
+            $payments = $sale->payments;
+            $paymentsSum = $payments->sum('amount');
+
+            foreach ($payments as $payment) {
+                $methodName = strtolower($payment->paymentMethod->name ?? '');
+                $isCash = str_contains($methodName, 'efectivo') || str_contains($methodName, 'cash');
+
+                if ($isCash) {
+                    // Adjust if payments exceed sale total
+                    if ($paymentsSum > $saleTotal && $paymentsSum > 0) {
+                        $adjustedAmount = round(((float) $payment->amount / $paymentsSum) * $saleTotal, 2);
+                    } else {
+                        $adjustedAmount = (float) $payment->amount;
+                    }
+                    $totalCash += $adjustedAmount;
+                }
+            }
+        }
+
+        return round($totalCash, 2);
     }
 
     /**
      * Get sales grouped by payment method.
+     * Adjusts payment amounts so they never exceed the sale total
+     * (handles cases where cashier entered more than the total, e.g. change/vuelto).
      */
     public function getSalesByPaymentMethod(): \Illuminate\Support\Collection
     {
-        return \App\Models\SalePayment::with('paymentMethod')
-            ->whereHas('sale', function ($q) {
-                $q->where('cash_reconciliation_id', $this->id)
-                  ->where('status', 'completed');
-            })
-            ->get()
-            ->groupBy('payment_method_id')
-            ->map(function ($payments) {
-                $method = $payments->first()->paymentMethod;
-                return [
-                    'method_id' => $method->id,
-                    'method_name' => $method->name,
-                    'total' => $payments->sum('amount'),
-                    'count' => $payments->count(),
-                ];
-            })
-            ->values();
+        $sales = $this->sales()->where('status', 'completed')->with('payments.paymentMethod')->get();
+
+        $methodTotals = [];
+
+        foreach ($sales as $sale) {
+            $saleTotal = (float) $sale->total;
+            $payments = $sale->payments;
+
+            if ($payments->isEmpty()) {
+                continue;
+            }
+
+            $paymentsSum = $payments->sum('amount');
+
+            foreach ($payments as $payment) {
+                $methodId = $payment->payment_method_id;
+                $methodName = $payment->paymentMethod->name ?? 'Desconocido';
+
+                // If payments exceed sale total, adjust proportionally
+                if ($paymentsSum > $saleTotal && $paymentsSum > 0) {
+                    $adjustedAmount = round(((float) $payment->amount / $paymentsSum) * $saleTotal, 2);
+                } else {
+                    $adjustedAmount = (float) $payment->amount;
+                }
+
+                if (!isset($methodTotals[$methodId])) {
+                    $methodTotals[$methodId] = [
+                        'method_id' => $methodId,
+                        'method_name' => $methodName,
+                        'total' => 0,
+                        'count' => 0,
+                    ];
+                }
+
+                $methodTotals[$methodId]['total'] = round($methodTotals[$methodId]['total'] + $adjustedAmount, 2);
+                $methodTotals[$methodId]['count']++;
+            }
+        }
+
+        return collect(array_values($methodTotals));
     }
 
     /**
