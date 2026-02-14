@@ -155,26 +155,30 @@ class Sale extends Model
 
     /**
      * Generate next invoice number.
+     * Uses the invoice_number prefix+date pattern to find the last sequence,
+     * avoiding issues with timezone changes or race conditions on created_at.
      */
     public static function generateInvoiceNumber(int $branchId): string
     {
         $prefix = 'FAC';
         $date = now()->format('Ymd');
-        
+        $pattern = "{$prefix}-{$date}-";
+
+        // Find the highest sequence for this branch and date pattern
         $lastSale = static::where('branch_id', $branchId)
-            ->whereDate('created_at', today())
-            ->orderByDesc('id')
+            ->where('invoice_number', 'like', "{$pattern}%")
+            ->orderByRaw("CAST(SUBSTRING_INDEX(invoice_number, '-', -1) AS UNSIGNED) DESC")
             ->first();
-        
+
         $sequence = 1;
         if ($lastSale) {
-            // Extract sequence from last invoice number
             $parts = explode('-', $lastSale->invoice_number);
             if (count($parts) === 3) {
                 $sequence = (int) $parts[2] + 1;
             }
         }
-        
+
         return sprintf('%s-%s-%04d', $prefix, $date, $sequence);
     }
+
 }
