@@ -4,7 +4,7 @@
 - PHP 8.2+
 - Laravel 12.x
 - Livewire 3.x (full-page components with attributes)
-- SQLite (default, configurable)
+- SQLite (default dev, MySQL in production)
 
 ## Frontend
 - Tailwind CSS 4.x (via Vite plugin)
@@ -22,18 +22,25 @@
 
 ## Architecture
 - **MVC Pattern**: Models for data, Livewire components for controllers/views
-- **Service Layer**: `ActivityLogService` for centralized logging
+- **Service Layer**: `ActivityLogService` for centralized logging, `FactusService` for DIAN electronic invoicing
 - **Permission System**: Role-based access control with granular permissions
 - **Multi-tenancy**: Branch-based data filtering and access control
 
 ## Database Schema
-- **Core Tables**: users, roles, permissions, modules, branches, activity_logs
+- **Core Tables**: users, roles, permissions, modules, branches, activity_logs, seeder_history
 - **Geographic**: departments, municipalities
-- **Configuration**: tax_documents, currencies, payment_methods, taxes, system_documents, product_field_settings
-- **Product Catalog**: categories, subcategories, brands, units, product_models, presentations, colors, imeis, products, product_children
-- **Cash Management**: cash_registers, cash_reconciliations, cash_movements
+- **Configuration**: billing_settings, tax_documents, currencies, payment_methods, taxes, system_documents, product_field_settings
+- **Product Catalog**: categories, subcategories, brands, units, product_models, presentations, colors, imeis, products, product_children, product_barcodes
+- **Services**: services
+- **Cash Management**: cash_registers, cash_reconciliations, cash_reconciliation_edits, cash_movements
+- **Sales**: sales, sale_items, sale_payments, sale_reprints
+- **Credit/Refund**: credit_notes, credit_note_items, credit_payments, refunds, refund_items
 - **Transactions**: customers, suppliers, combos, combo_items, purchases, purchase_items, inventory_movements
 - **Relationships**: Proper foreign key constraints and cascading deletes
+
+## Production Database
+- **CRITICAL**: Production uses MySQL, NOT SQLite
+- Use MySQL-compatible SQL: `DATE_FORMAT()` not `strftime()`, `CONCAT()` not `||`
 
 ## Common Commands
 
@@ -68,7 +75,7 @@ php artisan pail
 2. **New Features**: Create Livewire component + model + view + permissions
 3. **Permissions**: Add to seeder and assign to roles
 4. **Routes**: Register in `routes/web.php` with permission middleware
-5. **Menu**: Update `resources/views/layouts/app.blade.php` sidebar
+5. **Menu**: Update `resources/views/components/sidebar-menu.blade.php` sidebar
 6. **Validation**: Use default test users (admin@mikpos.com/password)
 
 ## UI/UX Standards

@@ -7,10 +7,12 @@ Root application is in the workspace root directory.
 ```
 /
 ├── app/
+│   ├── Console/Commands/    # Custom Artisan commands
 │   ├── Http/Controllers/    # Traditional controllers (minimal use)
-│   ├── Http/Middleware/     # Custom middleware (CheckPermission)
+│   ├── Http/Middleware/     # Custom middleware (CheckPermission, CheckInstallation)
 │   ├── Livewire/            # Livewire components (primary UI logic)
-│   │   └── Auth/            # Authentication components
+│   │   ├── Auth/            # Authentication components
+│   │   └── Reports/         # Report components
 │   ├── Models/              # Eloquent models
 │   ├── Providers/           # Service providers
 │   ├── Services/            # Business logic services
@@ -26,7 +28,9 @@ Root application is in the workspace root directory.
 │   └── views/
 │       ├── components/      # Reusable Blade components
 │       ├── layouts/         # Layout templates (app.blade.php, guest.blade.php)
-│       └── livewire/        # Livewire component views
+│       ├── livewire/        # Livewire component views
+│       │   └── reports/     # Report views
+│       └── receipts/        # Printable receipts (thermal 80mm)
 ├── routes/
 │   └── web.php              # Web routes (Livewire components as routes)
 ```
@@ -40,8 +44,10 @@ Root application is in the workspace root directory.
 - **Users** - User management with role assignment
 - **Branches** - Multi-branch management
 - **Roles** - Role and permission management
+- **ActivityLogs** - Activity log viewer with filters (user, branch, module, action, dates)
 
 ### Configuration
+- **BillingSettings** - Electronic invoicing configuration (Factus/DIAN)
 - **Departments** - Geographic departments
 - **Municipalities** - Geographic municipalities
 - **TaxDocuments** - Tax document types
@@ -63,25 +69,35 @@ Root application is in the workspace root directory.
 
 ### Cash Management
 - **CashRegisters** - Cash register creation and management
-- **CashReconciliations** - Cash reconciliations (arqueos) with movements
+- **CashReconciliations** - Cash reconciliations (arqueos) with movements, edit history
+
+### Point of Sale
+- **PointOfSale** - Full POS interface with barcode scanning, customer search/creation
+- **Sales** - Sales listing with refunds and credit notes
 
 ### Creation/Catalog
-- **Products** - Product management
+- **Products** - Product management with variants
+- **Services** - Service management (no inventory)
 - **Customers** - Customer management
 - **Suppliers** - Supplier management
 - **Combos** - Combo products
+- **Credits** - Credit/payment management
 
 ### Inventory
 - **Purchases** - Purchase order listing and payment control
-- **PurchaseCreate** - Purchase order creation
+- **PurchaseCreate** - Purchase order creation with inline discounts
 - **InventoryAdjustments** - Inventory adjustments
 - **InventoryTransfers** - Inventory transfers between branches
 
 ### Reports
-- **Reports/ProductsSold** - Products sold report
-- **Reports/Commissions** - Sales commissions report  
-- **Reports/Kardex** - Inventory kardex report
 - **Reports/SalesBook** - Complete sales book report
+- **Reports/ProductsSold** - Products sold report with filters
+- **Reports/Commissions** - Sales commissions report
+- **Reports/ProfitLoss** - Profit and loss report
+- **Reports/CreditsReport** - Credits/receivables report
+- **Reports/PurchasesReport** - Purchases report (7 tabs, 3 charts)
+- **Reports/CashReport** - Cash report (arqueos, movements, consolidated)
+- **Reports/Kardex** - Inventory kardex report
 
 ## Current Models
 
@@ -93,21 +109,27 @@ Root application is in the workspace root directory.
 - Department, Municipality
 
 ### Configuration
-- TaxDocument, Currency, PaymentMethod, Tax
+- BillingSetting, TaxDocument, Currency, PaymentMethod, Tax
 - SystemDocument, ProductFieldSetting
 
 ### Product Catalog
 - Category, Subcategory, Brand, Unit
 - ProductModel, Presentation, Color, Imei
-- Product, ProductChild
+- Product, ProductChild, ProductBarcode
+
+### Services
+- Service
 
 ### Cash Management
-- CashRegister, CashReconciliation, CashMovement
+- CashRegister, CashReconciliation, CashReconciliationEdit, CashMovement
 
-### Transactions
+### Sales & Transactions
+- Sale, SaleItem, SalePayment, SaleReprint
 - Customer, Supplier
 - Combo, ComboItem
 - Purchase, PurchaseItem
+- CreditPayment, CreditNote, CreditNoteItem
+- Refund, RefundItem
 - InventoryMovement
 
 ## Database Tables
@@ -121,22 +143,29 @@ Root application is in the workspace root directory.
 - departments, municipalities
 
 ### Configuration
-- tax_documents, currencies, payment_methods, taxes
+- billing_settings, tax_documents, currencies, payment_methods, taxes
 - system_documents, product_field_settings
 
 ### Product Catalog
 - categories, subcategories, brands, units
 - product_models, presentations, colors, imeis
-- products, product_children
+- products, product_children, product_barcodes
+
+### Services
+- services
 
 ### Cash Management
-- cash_registers, cash_reconciliations, cash_movements
+- cash_registers, cash_reconciliations, cash_reconciliation_edits, cash_movements
 
-### Transactions
+### Sales & Transactions
+- sales, sale_items, sale_payments, sale_reprints
 - customers, suppliers
 - combos, combo_items
 - purchases, purchase_items
+- credit_payments, credit_notes, credit_note_items
+- refunds, refund_items
 - inventory_movements
+- seeder_history (deployment tracking)
 
 ## Conventions
 
@@ -206,7 +235,7 @@ Select con buscador usando Alpine.js puro y Tailwind CSS. Compatible con Livewir
 - Guest routes use `guest` middleware
 
 ### Menu Structure (Sidebar)
-Located in `resources/views/layouts/app.blade.php`
+Located in `resources/views/components/sidebar-menu.blade.php`
 
 ```
 Dashboard
@@ -218,6 +247,7 @@ Administración
 ├── Usuarios
 ├── Sucursales
 ├── Roles
+├── Logs de Actividad
 └── Configuración
     ├── Departamentos
     ├── Municipios
@@ -238,6 +268,7 @@ Administración
         └── IMEIs
 Creación
 ├── Productos
+├── Servicios
 ├── Clientes
 ├── Proveedores
 └── Combos
@@ -245,6 +276,17 @@ Inventarios
 ├── Compras
 ├── Ajustes Inventario
 └── Transferencias
+Reportes
+├── Ventas
+│   ├── Libro de Ventas
+│   ├── Productos Vendidos
+│   ├── Comisiones
+│   ├── Utilidades
+│   ├── Créditos
+│   ├── Compras
+│   └── Cajas
+└── Inventario
+    └── Kardex
 ```
 
 
@@ -255,6 +297,9 @@ Located in `app/Console/Commands/`
 
 - **SeedPending** (`db:seed-pending`) - Run only new/pending seeders
 - **SeedMarkExecuted** (`db:seed-mark-executed`) - Mark seeders as already executed
+- **FixUtcDates** (`fix:utc-dates`) - Convert UTC dates to America/Bogota timezone
+- **FixExistingRefunds** (`fix:existing-refunds`) - Fix inventory for existing refunds
+- **GenerateSaleInventoryMovements** - Generate missing sale inventory movements
 
 ### Common Commands
 
@@ -293,18 +338,6 @@ docker compose exec -T php php artisan db:seed-pending --force
 docker compose exec -T php php artisan optimize
 ```
 
-## File Structure - Additional
-
-```
-/
-├── app/
-│   └── Console/
-│       └── Commands/
-│           ├── SeedPending.php        # Run pending seeders
-│           └── SeedMarkExecuted.php   # Mark seeders executed
-├── deploy.sh                          # Production deploy script
-```
-
 
 ## Services Module
 
@@ -332,7 +365,7 @@ Services are similar to products but without inventory/stock management.
 
 ### POS Integration
 - Services appear in the same grid as products
-- Identified by "Servicio" badge (indigo color)
-- No stock indicator shown
+- Identified by "Serv." badge (indigo color) at top-left
+- Stock info NOT shown for services (only for products)
 - Uses `addServiceToCart()` method
 - `sale_items.service_id` stores the service reference

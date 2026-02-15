@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\Brand;
 use App\Models\User;
 use App\Models\Product;
+use App\Models\Service;
 use App\Models\Purchase;
 use App\Models\CashMovement;
 use Illuminate\Http\Request;
@@ -52,16 +53,26 @@ class ReportExportController extends Controller
         $query = SaleItem::query()
             ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
             ->leftJoin('products', 'sale_items.product_id', '=', 'products.id')
-            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->leftJoin('services', 'sale_items.service_id', '=', 'services.id')
+            ->leftJoin('categories', function ($join) {
+                $join->on('categories.id', '=', DB::raw('COALESCE(products.category_id, services.category_id)'));
+            })
             ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
             ->join('users', 'sales.user_id', '=', 'users.id')
             ->where('sales.status', 'completed')
             ->whereDate('sales.created_at', '>=', $startDate)
             ->whereDate('sales.created_at', '<=', $endDate)
             ->where(function ($q) {
-                $q->where('products.has_commission', true)
-                  ->whereNotNull('products.commission_value')
-                  ->where('products.commission_value', '>', 0);
+                $q->where(function ($pq) {
+                    $pq->where('products.has_commission', true)
+                       ->whereNotNull('products.commission_value')
+                       ->where('products.commission_value', '>', 0);
+                })
+                ->orWhere(function ($sq) {
+                    $sq->where('services.has_commission', true)
+                       ->whereNotNull('services.commission_value')
+                       ->where('services.commission_value', '>', 0);
+                });
             });
 
         if ($branchId) {
@@ -75,7 +86,10 @@ class ReportExportController extends Controller
         }
 
         if ($categoryId) {
-            $query->where('products.category_id', $categoryId);
+            $query->where(function ($q) use ($categoryId) {
+                $q->where('products.category_id', $categoryId)
+                  ->orWhere('services.category_id', $categoryId);
+            });
         }
 
         if ($brandId) {
@@ -89,13 +103,10 @@ class ReportExportController extends Controller
                 'sales.created_at as sale_date',
                 'users.id as user_id',
                 'users.name as user_name',
-                'products.has_commission',
-                'products.commission_type',
-                'products.commission_value',
                 DB::raw("COALESCE(categories.name, 'Sin categoría') as category_name"),
                 DB::raw("COALESCE(brands.name, 'Sin marca') as brand_name")
             )
-            ->with('product')
+            ->with(['product', 'service'])
             ->orderBy('users.name')
             ->orderBy('sales.created_at', 'desc')
             ->get();
@@ -183,14 +194,25 @@ class ReportExportController extends Controller
 
     private function calculateCommission($item): float
     {
-        if (!$item->has_commission || !$item->commission_value) {
-            return 0;
-        }
-
         $basePrice = (float) $item->unit_price;
         $quantity = (float) $item->quantity;
-        $commissionValue = (float) $item->commission_value;
-        $commissionType = $item->commission_type;
+
+        // Check if it's a service
+        if ($item->service_id ?? null) {
+            $service = $item->service ?? null;
+            if (!$service || !$service->has_commission) {
+                return 0;
+            }
+            $commissionValue = (float) $service->commission_value;
+            $commissionType = $service->commission_type;
+        } else {
+            $product = $item->product ?? null;
+            if (!$product || !$product->has_commission) {
+                return 0;
+            }
+            $commissionValue = (float) $product->commission_value;
+            $commissionType = $product->commission_type;
+        }
 
         if ($commissionType === 'percentage') {
             return ($basePrice * ($commissionValue / 100)) * $quantity;

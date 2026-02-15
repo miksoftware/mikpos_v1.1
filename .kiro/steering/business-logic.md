@@ -26,6 +26,12 @@
 - If user is admin/supervisor, they can select any register from their branch
 - Only ONE open reconciliation per cash register at a time
 
+### Cash Reconciliation Edit (Audit History)
+- Closed reconciliations can be edited with audit trail
+- `CashReconciliationEdit` model stores: old/new values, reason, user who edited
+- Permission: `cash_reconciliations.edit`
+- Edit history viewable in detail modal
+
 ### Cash Movements (Movimientos de Caja)
 - Income/expense movements during an open reconciliation
 - Types: `income` (ingreso) or `expense` (egreso)
@@ -40,6 +46,12 @@ $expected = $opening_amount
     - $movements->where('type', 'expense')->sum('amount');
 ```
 
+### Cash Reconciliation Totals (Sales Integration)
+- Sales totals calculated from `sale_payments` where amount = actual sale total (not cash tendered)
+- Refunds and credit notes shown separately in reconciliation detail
+- Refund totals: sum of refunds linked to the reconciliation
+- Credit note totals: sum of credit notes for sales within the reconciliation period
+
 ## Purchase Management (Compras)
 
 ### Purchases
@@ -48,18 +60,18 @@ $expected = $opening_amount
 - Payment status: `paid`, `partial`, `pending`
 - Fields include: `supplier_id`, `total`, `payment_type`, `payment_status`, `amount_paid`
 
+### Purchase Item Discounts
+- Each purchase item supports inline discounts
+- `discount_type`: 'percentage' or 'fixed' (stored in `purchase_items` table)
+- `discount`: The discount value
+- Subtotal calculation: `(quantity * unit_cost) - discount_amount`
+
 **Credit Purchase Flow**:
 1. Create purchase with `payment_type = 'credit'`
 2. Initial `payment_status = 'pending'`, `amount_paid = 0`
 3. Register partial payments via payment modal
 4. When `amount_paid >= total`, status becomes `paid`
 5. Can also mark as fully paid directly
-
-**Filters**:
-- By payment type (cash/credit)
-- By payment status (paid/partial/pending)
-- By date range
-- By supplier
 
 ### Product Search in Purchases
 - Products are filtered by selected branch
@@ -85,11 +97,11 @@ if (auth()->user()->isSuperAdmin()) {
 ```
 
 ### Entities with Branch Filtering
-- Products
+- Products, Services
 - Customers
 - Combos
 - Cash Registers
-- Purchases
+- Purchases, Sales
 - Inventory Movements
 
 ## User Management
@@ -122,6 +134,12 @@ ActivityLogService::logDelete($model, "Descripción eliminada");
 ```
 
 **Important**: Always pass Eloquent Model instance, not stdClass or array.
+
+### Activity Log Viewer
+- Module: `ActivityLogs` component at `/activity-logs`
+- Filters: period (today/yesterday/week/month/custom), branch, user, module, action, search
+- Detail modal shows old_values (red) and new_values (green) comparison
+- Permissions: `activity_logs.view`, `activity_logs.export`
 
 ## Validation Rules
 
@@ -173,53 +191,22 @@ use App\Services\FactusService;
 
 $factus = new FactusService();
 
-// Check if enabled
 if ($factus->isEnabled()) {
-    // Create and validate invoice
     $response = $factus->createInvoice($sale);
-    
-    // Get PDF
     $pdfBase64 = $factus->getInvoicePdf($sale);
-    
-    // Check status
     $status = $factus->getInvoiceStatus($sale);
 }
 ```
 
 ### DIAN Codes Reference
 
-**Payment Methods (Métodos de Pago):**
-- 10: Efectivo
-- 47: Transferencia (Nequi, Daviplata, PSE, etc.)
-- 48: Tarjeta Crédito
-- 49: Tarjeta Débito
-- 42: Consignación
-- 20: Cheque
-- 71: Bonos
-- 72: Vales
-- ZZ: Otro
-- 1: No Definido
+**Payment Methods:** 10: Efectivo, 47: Transferencia, 48: Tarjeta Crédito, 49: Tarjeta Débito, 42: Consignación, 20: Cheque, 71: Bonos, 72: Vales, ZZ: Otro, 1: No Definido
 
-**Document Types (Tipos de Documento):**
-- 1: Registro Civil (RC)
-- 2: Tarjeta de Identidad (TI)
-- 3: Cédula de Ciudadanía (CC)
-- 4: Tarjeta de Extranjería (TE)
-- 5: Cédula de Extranjería (CE)
-- 6: NIT
-- 7: Pasaporte (PA)
-- 8: Documento de Identificación Extranjero (DIE)
-- 9: PEP
-- 10: NIT de Otro País
-- 11: NUIP
+**Document Types:** 1: RC, 2: TI, 3: CC, 4: TE, 5: CE, 6: NIT, 7: PA, 8: DIE, 9: PEP, 10: NIT Otro País, 11: NUIP
 
-**Legal Organization Types:**
-- 1: Persona Jurídica
-- 2: Persona Natural
+**Legal Organization Types:** 1: Persona Jurídica, 2: Persona Natural
 
-**Payment Forms:**
-- 1: Pago de contado
-- 2: Pago a crédito
+**Payment Forms:** 1: Pago de contado, 2: Pago a crédito
 
 ### POS Integration
 - Electronic invoicing is processed automatically after sale creation
@@ -235,6 +222,7 @@ if ($factus->isEnabled()) {
 - Credit notes are used to partially or totally cancel electronic invoices
 - Sent to DIAN via Factus API for validation
 - Only available for validated electronic invoices (with CUFE)
+- Returns inventory to stock (creates inventory movements)
 
 ### CreditNote Model Fields
 - `sale_id`: Reference to original sale
@@ -256,27 +244,20 @@ if ($factus->isEnabled()) {
 ### Credit Note Flow
 1. User opens credit note modal from validated electronic invoice
 2. Selects type (total/partial)
-3. Selects correction concept
-4. Enters reason
-5. For partial: selects items and quantities
-6. System creates CreditNote and CreditNoteItems
-7. Sends to DIAN via FactusService::createCreditNote()
+3. Selects correction concept and enters reason
+4. For partial: selects items and quantities
+5. System creates CreditNote and CreditNoteItems
+6. Sends to DIAN via FactusService::createCreditNote()
+7. Returns inventory to stock (inventory movements created)
 8. Updates status based on DIAN response
 
-### FactusService Credit Note Methods
-```php
-// Create and validate credit note
-$response = $factusService->createCreditNote($creditNote);
-
-// Get PDF
-$pdf = $factusService->getCreditNotePdf($creditNote);
-```
 
 ## Refunds (Devoluciones) - POS Sales
 
 ### Overview
 - Refunds are used for POS sales (non-electronic)
 - Internal document, not sent to DIAN
+- Returns inventory to stock (creates inventory movements)
 - Generates printable receipt
 
 ### Refund Model Fields
@@ -294,14 +275,14 @@ $pdf = $factusService->getCreditNotePdf($creditNote);
 3. Enters reason
 4. For partial: selects items and quantities
 5. System creates Refund and RefundItems
-6. Opens print window for refund receipt
-7. Logs activity
+6. Returns inventory to stock (inventory movements created)
+7. Opens print window for refund receipt
+8. Logs activity
 
 ### Refund Receipt
 - Printed on 80mm thermal printer
 - Shows original sale reference
 - Lists refunded items
-- Includes signature lines for customer and staff
 - Route: `/refund-receipt/{refund}`
 
 ### Validation Rules
@@ -309,6 +290,12 @@ $pdf = $factusService->getCreditNotePdf($creditNote);
 - System tracks credited/refunded quantities per item
 - Reason is required (min 5-10 characters)
 - At least one item must be selected
+
+
+## Sale Invoice Number Generation
+- `Sale::generateInvoiceNumber()` searches by invoice_number LIKE pattern (not by date)
+- Format: `{document_code}-{YYYYMMDD}-{sequential_number}`
+- Prevents duplicates even after timezone corrections
 
 
 ## Deployment & Seeders
@@ -361,6 +348,19 @@ $trackedSeeders = [
     'InventoryTransfersModuleSeeder',
     'BillingSettingsModuleSeeder',
     'SalesModuleSeeder',
+    'ServicesModuleSeeder',
+    'ReportsModuleSeeder',
+    'CommissionsReportPermissionSeeder',
+    'KardexReportPermissionSeeder',
+    'SalesBookReportPermissionSeeder',
+    'WeightUnitsSeeder',
+    'ProfitLossReportPermissionSeeder',
+    'CreditsModuleSeeder',
+    'CreditsReportPermissionSeeder',
+    'CashReconciliationEditPermissionSeeder',
+    'RefundSystemDocumentSeeder',
+    'PurchasesReportPermissionSeeder',
+    'CashReportPermissionSeeder',
 ];
 ```
 
@@ -375,15 +375,10 @@ Located at `deploy.sh` in project root. Key steps:
 7. Optimize (cache config, routes, views)
 8. Maintenance mode off
 
-**Error handling**: If deploy fails, automatically reactivates the app.
-
 ### Production Setup (First Time)
 After deploying the seeder system to production:
 ```bash
-# Run migration for seeder_history table
 docker compose exec -T php php artisan migrate --force
-
-# Mark all existing seeders as executed
 docker compose exec -T php php artisan db:seed-mark-executed --all
 ```
 
@@ -406,6 +401,13 @@ docker compose exec -T php php artisan db:seed-mark-executed --all
 - Sidebar logo shows branch name instead of "MikPOS"
 - POS header shows branch name
 - Falls back to "MikPOS" if no branch assigned
+
+### Product Card Layout (POS Grid)
+- Price badge: top-right corner (gradient)
+- Service badge: top-left "Serv." (indigo)
+- Variant badges: bottom-left "Var." (blue/purple)
+- Stock info: bottom of card text area, next to brand name (green/red text)
+- Services do NOT show stock
 
 
 ## Model Column Reference (IMPORTANT)
@@ -449,6 +451,10 @@ Tables that share common column names:
 - Has `name` column (full name)
 - Check super admin: `$user->isSuperAdmin()` (NOT `hasRole()`)
 
+### SystemDocument Model
+- Has `code` field that is auto-generated on creation only
+- Never overwrite existing `code` on edit
+
 ### Seeder Best Practices
 - Do NOT use `$this->command->info()` in seeders - causes null error when run from custom commands
 - Use `firstOrCreate()` with correct column names for the model
@@ -461,10 +467,14 @@ Tables that share common column names:
 Located in `app/Livewire/Reports/` with views in `resources/views/livewire/reports/`
 
 Current reports:
-- **ProductsSold** - Products sold report with filters
-- **Commissions** - Sales commissions report
-- **Kardex** - Inventory kardex report
 - **SalesBook** - Complete sales book report
+- **ProductsSold** - Products sold report with filters and export
+- **Commissions** - Sales commissions report with export
+- **ProfitLoss** - Profit and loss report with export
+- **CreditsReport** - Credits/receivables report
+- **PurchasesReport** - Purchases report (7 tabs, 3 Chart.js charts, filters by period/branch/supplier/payment)
+- **CashReport** - Cash report (3 tabs: Arqueos, Movimientos, Informe consolidado)
+- **Kardex** - Inventory kardex report
 
 ### Report Permissions
 - `reports.view` - Base permission to access reports section
@@ -472,6 +482,10 @@ Current reports:
 - `reports.commissions` - Commissions report
 - `reports.kardex` - Kardex inventory report
 - `reports.sales_book` - Sales book report
+- `reports.profit_loss` - Profit and loss report
+- `reports.credits` - Credits report
+- `reports.purchases` - Purchases report
+- `reports.cash` - Cash report
 - `reports.export` - Export reports to PDF/Excel
 
 ### Adding New Reports
@@ -509,11 +523,6 @@ The system supports decimal quantities for products sold by weight (kg, lb, etc.
 'max_stock' => 'decimal:3'
 ```
 
-### POS Quantity Input
-- Input field allows decimal values with `step="0.001"`
-- Quantity is validated and rounded to 3 decimal places
-- Stock validation uses float comparison
-
 ### Display Formatting
 For clean display of quantities (removes trailing zeros):
 ```blade
@@ -530,3 +539,22 @@ $quantity = (int) $item->quantity;
 // GOOD - preserves decimals
 $quantity = (float) $item->quantity;
 ```
+
+
+## Production Database
+
+### CRITICAL: MySQL in Production
+- Production uses MySQL, NOT SQLite
+- Use MySQL-compatible SQL functions:
+  - `DATE_FORMAT()` NOT `strftime()`
+  - `CONCAT()` NOT `||`
+  - `IFNULL()` works in both
+- Always test queries for MySQL compatibility
+
+### Timezone
+- App timezone: `America/Bogota` (configured in `.env` and `config/app.php`)
+- `fix:utc-dates` command available to convert old UTC dates
+
+### PHP Gotchas
+- PHP string interpolation: cannot use `??` inside `"{$var->prop ?? 'default'}"` — extract to variable first
+- `auth()->id()` is null in artisan commands — use `Auth::loginUsingId()` when needed

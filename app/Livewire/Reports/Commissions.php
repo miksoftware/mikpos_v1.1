@@ -9,6 +9,7 @@ use App\Models\SaleItem;
 use App\Models\Branch;
 use App\Models\User;
 use App\Models\Product;
+use App\Models\Service;
 use App\Models\Category;
 use App\Models\Brand;
 use Illuminate\Support\Facades\DB;
@@ -101,13 +102,23 @@ class Commissions extends Component
         $query = SaleItem::query()
             ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
             ->leftJoin('products', 'sale_items.product_id', '=', 'products.id')
+            ->leftJoin('services', 'sale_items.service_id', '=', 'services.id')
             ->where('sales.status', 'completed')
             ->whereDate('sales.created_at', '>=', $this->startDate)
             ->whereDate('sales.created_at', '<=', $this->endDate)
             ->where(function ($q) {
-                $q->where('products.has_commission', true)
-                  ->whereNotNull('products.commission_value')
-                  ->where('products.commission_value', '>', 0);
+                // Products with commission
+                $q->where(function ($pq) {
+                    $pq->where('products.has_commission', true)
+                       ->whereNotNull('products.commission_value')
+                       ->where('products.commission_value', '>', 0);
+                })
+                // OR services with commission
+                ->orWhere(function ($sq) {
+                    $sq->where('services.has_commission', true)
+                       ->whereNotNull('services.commission_value')
+                       ->where('services.commission_value', '>', 0);
+                });
             });
 
         if ($this->selectedBranchId) {
@@ -121,7 +132,10 @@ class Commissions extends Component
         }
 
         if ($this->selectedCategoryId) {
-            $query->where('products.category_id', $this->selectedCategoryId);
+            $query->where(function ($q) {
+                $q->where('products.category_id', $this->selectedCategoryId)
+                  ->orWhere('services.category_id', $this->selectedCategoryId);
+            });
         }
 
         if ($this->selectedBrandId) {
@@ -133,14 +147,25 @@ class Commissions extends Component
 
     private function calculateCommission($item): float
     {
-        if (!$item->product || !$item->product->has_commission) {
-            return 0;
-        }
-
         $basePrice = (float) $item->unit_price;
         $quantity = (float) $item->quantity;
-        $commissionValue = (float) $item->product->commission_value;
-        $commissionType = $item->product->commission_type;
+
+        // Check if it's a service
+        if ($item->service_id ?? null) {
+            $service = $item->service ?? null;
+            if (!$service || !$service->has_commission) {
+                return 0;
+            }
+            $commissionValue = (float) $service->commission_value;
+            $commissionType = $service->commission_type;
+        } else {
+            // It's a product
+            if (!$item->product || !$item->product->has_commission) {
+                return 0;
+            }
+            $commissionValue = (float) $item->product->commission_value;
+            $commissionType = $item->product->commission_type;
+        }
 
         if ($commissionType === 'percentage') {
             return ($basePrice * ($commissionValue / 100)) * $quantity;
@@ -152,8 +177,16 @@ class Commissions extends Component
     private function calculateSummary()
     {
         $items = $this->getBaseQuery()
-            ->select('sale_items.*', 'products.has_commission', 'products.commission_type', 'products.commission_value')
-            ->with('product')
+            ->select(
+                'sale_items.*',
+                'products.has_commission as product_has_commission',
+                'products.commission_type as product_commission_type',
+                'products.commission_value as product_commission_value',
+                'services.has_commission as service_has_commission',
+                'services.commission_type as service_commission_type',
+                'services.commission_value as service_commission_value'
+            )
+            ->with(['product', 'service'])
             ->get();
 
         $this->totalCommissions = 0;
@@ -194,12 +227,9 @@ class Commissions extends Component
             ->select(
                 'users.id as user_id',
                 'users.name as user_name',
-                'sale_items.*',
-                'products.has_commission',
-                'products.commission_type', 
-                'products.commission_value'
+                'sale_items.*'
             )
-            ->with('product')
+            ->with(['product', 'service'])
             ->get();
 
         $userCommissions = [];
@@ -229,12 +259,9 @@ class Commissions extends Component
         $items = $this->getBaseQuery()
             ->select(
                 DB::raw("DATE(sales.created_at) as sale_date"),
-                'sale_items.*',
-                'products.has_commission',
-                'products.commission_type',
-                'products.commission_value'
+                'sale_items.*'
             )
-            ->with('product')
+            ->with(['product', 'service'])
             ->get();
 
         $dailyCommissions = [];
@@ -264,12 +291,9 @@ class Commissions extends Component
             ->select(
                 'sale_items.product_name',
                 'sale_items.product_sku',
-                'sale_items.*',
-                'products.has_commission',
-                'products.commission_type',
-                'products.commission_value'
+                'sale_items.*'
             )
-            ->with('product')
+            ->with(['product', 'service'])
             ->get();
 
         $productCommissions = [];
@@ -297,15 +321,14 @@ class Commissions extends Component
     private function getCommissionsByCategory()
     {
         $items = $this->getBaseQuery()
-            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->leftJoin('categories', function ($join) {
+                $join->on('categories.id', '=', DB::raw('COALESCE(products.category_id, services.category_id)'));
+            })
             ->select(
                 DB::raw("COALESCE(categories.name, 'Sin categoría') as category_name"),
-                'sale_items.*',
-                'products.has_commission',
-                'products.commission_type',
-                'products.commission_value'
+                'sale_items.*'
             )
-            ->with('product')
+            ->with(['product', 'service'])
             ->get();
 
         $categoryCommissions = [];
@@ -343,24 +366,26 @@ class Commissions extends Component
     private function loadUserSalesDetail($userId)
     {
         $items = $this->getBaseQuery()
-            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->leftJoin('categories', function ($join) {
+                $join->on('categories.id', '=', DB::raw('COALESCE(products.category_id, services.category_id)'));
+            })
             ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
             ->where('sales.user_id', $userId)
             ->select(
                 'sale_items.*',
                 'sales.invoice_number',
                 'sales.created_at as sale_date',
-                'products.has_commission',
-                'products.commission_type',
-                'products.commission_value',
                 DB::raw("COALESCE(categories.name, 'Sin categoría') as category_name"),
                 DB::raw("COALESCE(brands.name, 'Sin marca') as brand_name")
             )
-            ->with('product')
+            ->with(['product', 'service'])
             ->orderBy('sales.created_at', 'desc')
             ->get();
 
         $this->userSalesDetail = $items->map(function ($item) {
+            $isService = $item->service_id !== null;
+            $commissionSource = $isService ? $item->service : $item->product;
+            
             return [
                 'invoice_number' => $item->invoice_number,
                 'date' => Carbon::parse($item->sale_date)->format('d/m/Y H:i'),
@@ -372,9 +397,10 @@ class Commissions extends Component
                 'unit_price' => (float) $item->unit_price,
                 'subtotal' => (float) $item->subtotal,
                 'total' => (float) $item->total,
-                'commission_type' => $item->commission_type,
-                'commission_value' => (float) $item->commission_value,
+                'commission_type' => $commissionSource?->commission_type,
+                'commission_value' => (float) ($commissionSource?->commission_value ?? 0),
                 'commission' => $this->calculateCommission($item),
+                'is_service' => $isService,
             ];
         })->toArray();
     }
