@@ -405,9 +405,8 @@ class Commissions extends Component
         })->toArray();
     }
 
-    public function exportPdf()
+    public function exportPdf($mode = 'detailed')
     {
-        // Generate URL with current filters
         $params = http_build_query([
             'start_date' => $this->startDate,
             'end_date' => $this->endDate,
@@ -415,6 +414,7 @@ class Commissions extends Component
             'user_id' => $this->selectedUserId,
             'category_id' => $this->selectedCategoryId,
             'brand_id' => $this->selectedBrandId,
+            'mode' => $mode,
         ]);
         
         return redirect()->to(route('reports.commissions.pdf') . '?' . $params);

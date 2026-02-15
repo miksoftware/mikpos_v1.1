@@ -29,12 +29,22 @@ class ReportExportController extends Controller
 {
     public function commissionsPdf(Request $request)
     {
+        $mode = $request->get('mode', 'detailed');
         $data = $this->getCommissionsData($request);
         
-        $pdf = Pdf::loadView('reports.commissions-pdf', $data);
-        $pdf->setPaper('a4', 'portrait');
+        if ($mode === 'totalized') {
+            $data['totalizedData'] = $this->getTotalizedCommissions($data['rawItems'] ?? collect());
+            $view = 'reports.commissions-totalized-pdf';
+            $filename = 'comisiones-totalizado-' . now()->format('Y-m-d') . '.pdf';
+        } else {
+            $view = 'reports.commissions-pdf';
+            $filename = 'comisiones-discriminado-' . now()->format('Y-m-d') . '.pdf';
+        }
         
-        $filename = 'comisiones-' . now()->format('Y-m-d') . '.pdf';
+        unset($data['rawItems']);
+        
+        $pdf = Pdf::loadView($view, $data);
+        $pdf->setPaper('a4', 'portrait');
         
         return $pdf->download($filename);
     }
@@ -128,6 +138,7 @@ class ReportExportController extends Controller
                 ];
             }
 
+            $isService = $item->service_id !== null;
             $commission = $this->calculateCommission($item);
             $userCommissions[$userId]['commission'] += $commission;
             $userCommissions[$userId]['sales'] += (float) $item->total;
@@ -136,12 +147,14 @@ class ReportExportController extends Controller
                 'invoice_number' => $item->invoice_number,
                 'date' => Carbon::parse($item->sale_date)->format('d/m/Y'),
                 'product_name' => $item->product_name,
+                'product_sku' => $item->product_sku,
                 'category' => $item->category_name,
                 'brand' => $item->brand_name,
                 'quantity' => (float) $item->quantity,
                 'unit_price' => (float) $item->unit_price,
                 'total' => (float) $item->total,
                 'commission' => $commission,
+                'is_service' => $isService,
             ];
 
             $totalCommissions += $commission;
@@ -189,7 +202,40 @@ class ReportExportController extends Controller
             'totalSales' => $totalSales,
             'userCommissions' => array_values($userCommissions),
             'generatedAt' => now()->format('d/m/Y H:i:s'),
+            'rawItems' => $items,
         ];
+    }
+
+    private function getTotalizedCommissions($items): array
+    {
+        $totalized = [];
+
+        foreach ($items as $item) {
+            $isService = $item->service_id !== null;
+            $key = ($isService ? 'S-' : 'P-') . ($item->product_sku ?? $item->product_name);
+
+            if (!isset($totalized[$key])) {
+                $totalized[$key] = [
+                    'product_name' => $item->product_name,
+                    'product_sku' => $item->product_sku,
+                    'category' => $item->category_name,
+                    'brand' => $item->brand_name ?? 'Sin marca',
+                    'is_service' => $isService,
+                    'quantity' => 0,
+                    'total_sales' => 0,
+                    'total_commission' => 0,
+                ];
+            }
+
+            $totalized[$key]['quantity'] += (float) $item->quantity;
+            $totalized[$key]['total_sales'] += (float) $item->total;
+            $totalized[$key]['total_commission'] += $this->calculateCommission($item);
+        }
+
+        // Sort by commission desc
+        uasort($totalized, fn($a, $b) => $b['total_commission'] <=> $a['total_commission']);
+
+        return array_values($totalized);
     }
 
     private function calculateCommission($item): float
