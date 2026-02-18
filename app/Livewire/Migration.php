@@ -65,10 +65,8 @@ class Migration extends Component
         $originalName = $this->sqlFile->getClientOriginalName();
         $this->sqlFile->storeAs('migrations', $originalName, 'local');
 
-        // Livewire stores in app/private/migrations via local disk, move to app/migrations
         $source = storage_path('app/private/migrations/' . $originalName);
         $dest = storage_path('app/migrations/' . $originalName);
-
         if (File::exists($source)) {
             File::move($source, $dest);
         }
@@ -105,47 +103,71 @@ class Migration extends Component
             return;
         }
 
+        $statusFile = storage_path('app/migrations/.migration_status');
+        $outputFile = storage_path('app/migrations/.migration_output');
+        $pidFile = storage_path('app/migrations/.migration_pid');
+
         $this->isRunning = true;
         $this->isComplete = false;
         $this->hasError = false;
         $this->output = '';
 
-        $statusFile = storage_path('app/migrations/.migration_status');
-        $outputFile = storage_path('app/migrations/.migration_output');
         File::put($statusFile, 'running');
         File::put($outputFile, '');
 
         $php = PHP_BINARY ?: 'php';
         $artisan = base_path('artisan');
         $branch = (int) $this->branchId;
-        $escaped = str_replace("'", "'\\''", $filePath);
 
-        // Create a small PHP wrapper that runs the command and writes status on finish
-        $runner = storage_path('app/migrations/.migration_runner.php');
-        $script = "<?php\n"
-            . "ob_start();\n"
-            . "\$code = 0;\n"
-            . "try {\n"
-            . "    passthru('" . addslashes($php) . " " . addslashes($artisan) . " migration:import " . escapeshellarg($filePath) . " --branch={$branch} --clean --force 2>&1', \$code);\n"
-            . "} catch (\\Throwable \$e) {\n"
-            . "    echo \"Error: \" . \$e->getMessage();\n"
-            . "    \$code = 1;\n"
-            . "}\n"
-            . "\$out = ob_get_clean();\n"
-            . "file_put_contents('" . addslashes($outputFile) . "', \$out);\n"
-            . "file_put_contents('" . addslashes($statusFile) . "', 'done');\n";
-
-        File::put($runner, $script);
-
-        // Launch in background (cross-platform)
-        $runnerEscaped = escapeshellarg($runner);
-        $phpEscaped = escapeshellarg($php);
+        $cmd = escapeshellarg($php) . ' ' . escapeshellarg($artisan)
+            . ' migration:import ' . escapeshellarg($filePath)
+            . " --branch={$branch} --clean --force";
 
         if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-            pclose(popen("start /B \"migration\" {$phpEscaped} {$runnerEscaped}", 'r'));
+            $bgCmd = "start /B cmd /C \"{$cmd} > " . escapeshellarg($outputFile) . " 2>&1 & echo done > " . escapeshellarg($statusFile) . "\"";
+            pclose(popen($bgCmd, 'r'));
         } else {
-            exec("nohup {$phpEscaped} {$runnerEscaped} > /dev/null 2>&1 &");
+            // Linux/Docker: write a shell script and launch with setsid for full detach
+            $shellScript = storage_path('app/migrations/.migration_run.sh');
+            $content = "#!/bin/bash\n"
+                . "echo \$\$ > " . escapeshellarg($pidFile) . "\n"
+                . "{$cmd} > " . escapeshellarg($outputFile) . " 2>&1\n"
+                . "echo done > " . escapeshellarg($statusFile) . "\n"
+                . "rm -f " . escapeshellarg($pidFile) . "\n";
+            File::put($shellScript, $content);
+            chmod($shellScript, 0755);
+
+            // setsid fully detaches from PHP-FPM parent process
+            shell_exec('setsid ' . escapeshellarg($shellScript) . ' </dev/null >/dev/null 2>&1 &');
         }
+    }
+
+    public function cancelMigration(): void
+    {
+        $pidFile = storage_path('app/migrations/.migration_pid');
+        $statusFile = storage_path('app/migrations/.migration_status');
+        $outputFile = storage_path('app/migrations/.migration_output');
+
+        // Kill the process if running
+        if (File::exists($pidFile)) {
+            $pid = trim(File::get($pidFile));
+            if (is_numeric($pid)) {
+                @exec("kill -9 {$pid} 2>/dev/null");
+                // Kill children via /proc
+                @exec("kill -9 $(cat /proc/{$pid}/task/{$pid}/children 2>/dev/null) 2>/dev/null");
+            }
+            File::delete($pidFile);
+        }
+
+        // Append cancellation message to output
+        $output = File::exists($outputFile) ? File::get($outputFile) : '';
+        File::put($outputFile, $output . "\n⚠️ Migración cancelada por el usuario.");
+        File::put($statusFile, 'done');
+
+        $this->isRunning = false;
+        $this->hasError = true;
+        $this->isComplete = false;
+        $this->output = File::get($outputFile);
     }
 
     public function pollStatus(): void
@@ -172,7 +194,7 @@ class Migration extends Component
             $this->isRunning = false;
             $this->output = $output;
 
-            if (str_contains($output, '❌') || str_contains($output, 'fueron revertidos')) {
+            if (str_contains($output, '❌') || str_contains($output, 'fueron revertidos') || str_contains($output, 'cancelada')) {
                 $this->hasError = true;
                 $this->isComplete = false;
             } else {
@@ -191,9 +213,9 @@ class Migration extends Component
         $this->hasError = false;
         $this->output = '';
 
-        $statusFile = storage_path('app/migrations/.migration_status');
-        $outputFile = storage_path('app/migrations/.migration_output');
-        if (File::exists($statusFile)) File::delete($statusFile);
-        if (File::exists($outputFile)) File::delete($outputFile);
+        foreach (['.migration_status', '.migration_output', '.migration_pid', '.migration_run.sh'] as $f) {
+            $path = storage_path('app/migrations/' . $f);
+            if (File::exists($path)) File::delete($path);
+        }
     }
 }

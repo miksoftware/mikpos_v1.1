@@ -138,19 +138,18 @@ class ImportLegacyData extends Command
                 ['migrateRefunds', 'Devoluciones'],
             ];
 
-            $bar = $this->output->createProgressBar(count($steps));
-            $bar->setFormat(" %current%/%max% [%bar%] %message%");
-            $bar->start();
+            $total = count($steps);
+            $current = 0;
 
             foreach ($steps as [$method, $label]) {
-                $bar->setMessage($label . '...');
+                $current++;
+                $this->info("[{$current}/{$total}] {$label}...");
+                if (function_exists('ob_flush')) { @ob_flush(); }
+                @flush();
                 $this->$method($sql);
-                $bar->advance();
             }
 
-            $bar->setMessage('Completado!');
-            $bar->finish();
-            $this->newLine(2);
+            $this->newLine();
 
             DB::commit();
 
@@ -185,6 +184,8 @@ class ImportLegacyData extends Command
     private function addLog(string $type, string $message): void
     {
         $this->info("  {$message}");
+        if (function_exists('ob_flush')) { @ob_flush(); }
+        @flush();
     }
 
     // ─── SQL Parser ───

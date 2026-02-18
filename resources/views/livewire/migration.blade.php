@@ -179,13 +179,19 @@
                     <pre class="text-xs font-mono text-slate-700 bg-slate-900 text-green-400 p-4 rounded-xl overflow-x-auto max-h-[500px] overflow-y-auto whitespace-pre-wrap">{{ $output ?: 'Esperando salida...' }}</pre>
                 </div>
 
-                @if(!$isRunning)
-                <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                    @if($isRunning)
+                    <button wire:click="cancelMigration"
+                        wire:confirm="¿Cancelar la migración en curso?"
+                        class="px-4 py-2 text-sm font-medium text-red-700 bg-white border border-red-300 rounded-xl hover:bg-red-50">
+                        Cancelar
+                    </button>
+                    @else
                     <button wire:click="resetMigration" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
                         Cerrar
                     </button>
+                    @endif
                 </div>
-                @endif
             </div>
             @endif
         </div>
