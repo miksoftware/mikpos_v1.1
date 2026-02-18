@@ -593,6 +593,28 @@
                                 <input wire:model="newCustomerEmail" type="email" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm" placeholder="correo@ejemplo.com">
                             </div>
                         </div>
+
+                        {{-- Department & Municipality --}}
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Departamento <span class="text-red-500">*</span></label>
+                                <select wire:model.live="newCustomerDepartmentId" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                                    <option value="">Seleccionar...</option>
+                                    @foreach($departments as $dept)
+                                    <option value="{{ $dept->id }}">{{ $dept->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Municipio <span class="text-red-500">*</span></label>
+                                <select wire:model="newCustomerMunicipalityId" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm" @if(empty($newCustomerDepartmentId)) disabled @endif>
+                                    <option value="">{{ empty($newCustomerDepartmentId) ? 'Seleccione departamento...' : 'Seleccionar...' }}</option>
+                                    @foreach($newCustomerMunicipalities as $mun)
+                                    <option value="{{ $mun['id'] }}">{{ $mun['name'] }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
                     </div>
                     {{-- Footer --}}
                     <div class="px-4 py-3 border-t border-slate-200 flex gap-3">

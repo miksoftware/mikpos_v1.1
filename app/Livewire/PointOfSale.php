@@ -14,6 +14,8 @@ use App\Models\CashReconciliation;
 use App\Models\PaymentMethod;
 use App\Models\BillingSetting;
 use App\Models\TaxDocument;
+use App\Models\Department;
+use App\Models\Municipality;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SalePayment;
@@ -43,6 +45,9 @@ class PointOfSale extends Component
     public $newCustomerBusinessName = '';
     public $newCustomerPhone = '';
     public $newCustomerEmail = '';
+    public $newCustomerDepartmentId = '';
+    public $newCustomerMunicipalityId = '';
+    public $newCustomerMunicipalities = [];
     
     // Product search
     public $productSearch = '';
@@ -181,6 +186,21 @@ class PointOfSale extends Component
         $this->newCustomerBusinessName = '';
         $this->newCustomerPhone = '';
         $this->newCustomerEmail = '';
+        $this->newCustomerDepartmentId = '';
+        $this->newCustomerMunicipalityId = '';
+        $this->newCustomerMunicipalities = [];
+    }
+
+    public function updatedNewCustomerDepartmentId()
+    {
+        $this->newCustomerMunicipalityId = '';
+        $this->newCustomerMunicipalities = $this->newCustomerDepartmentId
+            ? Municipality::where('department_id', $this->newCustomerDepartmentId)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+                ->toArray()
+            : [];
     }
 
     public function saveNewCustomer()
@@ -200,6 +220,16 @@ class PointOfSale extends Component
 
         if (empty($this->newCustomerDocument)) {
             $this->dispatch('notify', message: 'El número de documento es obligatorio', type: 'error');
+            return;
+        }
+
+        if (empty($this->newCustomerDepartmentId)) {
+            $this->dispatch('notify', message: 'El departamento es obligatorio', type: 'error');
+            return;
+        }
+
+        if (empty($this->newCustomerMunicipalityId)) {
+            $this->dispatch('notify', message: 'El municipio es obligatorio', type: 'error');
             return;
         }
 
@@ -224,6 +254,8 @@ class PointOfSale extends Component
                 'business_name' => $this->newCustomerType === 'juridico' ? $this->newCustomerBusinessName : null,
                 'phone' => $this->newCustomerPhone ?: null,
                 'email' => $this->newCustomerEmail ?: null,
+                'department_id' => $this->newCustomerDepartmentId,
+                'municipality_id' => $this->newCustomerMunicipalityId,
                 'is_active' => true,
                 'is_default' => false,
             ]);
@@ -1762,6 +1794,9 @@ class PointOfSale extends Component
         // Get tax documents for customer creation
         $taxDocuments = TaxDocument::where('is_active', true)->orderBy('description')->get();
         
+        // Get departments for customer creation
+        $departments = Department::where('is_active', true)->orderBy('name')->get();
+        
         // Check if electronic invoicing is enabled
         $billingSettings = BillingSetting::getSettings();
         $isElectronicInvoicingEnabled = $billingSettings->is_enabled && $billingSettings->isConfigured();
@@ -1772,6 +1807,7 @@ class PointOfSale extends Component
             'sellableItems' => $sellableItems,
             'paymentMethods' => $paymentMethods,
             'taxDocuments' => $taxDocuments,
+            'departments' => $departments,
             'subtotal' => $this->getSubtotalProperty(),
             'taxTotal' => $this->getTaxTotalProperty(),
             'total' => $this->getTotalProperty(),

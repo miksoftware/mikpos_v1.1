@@ -14,10 +14,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // Forzar HTTPS siempre
-        URL::forceScheme('https');
-        
-        // Confiar en todos los proxies (Traefik)
-        $this->app['request']->server->set('HTTPS', 'on');
+        // Solo forzar HTTPS en producción
+        if ($this->app->environment('production')) {
+            URL::forceScheme('https');
+            $this->app['request']->server->set('HTTPS', 'on');
+        }
     }
 }
