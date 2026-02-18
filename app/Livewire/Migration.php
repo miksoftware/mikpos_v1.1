@@ -63,13 +63,10 @@ class Migration extends Component
         }
 
         $originalName = $this->sqlFile->getClientOriginalName();
-        $this->sqlFile->storeAs('migrations', $originalName, 'local');
+        $dest = $dir . '/' . $originalName;
 
-        $source = storage_path('app/private/migrations/' . $originalName);
-        $dest = storage_path('app/migrations/' . $originalName);
-        if (File::exists($source)) {
-            File::move($source, $dest);
-        }
+        // Move temp file directly to our migrations folder
+        copy($this->sqlFile->getRealPath(), $dest);
 
         $this->sqlFile = null;
         $this->loadUploadedFiles();
@@ -115,7 +112,8 @@ class Migration extends Component
         File::put($statusFile, 'running');
         File::put($outputFile, '');
 
-        $php = PHP_BINARY ?: 'php';
+        // Find PHP CLI binary — PHP_BINARY may point to php-fpm in Docker
+        $php = $this->findPhpCli();
         $artisan = base_path('artisan');
         $branch = (int) $this->branchId;
 
@@ -127,9 +125,9 @@ class Migration extends Component
             $bgCmd = "start /B cmd /C \"{$cmd} > " . escapeshellarg($outputFile) . " 2>&1 & echo done > " . escapeshellarg($statusFile) . "\"";
             pclose(popen($bgCmd, 'r'));
         } else {
-            // Linux/Docker: write a shell script and launch with setsid for full detach
+            // Linux/Docker: write a shell script and launch detached
             $shellScript = storage_path('app/migrations/.migration_run.sh');
-            $content = "#!/bin/bash\n"
+            $content = "#!/bin/sh\n"
                 . "echo \$\$ > " . escapeshellarg($pidFile) . "\n"
                 . "{$cmd} > " . escapeshellarg($outputFile) . " 2>&1\n"
                 . "echo done > " . escapeshellarg($statusFile) . "\n"
@@ -137,8 +135,15 @@ class Migration extends Component
             File::put($shellScript, $content);
             chmod($shellScript, 0755);
 
-            // setsid fully detaches from PHP-FPM parent process
-            shell_exec('setsid ' . escapeshellarg($shellScript) . ' </dev/null >/dev/null 2>&1 &');
+            // Try setsid first (fully detaches from PHP-FPM), fallback to nohup
+            $hasSetsid = !empty(trim(shell_exec('command -v setsid 2>/dev/null') ?? ''));
+            $script = escapeshellarg($shellScript);
+
+            if ($hasSetsid) {
+                shell_exec("setsid {$script} </dev/null >/dev/null 2>&1 &");
+            } else {
+                shell_exec("nohup {$script} </dev/null >/dev/null 2>&1 &");
+            }
         }
     }
 
@@ -217,5 +222,12 @@ class Migration extends Component
             $path = storage_path('app/migrations/' . $f);
             if (File::exists($path)) File::delete($path);
         }
+    }
+
+    private function findPhpCli(): string
+    {
+        // In Docker, PHP_BINARY points to php-fpm. Just use 'php' from PATH
+        // which works reliably in Docker containers (PHP 8.3 CLI).
+        return 'php';
     }
 }

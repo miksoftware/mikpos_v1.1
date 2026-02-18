@@ -289,6 +289,9 @@ class Install extends Component
             $this->updateStatus('Configurando reporte de créditos...', 93);
             Artisan::call('db:seed', ['--class' => 'CreditsReportPermissionSeeder', '--force' => true]);
 
+            // Mark all seeders as executed so db:seed-pending won't re-run them
+            Artisan::call('db:seed-mark-executed', ['--all' => true]);
+
             // Step 5: Create branch
             $this->updateStatus('Creando sucursal...', 92);
             $branch = \App\Models\Branch::create([
