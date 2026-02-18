@@ -163,6 +163,41 @@ class Products extends Component
         }
     }
 
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterCategory()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterBrand()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterStatus()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterBranch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterHasVariants()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterStockStatus()
+    {
+        $this->resetPage();
+    }
+
     public function render()
     {
         $user = auth()->user();

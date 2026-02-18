@@ -43,6 +43,7 @@ class SeedMarkExecuted extends Command
         'RefundSystemDocumentSeeder',
         'PurchasesReportPermissionSeeder',
         'CashReportPermissionSeeder',
+        'MigrationModuleSeeder',
     ];
 
     public function handle(): int

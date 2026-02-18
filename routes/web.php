@@ -184,6 +184,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('activity-logs')
         ->middleware('permission:activity_logs.view');
 
+    // Migration
+    Route::get('/migration', App\Livewire\Migration::class)
+        ->name('migration')
+        ->middleware('permission:migration.view');
+
     // Point of Sale
     Route::get('/pos', App\Livewire\PointOfSale::class)
         ->name('pos')
