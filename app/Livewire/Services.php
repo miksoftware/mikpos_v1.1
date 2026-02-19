@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\Tax;
 use App\Models\Branch;
 use App\Services\ActivityLogService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 
@@ -179,6 +180,13 @@ class Services extends Component
     {
         $service = Service::findOrFail($this->deleteId);
         $serviceName = $service->name;
+
+        // Check for associated sales
+        if (DB::table('sale_items')->where('service_id', $service->id)->exists()) {
+            $this->dispatch('notify', message: 'No se puede eliminar: tiene ventas asociadas. Desactívelo en su lugar.', type: 'error');
+            $this->isDeleteModalOpen = false;
+            return;
+        }
 
         // Delete image if exists
         if ($service->image) {

@@ -103,6 +103,12 @@ class Taxes extends Component
             return;
         }
         $item = Tax::find($this->itemIdToDelete);
+        if (\DB::table('products')->where('tax_id', $item->id)->exists()
+            || \DB::table('services')->where('tax_id', $item->id)->exists()) {
+            $this->dispatch('notify', message: 'No se puede eliminar: tiene productos o servicios asociados. Desactívelo en su lugar.', type: 'error');
+            $this->isDeleteModalOpen = false;
+            return;
+        }
         ActivityLogService::logDelete('taxes', $item, "Impuesto '{$item->name}' eliminado");
         $item->delete();
         $this->isDeleteModalOpen = false;

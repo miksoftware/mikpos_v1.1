@@ -8,6 +8,7 @@ use App\Models\Department;
 use App\Models\Municipality;
 use App\Models\TaxDocument;
 use App\Services\ActivityLogService;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -259,6 +260,21 @@ class Customers extends Component
             return;
         }
         $item = Customer::find($this->itemIdToDelete);
+
+        // Check for associated sales
+        if (DB::table('sales')->where('customer_id', $item->id)->exists()) {
+            $this->dispatch('notify', message: 'No se puede eliminar: tiene ventas asociadas. Desactívelo en su lugar.', type: 'error');
+            $this->isDeleteModalOpen = false;
+            return;
+        }
+
+        // Check for credit payments
+        if (DB::table('credit_payments')->where('customer_id', $item->id)->exists()) {
+            $this->dispatch('notify', message: 'No se puede eliminar: tiene pagos de crédito asociados.', type: 'error');
+            $this->isDeleteModalOpen = false;
+            return;
+        }
+
         ActivityLogService::logDelete('customers', $item, "Cliente '{$item->full_name}' eliminado");
         $item->delete();
         $this->isDeleteModalOpen = false;

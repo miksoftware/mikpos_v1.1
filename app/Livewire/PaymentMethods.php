@@ -199,6 +199,12 @@ class PaymentMethods extends Component
             return;
         }
         $item = PaymentMethod::find($this->itemIdToDelete);
+        if (\DB::table('sale_payments')->where('payment_method_id', $item->id)->exists()
+            || \DB::table('credit_payments')->where('payment_method_id', $item->id)->exists()) {
+            $this->dispatch('notify', message: 'No se puede eliminar: tiene transacciones asociadas. Desactívelo en su lugar.', type: 'error');
+            $this->isDeleteModalOpen = false;
+            return;
+        }
         ActivityLogService::logDelete('payment_methods', $item, "Medio de pago '{$item->name}' eliminado");
         $item->delete();
         $this->isDeleteModalOpen = false;

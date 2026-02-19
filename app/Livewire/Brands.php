@@ -105,6 +105,11 @@ class Brands extends Component
             $this->isDeleteModalOpen = false;
             return;
         }
+        if (\DB::table('products')->where('brand_id', $item->id)->exists()) {
+            $this->dispatch('notify', message: 'No se puede eliminar: tiene productos asociados. Desactívela en su lugar.', type: 'error');
+            $this->isDeleteModalOpen = false;
+            return;
+        }
         ActivityLogService::logDelete('brands', $item, "Marca '{$item->name}' eliminada");
         $item->delete();
         $this->isDeleteModalOpen = false;

@@ -219,6 +219,12 @@ class CashRegisters extends Component
             return;
         }
 
+        if (\DB::table('cash_reconciliations')->where('cash_register_id', $item->id)->exists()) {
+            $this->dispatch('notify', message: 'No se puede eliminar: tiene arqueos asociados. Desactívela en su lugar.', type: 'error');
+            $this->isDeleteModalOpen = false;
+            return;
+        }
+
         ActivityLogService::logDelete('cash_registers', $item, "Caja '{$item->name}' eliminada");
         $item->delete();
 

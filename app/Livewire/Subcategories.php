@@ -112,6 +112,11 @@ class Subcategories extends Component
             return;
         }
         $item = Subcategory::find($this->itemIdToDelete);
+        if (\DB::table('products')->where('subcategory_id', $item->id)->exists()) {
+            $this->dispatch('notify', message: 'No se puede eliminar: tiene productos asociados. Desactívela en su lugar.', type: 'error');
+            $this->isDeleteModalOpen = false;
+            return;
+        }
         ActivityLogService::logDelete('subcategories', $item, "Subcategoría '{$item->name}' eliminada");
         $item->delete();
         $this->isDeleteModalOpen = false;

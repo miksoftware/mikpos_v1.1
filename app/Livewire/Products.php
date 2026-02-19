@@ -17,6 +17,7 @@ use App\Models\Subcategory;
 use App\Models\Tax;
 use App\Models\Unit;
 use App\Services\ActivityLogService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -526,6 +527,27 @@ class Products extends Component
             return;
         }
 
+        // Check for associated sales
+        if (DB::table('sale_items')->where('product_id', $item->id)->exists()) {
+            $this->dispatch('notify', message: 'No se puede eliminar: tiene ventas asociadas. Desactívelo en su lugar.', type: 'error');
+            $this->isDeleteModalOpen = false;
+            return;
+        }
+
+        // Check for associated purchases
+        if (DB::table('purchase_items')->where('product_id', $item->id)->exists()) {
+            $this->dispatch('notify', message: 'No se puede eliminar: tiene compras asociadas. Desactívelo en su lugar.', type: 'error');
+            $this->isDeleteModalOpen = false;
+            return;
+        }
+
+        // Check for inventory movements
+        if (DB::table('inventory_movements')->where('product_id', $item->id)->exists()) {
+            $this->dispatch('notify', message: 'No se puede eliminar: tiene movimientos de inventario. Desactívelo en su lugar.', type: 'error');
+            $this->isDeleteModalOpen = false;
+            return;
+        }
+
         // Delete child images first
         foreach ($item->children as $child) {
             if ($child->image && Storage::disk('public')->exists($child->image)) {
@@ -758,6 +780,13 @@ class Products extends Component
         
         if (!$child) {
             $this->dispatch('notify', message: 'Variante no encontrada', type: 'error');
+            $this->isChildDeleteModalOpen = false;
+            return;
+        }
+
+        // Check for associated sales (via product_child_id in sale_items)
+        if (DB::table('sale_items')->where('product_child_id', $child->id)->exists()) {
+            $this->dispatch('notify', message: 'No se puede eliminar: esta variante tiene ventas asociadas. Desactívela en su lugar.', type: 'error');
             $this->isChildDeleteModalOpen = false;
             return;
         }
@@ -2282,6 +2311,14 @@ class Products extends Component
                     continue;
                 }
 
+                // Check for transactions (sales, purchases, inventory movements)
+                if (DB::table('sale_items')->where('product_id', $product->id)->exists()
+                    || DB::table('purchase_items')->where('product_id', $product->id)->exists()
+                    || DB::table('inventory_movements')->where('product_id', $product->id)->exists()) {
+                    $skipped++;
+                    continue;
+                }
+
                 // Delete child images
                 foreach ($product->children as $child) {
                     if ($child->image && Storage::disk('public')->exists($child->image)) {
@@ -2307,7 +2344,7 @@ class Products extends Component
 
             $message = "{$deleted} producto(s) eliminado(s)";
             if ($skipped > 0) {
-                $message .= ". {$skipped} omitido(s) por tener variantes activas";
+                $message .= ". {$skipped} omitido(s) por tener variantes activas o movimientos asociados";
             }
 
             $this->dispatch('notify', message: $message, type: $skipped > 0 ? 'warning' : 'success');

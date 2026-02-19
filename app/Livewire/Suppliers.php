@@ -7,6 +7,7 @@ use App\Models\Municipality;
 use App\Models\Supplier;
 use App\Models\TaxDocument;
 use App\Services\ActivityLogService;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -187,6 +188,21 @@ class Suppliers extends Component
             return;
         }
         $item = Supplier::find($this->itemIdToDelete);
+
+        // Check for associated purchases
+        if (DB::table('purchases')->where('supplier_id', $item->id)->exists()) {
+            $this->dispatch('notify', message: 'No se puede eliminar: tiene compras asociadas. Desactívelo en su lugar.', type: 'error');
+            $this->isDeleteModalOpen = false;
+            return;
+        }
+
+        // Check for credit payments
+        if (DB::table('credit_payments')->where('supplier_id', $item->id)->exists()) {
+            $this->dispatch('notify', message: 'No se puede eliminar: tiene pagos de crédito asociados.', type: 'error');
+            $this->isDeleteModalOpen = false;
+            return;
+        }
+
         ActivityLogService::logDelete('suppliers', $item, "Proveedor '{$item->name}' eliminado");
         $item->delete();
         $this->isDeleteModalOpen = false;
