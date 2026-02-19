@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=80mm">
+    <meta name="viewport" content="width=72mm">
     <title>Recibo #{{ $sale->invoice_number }}</title>
     <style>
         * {
@@ -12,19 +12,20 @@
         }
         
         @page {
-            size: 80mm auto;
-            margin: 0;
+            size: 72mm auto;
+            margin: 0mm;
         }
         
         body {
             font-family: 'Courier New', Courier, monospace;
-            font-size: 14px;
-            line-height: 1.5;
-            width: 80mm;
-            max-width: 80mm;
-            padding: 10px;
+            font-size: 11px;
+            line-height: 1.4;
+            width: 72mm;
+            max-width: 72mm;
+            padding: 2mm;
             background: #fff;
             color: #000;
+            -webkit-print-color-adjust: exact;
         }
         
         .receipt {
@@ -34,122 +35,113 @@
         /* Header */
         .header {
             text-align: center;
-            padding-bottom: 12px;
-            border-bottom: 2px dashed #000;
-            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px dashed #000;
+            margin-bottom: 6px;
         }
         
         .business-name {
-            font-size: 22px;
+            font-size: 16px;
             font-weight: bold;
-            margin-bottom: 6px;
             text-transform: uppercase;
+            word-wrap: break-word;
         }
         
         .business-info {
-            font-size: 13px;
-            color: #333;
+            font-size: 10px;
         }
         
         .business-info p {
-            margin: 2px 0;
+            margin: 1px 0;
         }
         
         /* Invoice Info */
         .invoice-info {
             text-align: center;
-            padding: 10px 0;
-            border-bottom: 2px dashed #000;
-            margin-bottom: 12px;
+            padding: 6px 0;
+            border-bottom: 1px dashed #000;
+            margin-bottom: 6px;
         }
         
         .invoice-number {
-            font-size: 16px;
+            font-size: 13px;
             font-weight: bold;
-            margin-bottom: 6px;
+            margin-bottom: 2px;
         }
         
         .invoice-type {
             display: inline-block;
-            padding: 4px 12px;
+            padding: 1px 6px;
             background: #000;
             color: #fff;
-            font-size: 12px;
+            font-size: 9px;
             font-weight: bold;
-            border-radius: 4px;
-            margin-bottom: 6px;
+            margin-bottom: 3px;
         }
         
         .invoice-type.electronic {
-            background: #16a34a;
-        }
-        
-        .invoice-type.pos {
-            background: #374151;
+            background: #000;
         }
         
         .date-time {
-            font-size: 13px;
-            margin-top: 4px;
+            font-size: 10px;
         }
         
         /* Customer Info */
         .customer-section {
-            padding: 10px 0;
-            border-bottom: 2px dashed #000;
-            margin-bottom: 12px;
+            padding: 6px 0;
+            border-bottom: 1px dashed #000;
+            margin-bottom: 6px;
         }
         
         .section-title {
-            font-size: 12px;
+            font-size: 10px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 6px;
-            color: #555;
+            margin-bottom: 3px;
         }
         
         .customer-type-badge {
             display: inline-block;
-            padding: 2px 8px;
-            background: #e5e7eb;
-            font-size: 11px;
+            padding: 1px 4px;
+            background: #ddd;
+            font-size: 9px;
             font-weight: bold;
-            border-radius: 3px;
-            margin-bottom: 4px;
             text-transform: uppercase;
+            margin-bottom: 2px;
         }
         
         .customer-name {
             font-weight: bold;
-            font-size: 14px;
+            font-size: 11px;
+            word-wrap: break-word;
         }
         
         .customer-doc {
-            font-size: 13px;
-            margin-top: 2px;
+            font-size: 10px;
         }
         
         /* Items */
         .items-section {
-            margin-bottom: 12px;
+            margin-bottom: 6px;
         }
         
         .items-header {
             display: flex;
             justify-content: space-between;
-            font-size: 12px;
+            font-size: 9px;
             font-weight: bold;
             text-transform: uppercase;
-            padding-bottom: 6px;
-            border-bottom: 1px solid #999;
-            margin-bottom: 8px;
+            padding-bottom: 3px;
+            border-bottom: 1px solid #000;
+            margin-bottom: 4px;
         }
         
         .item {
-            margin-bottom: 10px;
-            padding-bottom: 8px;
-            border-bottom: 1px dotted #ccc;
+            margin-bottom: 4px;
+            padding-bottom: 3px;
+            border-bottom: 1px dotted #999;
         }
         
         .item:last-child {
@@ -158,67 +150,61 @@
         
         .item-name {
             font-weight: bold;
-            font-size: 14px;
-            margin-bottom: 4px;
+            font-size: 10px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
         
         .item-details {
             display: flex;
             justify-content: space-between;
-            font-size: 13px;
+            font-size: 10px;
         }
         
         .item-qty-price {
-            color: #555;
+            color: #333;
         }
         
         .item-total {
             font-weight: bold;
+            white-space: nowrap;
         }
         
         /* Totals */
         .totals-section {
-            border-top: 2px solid #000;
-            padding-top: 12px;
-            margin-bottom: 12px;
+            border-top: 1px solid #000;
+            padding-top: 6px;
+            margin-bottom: 6px;
         }
         
         .total-row {
             display: flex;
             justify-content: space-between;
-            font-size: 14px;
-            margin-bottom: 6px;
-        }
-        
-        .total-row.subtotal {
-            color: #555;
-        }
-        
-        .total-row.tax {
-            color: #555;
+            font-size: 11px;
+            margin-bottom: 2px;
         }
         
         .total-row.grand-total {
-            font-size: 20px;
+            font-size: 15px;
             font-weight: bold;
-            padding-top: 8px;
-            border-top: 2px dashed #000;
-            margin-top: 8px;
+            padding-top: 4px;
+            border-top: 1px dashed #000;
+            margin-top: 4px;
         }
         
         /* Payments */
         .payments-section {
-            padding: 10px 0;
-            border-top: 2px dashed #000;
-            border-bottom: 2px dashed #000;
-            margin-bottom: 12px;
+            padding: 6px 0;
+            border-top: 1px dashed #000;
+            border-bottom: 1px dashed #000;
+            margin-bottom: 6px;
         }
         
         .payment-row {
             display: flex;
             justify-content: space-between;
-            font-size: 14px;
-            margin-bottom: 4px;
+            font-size: 11px;
+            margin-bottom: 2px;
         }
         
         .payment-method {
@@ -228,109 +214,98 @@
         .change-row {
             display: flex;
             justify-content: space-between;
-            font-size: 15px;
+            font-size: 12px;
             font-weight: bold;
-            margin-top: 8px;
-            padding-top: 8px;
+            margin-top: 4px;
+            padding-top: 4px;
             border-top: 1px dotted #999;
         }
         
         /* DIAN Info */
         .dian-section {
             text-align: center;
-            padding: 10px;
-            border: 2px solid #16a34a;
-            border-radius: 6px;
-            margin-bottom: 12px;
-            background: #f0fdf4;
-        }
-        
-        .dian-title {
-            font-size: 13px;
-            font-weight: bold;
-            color: #16a34a;
+            padding: 6px 4px;
+            border: 1px solid #000;
             margin-bottom: 6px;
         }
         
-        .cufe-label {
-            font-size: 11px;
+        .dian-title {
+            font-size: 10px;
             font-weight: bold;
-            color: #555;
-            margin-bottom: 2px;
+            margin-bottom: 4px;
+        }
+        
+        .cufe-label {
+            font-size: 9px;
+            font-weight: bold;
         }
         
         .cufe {
-            font-size: 9px;
+            font-size: 7px;
             word-break: break-all;
-            color: #333;
-            margin-bottom: 8px;
-            line-height: 1.3;
+            line-height: 1.2;
+            margin-bottom: 4px;
         }
         
         .qr-container {
             text-align: center;
-            margin: 10px 0;
+            margin: 4px 0;
         }
         
         .qr-container img {
-            max-width: 120px;
+            max-width: 90px;
             height: auto;
-            border: 1px solid #ddd;
-            padding: 4px;
-            background: #fff;
         }
         
         .qr-label {
-            font-size: 10px;
-            color: #666;
-            margin-top: 4px;
+            font-size: 8px;
+            margin-top: 2px;
         }
         
         /* Seller Info */
         .seller-section {
-            font-size: 12px;
+            font-size: 10px;
             text-align: center;
-            margin-bottom: 12px;
-            color: #555;
-            padding: 8px 0;
+            margin-bottom: 6px;
+            padding: 4px 0;
         }
         
         .seller-section p {
-            margin: 2px 0;
+            margin: 1px 0;
         }
         
         /* Footer */
         .footer {
             text-align: center;
-            padding-top: 12px;
-            border-top: 2px dashed #000;
+            padding-top: 6px;
+            border-top: 1px dashed #000;
         }
         
         .thank-you {
-            font-size: 18px;
+            font-size: 14px;
             font-weight: bold;
-            margin-bottom: 6px;
+            margin-bottom: 3px;
         }
         
         .footer-message {
-            font-size: 12px;
-            color: #555;
-            margin-bottom: 10px;
+            font-size: 10px;
+            margin-bottom: 6px;
         }
         
         .powered-by {
-            font-size: 10px;
-            color: #999;
-            margin-top: 12px;
-            padding-top: 8px;
+            font-size: 9px;
+            color: #555;
+            margin-top: 6px;
+            padding-top: 4px;
             border-top: 1px dotted #ccc;
         }
         
         /* Print styles */
         @media print {
             body {
-                width: 80mm;
-                padding: 5px;
+                width: 72mm;
+                max-width: 72mm;
+                padding: 1mm;
             }
             
             .no-print {
@@ -345,16 +320,16 @@
             right: 10px;
             display: flex;
             gap: 8px;
+            z-index: 100;
         }
         
         .btn {
-            padding: 12px 24px;
-            font-size: 14px;
+            padding: 10px 20px;
+            font-size: 13px;
             font-weight: bold;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            transition: all 0.2s;
         }
         
         .btn-print {
@@ -362,17 +337,9 @@
             color: white;
         }
         
-        .btn-print:hover {
-            transform: scale(1.05);
-        }
-        
         .btn-close {
             background: #6b7280;
             color: white;
-        }
-        
-        .btn-close:hover {
-            background: #4b5563;
         }
     </style>
 </head>
@@ -449,7 +416,7 @@
                     <span class="item-total">${{ number_format($item->subtotal, 0) }}</span>
                 </div>
                 @if($item->discount_amount > 0)
-                <div class="item-details" style="color: #d97706; font-size: 12px;">
+                <div class="item-details" style="font-size: 9px;">
                     <span>
                         Desc: {{ $item->discount_type === 'percentage' ? $item->discount_type_value . '%' : '$' . number_format($item->discount_type_value, 0) }}
                         @if($item->discount_reason) ({{ $item->discount_reason }}) @endif
@@ -516,8 +483,7 @@
             <div class="cufe">{{ $sale->cufe }}</div>
             @if($sale->qr_code)
             <div class="qr-container">
-                <img src="{{ $sale->qr_code }}" alt="Código QR DIAN" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                <div style="display:none; font-size:11px; color:#666;">QR no disponible</div>
+                <img src="{{ $sale->qr_code }}" alt="QR DIAN" onerror="this.style.display='none'">
                 <div class="qr-label">Escanea para verificar en DIAN</div>
             </div>
             @endif
@@ -550,7 +516,6 @@
     </div>
 
     <script>
-        // Auto-print when opened
         window.onload = function() {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('print') === 'auto') {

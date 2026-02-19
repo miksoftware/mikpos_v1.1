@@ -2,48 +2,46 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=80mm">
+    <meta name="viewport" content="width=72mm">
     <title>Cierre de Caja - {{ $reconciliation->cashRegister->name }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        @page { size: 80mm auto; margin: 0; }
+        @page { size: 72mm auto; margin: 0; }
         body {
             font-family: 'Courier New', Courier, monospace;
-            font-size: 13px;
-            line-height: 1.5;
-            width: 80mm;
-            max-width: 80mm;
-            padding: 10px;
+            font-size: 11px;
+            line-height: 1.4;
+            width: 72mm;
+            max-width: 72mm;
+            padding: 2mm;
             background: #fff;
             color: #000;
         }
         .receipt { width: 100%; }
-        .header { text-align: center; padding-bottom: 10px; border-bottom: 2px dashed #000; margin-bottom: 10px; }
-        .business-name { font-size: 20px; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; }
-        .business-info { font-size: 12px; color: #333; }
-        .business-info p { margin: 2px 0; }
-        .title { text-align: center; font-size: 16px; font-weight: bold; padding: 8px 0; border-bottom: 2px dashed #000; margin-bottom: 10px; text-transform: uppercase; }
-        .section { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #999; }
-        .section-title { font-size: 13px; font-weight: bold; margin-bottom: 6px; text-transform: uppercase; text-decoration: underline; }
-        .row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
+        .header { text-align: center; padding-bottom: 6px; border-bottom: 1px dashed #000; margin-bottom: 6px; }
+        .business-name { font-size: 14px; font-weight: bold; text-transform: uppercase; margin-bottom: 2px; word-wrap: break-word; }
+        .business-info { font-size: 9px; color: #333; }
+        .business-info p { margin: 1px 0; }
+        .title { text-align: center; font-size: 13px; font-weight: bold; padding: 4px 0; border-bottom: 1px dashed #000; margin-bottom: 6px; text-transform: uppercase; }
+        .section { margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px dashed #999; }
+        .section-title { font-size: 10px; font-weight: bold; margin-bottom: 3px; text-transform: uppercase; text-decoration: underline; }
+        .row { display: flex; justify-content: space-between; padding: 1px 0; font-size: 10px; }
         .row .label { color: #333; }
-        .row .value { font-weight: bold; text-align: right; }
-        .row.total { font-size: 14px; font-weight: bold; border-top: 1px solid #000; padding-top: 4px; margin-top: 4px; }
-        .row.highlight { font-size: 14px; }
-        .row.positive .value { }
-        .row.negative .value { }
-        .difference-box { text-align: center; padding: 8px; margin: 8px 0; border: 2px solid #000; font-size: 16px; font-weight: bold; }
+        .row .value { font-weight: bold; text-align: right; white-space: nowrap; }
+        .row.total { font-size: 11px; font-weight: bold; border-top: 1px solid #000; padding-top: 3px; margin-top: 3px; }
+        .row.highlight { font-size: 11px; }
+        .difference-box { text-align: center; padding: 4px; margin: 6px 0; border: 1px solid #000; font-size: 13px; font-weight: bold; }
         .difference-box.sobrante { background: #f0fff0; }
         .difference-box.faltante { background: #fff0f0; }
         .difference-box.exacto { background: #f0f0ff; }
-        .movement-item { padding: 3px 0; font-size: 11px; border-bottom: 1px dotted #ccc; }
+        .movement-item { padding: 2px 0; font-size: 10px; border-bottom: 1px dotted #ccc; }
         .movement-item:last-child { border-bottom: none; }
-        .footer { text-align: center; padding-top: 10px; border-top: 2px dashed #000; margin-top: 10px; font-size: 11px; color: #666; }
-        .signatures { margin-top: 30px; }
-        .signature-line { border-top: 1px solid #000; width: 80%; margin: 30px auto 5px; }
-        .signature-label { text-align: center; font-size: 11px; color: #333; }
+        .footer { text-align: center; padding-top: 6px; border-top: 1px dashed #000; margin-top: 6px; font-size: 9px; color: #666; }
+        .signatures { margin-top: 20px; }
+        .signature-line { border-top: 1px solid #000; width: 80%; margin: 20px auto 3px; }
+        .signature-label { text-align: center; font-size: 9px; color: #333; }
         @media print {
-            body { padding: 5px; }
+            body { padding: 1mm; width: 72mm; max-width: 72mm; }
             .no-print { display: none !important; }
         }
     </style>

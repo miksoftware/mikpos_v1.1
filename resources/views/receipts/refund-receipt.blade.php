@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=80mm, initial-scale=1.0">
+    <meta name="viewport" content="width=72mm">
     <title>Devolución {{ $refund->number }}</title>
     <style>
         * {
@@ -12,16 +12,17 @@
         }
         
         @page {
-            size: 80mm auto;
+            size: 72mm auto;
             margin: 0;
         }
         
         body {
             font-family: 'Courier New', monospace;
-            font-size: 12px;
+            font-size: 11px;
             line-height: 1.4;
-            width: 80mm;
-            padding: 3mm;
+            width: 72mm;
+            max-width: 72mm;
+            padding: 2mm;
             background: white;
             color: #000;
         }
@@ -34,33 +35,34 @@
         }
         
         .branch-name {
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
             text-transform: uppercase;
             margin-bottom: 4px;
+            word-wrap: break-word;
         }
         
         .branch-info {
-            font-size: 10px;
+            font-size: 9px;
             color: #333;
         }
         
         .document-type {
             background: #dc2626;
             color: white;
-            padding: 6px 12px;
-            margin: 10px 0;
+            padding: 4px 8px;
+            margin: 6px 0;
             text-align: center;
-            font-size: 14px;
+            font-size: 12px;
             font-weight: bold;
             text-transform: uppercase;
         }
         
         .refund-number {
             text-align: center;
-            font-size: 14px;
+            font-size: 12px;
             font-weight: bold;
-            margin: 8px 0;
+            margin: 6px 0;
         }
         
         .section {
@@ -160,10 +162,10 @@
         }
         
         .total-row.grand-total {
-            font-size: 16px;
+            font-size: 13px;
             font-weight: bold;
-            padding-top: 6px;
-            margin-top: 6px;
+            padding-top: 4px;
+            margin-top: 4px;
             border-top: 1px dashed #000;
             color: #dc2626;
         }
@@ -215,8 +217,9 @@
         
         @media print {
             body {
-                width: 80mm;
-                padding: 2mm;
+                width: 72mm;
+                max-width: 72mm;
+                padding: 1mm;
             }
             
             .no-print {
