@@ -30,6 +30,8 @@ use App\Models\SalePayment;
 use App\Models\CreditPayment;
 use App\Models\Refund;
 use App\Models\RefundItem;
+use App\Models\InventoryMovement;
+use App\Models\SystemDocument;
 use App\Models\PaymentMethod;
 use App\Models\Unit;
 use App\Models\TaxDocument;
@@ -1119,8 +1121,12 @@ class ImportLegacyData extends Command
                 'credit_amount' => $isCredit ? $total : 0,
                 'paid_amount' => $isCredit ? $creditPaid : $total,
                 'notes' => trim($row['observaciones'] ?? '') ?: null,
-                'created_at' => $purchaseDate,
             ]);
+            // Force original date (created_at not in fillable)
+            $purchase->timestamps = false;
+            $purchase->created_at = $purchaseDate;
+            $purchase->updated_at = $purchaseDate;
+            $purchase->save();
 
             $oldCode = $this->normalizeKey($row['codcompra']);
             $this->purchaseMap[$oldCode] = $purchase->id;
@@ -1148,6 +1154,35 @@ class ImportLegacyData extends Command
                     'discount' => $discountAmount, 'subtotal' => $subtotal,
                     'total' => $subtotal + $taxAmount - $discountAmount,
                 ]);
+
+                // Create inventory movement for purchased product (stock in)
+                if ($purchase->status === 'completed') {
+                    $product = Product::find($productId);
+                    if ($product) {
+                        $stockAfter = (float) $product->current_stock;
+                        $stockBefore = $stockAfter - $qty; // Before this purchase, stock was lower
+                        $purchaseDoc = SystemDocument::findByCode('purchase');
+                        if ($purchaseDoc) {
+                            InventoryMovement::create([
+                                'system_document_id' => $purchaseDoc->id,
+                                'document_number' => $purchaseDoc->generateNextNumber(),
+                                'product_id' => $productId,
+                                'branch_id' => $this->branchId,
+                                'user_id' => $purchase->user_id,
+                                'movement_type' => 'in',
+                                'quantity' => $qty,
+                                'stock_before' => max(0, $stockBefore),
+                                'stock_after' => $stockAfter,
+                                'unit_cost' => $unitCost,
+                                'total_cost' => $unitCost * $qty,
+                                'reference_type' => Purchase::class,
+                                'reference_id' => $purchase->id,
+                                'notes' => "Compra #{$purchase->purchase_number} (migrada)",
+                                'movement_date' => $purchaseDate,
+                            ]);
+                        }
+                    }
+                }
             }
             $count++;
         }
@@ -1185,8 +1220,14 @@ class ImportLegacyData extends Command
                 'credit_type' => 'payable', 'purchase_id' => $purchaseId,
                 'supplier_id' => $supplierId, 'branch_id' => $this->branchId,
                 'user_id' => $this->userId, 'payment_method_id' => $paymentMethodId,
-                'amount' => $amount, 'affects_cash' => false, 'created_at' => $paymentDate,
+                'amount' => $amount, 'affects_cash' => false,
             ]);
+            // Force original date
+            $cp = CreditPayment::latest('id')->first();
+            $cp->timestamps = false;
+            $cp->created_at = $paymentDate;
+            $cp->updated_at = $paymentDate;
+            $cp->save();
             $updatedPurchases[$purchaseId] = true;
             $count++;
         }
@@ -1216,8 +1257,13 @@ class ImportLegacyData extends Command
                     'amount' => $difference,
                     'affects_cash' => false,
                     'notes' => 'Abono importado del sistema anterior',
-                    'created_at' => $purchase->created_at,
                 ]);
+                // Force original date from purchase
+                $cp = CreditPayment::latest('id')->first();
+                $cp->timestamps = false;
+                $cp->created_at = $purchase->created_at;
+                $cp->updated_at = $purchase->created_at;
+                $cp->save();
                 $updatedPurchases[$purchase->id] = true;
                 $count++;
             }
@@ -1291,8 +1337,12 @@ class ImportLegacyData extends Command
                 'paid_amount' => $isCredit ? $creditPaid : $total,
                 'notes' => trim($row['observaciones'] ?? '') ?: null,
                 'is_electronic' => false,
-                'created_at' => $saleDate, 'updated_at' => $saleDate,
             ]);
+            // Force original date (created_at/updated_at not in fillable)
+            $sale->timestamps = false;
+            $sale->created_at = $saleDate;
+            $sale->updated_at = $saleDate;
+            $sale->save();
 
             $oldCode = $this->normalizeKey($row['codventa']);
             $this->saleMap[$oldCode] = $sale->id;
@@ -1332,6 +1382,35 @@ class ImportLegacyData extends Command
                 $oldDetailId = (int) ($item['coddetalleventa'] ?? 0);
                 if ($oldDetailId > 0) {
                     $this->saleItemMap[$oldDetailId] = $saleItem->id;
+                }
+
+                // Create inventory movement for sold product (stock out)
+                if ($productId && $sale->status === 'completed') {
+                    $product = Product::find($productId);
+                    if ($product) {
+                        $stockAfter = (float) $product->current_stock; // Already set from import
+                        $stockBefore = $stockAfter + $qty; // Before this sale, stock was higher
+                        $saleDoc = SystemDocument::findByCode('sale');
+                        if ($saleDoc) {
+                            InventoryMovement::create([
+                                'system_document_id' => $saleDoc->id,
+                                'document_number' => $saleDoc->generateNextNumber(),
+                                'product_id' => $productId,
+                                'branch_id' => $this->branchId,
+                                'user_id' => $sale->user_id,
+                                'movement_type' => 'out',
+                                'quantity' => $qty,
+                                'stock_before' => $stockBefore,
+                                'stock_after' => $stockAfter,
+                                'unit_cost' => $unitPrice,
+                                'total_cost' => $unitPrice * $qty,
+                                'reference_type' => Sale::class,
+                                'reference_id' => $sale->id,
+                                'notes' => "Venta #{$sale->invoice_number} (migrada)",
+                                'movement_date' => $saleDate,
+                            ]);
+                        }
+                    }
                 }
             }
             $count++;
@@ -1407,8 +1486,14 @@ class ImportLegacyData extends Command
                 'credit_type' => 'receivable', 'sale_id' => $saleId,
                 'customer_id' => $customerId, 'branch_id' => $this->branchId,
                 'user_id' => $this->userId, 'payment_method_id' => $paymentMethodId,
-                'amount' => $amount, 'affects_cash' => false, 'created_at' => $paymentDate,
+                'amount' => $amount, 'affects_cash' => false,
             ]);
+            // Force original date
+            $cp = CreditPayment::latest('id')->first();
+            $cp->timestamps = false;
+            $cp->created_at = $paymentDate;
+            $cp->updated_at = $paymentDate;
+            $cp->save();
             $updatedSales[$saleId] = true;
             $count++;
         }
@@ -1439,8 +1524,13 @@ class ImportLegacyData extends Command
                     'amount' => $difference,
                     'affects_cash' => false,
                     'notes' => 'Abono importado del sistema anterior',
-                    'created_at' => $sale->created_at,
                 ]);
+                // Force original date from sale
+                $cp = CreditPayment::latest('id')->first();
+                $cp->timestamps = false;
+                $cp->created_at = $sale->created_at;
+                $cp->updated_at = $sale->created_at;
+                $cp->save();
                 $updatedSales[$sale->id] = true;
                 $count++;
             }
@@ -1507,8 +1597,12 @@ class ImportLegacyData extends Command
                 'subtotal' => (float) ($row['subtotal'] ?? 0),
                 'tax_total' => (float) ($row['totaliva'] ?? 0),
                 'total' => $total, 'status' => 'completed',
-                'created_at' => $refundDate, 'updated_at' => $refundDate,
             ]);
+            // Force original date
+            $refund->timestamps = false;
+            $refund->created_at = $refundDate;
+            $refund->updated_at = $refundDate;
+            $refund->save();
 
             $oldNotaCode = $this->normalizeKey($row['codnota']);
             $items = array_filter($detailRows, fn($d) => $this->normalizeKey($d['codnota']) === $oldNotaCode);

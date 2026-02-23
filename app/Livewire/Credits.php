@@ -245,7 +245,7 @@ class Credits extends Component
                 $this->dispatch('notify', message: 'Compra no encontrada', type: 'error');
                 return;
             }
-            $this->paymentEntityName = $purchase->supplier->name ?? 'Proveedor';
+            $this->paymentEntityName = ($purchase->supplier->name ?? 'Proveedor') . ' — Compra: ' . $purchase->purchase_number;
             $this->paymentCreditType = 'payable';
             $this->paymentTotal = (float) $purchase->credit_amount;
             $this->paymentPaid = (float) $purchase->paid_amount;
@@ -255,7 +255,8 @@ class Credits extends Component
                 $this->dispatch('notify', message: 'Venta no encontrada', type: 'error');
                 return;
             }
-            $this->paymentEntityName = $sale->customer ? $sale->customer->full_name : 'Cliente';
+            $customerName = $sale->customer ? $sale->customer->full_name : 'Cliente';
+            $this->paymentEntityName = $customerName . ' — Factura: ' . $sale->invoice_number;
             $this->paymentCreditType = 'receivable';
             $this->paymentTotal = (float) $sale->credit_amount;
             $this->paymentPaid = (float) $sale->paid_amount;
@@ -396,14 +397,15 @@ class Credits extends Component
 
         if ($type === 'purchase') {
             $record = Purchase::with('supplier')->find($id);
-            $this->historyEntityName = $record?->supplier->name ?? 'Proveedor';
+            $this->historyEntityName = ($record?->supplier->name ?? 'Proveedor') . ' — Compra: ' . ($record?->purchase_number ?? '');
             $this->historyPayments = CreditPayment::with(['user', 'paymentMethod'])
                 ->where('purchase_id', $id)
                 ->orderByDesc('created_at')
                 ->get();
         } else {
             $record = Sale::with('customer')->find($id);
-            $this->historyEntityName = $record?->customer ? $record->customer->full_name : 'Cliente';
+            $customerName = $record?->customer ? $record->customer->full_name : 'Cliente';
+            $this->historyEntityName = $customerName . ' — Factura: ' . ($record?->invoice_number ?? '');
             $this->historyPayments = CreditPayment::with(['user', 'paymentMethod'])
                 ->where('sale_id', $id)
                 ->orderByDesc('created_at')
