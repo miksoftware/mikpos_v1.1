@@ -77,11 +77,12 @@ class Purchases extends Component
         }
 
         $items = $query
-            ->when($this->search, function ($q) {
-                $q->where(function ($query) {
-                    $query->where('purchase_number', 'like', "%{$this->search}%")
-                        ->orWhere('supplier_invoice', 'like', "%{$this->search}%")
-                        ->orWhereHas('supplier', fn($sq) => $sq->where('name', 'like', "%{$this->search}%"));
+            ->when(trim($this->search), function ($q) {
+                $search = trim($this->search);
+                $q->where(function ($query) use ($search) {
+                    $query->where('purchase_number', 'like', "%{$search}%")
+                        ->orWhere('supplier_invoice', 'like', "%{$search}%")
+                        ->orWhereHas('supplier', fn($sq) => $sq->where('name', 'like', "%{$search}%"));
                 });
             })
             ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))

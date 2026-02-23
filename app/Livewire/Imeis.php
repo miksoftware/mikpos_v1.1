@@ -28,9 +28,14 @@ class Imeis extends Component
     public function render()
     {
         $items = Imei::query()
-            ->when($this->search, fn($q) => $q->where('imei', 'like', "%{$this->search}%")
-                ->orWhere('imei2', 'like', "%{$this->search}%")
-                ->orWhere('notes', 'like', "%{$this->search}%"))
+            ->when(trim($this->search), function ($q) {
+                $search = trim($this->search);
+                $q->where(function ($query) use ($search) {
+                    $query->where('imei', 'like', "%{$search}%")
+                        ->orWhere('imei2', 'like', "%{$search}%")
+                        ->orWhere('notes', 'like', "%{$search}%");
+                });
+            })
             ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
             ->latest()
             ->paginate(10);

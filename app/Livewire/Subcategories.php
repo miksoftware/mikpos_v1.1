@@ -30,7 +30,7 @@ class Subcategories extends Component
     {
         $items = Subcategory::query()
             ->with('category')
-            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))
+            ->when(trim($this->search), fn($q) => $q->where('name', 'like', "%" . trim($this->search) . "%"))
             ->when($this->filterCategory, fn($q) => $q->where('category_id', $this->filterCategory))
             ->latest()
             ->paginate(10);

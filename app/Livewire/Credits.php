@@ -96,11 +96,12 @@ class Credits extends Component
                 $pQuery->whereIn('purchases.payment_status', ['pending', 'partial']);
             }
 
-            if ($this->search) {
-                $pQuery->where(function ($q) {
-                    $q->where('purchases.purchase_number', 'like', "%{$this->search}%")
-                        ->orWhereHas('supplier', function ($sq) {
-                            $sq->where('name', 'like', "%{$this->search}%");
+            if (trim($this->search)) {
+                $search = trim($this->search);
+                $pQuery->where(function ($q) use ($search) {
+                    $q->where('purchases.purchase_number', 'like', "%{$search}%")
+                        ->orWhereHas('supplier', function ($sq) use ($search) {
+                            $sq->where('name', 'like', "%{$search}%");
                         });
                 });
             }
@@ -144,14 +145,16 @@ class Credits extends Component
                 $sQuery->whereIn('sales.payment_status', ['pending', 'partial']);
             }
 
-            if ($this->search) {
-                $sQuery->where(function ($q) {
-                    $q->where('sales.invoice_number', 'like', "%{$this->search}%")
-                        ->orWhereHas('customer', function ($cq) {
-                            $cq->where('first_name', 'like', "%{$this->search}%")
-                                ->orWhere('last_name', 'like', "%{$this->search}%")
-                                ->orWhere('business_name', 'like', "%{$this->search}%")
-                                ->orWhere('document_number', 'like', "%{$this->search}%");
+            if (trim($this->search)) {
+                $search = trim($this->search);
+                $sQuery->where(function ($q) use ($search) {
+                    $q->where('sales.invoice_number', 'like', "%{$search}%")
+                        ->orWhereHas('customer', function ($cq) use ($search) {
+                            $cq->where('first_name', 'like', "%{$search}%")
+                                ->orWhere('last_name', 'like', "%{$search}%")
+                                ->orWhere('business_name', 'like', "%{$search}%")
+                                ->orWhere('document_number', 'like', "%{$search}%")
+                                ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
                         });
                 });
             }

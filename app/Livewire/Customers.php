@@ -81,11 +81,20 @@ class Customers extends Component
         }
 
         $items = $query
-            ->when($this->search, fn($q) => $q->where('first_name', 'like', "%{$this->search}%")
-                ->orWhere('last_name', 'like', "%{$this->search}%")
-                ->orWhere('business_name', 'like', "%{$this->search}%")
-                ->orWhere('document_number', 'like', "%{$this->search}%")
-                ->orWhere('email', 'like', "%{$this->search}%"))
+            ->when(trim($this->search), function ($q) {
+                $search = trim($this->search);
+                $q->where(function ($query) use ($search) {
+                    $query->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('business_name', 'like', "%{$search}%")
+                        ->orWhere('document_number', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                    // Search full name across first_name + last_name
+                    if (str_contains($search, ' ')) {
+                        $query->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
+                    }
+                });
+            })
             ->when($this->filterCustomerType, fn($q) => $q->where('customer_type', $this->filterCustomerType))
             ->latest()
             ->paginate(10);

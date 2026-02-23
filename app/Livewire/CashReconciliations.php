@@ -111,10 +111,11 @@ class CashReconciliations extends Component
         }
 
         // Apply search
-        if ($this->search) {
-            $query->whereHas('cashRegister', function ($q) {
-                $q->where('name', 'like', "%{$this->search}%")
-                    ->orWhere('number', 'like', "%{$this->search}%");
+        if (trim($this->search)) {
+            $search = trim($this->search);
+            $query->whereHas('cashRegister', function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('number', 'like', "%{$search}%");
             });
         }
 

@@ -26,8 +26,13 @@ class Departments extends Component
     public function render()
     {
         $departments = Department::query()
-            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%")
-                ->orWhere('dian_code', 'like', "%{$this->search}%"))
+            ->when(trim($this->search), function ($q) {
+                $search = trim($this->search);
+                $q->where(function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('dian_code', 'like', "%{$search}%");
+                });
+            })
             ->withCount('municipalities')
             ->latest()
             ->paginate(10);

@@ -25,7 +25,7 @@ class Brands extends Component
     public function render()
     {
         $items = Brand::query()
-            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))
+            ->when(trim($this->search), fn($q) => $q->where('name', 'like', "%" . trim($this->search) . "%"))
             ->withCount('productModels')
             ->latest()
             ->paginate(10);

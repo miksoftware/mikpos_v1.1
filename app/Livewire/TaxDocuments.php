@@ -127,9 +127,14 @@ class TaxDocuments extends Component
     public function render()
     {
         $items = TaxDocument::query()
-            ->when($this->search, fn($q) => $q->where('description', 'like', "%{$this->search}%")
-                ->orWhere('dian_code', 'like', "%{$this->search}%")
-                ->orWhere('abbreviation', 'like', "%{$this->search}%"))
+            ->when(trim($this->search), function ($q) {
+                $search = trim($this->search);
+                $q->where(function ($query) use ($search) {
+                    $query->where('description', 'like', "%{$search}%")
+                        ->orWhere('dian_code', 'like', "%{$search}%")
+                        ->orWhere('abbreviation', 'like', "%{$search}%");
+                });
+            })
             ->latest()
             ->paginate(10);
 

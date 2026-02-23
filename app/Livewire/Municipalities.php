@@ -30,8 +30,13 @@ class Municipalities extends Component
     {
         $municipalities = Municipality::query()
             ->with('department')
-            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%")
-                ->orWhere('dian_code', 'like', "%{$this->search}%"))
+            ->when(trim($this->search), function ($q) {
+                $search = trim($this->search);
+                $q->where(function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('dian_code', 'like', "%{$search}%");
+                });
+            })
             ->when($this->filterDepartment, fn($q) => $q->where('department_id', $this->filterDepartment))
             ->latest()
             ->paginate(15);

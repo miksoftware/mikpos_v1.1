@@ -30,7 +30,7 @@ class ProductModels extends Component
     {
         $items = ProductModel::query()
             ->with('brand')
-            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))
+            ->when(trim($this->search), fn($q) => $q->where('name', 'like', "%" . trim($this->search) . "%"))
             ->when($this->filterBrand, fn($q) => $q->where('brand_id', $this->filterBrand))
             ->latest()
             ->paginate(10);

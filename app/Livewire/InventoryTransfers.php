@@ -48,11 +48,14 @@ class InventoryTransfers extends Component
             ->when($transferDoc, fn($q) => $q->where('system_document_id', $transferDoc->id))
             ->when(!$transferDoc, fn($q) => $q->whereRaw('1 = 0'))
             ->where('movement_type', 'out') // Only show outgoing (origin) movements
-            ->when($this->search, fn($q) => $q->where(function($query) {
-                $query->where('document_number', 'like', "%{$this->search}%")
-                    ->orWhere('notes', 'like', "%{$this->search}%")
-                    ->orWhereHas('product', fn($pq) => $pq->where('name', 'like', "%{$this->search}%"));
-            }))
+            ->when(trim($this->search), function ($q) {
+                $search = trim($this->search);
+                $q->where(function($query) use ($search) {
+                    $query->where('document_number', 'like', "%{$search}%")
+                        ->orWhere('notes', 'like', "%{$search}%")
+                        ->orWhereHas('product', fn($pq) => $pq->where('name', 'like', "%{$search}%"));
+                });
+            })
             ->select('document_number', 'notes', 'user_id', 'branch_id', 'created_at')
             ->selectRaw('COUNT(*) as items_count')
             ->selectRaw('SUM(quantity) as total_quantity')

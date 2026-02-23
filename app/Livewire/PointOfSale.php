@@ -1638,14 +1638,16 @@ class PointOfSale extends Component
     {
         // Get customers for search
         $customers = [];
-        if (strlen($this->customerSearch) >= 2) {
+        $customerSearchTrimmed = trim($this->customerSearch);
+        if (strlen($customerSearchTrimmed) >= 2) {
             $customers = Customer::where('is_active', true)
                 ->forBranch($this->branchId)
-                ->where(function ($q) {
-                    $q->where('first_name', 'like', '%' . $this->customerSearch . '%')
-                      ->orWhere('last_name', 'like', '%' . $this->customerSearch . '%')
-                      ->orWhere('business_name', 'like', '%' . $this->customerSearch . '%')
-                      ->orWhere('document_number', 'like', '%' . $this->customerSearch . '%');
+                ->where(function ($q) use ($customerSearchTrimmed) {
+                    $q->where('first_name', 'like', '%' . $customerSearchTrimmed . '%')
+                      ->orWhere('last_name', 'like', '%' . $customerSearchTrimmed . '%')
+                      ->orWhere('business_name', 'like', '%' . $customerSearchTrimmed . '%')
+                      ->orWhere('document_number', 'like', '%' . $customerSearchTrimmed . '%')
+                      ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$customerSearchTrimmed}%"]);
                 })
                 ->limit(10)
                 ->get();
@@ -1674,8 +1676,8 @@ class PointOfSale extends Component
             $productsQuery->where('category_id', $this->selectedCategory);
         }
         
-        if (strlen($this->productSearch) >= 2) {
-            $search = $this->productSearch;
+        if (strlen(trim($this->productSearch)) >= 2) {
+            $search = trim($this->productSearch);
             $productsQuery->where(function ($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
                   ->orWhere('sku', 'like', '%' . $search . '%')
@@ -1760,8 +1762,8 @@ class PointOfSale extends Component
             $servicesQuery->where('category_id', $this->selectedCategory);
         }
         
-        if (strlen($this->productSearch) >= 2) {
-            $search = $this->productSearch;
+        if (strlen(trim($this->productSearch)) >= 2) {
+            $search = trim($this->productSearch);
             $servicesQuery->where(function ($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
                   ->orWhere('sku', 'like', '%' . $search . '%')

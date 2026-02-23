@@ -26,7 +26,13 @@ class Units extends Component
     public function render()
     {
         $items = Unit::query()
-            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%")->orWhere('abbreviation', 'like', "%{$this->search}%"))
+            ->when(trim($this->search), function ($q) {
+                $search = trim($this->search);
+                $q->where(function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('abbreviation', 'like', "%{$search}%");
+                });
+            })
             ->latest()
             ->paginate(10);
 

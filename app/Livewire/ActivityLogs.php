@@ -182,11 +182,12 @@ class ActivityLogs extends Component
         }
 
         // Search
-        if ($this->search) {
-            $query->where(function ($q) {
-                $q->where('activity_logs.description', 'like', "%{$this->search}%")
-                    ->orWhereHas('user', function ($uq) {
-                        $uq->where('name', 'like', "%{$this->search}%");
+        if (trim($this->search)) {
+            $search = trim($this->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('activity_logs.description', 'like', "%{$search}%")
+                    ->orWhereHas('user', function ($uq) use ($search) {
+                        $uq->where('name', 'like', "%{$search}%");
                     });
             });
         }

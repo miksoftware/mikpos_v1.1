@@ -78,11 +78,14 @@ class Branches extends Component
 
         $branches = Branch::query()
             ->with(['department', 'municipality'])
-            ->when($this->search, function ($query) {
-                $query->where('name', 'like', '%' . $this->search . '%')
-                    ->orWhere('code', 'like', '%' . $this->search . '%')
-                    ->orWhereHas('department', fn($q) => $q->where('name', 'like', '%' . $this->search . '%'))
-                    ->orWhereHas('municipality', fn($q) => $q->where('name', 'like', '%' . $this->search . '%'));
+            ->when(trim($this->search), function ($query) {
+                $search = trim($this->search);
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('code', 'like', '%' . $search . '%')
+                        ->orWhereHas('department', fn($dq) => $dq->where('name', 'like', '%' . $search . '%'))
+                        ->orWhereHas('municipality', fn($mq) => $mq->where('name', 'like', '%' . $search . '%'));
+                });
             })
             ->latest()
             ->paginate(10);

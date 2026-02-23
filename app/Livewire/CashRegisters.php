@@ -67,8 +67,13 @@ class CashRegisters extends Component
         }
 
         $items = $query
-            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%")
-                ->orWhere('number', 'like', "%{$this->search}%"))
+            ->when(trim($this->search), function ($q) {
+                $search = trim($this->search);
+                $q->where(function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('number', 'like', "%{$search}%");
+                });
+            })
             ->orderBy('number')
             ->paginate(10);
 

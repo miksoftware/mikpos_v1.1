@@ -26,7 +26,7 @@ class Categories extends Component
     public function render()
     {
         $items = Category::query()
-            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))
+            ->when(trim($this->search), fn($q) => $q->where('name', 'like', "%" . trim($this->search) . "%"))
             ->withCount('subcategories')
             ->latest()
             ->paginate(10);

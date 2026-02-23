@@ -70,11 +70,14 @@ class InventoryAdjustments extends Component
         }
 
         $documents = $query
-            ->when($this->search, fn($q) => $q->where(function($query) {
-                $query->where('document_number', 'like', "%{$this->search}%")
-                    ->orWhere('notes', 'like', "%{$this->search}%")
-                    ->orWhereHas('product', fn($pq) => $pq->where('name', 'like', "%{$this->search}%"));
-            }))
+            ->when(trim($this->search), function ($q) {
+                $search = trim($this->search);
+                $q->where(function($query) use ($search) {
+                    $query->where('document_number', 'like', "%{$search}%")
+                        ->orWhere('notes', 'like', "%{$search}%")
+                        ->orWhereHas('product', fn($pq) => $pq->where('name', 'like', "%{$search}%"));
+                });
+            })
             ->when($this->filterType, fn($q) => $q->where('movement_type', $this->filterType))
             ->select('document_number', 'notes', 'user_id', 'branch_id', 'created_at')
             ->selectRaw('COUNT(*) as items_count')

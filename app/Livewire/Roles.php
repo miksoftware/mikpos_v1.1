@@ -32,7 +32,7 @@ class Roles extends Component
     public function render()
     {
         $roles = Role::query()
-            ->when($this->search, fn($q) => $q->where('display_name', 'like', "%{$this->search}%"))
+            ->when(trim($this->search), fn($q) => $q->where('display_name', 'like', "%" . trim($this->search) . "%"))
             ->withCount('permissions', 'users')
             ->latest()
             ->paginate(10);

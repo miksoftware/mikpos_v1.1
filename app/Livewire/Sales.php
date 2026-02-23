@@ -751,15 +751,17 @@ class Sales extends Component
         
         $query = Sale::with(['customer', 'user', 'branch', 'payments.paymentMethod'])
             ->withCount(['reprints', 'creditNotes', 'refunds'])
-            ->when($this->search, function ($q) {
-                $q->where(function ($sq) {
-                    $sq->where('invoice_number', 'like', "%{$this->search}%")
-                       ->orWhere('dian_number', 'like', "%{$this->search}%")
-                       ->orWhereHas('customer', function ($cq) {
-                           $cq->where('first_name', 'like', "%{$this->search}%")
-                              ->orWhere('last_name', 'like', "%{$this->search}%")
-                              ->orWhere('business_name', 'like', "%{$this->search}%")
-                              ->orWhere('document_number', 'like', "%{$this->search}%");
+            ->when(trim($this->search), function ($q) {
+                $search = trim($this->search);
+                $q->where(function ($sq) use ($search) {
+                    $sq->where('invoice_number', 'like', "%{$search}%")
+                       ->orWhere('dian_number', 'like', "%{$search}%")
+                       ->orWhereHas('customer', function ($cq) use ($search) {
+                           $cq->where('first_name', 'like', "%{$search}%")
+                              ->orWhere('last_name', 'like', "%{$search}%")
+                              ->orWhere('business_name', 'like', "%{$search}%")
+                              ->orWhere('document_number', 'like', "%{$search}%")
+                              ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
                        });
                 });
             })

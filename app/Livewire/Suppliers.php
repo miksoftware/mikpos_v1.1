@@ -43,10 +43,15 @@ class Suppliers extends Component
     {
         $items = Supplier::query()
             ->with(['taxDocument', 'department', 'municipality'])
-            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%")
-                ->orWhere('document_number', 'like', "%{$this->search}%")
-                ->orWhere('email', 'like', "%{$this->search}%")
-                ->orWhere('salesperson_name', 'like', "%{$this->search}%"))
+            ->when(trim($this->search), function ($q) {
+                $search = trim($this->search);
+                $q->where(function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('document_number', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('salesperson_name', 'like', "%{$search}%");
+                });
+            })
             ->latest()
             ->paginate(10);
 

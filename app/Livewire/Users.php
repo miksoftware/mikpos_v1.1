@@ -45,8 +45,13 @@ class Users extends Component
     public function render()
     {
         $users = User::query()
-            ->where('name', 'like', '%'.$this->search.'%')
-            ->orWhere('email', 'like', '%'.$this->search.'%')
+            ->when(trim($this->search), function ($q) {
+                $search = trim($this->search);
+                $q->where(function ($query) use ($search) {
+                    $query->where('name', 'like', '%'.$search.'%')
+                        ->orWhere('email', 'like', '%'.$search.'%');
+                });
+            })
             ->with(['branch', 'roles'])
             ->latest()
             ->paginate(10);

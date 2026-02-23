@@ -114,7 +114,7 @@ class PaymentMethods extends Component
     public function render()
     {
         $items = PaymentMethod::query()
-            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))
+            ->when(trim($this->search), fn($q) => $q->where('name', 'like', "%" . trim($this->search) . "%"))
             ->latest()
             ->paginate(10);
 

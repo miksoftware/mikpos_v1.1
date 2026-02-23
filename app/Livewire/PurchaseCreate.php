@@ -154,7 +154,8 @@ class PurchaseCreate extends Component
 
     public function updatedProductSearch()
     {
-        if (strlen($this->productSearch) < 2) {
+        $trimmed = trim($this->productSearch);
+        if (strlen($trimmed) < 2) {
             $this->searchResults = [];
             return;
         }
@@ -171,10 +172,10 @@ class PurchaseCreate extends Component
 
         $query = Product::where('is_active', true)
             ->where('branch_id', $branchId)
-            ->where(function ($q) {
-                $q->where('name', 'like', "%{$this->productSearch}%")
-                    ->orWhere('sku', 'like', "%{$this->productSearch}%")
-                    ->orWhere('barcode', 'like', "%{$this->productSearch}%");
+            ->where(function ($q) use ($trimmed) {
+                $q->where('name', 'like', "%{$trimmed}%")
+                    ->orWhere('sku', 'like', "%{$trimmed}%")
+                    ->orWhere('barcode', 'like', "%{$trimmed}%");
             });
 
         $this->searchResults = $query

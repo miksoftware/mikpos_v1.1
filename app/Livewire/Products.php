@@ -218,22 +218,23 @@ class Products extends Component
         }
 
         $items = $query
-            ->when($this->search, function ($q) {
+            ->when(trim($this->search), function ($q) {
                 $q->where(function ($query) {
-                    $query->where('name', 'like', "%{$this->search}%")
-                        ->orWhere('sku', 'like', "%{$this->search}%")
-                        ->orWhere('description', 'like', "%{$this->search}%")
-                        ->orWhere('barcode', 'like', "%{$this->search}%")
-                        ->orWhereHas('barcodes', function ($bq) {
-                            $bq->where('barcode', 'like', "%{$this->search}%");
+                    $search = trim($this->search);
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('sku', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%")
+                        ->orWhere('barcode', 'like', "%{$search}%")
+                        ->orWhereHas('barcodes', function ($bq) use ($search) {
+                            $bq->where('barcode', 'like', "%{$search}%");
                         })
-                        ->orWhereHas('children', function ($childQuery) {
-                            $childQuery->where('name', 'like', "%{$this->search}%")
-                                ->orWhere('sku', 'like', "%{$this->search}%")
-                                ->orWhere('barcode', 'like', "%{$this->search}%");
+                        ->orWhereHas('children', function ($childQuery) use ($search) {
+                            $childQuery->where('name', 'like', "%{$search}%")
+                                ->orWhere('sku', 'like', "%{$search}%")
+                                ->orWhere('barcode', 'like', "%{$search}%");
                         })
-                        ->orWhereHas('children.barcodes', function ($cbq) {
-                            $cbq->where('barcode', 'like', "%{$this->search}%");
+                        ->orWhereHas('children.barcodes', function ($cbq) use ($search) {
+                            $cbq->where('barcode', 'like', "%{$search}%");
                         });
                 });
             })

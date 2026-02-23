@@ -83,10 +83,11 @@ class Combos extends Component
         }
 
         $items = $query
-            ->when($this->search, function ($q) {
-                $q->where(function ($query) {
-                    $query->where('name', 'like', "%{$this->search}%")
-                        ->orWhere('description', 'like', "%{$this->search}%");
+            ->when(trim($this->search), function ($q) {
+                $search = trim($this->search);
+                $q->where(function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%");
                 });
             })
             ->when($this->filterStatus !== null && $this->filterStatus !== '', function ($q) {

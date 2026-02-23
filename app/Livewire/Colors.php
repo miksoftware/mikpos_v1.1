@@ -26,8 +26,13 @@ class Colors extends Component
     public function render()
     {
         $items = Color::query()
-            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%")
-                ->orWhere('hex_code', 'like', "%{$this->search}%"))
+            ->when(trim($this->search), function ($q) {
+                $search = trim($this->search);
+                $q->where(function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('hex_code', 'like', "%{$search}%");
+                });
+            })
             ->latest()
             ->paginate(10);
 
