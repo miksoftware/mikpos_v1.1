@@ -128,7 +128,7 @@
                         </div>
                     </div>
 
-                    @if(!$isRunning && !$isComplete)
+                    @if(!$isRunning && !$isComplete && !$hasError)
                     <button wire:click="startMigration"
                         wire:confirm="¿Estás seguro? Esto limpiará los datos actuales e importará los del archivo SQL."
                         class="w-full px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all flex items-center justify-center gap-2">
@@ -137,6 +137,15 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                         Iniciar Migración
+                    </button>
+                    @elseif(!$isRunning && ($isComplete || $hasError))
+                    <button wire:click="startMigration"
+                        wire:confirm="¿Re-ejecutar la migración? Esto limpiará todos los datos importados y los reemplazará con los del archivo SQL."
+                        class="w-full px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Re-ejecutar Migración
                     </button>
                     @endif
                 </div>

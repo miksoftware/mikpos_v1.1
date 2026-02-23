@@ -104,6 +104,7 @@ class Migration extends Component
         $outputFile = storage_path('app/migrations/.migration_output');
         $pidFile = storage_path('app/migrations/.migration_pid');
 
+        // Reset state for re-runs
         $this->isRunning = true;
         $this->isComplete = false;
         $this->hasError = false;

@@ -33,7 +33,10 @@ use App\Models\RefundItem;
 use App\Models\PaymentMethod;
 use App\Models\Unit;
 use App\Models\TaxDocument;
+use App\Models\User;
+use App\Models\Role;
 use App\Services\ActivityLogService;
+use Illuminate\Support\Facades\Hash;
 
 class ImportLegacyData extends Command
 {
@@ -63,6 +66,8 @@ class ImportLegacyData extends Command
     private array $saleMap = [];
     private array $saleItemMap = [];
     private array $paymentMethodMap = [];
+    private array $userMap = [];
+    private array $departmentMap = [];
 
     private int $branchId;
     private int $userId;
@@ -116,8 +121,10 @@ class ImportLegacyData extends Command
             DB::beginTransaction();
 
             $this->buildPaymentMethodMap($sql);
+            $this->buildDepartmentMap($sql);
 
             $steps = [
+                ['migrateUsers', 'Usuarios'],
                 ['migrateTaxes', 'Impuestos'],
                 ['migrateBrands', 'Marcas'],
                 ['migrateModels', 'Modelos'],
@@ -153,6 +160,7 @@ class ImportLegacyData extends Command
             $this->newLine();
             $this->info('📊 Mapas de relaciones construidos:');
             $maps = [
+                'Usuarios' => count($this->userMap),
                 'Impuestos' => count($this->taxMap),
                 'Marcas' => count($this->brandMap),
                 'Modelos' => count($this->modelMap),
@@ -437,6 +445,109 @@ class ImportLegacyData extends Command
         return $this->paymentMethodMap[$oldId] ?? $this->paymentMethodMap[0] ?? 1;
     }
 
+    // ─── Department Map (provincias → departments) ───
+
+    private function buildDepartmentMap(string $sql): void
+    {
+        $rows = $this->parseInserts($sql, 'provincias');
+        $departments = Department::all();
+
+        foreach ($rows as $row) {
+            $oldId = (int) ($row['id_provincia'] ?? 0);
+            $oldName = strtolower(trim($row['provincia'] ?? ''));
+            if (empty($oldName) || $oldId === 0) continue;
+
+            $matched = $departments->first(function ($dept) use ($oldName) {
+                return strtolower($dept->name) === $oldName;
+            });
+
+            if ($matched) {
+                $this->departmentMap[$oldId] = $matched->id;
+            }
+        }
+    }
+
+    private function resolveDepartmentAndMunicipality(?string $oldProvinciaId): array
+    {
+        $oldId = (int) ($oldProvinciaId ?? 0);
+        $departmentId = $this->departmentMap[$oldId] ?? null;
+
+        if ($departmentId) {
+            $municipality = Municipality::where('department_id', $departmentId)->first();
+            return [$departmentId, $municipality->id ?? null];
+        }
+
+        $defaultDept = Department::first();
+        $defaultMuni = $defaultDept ? Municipality::where('department_id', $defaultDept->id)->first() : Municipality::first();
+        return [$defaultDept->id ?? 1, $defaultMuni->id ?? 1];
+    }
+
+    // ─── Step 0: Users ───
+
+    private function migrateUsers(string $sql): void
+    {
+        $rows = $this->parseInserts($sql, 'usuarios');
+        $this->logTableColumns($rows, 'usuarios');
+        $count = 0;
+
+        // Map old roles to MikPOS roles
+        $roleMapping = [
+            'administrador(a) general' => 'super_admin',
+            'administrador(a) sucursal' => 'branch_admin',
+            'cajero(a)' => 'cashier',
+        ];
+
+        foreach ($rows as $row) {
+            $oldCodigo = (int) ($row['codigo'] ?? 0);
+            $name = trim($row['nombres'] ?? '');
+            $email = strtolower(trim($row['email'] ?? ''));
+            if (empty($name)) continue;
+
+            // Check if email already exists (e.g., the super_admin created during install)
+            $existingUser = User::where('email', $email)->first();
+            if ($existingUser) {
+                $this->userMap[$oldCodigo] = $existingUser->id;
+                $this->addLog('info', "  → Usuario '{$name}' ya existe (ID {$existingUser->id}), mapeado");
+                continue;
+            }
+
+            $oldNivel = strtolower(trim($row['nivel'] ?? ''));
+            $roleName = $roleMapping[$oldNivel] ?? 'cashier';
+            $isActive = ((int) ($row['status'] ?? 0)) === 1;
+
+            $user = new User();
+            $user->name = $name;
+            $user->email = $email;
+            $user->branch_id = $this->branchId;
+            $user->phone = trim($row['telefono'] ?? '') ?: null;
+            $user->is_active = $isActive;
+            // Set a placeholder password - users will need to reconfigure
+            $user->password = 'changeme123';
+            $user->save();
+
+            // Assign role
+            $role = Role::where('name', $roleName)->first();
+            if ($role) {
+                $user->roles()->attach($role->id, ['branch_id' => $roleName === 'super_admin' ? null : $this->branchId]);
+            }
+
+            $this->userMap[$oldCodigo] = $user->id;
+            $count++;
+        }
+
+        // Map user ID 0 to the default admin (fallback)
+        $this->userMap[0] = $this->userId;
+
+        $this->stats['Usuarios'] = $count;
+        $this->addLog('info', "Usuarios: {$count} creados, " . count($this->userMap) . " mapeados");
+    }
+
+    private function resolveUserId(?string $oldCodigo): int
+    {
+        $code = (int) ($oldCodigo ?? 0);
+        return $this->userMap[$code] ?? $this->userId;
+    }
+
     // ─── Step 1: Taxes ───
     private function migrateTaxes(string $sql): void
     {
@@ -579,20 +690,21 @@ class ImportLegacyData extends Command
         $ccDoc = TaxDocument::where('abbreviation', 'CC')->first();
         $nitDoc = TaxDocument::where('abbreviation', 'NIT')->first();
         $defaultDocId = $nitDoc->id ?? $ccDoc->id ?? null;
-        $defaultDept = Department::first();
-        $defaultMuni = $defaultDept ? Municipality::where('department_id', $defaultDept->id)->first() : Municipality::first();
 
         foreach ($rows as $row) {
             $name = trim($row['nomproveedor'] ?? '');
             if (empty($name)) continue;
+
+            [$deptId, $muniId] = $this->resolveDepartmentAndMunicipality($row['id_provincia'] ?? null);
+
             $supplier = Supplier::create([
                 'tax_document_id' => $defaultDocId,
                 'document_number' => trim($row['cuitproveedor'] ?? '') ?: null,
                 'name' => $name,
                 'phone' => trim($row['tlfproveedor'] ?? '') ?: null,
                 'email' => trim($row['emailproveedor'] ?? '') ?: null,
-                'department_id' => $defaultDept->id ?? 1,
-                'municipality_id' => $defaultMuni->id ?? 1,
+                'department_id' => $deptId,
+                'municipality_id' => $muniId,
                 'address' => trim($row['direcproveedor'] ?? '') ?: null,
                 'salesperson_name' => trim($row['vendedor'] ?? '') ?: null,
                 'salesperson_phone' => trim($row['tlfvendedor'] ?? '') ?: null,
@@ -613,8 +725,6 @@ class ImportLegacyData extends Command
         $count = 0;
         $ccDoc = TaxDocument::where('abbreviation', 'CC')->first();
         $nitDoc = TaxDocument::where('abbreviation', 'NIT')->first();
-        $defaultDept = Department::first();
-        $defaultMuni = $defaultDept ? Municipality::where('department_id', $defaultDept->id)->first() : Municipality::first();
 
         foreach ($rows as $row) {
             $customerType = strtolower(trim($row['tipocliente'] ?? 'natural'));
@@ -634,6 +744,8 @@ class ImportLegacyData extends Command
             }
             if (empty($firstName) && empty($businessName)) continue;
 
+            [$deptId, $muniId] = $this->resolveDepartmentAndMunicipality($row['id_provincia'] ?? null);
+
             $creditLimit = (float) ($row['limitecredito'] ?? 0);
             $customer = Customer::create([
                 'branch_id' => $this->branchId,
@@ -644,8 +756,8 @@ class ImportLegacyData extends Command
                 'business_name' => $businessName ?: null,
                 'phone' => trim($row['tlfcliente'] ?? '') ?: null,
                 'email' => trim($row['emailcliente'] ?? '') ?: null,
-                'department_id' => $defaultDept->id ?? 1,
-                'municipality_id' => $defaultMuni->id ?? 1,
+                'department_id' => $deptId,
+                'municipality_id' => $muniId,
                 'address' => trim($row['direccliente'] ?? '') ?: null,
                 'has_credit' => $creditLimit > 0, 'credit_limit' => $creditLimit,
                 'is_active' => true,
@@ -946,7 +1058,8 @@ class ImportLegacyData extends Command
 
             $purchase = Purchase::create([
                 'purchase_number' => trim($row['codcompra']),
-                'supplier_id' => $supplierId, 'branch_id' => $this->branchId, 'user_id' => $this->userId,
+                'supplier_id' => $supplierId, 'branch_id' => $this->branchId,
+                'user_id' => $this->resolveUserId($row['codigo'] ?? null),
                 'supplier_invoice' => trim($row['codfactura'] ?? '') ?: null,
                 'purchase_date' => $purchaseDate,
                 'subtotal' => (float) ($row['subtotal'] ?? 0),
@@ -1001,6 +1114,7 @@ class ImportLegacyData extends Command
     {
         $rows = $this->parseInserts($sql, 'abonoscreditoscompras');
         $count = 0;
+        $updatedPurchases = [];
 
         foreach ($rows as $row) {
             $oldPurchaseCode = $this->normalizeKey($row['codcompra'] ?? '');
@@ -1026,7 +1140,55 @@ class ImportLegacyData extends Command
                 'user_id' => $this->userId, 'payment_method_id' => $paymentMethodId,
                 'amount' => $amount, 'affects_cash' => false, 'created_at' => $paymentDate,
             ]);
+            $updatedPurchases[$purchaseId] = true;
             $count++;
+        }
+
+        // For credit purchases with paid_amount > 0 but no/insufficient CreditPayment records,
+        // create a CreditPayment to match the paid_amount from the old system
+        $creditPurchasesWithPaid = Purchase::where('payment_type', 'credit')
+            ->where('branch_id', $this->branchId)
+            ->where('paid_amount', '>', 0)
+            ->get();
+
+        foreach ($creditPurchasesWithPaid as $purchase) {
+            $existingPayments = (float) CreditPayment::where('purchase_id', $purchase->id)->sum('amount');
+            $paidFromOldSystem = (float) $purchase->paid_amount;
+            $difference = $paidFromOldSystem - $existingPayments;
+
+            if ($difference > 0.01) {
+                $defaultPaymentMethod = PaymentMethod::first();
+                CreditPayment::create([
+                    'payment_number' => CreditPayment::generatePaymentNumber(),
+                    'credit_type' => 'payable',
+                    'purchase_id' => $purchase->id,
+                    'supplier_id' => $purchase->supplier_id,
+                    'branch_id' => $this->branchId,
+                    'user_id' => $this->userId,
+                    'payment_method_id' => $defaultPaymentMethod->id ?? 1,
+                    'amount' => $difference,
+                    'affects_cash' => false,
+                    'notes' => 'Abono importado del sistema anterior',
+                    'created_at' => $purchase->created_at,
+                ]);
+                $updatedPurchases[$purchase->id] = true;
+                $count++;
+            }
+        }
+
+        // Update paid_amount and payment_status for purchases that received payments
+        foreach (array_keys($updatedPurchases) as $purchaseId) {
+            $purchase = Purchase::find($purchaseId);
+            if (!$purchase || $purchase->payment_type !== 'credit') continue;
+
+            $totalPaid = (float) CreditPayment::where('purchase_id', $purchaseId)->sum('amount');
+            $creditAmount = (float) $purchase->credit_amount;
+            $newStatus = $totalPaid >= $creditAmount ? 'paid' : ($totalPaid > 0 ? 'partial' : 'pending');
+
+            $purchase->update([
+                'paid_amount' => $totalPaid,
+                'payment_status' => $newStatus,
+            ]);
         }
 
         $this->stats['Abonos compras'] = $count;
@@ -1069,7 +1231,7 @@ class ImportLegacyData extends Command
                 'branch_id' => $this->branchId,
                 'cash_reconciliation_id' => null,
                 'customer_id' => $customerId,
-                'user_id' => $this->userId,
+                'user_id' => $this->resolveUserId($row['codigo'] ?? null),
                 'invoice_number' => trim($row['codventa']),
                 'subtotal' => (float) ($row['subtotal'] ?? 0),
                 'tax_total' => (float) ($row['totaliva'] ?? 0),
@@ -1128,6 +1290,17 @@ class ImportLegacyData extends Command
             $count++;
         }
 
+        // Mark customers with credit sales as has_credit = true
+        $creditCustomerIds = Sale::where('payment_type', 'credit')
+            ->where('branch_id', $this->branchId)
+            ->whereNotNull('customer_id')
+            ->pluck('customer_id')
+            ->unique();
+
+        Customer::whereIn('id', $creditCustomerIds)
+            ->where('has_credit', false)
+            ->update(['has_credit' => true]);
+
         $this->stats['Ventas'] = $count;
         $this->addLog('info', "Ventas: {$count} migradas");
     }
@@ -1163,6 +1336,7 @@ class ImportLegacyData extends Command
     {
         $rows = $this->parseInserts($sql, 'abonoscreditosventas');
         $count = 0;
+        $updatedSales = [];
 
         foreach ($rows as $row) {
             $oldSaleCode = $this->normalizeKey($row['codventa'] ?? '');
@@ -1188,8 +1362,68 @@ class ImportLegacyData extends Command
                 'user_id' => $this->userId, 'payment_method_id' => $paymentMethodId,
                 'amount' => $amount, 'affects_cash' => false, 'created_at' => $paymentDate,
             ]);
+            $updatedSales[$saleId] = true;
             $count++;
         }
+
+        // For credit sales with paid_amount > 0 but no CreditPayment records,
+        // create a CreditPayment to match the paid_amount from the old system
+        $creditSalesWithPaid = Sale::where('payment_type', 'credit')
+            ->where('branch_id', $this->branchId)
+            ->where('paid_amount', '>', 0)
+            ->get();
+
+        foreach ($creditSalesWithPaid as $sale) {
+            $existingPayments = (float) CreditPayment::where('sale_id', $sale->id)->sum('amount');
+            $paidFromOldSystem = (float) $sale->paid_amount;
+            $difference = $paidFromOldSystem - $existingPayments;
+
+            if ($difference > 0.01) {
+                // Create a balancing CreditPayment for the untracked amount
+                $defaultPaymentMethod = PaymentMethod::first();
+                CreditPayment::create([
+                    'payment_number' => CreditPayment::generatePaymentNumber(),
+                    'credit_type' => 'receivable',
+                    'sale_id' => $sale->id,
+                    'customer_id' => $sale->customer_id,
+                    'branch_id' => $this->branchId,
+                    'user_id' => $this->userId,
+                    'payment_method_id' => $defaultPaymentMethod->id ?? 1,
+                    'amount' => $difference,
+                    'affects_cash' => false,
+                    'notes' => 'Abono importado del sistema anterior',
+                    'created_at' => $sale->created_at,
+                ]);
+                $updatedSales[$sale->id] = true;
+                $count++;
+            }
+        }
+
+        // Update paid_amount and payment_status for sales that received payments
+        foreach (array_keys($updatedSales) as $saleId) {
+            $sale = Sale::find($saleId);
+            if (!$sale || $sale->payment_type !== 'credit') continue;
+
+            $totalPaid = (float) CreditPayment::where('sale_id', $saleId)->sum('amount');
+            $creditAmount = (float) $sale->credit_amount;
+            $newStatus = $totalPaid >= $creditAmount ? 'paid' : ($totalPaid > 0 ? 'partial' : 'pending');
+
+            $sale->update([
+                'paid_amount' => $totalPaid,
+                'payment_status' => $newStatus,
+            ]);
+        }
+
+        // Mark customers with credit sales as has_credit = true
+        $creditCustomerIds = Sale::where('payment_type', 'credit')
+            ->where('branch_id', $this->branchId)
+            ->whereNotNull('customer_id')
+            ->pluck('customer_id')
+            ->unique();
+
+        Customer::whereIn('id', $creditCustomerIds)
+            ->where('has_credit', false)
+            ->update(['has_credit' => true]);
 
         $this->stats['Abonos créditos'] = $count;
         $this->addLog('info', "Abonos créditos ventas: {$count} migrados");
@@ -1219,7 +1453,8 @@ class ImportLegacyData extends Command
             } catch (\Exception $e) { $refundDate = now(); }
 
             $refund = Refund::create([
-                'sale_id' => $saleId, 'branch_id' => $this->branchId, 'user_id' => $this->userId,
+                'sale_id' => $saleId, 'branch_id' => $this->branchId,
+                'user_id' => $this->resolveUserId($row['codigo'] ?? null),
                 'number' => trim($row['codnota'] ?? '') ?: Refund::generateNumber($this->branchId),
                 'type' => 'total', 'reason' => 'Migrado del sistema anterior',
                 'subtotal' => (float) ($row['subtotal'] ?? 0),

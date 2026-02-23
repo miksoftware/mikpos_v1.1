@@ -19,6 +19,13 @@ class CleanMigrationData extends Command
 
         DB::statement('SET FOREIGN_KEY_CHECKS=0;');
 
+        // Delete migrated users (keep ID 1 = super_admin from install)
+        $deletedUsers = DB::table('users')->where('id', '>', 1)->delete();
+        DB::table('user_role')->whereNotIn('user_id', [1])->delete();
+        if ($deletedUsers > 0) {
+            $this->info("✓ Deleted {$deletedUsers} migrated users (kept ID 1)");
+        }
+
         $tables = [
             // Sales & related
             'sale_reprints',
