@@ -71,6 +71,7 @@ class ImportLegacyData extends Command
 
     private int $branchId;
     private int $userId;
+    private bool $hasVariantColumns = false;
     private array $stats = [];
     private array $warnings = [];
 
@@ -777,9 +778,21 @@ class ImportLegacyData extends Command
         $count = 0; $barcodeCount = 0; $skipped = 0;
         $defaultUnit = Unit::firstOrCreate(['abbreviation' => 'UND'], ['name' => 'Unidad', 'is_active' => true]);
 
-        // Old system has flat products (no tipo_producto/usa_inventario columns).
-        // All rows are regular products — no services or child variants.
+        // Detect if old system has variant/service columns
+        $firstRow = $rows[0] ?? [];
+        $this->hasVariantColumns = array_key_exists('tipo_producto', $firstRow);
+        $this->addLog('info', $this->hasVariantColumns
+            ? "  → Estructura con variantes detectada (tipo_producto, usa_inventario)"
+            : "  → Estructura plana detectada (sin variantes ni servicios)");
+
         foreach ($rows as $row) {
+            // If variant columns exist, only import PADRE with usa_inventario=SI
+            if ($this->hasVariantColumns) {
+                $tipoProducto = strtoupper(trim($row['tipo_producto'] ?? 'PADRE'));
+                $usaInventario = strtoupper(trim($row['usa_inventario'] ?? 'SI'));
+                if ($tipoProducto !== 'PADRE' || $usaInventario !== 'SI') { $skipped++; continue; }
+            }
+
             $name = trim($row['producto'] ?? '');
             if (empty($name)) { $skipped++; continue; }
 
@@ -805,7 +818,16 @@ class ImportLegacyData extends Command
             $colorId = $oldColorId ? ($this->colorMap[$oldColorId] ?? null) : null;
             $taxId = $this->resolveTaxId($row['ivaproducto'] ?? null);
 
-            // Old system has no tipo_comision/comision_venta columns — no commissions
+            // Commission columns only exist in newer DB structure
+            $hasCommissionCols = array_key_exists('tipo_comision', $row);
+            $tipoComision = $hasCommissionCols ? strtoupper(trim($row['tipo_comision'] ?? 'NINGUNA')) : 'NINGUNA';
+            $hasCommission = $tipoComision !== 'NINGUNA';
+            $commissionType = match ($tipoComision) { 'PORCENTAJE' => 'percentage', 'VALOR' => 'fixed', default => null };
+            $commissionValue = $hasCommissionCols ? (float) ($row['comision_venta'] ?? 0) : 0;
+
+            $imeiRaw = trim($row['imei'] ?? '');
+            $imei = ($imeiRaw !== '' && strtoupper($imeiRaw) !== 'NO') ? $imeiRaw : null;
+
             $product = new Product([
                 'branch_id' => $this->branchId, 'name' => $name,
                 'description' => trim($row['descripcion'] ?? '') ?: null,
@@ -813,43 +835,59 @@ class ImportLegacyData extends Command
                 'brand_id' => $brandId, 'unit_id' => $defaultUnit->id, 'tax_id' => $taxId,
                 'presentation_id' => $presentationId, 'color_id' => $colorId, 'product_model_id' => $modelId,
                 'weight' => is_numeric($row['peso'] ?? null) ? (float) $row['peso'] : null,
-                'imei' => (trim($row['imei'] ?? '') !== '' && strtoupper(trim($row['imei'] ?? '')) !== 'NO') ? trim($row['imei']) : null,
+                'imei' => $imei,
                 'purchase_price' => (float) ($row['preciocompra'] ?? 0),
                 'sale_price' => (float) ($row['precioxpublico'] ?? 0),
                 'price_includes_tax' => false,
                 'min_stock' => is_numeric($row['stockminimo'] ?? null) ? (float) $row['stockminimo'] : 0,
                 'max_stock' => is_numeric($row['stockoptimo'] ?? null) ? (float) $row['stockoptimo'] : 0,
                 'current_stock' => (float) ($row['existencia'] ?? 0),
-                'is_active' => true, 'has_commission' => false,
-                'commission_type' => null,
-                'commission_value' => 0,
+                'is_active' => true, 'has_commission' => $hasCommission,
+                'commission_type' => $commissionType,
+                'commission_value' => $hasCommission ? $commissionValue : 0,
             ]);
             $product->save();
             $product->generateSku();
             $product->save();
 
             $barcode = $this->cleanBarcode($row['codigobarra'] ?? '');
-            if ($barcode && ProductChild::where('barcode', $barcode)->exists()) $barcode = null;
 
-            $child = ProductChild::create([
-                'product_id' => $product->id, 'unit_quantity' => 1,
-                'sku' => $product->sku . '-01', 'barcode' => $barcode, 'name' => $name,
-                'presentation_id' => $presentationId, 'color_id' => $colorId, 'product_model_id' => $modelId,
-                'sale_price' => (float) ($row['precioxpublico'] ?? 0), 'price_includes_tax' => false,
-                'is_active' => true, 'has_commission' => false,
-                'commission_type' => null,
-                'commission_value' => 0,
-            ]);
+            // Only create ProductChild variant if the old system supports variants (PADRE/HIJO).
+            // Flat DBs don't have variants — the Product itself is the sellable item.
+            if ($this->hasVariantColumns) {
+                if ($barcode && ProductChild::where('barcode', $barcode)->exists()) $barcode = null;
+
+                $child = ProductChild::create([
+                    'product_id' => $product->id, 'unit_quantity' => 1,
+                    'sku' => $product->sku . '-01', 'barcode' => $barcode, 'name' => $name,
+                    'presentation_id' => $presentationId, 'color_id' => $colorId, 'product_model_id' => $modelId,
+                    'sale_price' => (float) ($row['precioxpublico'] ?? 0), 'price_includes_tax' => false,
+                    'is_active' => true, 'has_commission' => $hasCommission,
+                    'commission_type' => $commissionType,
+                    'commission_value' => $hasCommission ? $commissionValue : 0,
+                ]);
+                $this->productChildMap[(int) $row['idproducto']] = $child->id;
+
+                if ($barcode && !ProductBarcode::where('barcode', $barcode)->exists()) {
+                    ProductBarcode::firstOrCreate(['barcode' => $barcode], [
+                        'product_id' => $product->id, 'product_child_id' => $child->id, 'is_primary' => true,
+                    ]);
+                    $barcodeCount++;
+                }
+            } else {
+                // Flat structure: store barcode directly on product, no child variant
+                if ($barcode) {
+                    $product->update(['barcode' => $barcode]);
+                    if (!ProductBarcode::where('barcode', $barcode)->exists()) {
+                        ProductBarcode::firstOrCreate(['barcode' => $barcode], [
+                            'product_id' => $product->id, 'product_child_id' => null, 'is_primary' => true,
+                        ]);
+                        $barcodeCount++;
+                    }
+                }
+            }
 
             $this->productMap[(int) $row['idproducto']] = $product->id;
-            $this->productChildMap[(int) $row['idproducto']] = $child->id;
-
-            if ($barcode && !ProductBarcode::where('barcode', $barcode)->exists()) {
-                ProductBarcode::firstOrCreate(['barcode' => $barcode], [
-                    'product_id' => $product->id, 'product_child_id' => $child->id, 'is_primary' => true,
-                ]);
-                $barcodeCount++;
-            }
             $count++;
         }
         $this->stats['Productos'] = $count;
@@ -857,23 +895,125 @@ class ImportLegacyData extends Command
         $this->addLog('info', "Productos: {$count} migrados, {$barcodeCount} códigos de barra, {$skipped} omitidos");
     }
 
-    // ─── Step 11: Services ───
-    // Old system has no service distinction (no usa_inventario column).
-    // All productos rows are regular products, so nothing to migrate here.
+    // ─── Step 11: Services (usa_inventario = NO) ───
     private function migrateServices(string $sql): void
     {
-        $this->stats['Servicios'] = 0;
-        $this->addLog('info', "Servicios: 0 (sistema anterior no distingue servicios)");
+        // Only applicable if old system has usa_inventario column
+        if (!$this->hasVariantColumns) {
+            $this->stats['Servicios'] = 0;
+            $this->addLog('info', "Servicios: 0 (estructura plana, sin distinción de servicios)");
+            return;
+        }
+
+        $rows = $this->parseInserts($sql, 'productos');
+        $count = 0;
+
+        foreach ($rows as $row) {
+            $tipoProducto = strtoupper(trim($row['tipo_producto'] ?? 'PADRE'));
+            $usaInventario = strtoupper(trim($row['usa_inventario'] ?? 'SI'));
+            if ($tipoProducto !== 'PADRE' || $usaInventario !== 'NO') continue;
+
+            $name = trim($row['producto'] ?? '');
+            if (empty($name)) continue;
+
+            $oldCatId = (int) ($row['codfamilia'] ?? 0);
+            $categoryId = $oldCatId ? ($this->categoryMap[$oldCatId] ?? null) : null;
+            $taxId = $this->resolveTaxId($row['ivaproducto'] ?? null);
+
+            $tipoComision = strtoupper(trim($row['tipo_comision'] ?? 'NINGUNA'));
+            $hasCommission = $tipoComision !== 'NINGUNA';
+            $commissionType = match ($tipoComision) { 'PORCENTAJE' => 'percentage', 'VALOR' => 'fixed', default => null };
+
+            $service = new Service([
+                'branch_id' => $this->branchId, 'name' => $name,
+                'description' => trim($row['descripcion'] ?? '') ?: null,
+                'category_id' => $categoryId, 'tax_id' => $taxId,
+                'cost' => (float) ($row['preciocompra'] ?? 0),
+                'sale_price' => (float) ($row['precioxpublico'] ?? 0),
+                'price_includes_tax' => false, 'is_active' => true,
+                'has_commission' => $hasCommission, 'commission_type' => $commissionType,
+                'commission_value' => $hasCommission ? (float) ($row['comision_venta'] ?? 0) : 0,
+            ]);
+            $service->save();
+            $service->generateSku();
+            $service->save();
+
+            $this->serviceMap[(int) $row['idproducto']] = $service->id;
+            $count++;
+        }
+
+        $this->stats['Servicios'] = $count;
+        $this->addLog('info', "Servicios: {$count} migrados");
     }
 
-    // ─── Step 12: Product Children ───
-    // Old system has flat products (no tipo_producto/producto_padre_id columns).
-    // No child/variant products exist, so nothing to migrate here.
-    // Each product already gets a default child variant in migrateProducts().
+    // ─── Step 12: Product Children (HIJO) ───
     private function migrateProductChildren(string $sql): void
     {
-        $this->stats['Variantes hijo'] = 0;
-        $this->addLog('info', "Variantes hijo: 0 (sistema anterior no tiene variantes)");
+        // Only applicable if old system has tipo_producto column
+        if (!$this->hasVariantColumns) {
+            $this->stats['Variantes hijo'] = 0;
+            $this->addLog('info', "Variantes hijo: 0 (estructura plana, sin variantes)");
+            return;
+        }
+
+        $rows = $this->parseInserts($sql, 'productos');
+        $count = 0;
+
+        foreach ($rows as $row) {
+            $tipoProducto = strtoupper(trim($row['tipo_producto'] ?? 'PADRE'));
+            if ($tipoProducto !== 'HIJO') continue;
+
+            $name = trim($row['producto'] ?? '');
+            if (empty($name)) continue;
+
+            $parentOldId = (int) ($row['producto_padre_id'] ?? 0);
+            $parentNewId = $this->productMap[$parentOldId] ?? null;
+            if (!$parentNewId) continue;
+
+            $presentationId = $this->presentationMap[(int) ($row['codpresentacion'] ?? 0)] ?? null;
+            $colorId = $this->colorMap[(int) ($row['codcolor'] ?? 0)] ?? null;
+            $modelId = $this->modelMap[(int) ($row['codmodelo'] ?? 0)] ?? null;
+
+            $tipoComision = strtoupper(trim($row['tipo_comision'] ?? 'NINGUNA'));
+            $hasCommission = $tipoComision !== 'NINGUNA';
+            $commissionType = match ($tipoComision) { 'PORCENTAJE' => 'percentage', 'VALOR' => 'fixed', default => null };
+
+            $conversionQty = (float) ($row['cantidad_conversion'] ?? 1);
+            $parent = Product::find($parentNewId);
+            $childCount = ProductChild::where('product_id', $parentNewId)->count();
+            $childSku = $parent->sku . '-' . str_pad($childCount + 1, 2, '0', STR_PAD_LEFT);
+
+            $childBarcode = $this->cleanBarcode($row['codigobarra'] ?? '');
+            if ($childBarcode && ProductChild::where('barcode', $childBarcode)->exists()) {
+                $childBarcode = null;
+            }
+
+            $child = ProductChild::create([
+                'product_id' => $parentNewId, 'unit_quantity' => $conversionQty,
+                'sku' => $childSku, 'barcode' => $childBarcode, 'name' => $name,
+                'presentation_id' => $presentationId, 'color_id' => $colorId, 'product_model_id' => $modelId,
+                'sale_price' => (float) ($row['precioxpublico'] ?? 0), 'price_includes_tax' => false,
+                'is_active' => true, 'has_commission' => $hasCommission,
+                'commission_type' => $commissionType,
+                'commission_value' => $hasCommission ? (float) ($row['comision_venta'] ?? 0) : 0,
+            ]);
+
+            $oldId = (int) $row['idproducto'];
+            $this->productChildMap[$oldId] = $child->id;
+            $this->productMap[$oldId] = $parentNewId;
+
+            if ($childBarcode && !ProductBarcode::where('barcode', $childBarcode)->exists()) {
+                ProductBarcode::create([
+                    'product_id' => $parentNewId, 'product_child_id' => $child->id,
+                    'barcode' => $childBarcode, 'is_primary' => true,
+                ]);
+            }
+
+            $count++;
+        }
+
+        $this->stats['Variantes hijo'] = $count;
+        $this->addLog('info', "Variantes hijo: {$count} migradas");
     }
 
     // ─── Step 13: Combos ───
