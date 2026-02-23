@@ -876,7 +876,8 @@ class ImportLegacyData extends Command
                 }
             } else {
                 // Flat structure: store barcode directly on product, no child variant
-                if ($barcode) {
+                // Skip if barcode already used by another product
+                if ($barcode && !Product::where('barcode', $barcode)->exists()) {
                     $product->update(['barcode' => $barcode]);
                     if (!ProductBarcode::where('barcode', $barcode)->exists()) {
                         ProductBarcode::firstOrCreate(['barcode' => $barcode], [
