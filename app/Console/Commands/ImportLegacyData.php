@@ -67,6 +67,7 @@ class ImportLegacyData extends Command
     private int $branchId;
     private int $userId;
     private array $stats = [];
+    private array $warnings = [];
 
     public function handle(): int
     {
@@ -150,6 +151,30 @@ class ImportLegacyData extends Command
             }
 
             $this->newLine();
+            $this->info('📊 Mapas de relaciones construidos:');
+            $maps = [
+                'Impuestos' => count($this->taxMap),
+                'Marcas' => count($this->brandMap),
+                'Modelos' => count($this->modelMap),
+                'Presentaciones' => count($this->presentationMap),
+                'Colores' => count($this->colorMap),
+                'Categorías' => count($this->categoryMap),
+                'Subcategorías' => count($this->subcategoryMap),
+                'Proveedores' => count($this->supplierMap),
+                'Clientes' => count($this->customerMap),
+                'Productos' => count($this->productMap),
+                'Variantes' => count($this->productChildMap),
+                'Servicios' => count($this->serviceMap),
+                'Combos' => count($this->comboMap),
+                'Compras' => count($this->purchaseMap),
+                'Ventas' => count($this->saleMap),
+                'Métodos pago' => count($this->paymentMethodMap),
+            ];
+            foreach ($maps as $name => $size) {
+                $this->info("  {$name}: {$size} mapeados");
+            }
+
+            $this->newLine();
 
             DB::commit();
 
@@ -179,6 +204,26 @@ class ImportLegacyData extends Command
             ['Entidad', 'Cantidad'],
             collect($this->stats)->map(fn($v, $k) => [$k, $v])->values()->toArray()
         );
+
+        if (!empty($this->warnings)) {
+            $this->newLine();
+            $this->warn('⚠️  Advertencias de relaciones no encontradas:');
+            $this->table(
+                ['Entidad', 'Campo', 'No encontrados'],
+                collect($this->warnings)->map(fn($v, $k) => [...explode('|', $k), $v])->values()->toArray()
+            );
+        }
+    }
+
+    private function addWarning(string $entity, string $field, string $value): void
+    {
+        $key = "{$entity}|{$field}";
+        $this->warnings[$key] = ($this->warnings[$key] ?? 0) + 1;
+    }
+
+    private function normalizeKey($value): string
+    {
+        return strtolower(trim((string) $value));
     }
 
     private function addLog(string $type, string $message): void
@@ -188,34 +233,36 @@ class ImportLegacyData extends Command
         @flush();
     }
 
+    private function logTableColumns(array $rows, string $tableName): void
+    {
+        if (empty($rows)) {
+            $this->warn("  ⚠️  No se encontraron filas para '{$tableName}'");
+            return;
+        }
+        $columns = array_keys($rows[0]);
+        $this->info("  → Columnas de '{$tableName}': " . implode(', ', $columns));
+    }
+
     // ─── SQL Parser ───
 
     private function parseInserts(string $sql, string $tableName): array
     {
         $rows = [];
-        // Match both formats:
-        // `tableName`, schema.tableName, `schema`.`tableName`, schema.`tableName`
         $tbl = preg_quote($tableName, '/');
         $tablePattern = '(?:`?[\\w]+`?\\.)?`?' . $tbl . '`?';
 
-        $pattern = '/INSERT\s+INTO\s+' . $tablePattern . '\s*\(([^)]+)\)\s*VALUES\s*/is';
-
-        if (!preg_match($pattern, $sql, $headerMatch)) {
-            return $rows;
-        }
-
-        $columnsRaw = $headerMatch[1];
-        $columns = array_map(function ($col) {
-            return trim($col, " `\t\n\r");
-        }, explode(',', $columnsRaw));
-
-        $insertPattern = '/INSERT\s+INTO\s+' . $tablePattern . '\s*\([^)]+\)\s*VALUES\s*/is';
+        $insertPattern = '/INSERT\s+INTO\s+' . $tablePattern . '\s*\(([^)]+)\)\s*VALUES\s*/is';
         $offset = 0;
 
         while (preg_match($insertPattern, $sql, $m, PREG_OFFSET_CAPTURE, $offset)) {
+            // Extract columns from THIS specific INSERT statement
+            $columnsRaw = $m[1][0];
+            $columns = array_map(function ($col) {
+                return strtolower(trim($col, " `\t\n\r"));
+            }, explode(',', $columnsRaw));
+
             $startPos = $m[0][1] + strlen($m[0][0]);
 
-            // Find the ending semicolon by walking through the string
             $endPos = $this->findStatementEnd($sql, $startPos);
             if ($endPos === false) break;
 
@@ -355,14 +402,24 @@ class ImportLegacyData extends Command
 
         foreach ($oldMethods as $old) {
             $oldName = strtolower(trim($old['mediopago'] ?? ''));
+            $oldId = (int) ($old['codmediopago'] ?? 0);
             $matched = $newMethods->first(function ($m) use ($oldName) {
-                return str_contains(strtolower($m->name), 'efectivo') && str_contains($oldName, 'efectivo')
-                    || str_contains(strtolower($m->name), 'débito') && str_contains($oldName, 'debito')
-                    || str_contains(strtolower($m->name), 'crédito') && str_contains($oldName, 'credito')
-                    || str_contains(strtolower($m->name), 'transferencia') && str_contains($oldName, 'transferencia');
+                $newName = strtolower($m->name);
+                return (str_contains($newName, 'efectivo') && str_contains($oldName, 'efectivo'))
+                    || (str_contains($newName, 'débito') && (str_contains($oldName, 'debito') || str_contains($oldName, 'débito')))
+                    || (str_contains($newName, 'crédito') && (str_contains($oldName, 'credito') || str_contains($oldName, 'crédito')))
+                    || (str_contains($newName, 'transferencia') && str_contains($oldName, 'transferencia'))
+                    || (str_contains($newName, 'nequi') && str_contains($oldName, 'nequi'))
+                    || (str_contains($newName, 'daviplata') && str_contains($oldName, 'daviplata'));
             });
             if ($matched) {
-                $this->paymentMethodMap[(int) $old['codmediopago']] = $matched->id;
+                $this->paymentMethodMap[$oldId] = $matched->id;
+            } else {
+                // Try exact name match as fallback
+                $exactMatch = $newMethods->first(fn($m) => strtolower($m->name) === $oldName);
+                if ($exactMatch) {
+                    $this->paymentMethodMap[$oldId] = $exactMatch->id;
+                }
             }
         }
 
@@ -432,7 +489,8 @@ class ImportLegacyData extends Command
         foreach ($rows as $row) {
             $name = trim($row['nommodelo'] ?? '');
             if (empty($name)) continue;
-            $brandId = $this->brandMap[(int) ($row['codmarca'] ?? 0)] ?? null;
+            $oldBrandId = (int) ($row['codmarca'] ?? 0);
+            $brandId = $oldBrandId ? ($this->brandMap[$oldBrandId] ?? null) : null;
             $model = ProductModel::firstOrCreate(['name' => $name, 'brand_id' => $brandId], ['is_active' => true]);
             $this->modelMap[(int) $row['codmodelo']] = $model->id;
             if ($model->wasRecentlyCreated) $count++;
@@ -477,6 +535,7 @@ class ImportLegacyData extends Command
     private function migrateCategories(string $sql): void
     {
         $rows = $this->parseInserts($sql, 'familias');
+        $this->logTableColumns($rows, 'familias');
         $count = 0;
         foreach ($rows as $row) {
             $name = trim($row['nomfamilia'] ?? '');
@@ -497,8 +556,12 @@ class ImportLegacyData extends Command
         foreach ($rows as $row) {
             $name = trim($row['nomsubfamilia'] ?? '');
             if (empty($name)) continue;
-            $categoryId = $this->categoryMap[(int) ($row['codfamilia'] ?? 0)] ?? null;
-            if (!$categoryId) continue;
+            $oldCatId = (int) ($row['codfamilia'] ?? 0);
+            $categoryId = $oldCatId ? ($this->categoryMap[$oldCatId] ?? null) : null;
+            if (!$categoryId) {
+                $this->addWarning('Subcategorías', 'codfamilia', (string) $oldCatId);
+                continue;
+            }
             $sub = Subcategory::firstOrCreate(['name' => $name, 'category_id' => $categoryId], ['is_active' => true]);
             $this->subcategoryMap[(int) $row['codsubfamilia']] = $sub->id;
             if ($sub->wasRecentlyCreated) $count++;
@@ -511,6 +574,7 @@ class ImportLegacyData extends Command
     private function migrateSuppliers(string $sql): void
     {
         $rows = $this->parseInserts($sql, 'proveedores');
+        $this->logTableColumns($rows, 'proveedores');
         $count = 0;
         $ccDoc = TaxDocument::where('abbreviation', 'CC')->first();
         $nitDoc = TaxDocument::where('abbreviation', 'NIT')->first();
@@ -534,7 +598,7 @@ class ImportLegacyData extends Command
                 'salesperson_phone' => trim($row['tlfvendedor'] ?? '') ?: null,
                 'is_active' => true,
             ]);
-            $this->supplierMap[trim($row['codproveedor'])] = $supplier->id;
+            $this->supplierMap[$this->normalizeKey($row['codproveedor'])] = $supplier->id;
             $count++;
         }
         $this->stats['Proveedores'] = $count;
@@ -545,6 +609,7 @@ class ImportLegacyData extends Command
     private function migrateCustomers(string $sql): void
     {
         $rows = $this->parseInserts($sql, 'clientes');
+        $this->logTableColumns($rows, 'clientes');
         $count = 0;
         $ccDoc = TaxDocument::where('abbreviation', 'CC')->first();
         $nitDoc = TaxDocument::where('abbreviation', 'NIT')->first();
@@ -585,7 +650,7 @@ class ImportLegacyData extends Command
                 'has_credit' => $creditLimit > 0, 'credit_limit' => $creditLimit,
                 'is_active' => true,
             ]);
-            $this->customerMap[trim($row['codcliente'])] = $customer->id;
+            $this->customerMap[$this->normalizeKey($row['codcliente'])] = $customer->id;
             $count++;
         }
         $this->stats['Clientes'] = $count;
@@ -608,12 +673,26 @@ class ImportLegacyData extends Command
             $name = trim($row['producto'] ?? '');
             if (empty($name)) { $skipped++; continue; }
 
-            $categoryId = $this->categoryMap[(int) ($row['codfamilia'] ?? 0)] ?? null;
-            $subcategoryId = $this->subcategoryMap[(int) ($row['codsubfamilia'] ?? 0)] ?? null;
-            $brandId = $this->brandMap[(int) ($row['codmarca'] ?? 0)] ?? null;
-            $modelId = $this->modelMap[(int) ($row['codmodelo'] ?? 0)] ?? null;
-            $presentationId = $this->presentationMap[(int) ($row['codpresentacion'] ?? 0)] ?? null;
-            $colorId = $this->colorMap[(int) ($row['codcolor'] ?? 0)] ?? null;
+            $oldCatId = (int) ($row['codfamilia'] ?? 0);
+            $categoryId = $oldCatId ? ($this->categoryMap[$oldCatId] ?? null) : null;
+            if ($oldCatId && !$categoryId) $this->addWarning('Productos', 'codfamilia', (string) $oldCatId);
+
+            $oldSubcatId = (int) ($row['codsubfamilia'] ?? 0);
+            $subcategoryId = $oldSubcatId ? ($this->subcategoryMap[$oldSubcatId] ?? null) : null;
+            if ($oldSubcatId && !$subcategoryId) $this->addWarning('Productos', 'codsubfamilia', (string) $oldSubcatId);
+
+            $oldBrandId = (int) ($row['codmarca'] ?? 0);
+            $brandId = $oldBrandId ? ($this->brandMap[$oldBrandId] ?? null) : null;
+            if ($oldBrandId && !$brandId) $this->addWarning('Productos', 'codmarca', (string) $oldBrandId);
+
+            $oldModelId = (int) ($row['codmodelo'] ?? 0);
+            $modelId = $oldModelId ? ($this->modelMap[$oldModelId] ?? null) : null;
+
+            $oldPresId = (int) ($row['codpresentacion'] ?? 0);
+            $presentationId = $oldPresId ? ($this->presentationMap[$oldPresId] ?? null) : null;
+
+            $oldColorId = (int) ($row['codcolor'] ?? 0);
+            $colorId = $oldColorId ? ($this->colorMap[$oldColorId] ?? null) : null;
             $taxId = $this->resolveTaxId($row['ivaproducto'] ?? null);
 
             $tipoComision = strtoupper(trim($row['tipo_comision'] ?? 'NINGUNA'));
@@ -686,7 +765,8 @@ class ImportLegacyData extends Command
             $name = trim($row['producto'] ?? '');
             if (empty($name)) continue;
 
-            $categoryId = $this->categoryMap[(int) ($row['codfamilia'] ?? 0)] ?? null;
+            $oldCatId = (int) ($row['codfamilia'] ?? 0);
+            $categoryId = $oldCatId ? ($this->categoryMap[$oldCatId] ?? null) : null;
             $taxId = $this->resolveTaxId($row['ivaproducto'] ?? null);
 
             $tipoComision = strtoupper(trim($row['tipo_comision'] ?? 'NINGUNA'));
@@ -796,10 +876,10 @@ class ImportLegacyData extends Command
                 'limit_type' => 'none', 'is_active' => true,
             ]);
 
-            $oldCode = trim($row['codcombo']);
+            $oldCode = $this->normalizeKey($row['codcombo']);
             $this->comboMap[$oldCode] = $combo->id;
 
-            $comboItems = array_filter($itemRows, fn($i) => trim($i['codcombo']) === $oldCode);
+            $comboItems = array_filter($itemRows, fn($i) => $this->normalizeKey($i['codcombo']) === $oldCode);
             $originalTotal = 0;
 
             foreach ($comboItems as $item) {
@@ -834,11 +914,17 @@ class ImportLegacyData extends Command
     {
         $purchaseRows = $this->parseInserts($sql, 'compras');
         $detailRows = $this->parseInserts($sql, 'detallecompras');
+        $this->logTableColumns($purchaseRows, 'compras');
+        $this->logTableColumns($detailRows, 'detallecompras');
         $count = 0;
 
         foreach ($purchaseRows as $row) {
-            $supplierId = $this->supplierMap[trim($row['codproveedor'] ?? '')] ?? null;
-            if (!$supplierId) continue;
+            $oldSupplierCode = $this->normalizeKey($row['codproveedor'] ?? '');
+            $supplierId = $oldSupplierCode ? ($this->supplierMap[$oldSupplierCode] ?? null) : null;
+            if (!$supplierId) {
+                $this->addWarning('Compras', 'codproveedor', $oldSupplierCode);
+                continue;
+            }
 
             $tipoCompra = strtolower(trim($row['tipocompra'] ?? 'contado'));
             $isCredit = str_contains($tipoCompra, 'credito') || str_contains($tipoCompra, 'crédito');
@@ -876,14 +962,17 @@ class ImportLegacyData extends Command
                 'created_at' => $purchaseDate,
             ]);
 
-            $oldCode = trim($row['codcompra']);
+            $oldCode = $this->normalizeKey($row['codcompra']);
             $this->purchaseMap[$oldCode] = $purchase->id;
 
-            $items = array_filter($detailRows, fn($d) => trim($d['codcompra']) === $oldCode);
+            $items = array_filter($detailRows, fn($d) => $this->normalizeKey($d['codcompra']) === $oldCode);
             foreach ($items as $item) {
                 $oldProductId = (int) ($item['idproducto'] ?? 0);
                 $productId = $this->productMap[$oldProductId] ?? null;
-                if (!$productId) continue;
+                if (!$productId) {
+                    $this->addWarning('Detalle compras', 'idproducto', (string) $oldProductId);
+                    continue;
+                }
 
                 $qty = (float) ($item['cantidad'] ?? 1);
                 $unitCost = (float) ($item['preciocompra'] ?? 0);
@@ -914,7 +1003,7 @@ class ImportLegacyData extends Command
         $count = 0;
 
         foreach ($rows as $row) {
-            $oldPurchaseCode = trim($row['codcompra'] ?? '');
+            $oldPurchaseCode = $this->normalizeKey($row['codcompra'] ?? '');
             $purchaseId = $this->purchaseMap[$oldPurchaseCode] ?? null;
             if (!$purchaseId) continue;
 
@@ -949,10 +1038,14 @@ class ImportLegacyData extends Command
     {
         $saleRows = $this->parseInserts($sql, 'ventas');
         $detailRows = $this->parseInserts($sql, 'detalleventas');
+        $this->logTableColumns($saleRows, 'ventas');
+        $this->logTableColumns($detailRows, 'detalleventas');
         $count = 0;
 
         foreach ($saleRows as $row) {
-            $customerId = $this->customerMap[trim($row['codcliente'] ?? '')] ?? null;
+            $oldCustomerCode = $this->normalizeKey($row['codcliente'] ?? '');
+            $customerId = $oldCustomerCode ? ($this->customerMap[$oldCustomerCode] ?? null) : null;
+            if ($oldCustomerCode && !$customerId) $this->addWarning('Ventas', 'codcliente', $oldCustomerCode);
 
             $tipoPago = strtolower(trim($row['tipopago'] ?? 'contado'));
             $isCredit = str_contains($tipoPago, 'credito') || str_contains($tipoPago, 'crédito');
@@ -992,15 +1085,19 @@ class ImportLegacyData extends Command
                 'created_at' => $saleDate, 'updated_at' => $saleDate,
             ]);
 
-            $oldCode = trim($row['codventa']);
+            $oldCode = $this->normalizeKey($row['codventa']);
             $this->saleMap[$oldCode] = $sale->id;
 
-            $items = array_filter($detailRows, fn($d) => trim($d['codventa']) === $oldCode);
+            $items = array_filter($detailRows, fn($d) => $this->normalizeKey($d['codventa']) === $oldCode);
             foreach ($items as $item) {
                 $oldProductId = (int) ($item['idproducto'] ?? 0);
                 $productId = $this->productMap[$oldProductId] ?? null;
                 $childId = $this->productChildMap[$oldProductId] ?? null;
                 $serviceId = $this->serviceMap[$oldProductId] ?? null;
+
+                if (!$productId && !$serviceId) {
+                    $this->addWarning('Detalle ventas', 'idproducto', (string) $oldProductId);
+                }
 
                 $qty = (float) ($item['cantidad'] ?? 1);
                 $unitPrice = (float) ($item['precioventa'] ?? 0);
@@ -1042,7 +1139,7 @@ class ImportLegacyData extends Command
         $count = 0;
 
         foreach ($rows as $row) {
-            $oldSaleCode = trim($row['codventa'] ?? '');
+            $oldSaleCode = $this->normalizeKey($row['codventa'] ?? '');
             $saleId = $this->saleMap[$oldSaleCode] ?? null;
             if (!$saleId) continue;
 
@@ -1068,7 +1165,7 @@ class ImportLegacyData extends Command
         $count = 0;
 
         foreach ($rows as $row) {
-            $oldSaleCode = trim($row['codventa'] ?? '');
+            $oldSaleCode = $this->normalizeKey($row['codventa'] ?? '');
             $saleId = $this->saleMap[$oldSaleCode] ?? null;
             if (!$saleId) continue;
 
@@ -1106,9 +1203,12 @@ class ImportLegacyData extends Command
         $count = 0;
 
         foreach ($notaRows as $row) {
-            $oldSaleCode = trim($row['facturaventa'] ?? '');
+            $oldSaleCode = $this->normalizeKey($row['facturaventa'] ?? '');
             $saleId = $this->saleMap[$oldSaleCode] ?? null;
-            if (!$saleId) continue;
+            if (!$saleId) {
+                $this->addWarning('Devoluciones', 'facturaventa', $oldSaleCode);
+                continue;
+            }
 
             $total = (float) ($row['totalpago'] ?? 0);
             if ($total <= 0) continue;
@@ -1128,8 +1228,8 @@ class ImportLegacyData extends Command
                 'created_at' => $refundDate, 'updated_at' => $refundDate,
             ]);
 
-            $oldNotaCode = trim($row['codnota']);
-            $items = array_filter($detailRows, fn($d) => trim($d['codnota']) === $oldNotaCode);
+            $oldNotaCode = $this->normalizeKey($row['codnota']);
+            $items = array_filter($detailRows, fn($d) => $this->normalizeKey($d['codnota']) === $oldNotaCode);
             $hasItems = false;
 
             foreach ($items as $item) {
