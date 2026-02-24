@@ -243,6 +243,7 @@
                                         <strong>ANGIE KARINA GOMEZ</strong><br>
                                         CC: 1006208593<br>
                                         Tel: 3154 083002<br>
+                                        Cra 15 #45-20, Cúcuta<br>
                                         angiek@gmail.com
                                     </div>
                                 </div>

@@ -9,51 +9,51 @@
     <title>Factura #{{ $sale->invoice_number }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        @page { size: letter; margin: 15mm 20mm; }
+        @page { size: letter; margin: 10mm 15mm; }
         body {
             font-family: Arial, Helvetica, sans-serif;
-            font-size: 12px;
-            line-height: 1.5;
+            font-size: 10px;
+            line-height: 1.4;
             color: #000;
             background: #fff;
             -webkit-print-color-adjust: exact;
         }
-        .invoice { max-width: 720px; margin: 0 auto; padding: 20px; }
+        .invoice { max-width: 720px; margin: 0 auto; padding: 10px; }
         .invoice-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            padding-bottom: 15px;
+            padding-bottom: 8px;
             border-bottom: 2px solid #333;
-            margin-bottom: 15px;
+            margin-bottom: 8px;
         }
-        .invoice-title { font-size: 28px; font-weight: bold; letter-spacing: 2px; }
+        .invoice-title { font-size: 22px; font-weight: bold; letter-spacing: 2px; }
         .invoice-number-box { text-align: right; }
-        .invoice-number-value { font-size: 14px; font-weight: bold; color: #0066cc; }
-        .invoice-date { font-size: 11px; color: #555; margin-top: 4px; }
+        .invoice-number-value { font-size: 12px; font-weight: bold; color: #0066cc; }
+        .invoice-date { font-size: 9px; color: #555; margin-top: 2px; }
         .info-row {
             display: flex;
-            gap: 20px;
-            margin-bottom: 18px;
+            gap: 15px;
+            margin-bottom: 8px;
         }
         .info-col { flex: 1; }
         .info-label {
-            font-size: 10px;
+            font-size: 8px;
             color: #777;
             text-transform: uppercase;
             font-weight: bold;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
             border-bottom: 1px solid #eee;
-            padding-bottom: 2px;
+            padding-bottom: 1px;
         }
-        .info-value { font-size: 11px; color: #333; line-height: 1.6; }
+        .info-value { font-size: 9.5px; color: #333; line-height: 1.5; }
         .info-value strong { color: #000; }
-        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
         .items-table thead th {
             background: #f0f0f0;
             border: 1px solid #ccc;
-            padding: 8px 10px;
-            font-size: 11px;
+            padding: 3px 5px;
+            font-size: 8px;
             font-weight: bold;
             text-transform: uppercase;
             color: #333;
@@ -62,39 +62,39 @@
         .items-table thead th.text-right { text-align: right; }
         .items-table tbody td {
             border: 1px solid #ddd;
-            padding: 7px 10px;
-            font-size: 11px;
+            padding: 2px 5px;
+            font-size: 9px;
             vertical-align: top;
         }
         .items-table tbody td.text-center { text-align: center; }
         .items-table tbody td.text-right { text-align: right; }
         .items-table tbody tr:nth-child(even) { background: #fafafa; }
-        .totals-section { display: flex; justify-content: space-between; margin-bottom: 15px; }
-        .payment-info { font-size: 11px; color: #444; line-height: 1.8; }
+        .totals-section { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .payment-info { font-size: 9px; color: #444; line-height: 1.6; }
         .payment-info strong { color: #000; }
-        .totals-box { width: 280px; background: #f8f8f8; border: 1px solid #ddd; padding: 10px 15px; }
-        .total-row { display: flex; justify-content: space-between; font-size: 11px; padding: 3px 0; color: #444; }
+        .totals-box { width: 260px; background: #f8f8f8; border: 1px solid #ddd; padding: 6px 10px; }
+        .total-row { display: flex; justify-content: space-between; font-size: 9px; padding: 2px 0; color: #444; }
         .total-row.grand-total {
-            font-size: 16px; font-weight: bold; color: #0066cc;
-            border-top: 2px solid #333; margin-top: 6px; padding-top: 8px;
+            font-size: 13px; font-weight: bold; color: #0066cc;
+            border-top: 2px solid #333; margin-top: 4px; padding-top: 5px;
         }
         .amount-words {
-            font-size: 10px; color: #555; font-style: italic; margin-bottom: 15px;
-            padding: 6px 10px; background: #f8f8f8; border-left: 3px solid #ccc;
+            font-size: 9px; color: #555; font-style: italic; margin-bottom: 8px;
+            padding: 4px 8px; background: #f8f8f8; border-left: 3px solid #ccc;
         }
         .dian-section {
-            border: 1px solid #ccc; padding: 10px; margin-bottom: 15px;
-            text-align: center; font-size: 10px;
+            border: 1px solid #ccc; padding: 6px; margin-bottom: 8px;
+            text-align: center; font-size: 9px;
         }
-        .dian-title { font-weight: bold; margin-bottom: 4px; }
-        .cufe { font-size: 8px; word-break: break-all; color: #555; margin: 4px 0; }
-        .qr-container img { max-width: 100px; height: auto; }
+        .dian-title { font-weight: bold; margin-bottom: 2px; }
+        .cufe { font-size: 7px; word-break: break-all; color: #555; margin: 2px 0; }
+        .qr-container img { max-width: 80px; height: auto; }
         .invoice-footer {
-            text-align: center; padding-top: 15px; border-top: 1px solid #ddd;
-            font-size: 11px; color: #777;
+            text-align: center; padding-top: 8px; border-top: 1px solid #ddd;
+            font-size: 9px; color: #777;
         }
-        .footer-thanks { font-size: 14px; font-weight: bold; color: #333; margin-bottom: 4px; }
-        .seller-info { font-size: 10px; color: #888; margin-top: 8px; }
+        .footer-thanks { font-size: 12px; font-weight: bold; color: #333; margin-bottom: 2px; }
+        .seller-info { font-size: 9px; color: #888; margin-top: 4px; }
         .print-actions { position: fixed; top: 10px; right: 10px; display: flex; gap: 8px; z-index: 100; }
         .btn { padding: 10px 20px; font-size: 13px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; }
         .btn-print { background: linear-gradient(135deg, #ff7261, #a855f7); color: white; }
@@ -166,6 +166,9 @@
                         @endif
                         @if($sale->customer->phone)
                             Tel: {{ $sale->customer->phone }}<br>
+                        @endif
+                        @if($sale->customer->address)
+                            {{ $sale->customer->address }}@if($sale->customer->municipality), {{ $sale->customer->municipality->name }}@endif<br>
                         @endif
                         @if($sale->customer->email)
                             {{ $sale->customer->email }}

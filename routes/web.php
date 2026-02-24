@@ -206,6 +206,8 @@ Route::middleware(['auth'])->group(function () {
             'branch.department',
             'branch.municipality',
             'customer.taxDocument',
+            'customer.municipality',
+            'customer.department',
             'user',
             'items',
             'payments.paymentMethod',
