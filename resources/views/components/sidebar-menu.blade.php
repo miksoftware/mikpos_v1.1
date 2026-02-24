@@ -606,6 +606,14 @@
         <span>Config. Campos</span>
     </a>
     @endif
+    @if (auth()->user()->hasPermission('print_formats.view'))
+    <a href="{{ route('print-formats') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('print-formats') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+        </svg>
+        <span>Formatos Impresión</span>
+    </a>
+    @endif
     
     <!-- Catálogo Productos (Mobile) -->
     <p class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase mt-2">Catálogo Productos</p>
@@ -661,7 +669,7 @@
 
 @else
 <!-- Administración Section (Desktop) -->
-<div x-data="{ adminOpen: {{ request()->routeIs('users') || request()->routeIs('branches') || request()->routeIs('roles') || request()->routeIs('activity-logs') || request()->routeIs('migration') || request()->routeIs('departments') || request()->routeIs('municipalities') || request()->routeIs('tax-documents') || request()->routeIs('currencies') || request()->routeIs('payment-methods') || request()->routeIs('taxes') || request()->routeIs('system-documents') || request()->routeIs('categories') || request()->routeIs('subcategories') || request()->routeIs('brands') || request()->routeIs('units') || request()->routeIs('product-models') || request()->routeIs('presentations') || request()->routeIs('colors') || request()->routeIs('imeis') || request()->routeIs('product-field-config') || request()->routeIs('billing-settings') ? 'true' : 'false' }}, configOpen: {{ request()->routeIs('departments') || request()->routeIs('municipalities') || request()->routeIs('tax-documents') || request()->routeIs('currencies') || request()->routeIs('payment-methods') || request()->routeIs('taxes') || request()->routeIs('system-documents') || request()->routeIs('product-field-config') || request()->routeIs('billing-settings') ? 'true' : 'false' }}, productsOpen: {{ request()->routeIs('categories') || request()->routeIs('subcategories') || request()->routeIs('brands') || request()->routeIs('units') || request()->routeIs('product-models') || request()->routeIs('presentations') || request()->routeIs('colors') || request()->routeIs('imeis') ? 'true' : 'false' }} }">
+<div x-data="{ adminOpen: {{ request()->routeIs('users') || request()->routeIs('branches') || request()->routeIs('roles') || request()->routeIs('activity-logs') || request()->routeIs('migration') || request()->routeIs('departments') || request()->routeIs('municipalities') || request()->routeIs('tax-documents') || request()->routeIs('currencies') || request()->routeIs('payment-methods') || request()->routeIs('taxes') || request()->routeIs('system-documents') || request()->routeIs('categories') || request()->routeIs('subcategories') || request()->routeIs('brands') || request()->routeIs('units') || request()->routeIs('product-models') || request()->routeIs('presentations') || request()->routeIs('colors') || request()->routeIs('imeis') || request()->routeIs('product-field-config') || request()->routeIs('billing-settings') || request()->routeIs('print-formats') ? 'true' : 'false' }}, configOpen: {{ request()->routeIs('departments') || request()->routeIs('municipalities') || request()->routeIs('tax-documents') || request()->routeIs('currencies') || request()->routeIs('payment-methods') || request()->routeIs('taxes') || request()->routeIs('system-documents') || request()->routeIs('product-field-config') || request()->routeIs('billing-settings') || request()->routeIs('print-formats') ? 'true' : 'false' }}, productsOpen: {{ request()->routeIs('categories') || request()->routeIs('subcategories') || request()->routeIs('brands') || request()->routeIs('units') || request()->routeIs('product-models') || request()->routeIs('presentations') || request()->routeIs('colors') || request()->routeIs('imeis') ? 'true' : 'false' }} }">
     <button @click="adminOpen = !adminOpen"
         class="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-slate-400 hover:bg-white/5 hover:text-white">
         <div class="flex items-center gap-3">
@@ -787,6 +795,14 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                     </svg>
                     <span class="text-sm">Facturación Electrónica</span>
+                </a>
+                @endif
+                @if (auth()->user()->hasPermission('print_formats.view'))
+                <a href="{{ route('print-formats') }}" class="flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all duration-200 {{ request()->routeIs('print-formats') ? $activeClass : $inactiveClass }}">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                    </svg>
+                    <span class="text-sm">Formatos de Impresión</span>
                 </a>
                 @endif
 

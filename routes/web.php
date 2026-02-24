@@ -174,6 +174,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('billing-settings')
         ->middleware('permission:billing_settings.view');
 
+    // Print Formats
+    Route::get('/print-formats', App\Livewire\PrintFormats::class)
+        ->name('print-formats')
+        ->middleware('permission:print_formats.view');
+
     // Credits
     Route::get('/credits', App\Livewire\Credits::class)
         ->name('credits')
@@ -206,8 +211,11 @@ Route::middleware(['auth'])->group(function () {
             'payments.paymentMethod',
             'cashReconciliation.cashRegister',
         ]);
+
+        $format = App\Models\PrintFormatSetting::getFormat('pos');
+        $view = $format === 'letter' ? 'receipts.pos-receipt-letter' : 'receipts.pos-receipt';
         
-        return view('receipts.pos-receipt', compact('sale'));
+        return view($view, compact('sale'));
     })->name('receipt.show');
 
     // Refund Receipt
