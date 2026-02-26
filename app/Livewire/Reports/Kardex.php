@@ -284,11 +284,36 @@ class Kardex extends Component
             ->limit(100)
             ->get()
             ->map(function ($movement) {
+                // Resolve invoice number from reference
+                $invoiceNumber = null;
+                $receiptUrl = null;
+                if ($movement->reference_type === 'App\\Models\\Sale' && $movement->reference_id) {
+                    $sale = \App\Models\Sale::find($movement->reference_id);
+                    if ($sale) {
+                        $invoiceNumber = $sale->invoice_number;
+                        $receiptUrl = route('receipt.show', $sale->id);
+                    }
+                } elseif ($movement->reference_type === 'App\\Models\\Refund' && $movement->reference_id) {
+                    $refund = \App\Models\Refund::find($movement->reference_id);
+                    if ($refund) {
+                        $invoiceNumber = $refund->number;
+                        $receiptUrl = route('refund-receipt.show', $refund->id);
+                    }
+                } elseif ($movement->reference_type === 'App\\Models\\Purchase' && $movement->reference_id) {
+                    $purchase = \App\Models\Purchase::find($movement->reference_id);
+                    if ($purchase) {
+                        $invoiceNumber = $purchase->purchase_number ?? $movement->document_number;
+                        $receiptUrl = route('purchase-receipt.show', $purchase->id);
+                    }
+                }
+
                 return [
                     'id' => $movement->id,
                     'date' => $movement->created_at->format('d/m/Y H:i'),
                     'document' => $movement->systemDocument?->name ?? 'N/A',
                     'document_number' => $movement->document_number,
+                    'invoice_number' => $invoiceNumber,
+                    'receipt_url' => $receiptUrl,
                     'type' => $movement->movement_type,
                     'quantity' => $movement->quantity,
                     'stock_before' => $movement->stock_before,

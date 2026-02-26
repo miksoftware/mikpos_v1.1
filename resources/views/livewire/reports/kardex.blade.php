@@ -507,6 +507,7 @@
                                         <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Stock Antes</th>
                                         <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Stock Después</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Usuario</th>
+                                        <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Ver</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-200">
@@ -515,7 +516,11 @@
                                         <td class="px-4 py-3 text-sm text-slate-600">{{ $movement['date'] }}</td>
                                         <td class="px-4 py-3">
                                             <p class="text-sm font-medium text-slate-800">{{ $movement['document'] }}</p>
+                                            @if($movement['invoice_number'])
+                                            <p class="text-xs text-blue-600 font-medium">{{ $movement['invoice_number'] }}</p>
+                                            @else
                                             <p class="text-xs text-slate-500">{{ $movement['document_number'] }}</p>
+                                            @endif
                                         </td>
                                         <td class="px-4 py-3 text-center">
                                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $movement['type'] === 'in' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
@@ -528,6 +533,17 @@
                                         <td class="px-4 py-3 text-center text-slate-600">{{ $movement['stock_before'] }}</td>
                                         <td class="px-4 py-3 text-center font-medium text-slate-800">{{ $movement['stock_after'] }}</td>
                                         <td class="px-4 py-3 text-sm text-slate-600">{{ $movement['user'] }}</td>
+                                        <td class="px-4 py-3 text-center">
+                                            @if($movement['receipt_url'])
+                                            <a href="{{ $movement['receipt_url'] }}" target="_blank" class="inline-flex items-center p-1.5 text-slate-400 hover:text-[#a855f7] hover:bg-purple-50 rounded-lg transition-colors" title="Ver documento">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                </svg>
+                                            </a>
+                                            @else
+                                            <span class="text-slate-300">-</span>
+                                            @endif
+                                        </td>
                                     </tr>
                                     @endforeach
                                 </tbody>
