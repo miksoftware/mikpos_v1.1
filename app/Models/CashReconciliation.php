@@ -199,6 +199,7 @@ class CashReconciliation extends Model
      * Get sales grouped by payment method.
      * Adjusts payment amounts so they never exceed the sale total
      * (handles cases where cashier entered more than the total, e.g. change/vuelto).
+     * Credit sales without payments are shown as a separate "Crédito" entry.
      */
     public function getSalesByPaymentMethod(): \Illuminate\Support\Collection
     {
@@ -210,6 +211,48 @@ class CashReconciliation extends Model
             $saleTotal = (float) $sale->total;
             $payments = $sale->payments;
 
+            // Credit sales with no payments or partial payments: track the unpaid portion as "Crédito"
+            if ($sale->payment_type === 'credit') {
+                $paymentsSum = $payments->sum('amount');
+                $unpaidAmount = round($saleTotal - $paymentsSum, 2);
+
+                // Register actual payments normally
+                foreach ($payments as $payment) {
+                    $methodId = $payment->payment_method_id;
+                    $methodName = $payment->paymentMethod->name ?? 'Desconocido';
+
+                    if (!isset($methodTotals[$methodId])) {
+                        $methodTotals[$methodId] = [
+                            'method_id' => $methodId,
+                            'method_name' => $methodName,
+                            'total' => 0,
+                            'count' => 0,
+                        ];
+                    }
+
+                    $methodTotals[$methodId]['total'] = round($methodTotals[$methodId]['total'] + (float) $payment->amount, 2);
+                    $methodTotals[$methodId]['count']++;
+                }
+
+                // Track unpaid credit portion
+                if ($unpaidAmount > 0) {
+                    $creditKey = 'credit_unpaid';
+                    if (!isset($methodTotals[$creditKey])) {
+                        $methodTotals[$creditKey] = [
+                            'method_id' => $creditKey,
+                            'method_name' => 'Crédito (por cobrar)',
+                            'total' => 0,
+                            'count' => 0,
+                        ];
+                    }
+                    $methodTotals[$creditKey]['total'] = round($methodTotals[$creditKey]['total'] + $unpaidAmount, 2);
+                    $methodTotals[$creditKey]['count']++;
+                }
+
+                continue;
+            }
+
+            // Non-credit sales
             if ($payments->isEmpty()) {
                 continue;
             }
@@ -250,6 +293,17 @@ class CashReconciliation extends Model
     public function getSalesCountAttribute(): int
     {
         return $this->sales()->where('status', 'completed')->count();
+    }
+
+    /**
+     * Get credit sales total (sales on credit).
+     */
+    public function getCreditSalesTotalAttribute(): float
+    {
+        return (float) $this->sales()
+            ->where('status', 'completed')
+            ->where('payment_type', 'credit')
+            ->sum('total');
     }
 
     /**

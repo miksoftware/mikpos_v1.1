@@ -360,7 +360,7 @@
                             @foreach($salesByMethod as $method)
                             <div class="flex justify-between items-center py-2 px-3 bg-slate-50 rounded-lg">
                                 <div class="flex items-center gap-2">
-                                    <div class="w-2 h-2 rounded-full {{ str_contains(strtolower($method['method_name']), 'efectivo') ? 'bg-emerald-500' : 'bg-blue-500' }}"></div>
+                                    <div class="w-2 h-2 rounded-full {{ str_contains(strtolower($method['method_name']), 'efectivo') ? 'bg-emerald-500' : (str_contains(strtolower($method['method_name']), 'crédit') ? 'bg-amber-500' : 'bg-blue-500') }}"></div>
                                     <span class="text-slate-700">{{ $method['method_name'] }}</span>
                                     <span class="text-xs text-slate-400">({{ $method['count'] }})</span>
                                 </div>
@@ -372,10 +372,37 @@
                                 <span class="font-bold text-slate-800">${{ number_format($totalSales, 2) }}</span>
                             </div>
                         </div>
+
+                        <!-- Individual Sales List (Close Modal) -->
+                        <div class="pt-3 border-t border-slate-200" x-data="{ showSales: false }">
+                            <button @click="showSales = !showSales" class="flex items-center gap-2 text-sm text-[#a855f7] hover:text-[#9333ea] font-medium w-full">
+                                <svg class="w-4 h-4 transition-transform duration-200" :class="showSales ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                                <span x-text="showSales ? 'Ocultar detalle de ventas' : 'Ver detalle de ventas'"></span>
+                            </button>
+                            <div x-show="showSales" x-collapse class="mt-3 max-h-48 overflow-y-auto space-y-1">
+                                @foreach($currentReconciliation->sales()->where('sales.status', 'completed')->with(['customer', 'payments.paymentMethod'])->orderBy('sales.created_at')->get() as $sale)
+                                <div class="flex items-center justify-between py-2 px-3 rounded-lg text-xs {{ $sale->payment_type === 'credit' ? 'bg-amber-50' : 'bg-slate-50' }}">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-medium text-slate-700">{{ $sale->invoice_number }}</span>
+                                            @if($sale->payment_type === 'credit')
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700">Crédito</span>
+                                            @endif
+                                        </div>
+                                        <div class="text-slate-400 mt-0.5">
+                                            {{ $sale->created_at->format('H:i') }}
+                                            @if($sale->customer) - {{ $sale->customer->full_name }} @endif
+                                        </div>
+                                    </div>
+                                    <span class="font-medium text-slate-800 ml-2">${{ number_format($sale->total, 2) }}</span>
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
                     </div>
                     @endif
-
-                    <!-- Refunds Section -->
                     @php
                         $refundsTotal = $currentReconciliation->total_refunds;
                         $refundsCount = $currentReconciliation->refunds_count;
@@ -583,7 +610,7 @@
                             @foreach($viewSalesByMethod as $method)
                             <div class="flex justify-between items-center py-2 px-3 bg-slate-50 rounded-lg text-sm">
                                 <div class="flex items-center gap-2">
-                                    <div class="w-2 h-2 rounded-full {{ str_contains(strtolower($method['method_name']), 'efectivo') ? 'bg-emerald-500' : 'bg-blue-500' }}"></div>
+                                    <div class="w-2 h-2 rounded-full {{ str_contains(strtolower($method['method_name']), 'efectivo') ? 'bg-emerald-500' : (str_contains(strtolower($method['method_name']), 'crédit') ? 'bg-amber-500' : 'bg-blue-500') }}"></div>
                                     <span class="text-slate-700">{{ $method['method_name'] }}</span>
                                     <span class="text-xs text-slate-400">({{ $method['count'] }} pagos)</span>
                                 </div>
@@ -595,6 +622,38 @@
                             <div class="flex justify-between">
                                 <span class="text-slate-500">Efectivo en caja por ventas:</span>
                                 <span class="font-medium text-emerald-600">${{ number_format($viewCashSales, 2) }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Individual Sales List -->
+                        <div class="pt-3 border-t border-slate-200" x-data="{ showSales: false }">
+                            <button @click="showSales = !showSales" class="flex items-center gap-2 text-sm text-[#a855f7] hover:text-[#9333ea] font-medium w-full">
+                                <svg class="w-4 h-4 transition-transform duration-200" :class="showSales ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                                <span x-text="showSales ? 'Ocultar detalle de ventas' : 'Ver detalle de ventas'"></span>
+                            </button>
+                            <div x-show="showSales" x-collapse class="mt-3 max-h-64 overflow-y-auto space-y-1">
+                                @foreach($viewReconciliation->sales()->where('sales.status', 'completed')->with(['customer', 'payments.paymentMethod'])->orderBy('sales.created_at')->get() as $sale)
+                                <div class="flex items-center justify-between py-2 px-3 rounded-lg text-xs {{ $sale->payment_type === 'credit' ? 'bg-amber-50' : 'bg-slate-50' }} hover:bg-slate-100 transition-colors">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-medium text-slate-700">{{ $sale->invoice_number }}</span>
+                                            @if($sale->payment_type === 'credit')
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700">Crédito</span>
+                                            @endif
+                                        </div>
+                                        <div class="text-slate-400 mt-0.5">
+                                            {{ $sale->created_at->format('H:i') }}
+                                            @if($sale->customer) - {{ $sale->customer->full_name }} @endif
+                                            @if($sale->payments->count() > 0)
+                                                · {{ $sale->payments->map(fn($p) => $p->paymentMethod->name ?? '')->implode(', ') }}
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <span class="font-medium text-slate-800 ml-2">${{ number_format($sale->total, 2) }}</span>
+                                </div>
+                                @endforeach
                             </div>
                         </div>
                         @else
