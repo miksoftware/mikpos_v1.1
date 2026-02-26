@@ -9,6 +9,7 @@ use App\Models\ProductBarcode;
 use App\Models\Service;
 use App\Models\Customer;
 use App\Models\Category;
+use App\Models\Combo;
 use App\Models\CashRegister;
 use App\Models\CashReconciliation;
 use App\Models\PaymentMethod;
@@ -664,6 +665,74 @@ class PointOfSale extends Component
         $this->dispatch('focus-product-search');
     }
 
+    public function addComboToCart($comboId)
+    {
+        $combo = Combo::with(['items.product', 'items.productChild'])->find($comboId);
+        
+        if (!$combo || !$combo->isAvailable()) {
+            $this->dispatch('notify', message: 'Combo no disponible', type: 'error');
+            return;
+        }
+
+        if (!$combo->hasStock()) {
+            $this->dispatch('notify', message: 'Stock insuficiente para este combo', type: 'error');
+            return;
+        }
+
+        $cartKey = 'combo-' . $comboId;
+        
+        if (isset($this->cart[$cartKey])) {
+            // Check stock for additional quantity
+            $newQty = $this->cart[$cartKey]['quantity'] + 1;
+            $canAdd = true;
+            foreach ($combo->items as $comboItem) {
+                if ($comboItem->product_id) {
+                    $product = $comboItem->product;
+                    if ($product && $product->current_stock < ($comboItem->quantity * $newQty)) {
+                        $canAdd = false;
+                        break;
+                    }
+                }
+            }
+            if (!$canAdd) {
+                $this->dispatch('notify', message: 'Stock insuficiente para agregar más', type: 'error');
+                return;
+            }
+            $this->cart[$cartKey]['quantity'] = $newQty;
+            $this->updateCartItemTotals($cartKey);
+        } else {
+            $comboPrice = (float) $combo->combo_price;
+
+            $this->cart[$cartKey] = [
+                'product_id' => null,
+                'child_id' => null,
+                'service_id' => null,
+                'combo_id' => $comboId,
+                'is_combo' => true,
+                'name' => $combo->name,
+                'sku' => 'COMBO-' . $combo->id,
+                'price' => $comboPrice,
+                'base_price' => $comboPrice,
+                'quantity' => 1,
+                'subtotal' => $comboPrice,
+                'tax_id' => null,
+                'tax_rate' => 0,
+                'tax_amount' => 0,
+                'price_includes_tax' => true,
+                'image' => $combo->image,
+                'max_stock' => PHP_INT_MAX,
+                // Discount fields
+                'discount_type' => null,
+                'discount_type_value' => 0,
+                'discount_amount' => 0,
+                'discount_reason' => null,
+            ];
+        }
+        
+        $this->productSearch = '';
+        $this->dispatch('focus-product-search');
+    }
+
     /**
      * Check if a product uses a weight-based unit.
      * 
@@ -1306,6 +1375,7 @@ class PointOfSale extends Component
                     'product_id' => $item['product_id'],
                     'product_child_id' => $item['child_id'],
                     'service_id' => $item['service_id'] ?? null,
+                    'combo_id' => $item['combo_id'] ?? null,
                     'product_name' => $item['name'],
                     'product_sku' => $item['sku'],
                     'unit_price' => $item['base_price'], // Price without tax
@@ -1320,7 +1390,7 @@ class PointOfSale extends Component
                     'total' => $item['subtotal'] - ($item['discount_amount'] ?? 0) + $item['tax_amount'],
                 ]);
                 
-                // Update product stock (only for products, not services)
+                // Update product stock (only for products, not services or combos)
                 if ($item['product_id']) {
                     $product = Product::find($item['product_id']);
                     if ($product) {
@@ -1338,6 +1408,34 @@ class PointOfSale extends Component
 
                         // Update stock
                         $product->decrement('current_stock', $item['quantity']);
+                    }
+                }
+
+                // Handle combo stock: decrement each product in the combo
+                if (!empty($item['combo_id'])) {
+                    $combo = Combo::with(['items.product'])->find($item['combo_id']);
+                    if ($combo) {
+                        foreach ($combo->items as $comboItem) {
+                            if ($comboItem->product_id) {
+                                $product = Product::find($comboItem->product_id);
+                                if ($product) {
+                                    $totalQty = (float) $comboItem->quantity * (float) $item['quantity'];
+                                    InventoryMovement::createMovement(
+                                        'sale',
+                                        $product,
+                                        'out',
+                                        $totalQty,
+                                        (float) $comboItem->unit_price,
+                                        "Venta #{$sale->invoice_number} (Combo: {$combo->name})",
+                                        $sale,
+                                        $this->branchId
+                                    );
+                                    $product->decrement('current_stock', $totalQty);
+                                }
+                            }
+                        }
+                        // Increment combo sales counter
+                        $combo->incrementSales((int) $item['quantity']);
                     }
                 }
             }
@@ -1788,6 +1886,41 @@ class PointOfSale extends Component
                 'image' => $service->image,
                 'unit' => 'SRV',
             ]);
+        }
+
+        // Add combos to sellable items
+        $combosQuery = Combo::with(['items.product'])
+            ->available()
+            ->forBranch($this->branchId);
+
+        if (strlen(trim($this->productSearch)) >= 2) {
+            $search = trim($this->productSearch);
+            $combosQuery->where(function ($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhere('description', 'like', '%' . $search . '%');
+            });
+        }
+
+        $combos = $combosQuery->orderBy('name')->limit(20)->get();
+
+        foreach ($combos as $combo) {
+            if ($combo->hasStock()) {
+                $sellableItems->push([
+                    'type' => 'combo',
+                    'id' => $combo->id,
+                    'child_id' => null,
+                    'name' => $combo->name,
+                    'sku' => 'COMBO-' . $combo->id,
+                    'brand' => null,
+                    'price' => (float) $combo->combo_price,
+                    'original_price' => (float) $combo->original_price,
+                    'savings_pct' => $combo->getSavingsPercentage(),
+                    'stock' => null,
+                    'image' => $combo->image,
+                    'unit' => 'COMBO',
+                    'items_count' => $combo->getTotalProductsCount(),
+                ]);
+            }
         }
         
         // Get payment methods

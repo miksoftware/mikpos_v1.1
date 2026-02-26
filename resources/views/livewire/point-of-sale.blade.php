@@ -199,7 +199,9 @@
                                 @endif
                             </div>
                             <div class="flex-1 min-w-0">
-                                <p class="font-medium text-slate-800 text-xs truncate">{{ $item['name'] }}</p>
+                                <p class="font-medium text-slate-800 text-xs truncate">
+                                    @if($item['is_combo'] ?? false)<span class="text-amber-600">[Combo]</span> @endif{{ $item['name'] }}
+                                </p>
                                 <div class="flex items-center gap-1 text-[10px]">
                                     <span class="text-slate-500">{{ $item['sku'] }}</span>
                                     @if(($item['discount_amount'] ?? 0) > 0)
@@ -382,7 +384,7 @@
                 @if($sellableItems->count() > 0)
                 <div class="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
                     @foreach($sellableItems as $item)
-                    <button wire:click="{{ $item['type'] === 'service' ? 'addServiceToCart(' . $item['id'] . ')' : 'addToCart(' . $item['id'] . ', ' . ($item['child_id'] ?? 'null') . ')' }}" class="bg-white rounded-lg border border-slate-200 hover:border-[#ff7261] hover:shadow-md transition-all duration-200 overflow-hidden group text-left">
+                    <button wire:click="{{ $item['type'] === 'service' ? 'addServiceToCart(' . $item['id'] . ')' : ($item['type'] === 'combo' ? 'addComboToCart(' . $item['id'] . ')' : 'addToCart(' . $item['id'] . ', ' . ($item['child_id'] ?? 'null') . ')') }}" class="bg-white rounded-lg border border-slate-200 hover:border-[#ff7261] hover:shadow-md transition-all duration-200 overflow-hidden group text-left">
                         <div class="aspect-square bg-slate-50 relative overflow-hidden">
                             @if($item['image'])
                             <img src="{{ Storage::url($item['image']) }}" alt="{{ $item['name'] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200">
@@ -392,6 +394,10 @@
                                     @if($item['type'] === 'service')
                                     <svg class="w-6 h-6 mx-auto text-[#a855f7]/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                    </svg>
+                                    @elseif($item['type'] === 'combo')
+                                    <svg class="w-6 h-6 mx-auto text-amber-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
                                     </svg>
                                     @else
                                     <svg class="w-6 h-6 mx-auto text-[#a855f7]/30" fill="currentColor" viewBox="0 0 24 24">
@@ -409,6 +415,15 @@
                             <div class="absolute top-1 left-1 px-1.5 py-0.5 text-[9px] font-medium rounded bg-indigo-500 text-white">
                                 Serv.
                             </div>
+                            @elseif($item['type'] === 'combo')
+                            <div class="absolute top-1 left-1 px-1.5 py-0.5 text-[9px] font-medium rounded bg-amber-500 text-white">
+                                Combo
+                            </div>
+                            @if(isset($item['savings_pct']) && $item['savings_pct'] > 0)
+                            <div class="absolute bottom-1 left-1 px-1 py-0.5 bg-green-500 text-white text-[8px] font-medium rounded">
+                                -{{ $item['savings_pct'] }}%
+                            </div>
+                            @endif
                             @endif
                             @if($item['type'] === 'child')
                             <div class="absolute bottom-1 left-1 px-1 py-0.5 bg-blue-500 text-white text-[8px] font-medium rounded">
@@ -423,8 +438,8 @@
                         <div class="p-1.5 min-h-[52px] flex flex-col">
                             <p class="font-medium text-slate-800 text-[10px] leading-tight mb-0.5 break-words hyphens-auto" title="{{ $item['name'] }}">{{ $item['name'] }}</p>
                             <div class="flex items-center justify-between mt-auto">
-                                <p class="text-[9px] text-slate-500 truncate">{{ $item['brand'] ?? 'Sin marca' }}</p>
-                                @if($item['type'] !== 'service')
+                                <p class="text-[9px] text-slate-500 truncate">{{ $item['brand'] ?? ($item['type'] === 'combo' ? ($item['items_count'] ?? '') . ' items' : 'Sin marca') }}</p>
+                                @if($item['type'] !== 'service' && $item['type'] !== 'combo')
                                 <span class="text-[9px] font-semibold {{ $item['stock'] <= 5 ? 'text-red-500' : 'text-green-600' }}">{{ rtrim(rtrim(number_format((float)$item['stock'], 3), '0'), '.') }} {{ $item['unit'] ?? 'uds' }}</span>
                                 @endif
                             </div>

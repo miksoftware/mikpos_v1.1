@@ -15,6 +15,7 @@ class SaleItem extends Model
         'product_id',
         'product_child_id',
         'service_id',
+        'combo_id',
         'product_name',
         'product_sku',
         'unit_price',
@@ -65,11 +66,24 @@ class SaleItem extends Model
         return $this->belongsTo(Service::class);
     }
 
+    public function combo(): BelongsTo
+    {
+        return $this->belongsTo(Combo::class);
+    }
+
     /**
      * Check if this item is a service.
      */
     public function isService(): bool
     {
         return $this->service_id !== null;
+    }
+
+    /**
+     * Check if this item is a combo.
+     */
+    public function isCombo(): bool
+    {
+        return $this->combo_id !== null;
     }
 }
