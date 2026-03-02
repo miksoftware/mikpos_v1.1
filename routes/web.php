@@ -135,6 +135,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('services')
         ->middleware('permission:services.view');
 
+    // Discounts Management Routes
+    Route::get('/discounts', App\Livewire\Discounts::class)
+        ->name('discounts')
+        ->middleware('permission:discounts.view');
+
     // Purchases Management Routes
     Route::get('/purchases', App\Livewire\Purchases::class)
         ->name('purchases')

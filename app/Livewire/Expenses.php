@@ -3,8 +3,10 @@
 namespace App\Livewire;
 
 use App\Models\Branch;
+use App\Models\Customer;
 use App\Models\Expense;
 use App\Models\PaymentMethod;
+use App\Models\Supplier;
 use App\Services\ActivityLogService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Rule;
@@ -30,6 +32,7 @@ class Expenses extends Component
     public $amount = '';
     #[Rule('required|exists:payment_methods,id')]
     public $payment_method_id = '';
+    public $contact_id = '';
 
     // Delete
     public bool $isDeleteModalOpen = false;
@@ -55,6 +58,9 @@ class Expenses extends Component
         $this->description = $expense->description;
         $this->amount = $expense->amount;
         $this->payment_method_id = $expense->payment_method_id;
+        $this->contact_id = $expense->contact_type && $expense->contact_id
+            ? $expense->contact_type . '_' . $expense->contact_id
+            : '';
         $this->isModalOpen = true;
     }
 
@@ -65,6 +71,17 @@ class Expenses extends Component
         $user = auth()->user();
         $branchId = $user->isSuperAdmin() ? ($user->branch_id ?? Branch::first()?->id) : $user->branch_id;
 
+        // Parse contact selection (format: "type_id" e.g. "supplier_5" or "customer_3")
+        $contactType = null;
+        $contactId = null;
+        if ($this->contact_id) {
+            $parts = explode('_', $this->contact_id, 2);
+            if (count($parts) === 2) {
+                $contactType = $parts[0];
+                $contactId = (int) $parts[1];
+            }
+        }
+
         if ($this->itemId) {
             $expense = Expense::findOrFail($this->itemId);
             $oldValues = $expense->toArray();
@@ -72,6 +89,8 @@ class Expenses extends Component
                 'description' => $this->description,
                 'amount' => $this->amount,
                 'payment_method_id' => $this->payment_method_id,
+                'contact_type' => $contactType,
+                'contact_id' => $contactId,
             ]);
             ActivityLogService::logUpdate('expenses', $expense, $oldValues, "Gasto '{$this->description}' actualizado");
             $this->dispatch('notify', message: 'Gasto actualizado correctamente', type: 'success');
@@ -80,6 +99,8 @@ class Expenses extends Component
                 'branch_id' => $branchId,
                 'user_id' => $user->id,
                 'payment_method_id' => $this->payment_method_id,
+                'contact_type' => $contactType,
+                'contact_id' => $contactId,
                 'description' => $this->description,
                 'amount' => $this->amount,
             ]);
@@ -123,6 +144,7 @@ class Expenses extends Component
         $this->description = '';
         $this->amount = '';
         $this->payment_method_id = '';
+        $this->contact_id = '';
         $this->resetValidation();
     }
 
@@ -155,10 +177,30 @@ class Expenses extends Component
             ->when($this->filterDateTo, fn($q) => $q->whereDate('created_at', '<=', $this->filterDateTo))
             ->sum('amount');
 
+        // Build contacts list: suppliers + customers
+        $branchId = $user->isSuperAdmin() ? null : $user->branch_id;
+
+        $suppliers = Supplier::where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->map(fn($s) => ['id' => 'supplier_' . $s->id, 'name' => $s->name . ' (Proveedor)']);
+
+        $customersQuery = Customer::where('is_active', true);
+        if ($branchId) {
+            $customersQuery->where('branch_id', $branchId);
+        }
+        $customers = $customersQuery
+            ->orderBy('first_name')
+            ->get()
+            ->map(fn($c) => ['id' => 'customer_' . $c->id, 'name' => $c->full_name . ' (Cliente)']);
+
+        $contacts = $suppliers->concat($customers)->toArray();
+
         return view('livewire.expenses', [
             'items' => $items,
             'totalFiltered' => $totalFiltered,
             'paymentMethods' => PaymentMethod::where('is_active', true)->orderBy('name')->get(),
+            'contacts' => $contacts,
         ]);
     }
 }

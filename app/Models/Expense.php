@@ -14,6 +14,8 @@ class Expense extends Model
         'branch_id',
         'user_id',
         'payment_method_id',
+        'contact_type',
+        'contact_id',
         'description',
         'amount',
     ];
@@ -38,5 +40,32 @@ class Expense extends Model
     public function paymentMethod(): BelongsTo
     {
         return $this->belongsTo(PaymentMethod::class);
+    }
+
+    public function contact()
+    {
+        if ($this->contact_type === 'customer') {
+            return $this->belongsTo(Customer::class, 'contact_id');
+        }
+        if ($this->contact_type === 'supplier') {
+            return $this->belongsTo(Supplier::class, 'contact_id');
+        }
+        return $this->belongsTo(Supplier::class, 'contact_id')->whereRaw('1 = 0');
+    }
+
+    public function getContactNameAttribute(): ?string
+    {
+        if (!$this->contact_type || !$this->contact_id) {
+            return null;
+        }
+        if ($this->contact_type === 'customer') {
+            $customer = Customer::find($this->contact_id);
+            return $customer?->full_name;
+        }
+        if ($this->contact_type === 'supplier') {
+            $supplier = Supplier::find($this->contact_id);
+            return $supplier?->name;
+        }
+        return null;
     }
 }

@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use Livewire\Component;
 use App\Models\Product;
+use App\Models\Discount;
 use App\Models\ProductChild;
 use App\Models\ProductBarcode;
 use App\Models\Service;
@@ -518,6 +519,9 @@ class PointOfSale extends Component
                 'discount_amount' => 0,
                 'discount_reason' => null,
             ];
+
+            // Auto-apply active discount if available
+            $this->applyAutoDiscount($cartKey, $product);
         }
         
         // Clear search and refocus
@@ -984,11 +988,43 @@ class PointOfSale extends Component
                 'discount_amount' => 0,
                 'discount_reason' => null,
             ];
+
+            // Auto-apply active discount if available
+            $this->applyAutoDiscount($cartKey, $product);
         }
         
         // Clear search and refocus
         $this->productSearch = '';
         $this->dispatch('focus-product-search');
+    }
+
+    /**
+     * Auto-apply active discount from the discounts module to a cart item.
+     */
+    protected function applyAutoDiscount(string $cartKey, Product $product): void
+    {
+        $user = auth()->user();
+        $branchId = $user->isSuperAdmin() ? ($user->branch_id ?? $product->branch_id) : $user->branch_id;
+
+        $discount = Discount::findBestForProduct($product, $branchId);
+        if (!$discount) return;
+
+        $item = &$this->cart[$cartKey];
+
+        if ($discount->discount_type === 'percentage') {
+            $discountAmount = round($item['subtotal'] * ($discount->discount_value / 100), 2);
+        } else {
+            $discountAmount = round(min($discount->discount_value * $item['quantity'], $item['subtotal']), 2);
+        }
+
+        $item['discount_type'] = $discount->discount_type;
+        $item['discount_type_value'] = (float) $discount->discount_value;
+        $item['discount_amount'] = $discountAmount;
+        $item['discount_reason'] = $discount->name;
+
+        // Recalculate tax after discount
+        $taxableAmount = $item['subtotal'] - $item['discount_amount'];
+        $item['tax_amount'] = round($taxableAmount * ($item['tax_rate'] / 100), 2);
     }
 
     protected function updateCartItemTotals($cartKey)

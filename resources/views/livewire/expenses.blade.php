@@ -65,6 +65,7 @@
                     <tr>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Fecha</th>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Detalle</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Proveedor / Cliente</th>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Forma de Pago</th>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Registrado por</th>
                         @if($needsBranchSelection)
@@ -82,6 +83,18 @@
                         </td>
                         <td class="px-6 py-4">
                             <span class="text-sm font-medium text-slate-900">{{ $item->description }}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            @if($item->contact_type && $item->contact_id)
+                                <div class="flex items-center gap-1.5">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $item->contact_type === 'supplier' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700' }}">
+                                        {{ $item->contact_type === 'supplier' ? 'Prov.' : 'Cliente' }}
+                                    </span>
+                                    <span class="text-sm text-slate-700">{{ $item->contact_name }}</span>
+                                </div>
+                            @else
+                                <span class="text-sm text-slate-400">—</span>
+                            @endif
                         </td>
                         <td class="px-6 py-4">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
@@ -116,7 +129,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="{{ $needsBranchSelection ? 7 : 6 }}" class="px-6 py-12 text-center">
+                        <td colspan="{{ $needsBranchSelection ? 8 : 7 }}" class="px-6 py-12 text-center">
                             <svg class="w-12 h-12 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path></svg>
                             <p class="text-slate-500">No hay gastos registrados</p>
                         </td>
@@ -167,6 +180,15 @@
                                 @endforeach
                             </select>
                             @error('payment_method_id')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Proveedor / Cliente</label>
+                            <x-searchable-select
+                                wire:model="contact_id"
+                                :options="$contacts"
+                                placeholder="Seleccionar (opcional)..."
+                                searchPlaceholder="Buscar proveedor o cliente..."
+                            />
                         </div>
                     </div>
                     <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">

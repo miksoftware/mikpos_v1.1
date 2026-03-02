@@ -51,6 +51,7 @@ class SeedPending extends Command
         'PrintFormatsModuleSeeder',
         'ExpensesModuleSeeder',
         'PayrollModuleSeeder',
+        'DiscountsModuleSeeder',
         // Add new seeders here
     ];
 
