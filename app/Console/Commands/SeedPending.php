@@ -50,6 +50,7 @@ class SeedPending extends Command
         'MigrationModuleSeeder',
         'PrintFormatsModuleSeeder',
         'ExpensesModuleSeeder',
+        'PayrollModuleSeeder',
         // Add new seeders here
     ];
 

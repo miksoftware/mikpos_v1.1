@@ -336,6 +336,64 @@
 </div>
 @endif
 
+<!-- Nómina Section -->
+@if (auth()->user()->hasPermission('employees.view') || auth()->user()->hasPermission('payrolls.view'))
+@if($mobile)
+<div class="{{ $sectionClass }}">
+    <p class="{{ $labelClass }}">Nómina</p>
+    @if (auth()->user()->hasPermission('employees.view'))
+    <a href="{{ route('nomina.employees') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('nomina.employees') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+        </svg>
+        <span>Empleados</span>
+    </a>
+    @endif
+    @if (auth()->user()->hasPermission('payrolls.view'))
+    <a href="{{ route('nomina.payrolls') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('nomina.payrolls') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+        </svg>
+        <span>Períodos de Nómina</span>
+    </a>
+    @endif
+</div>
+@else
+<div x-data="{ nominaOpen: {{ request()->routeIs('nomina.*') ? 'true' : 'false' }} }">
+    <button @click="nominaOpen = !nominaOpen"
+        class="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-slate-400 hover:bg-white/5 hover:text-white">
+        <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 flex-shrink-0 group-hover:text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+            </svg>
+            <span x-show="sidebarOpen" class="font-medium">Nómina</span>
+        </div>
+        <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform duration-200" :class="nominaOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+        </svg>
+    </button>
+    <div x-show="nominaOpen && sidebarOpen" x-collapse class="{{ $sectionClass }}">
+        @if (auth()->user()->hasPermission('employees.view'))
+        <a href="{{ route('nomina.employees') }}" class="{{ $linkClass }} {{ request()->routeIs('nomina.employees') ? $activeClass : $inactiveClass }}">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+            </svg>
+            <span class="text-sm">Empleados</span>
+        </a>
+        @endif
+        @if (auth()->user()->hasPermission('payrolls.view'))
+        <a href="{{ route('nomina.payrolls') }}" class="{{ $linkClass }} {{ request()->routeIs('nomina.payrolls') ? $activeClass : $inactiveClass }}">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+            </svg>
+            <span class="text-sm">Períodos de Nómina</span>
+        </a>
+        @endif
+    </div>
+</div>
+@endif
+@endif
+
 <!-- Reportes Section -->
 @if (auth()->user()->hasPermission('reports.view'))
 @if($mobile)

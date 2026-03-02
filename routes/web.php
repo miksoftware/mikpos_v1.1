@@ -265,6 +265,22 @@ Route::middleware(['auth'])->group(function () {
         return view('receipts.cash-reconciliation-receipt', compact('reconciliation'));
     })->name('cash-reconciliation-receipt.show')->middleware('permission:cash_reconciliations.view');
 
+    // Nómina
+    Route::prefix('nomina')->name('nomina.')->group(function () {
+        Route::get('/empleados', App\Livewire\Nomina\Employees::class)
+            ->name('employees')
+            ->middleware('permission:employees.view');
+
+        Route::get('/periodos', App\Livewire\Nomina\Payrolls::class)
+            ->name('payrolls')
+            ->middleware('permission:payrolls.view');
+
+        Route::get('/desprendible/{detail}', function (App\Models\PayrollDetail $detail) {
+            $detail->load(['employee.branch', 'payroll']);
+            return view('receipts.payslip', ['detail' => $detail]);
+        })->name('payslip')->middleware('permission:payrolls.view');
+    });
+
     // Reports
     Route::prefix('reports')->name('reports.')->middleware('permission:reports.view')->group(function () {
         Route::get('/products-sold', App\Livewire\Reports\ProductsSold::class)

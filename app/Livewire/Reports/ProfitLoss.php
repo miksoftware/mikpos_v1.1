@@ -32,6 +32,7 @@ class ProfitLoss extends Component
     public float $totalExpenses = 0;
     public float $totalCashExpenses = 0;
     public float $totalModuleExpenses = 0;
+    public float $totalPayrollExpenses = 0;
     public float $totalCashIncome = 0;
     public float $netProfit = 0;
     public float $netMargin = 0;
@@ -177,8 +178,19 @@ class ProfitLoss extends Component
         }
         $this->totalModuleExpenses = (float) $moduleExpensesQuery->sum('amount');
 
-        // Total expenses = cash egresos + module expenses
-        $this->totalExpenses = $this->totalCashExpenses + $this->totalModuleExpenses;
+        // Payroll expenses (paid payrolls in period)
+        $payrollQuery = \App\Models\Payroll::where('payrolls.status', 'pagada')
+            ->whereDate('payrolls.payment_date', '>=', $this->startDate)
+            ->whereDate('payrolls.payment_date', '<=', $this->endDate);
+        if ($this->selectedBranchId) {
+            $payrollQuery->where('payrolls.branch_id', $this->selectedBranchId);
+        } elseif (!auth()->user()->isSuperAdmin()) {
+            $payrollQuery->where('payrolls.branch_id', auth()->user()->branch_id);
+        }
+        $this->totalPayrollExpenses = (float) $payrollQuery->get()->sum(fn($p) => $p->details()->sum('net_pay'));
+
+        // Total expenses = cash egresos + module expenses + payroll
+        $this->totalExpenses = $this->totalCashExpenses + $this->totalModuleExpenses + $this->totalPayrollExpenses;
 
         // Gross profit = Revenue + Cash Income - Cost of goods sold
         $this->grossProfit = $this->totalRevenue + $this->totalCashIncome - $this->totalCost;

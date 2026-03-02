@@ -166,6 +166,12 @@
                 <span class="text-red-600">${{ number_format($totalModuleExpenses, 2) }}</span>
             </div>
             @endif
+            @if($totalPayrollExpenses > 0)
+            <div class="flex justify-between py-2 px-3">
+                <span class="text-slate-600 pl-4">Nómina</span>
+                <span class="text-red-600">${{ number_format($totalPayrollExpenses, 2) }}</span>
+            </div>
+            @endif
             @endif
             <div class="flex justify-between py-3 px-3 {{ $netProfit >= 0 ? 'bg-emerald-100' : 'bg-red-100' }} rounded-lg border-2 {{ $netProfit >= 0 ? 'border-emerald-300' : 'border-red-300' }}">
                 <span class="font-bold text-lg {{ $netProfit >= 0 ? 'text-emerald-900' : 'text-red-900' }}">= UTILIDAD NETA</span>

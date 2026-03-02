@@ -54,6 +54,12 @@ class User extends Authenticatable
         return $this->hasMany(ActivityLog::class);
     }
 
+    public function employee(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Employee::class);
+    }
+
+
     // Get user's role (global or for specific branch)
     public function getRole(?int $branchId = null): ?Role
     {

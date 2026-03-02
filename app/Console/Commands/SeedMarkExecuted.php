@@ -46,6 +46,7 @@ class SeedMarkExecuted extends Command
         'MigrationModuleSeeder',
         'PrintFormatsModuleSeeder',
         'ExpensesModuleSeeder',
+        'PayrollModuleSeeder',
     ];
 
     public function handle(): int
