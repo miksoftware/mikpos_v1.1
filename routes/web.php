@@ -184,6 +184,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('credits')
         ->middleware('permission:credits.view');
 
+    // Expenses
+    Route::get('/expenses', App\Livewire\Expenses::class)
+        ->name('expenses')
+        ->middleware('permission:expenses.view');
+
     // Activity Logs
     Route::get('/activity-logs', App\Livewire\ActivityLogs::class)
         ->name('activity-logs')

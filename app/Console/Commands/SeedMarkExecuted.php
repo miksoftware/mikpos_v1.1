@@ -45,6 +45,7 @@ class SeedMarkExecuted extends Command
         'CashReportPermissionSeeder',
         'MigrationModuleSeeder',
         'PrintFormatsModuleSeeder',
+        'ExpensesModuleSeeder',
     ];
 
     public function handle(): int

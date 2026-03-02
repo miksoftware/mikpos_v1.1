@@ -137,6 +137,29 @@
 @endif
 @endif
 
+<!-- Gastos -->
+@if (auth()->user()->hasPermission('expenses.view'))
+@if($mobile)
+<div class="{{ $sectionClass }}">
+    <a href="{{ route('expenses') }}" @click="mobileMenuOpen = false"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-xl {{ request()->routeIs('expenses') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
+        </svg>
+        <span class="font-medium">Gastos</span>
+    </a>
+</div>
+@else
+<a href="{{ route('expenses') }}"
+    class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group {{ request()->routeIs('expenses') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
+    <svg class="w-5 h-5 flex-shrink-0 group-hover:text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
+    </svg>
+    <span x-show="sidebarOpen" class="font-medium">Gastos</span>
+</a>
+@endif
+@endif
+
 <!-- Creación Section -->
 @if($mobile)
 <div class="{{ $sectionClass }}">

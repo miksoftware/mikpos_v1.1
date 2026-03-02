@@ -13,6 +13,7 @@ use App\Models\Product;
 use App\Models\Service;
 use App\Models\Purchase;
 use App\Models\CashMovement;
+use App\Models\Expense;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -597,19 +598,39 @@ class ReportExportController extends Controller
         if ($branchId) $purchasesQuery->where('purchases.branch_id', $branchId);
         $totalPurchases = (float) $purchasesQuery->sum('total');
 
-        // Expenses
+        // Expenses from cash movements
         $expQuery = CashMovement::where('type', 'expense')
             ->whereDate('created_at', '>=', $startDate)
             ->whereDate('created_at', '<=', $endDate);
         if ($branchId) {
             $expQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', $branchId));
         }
-        $totalExpenses = (float) $expQuery->sum('amount');
+        $totalCashExpenses = (float) $expQuery->sum('amount');
 
-        $grossProfit = $totalRevenue - $totalCost;
-        $grossMargin = $totalRevenue > 0 ? ($grossProfit / $totalRevenue) * 100 : 0;
+        // Cash income (ingresos from cash movements)
+        $cashIncomeQuery = CashMovement::where('type', 'income')
+            ->whereDate('created_at', '>=', $startDate)
+            ->whereDate('created_at', '<=', $endDate);
+        if ($branchId) {
+            $cashIncomeQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', $branchId));
+        }
+        $totalCashIncome = (float) $cashIncomeQuery->sum('amount');
+
+        // Module expenses
+        $moduleExpQuery = Expense::whereDate('expenses.created_at', '>=', $startDate)
+            ->whereDate('expenses.created_at', '<=', $endDate);
+        if ($branchId) {
+            $moduleExpQuery->where('expenses.branch_id', $branchId);
+        }
+        $totalModuleExpenses = (float) $moduleExpQuery->sum('amount');
+
+        $totalExpenses = $totalCashExpenses + $totalModuleExpenses;
+
+        $grossProfit = $totalRevenue + $totalCashIncome - $totalCost;
+        $totalIncome = $totalRevenue + $totalCashIncome;
+        $grossMargin = $totalIncome > 0 ? ($grossProfit / $totalIncome) * 100 : 0;
         $netProfit = $grossProfit - $totalExpenses;
-        $netMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0;
+        $netMargin = $totalIncome > 0 ? ($netProfit / $totalIncome) * 100 : 0;
 
         // Category breakdown
         $categoryData = SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
@@ -651,15 +672,27 @@ class ReportExportController extends Controller
         $paymentMethods = $payments->select('payment_methods.name', DB::raw('SUM(sale_payments.amount) as total'), DB::raw('COUNT(DISTINCT sales.id) as count'))
             ->groupBy('payment_methods.id', 'payment_methods.name')->orderByDesc('total')->get();
 
-        // Expenses breakdown
+        // Expenses breakdown (cash + module)
         $expBreakdown = CashMovement::where('type', 'expense')
             ->whereDate('created_at', '>=', $startDate)
             ->whereDate('created_at', '<=', $endDate);
         if ($branchId) {
             $expBreakdown->whereHas('reconciliation', fn($q) => $q->where('branch_id', $branchId));
         }
-        $expenses = $expBreakdown->select('concept', DB::raw('SUM(amount) as total'), DB::raw('COUNT(*) as count'))
-            ->groupBy('concept')->orderByDesc('total')->get();
+        $cashExpenses = $expBreakdown->select('concept', DB::raw('SUM(amount) as total'), DB::raw('COUNT(*) as count'))
+            ->groupBy('concept')->orderByDesc('total')->get()
+            ->map(fn($e) => (object) ['concept' => $e->concept . ' (Caja)', 'total' => $e->total, 'count' => $e->count]);
+
+        $modExpBreakdown = Expense::whereDate('expenses.created_at', '>=', $startDate)
+            ->whereDate('expenses.created_at', '<=', $endDate);
+        if ($branchId) {
+            $modExpBreakdown->where('expenses.branch_id', $branchId);
+        }
+        $modExpenses = $modExpBreakdown->select('description as concept', DB::raw('SUM(amount) as total'), DB::raw('COUNT(*) as count'))
+            ->groupBy('description')->orderByDesc('total')->get()
+            ->map(fn($e) => (object) ['concept' => $e->concept, 'total' => $e->total, 'count' => $e->count]);
+
+        $expenses = $cashExpenses->concat($modExpenses)->sortByDesc('total');
 
         // Build Excel
         $spreadsheet = new Spreadsheet();
@@ -692,11 +725,14 @@ class ReportExportController extends Controller
 
         $stmtItems = [
             ['Ingresos por Ventas', $totalRevenue, '4472C4'],
+            ['(+) Otros Ingresos (Mov. Caja)', $totalCashIncome, '70AD47'],
             ['(-) Descuentos', $totalDiscount, 'E2E8F0'],
             ['Impuestos Recaudados', $totalTax, 'E2E8F0'],
             ['(-) Costo de Ventas', $totalCost, 'ED7D31'],
             ['= UTILIDAD BRUTA', $grossProfit, $grossProfit >= 0 ? '70AD47' : 'FF0000'],
             ['(-) Gastos Operativos', $totalExpenses, 'FF6B6B'],
+            ['    Egresos de Caja', $totalCashExpenses, 'E2E8F0'],
+            ['    Gastos Registrados', $totalModuleExpenses, 'E2E8F0'],
             ['= UTILIDAD NETA', $netProfit, $netProfit >= 0 ? '00B050' : 'FF0000'],
         ];
 

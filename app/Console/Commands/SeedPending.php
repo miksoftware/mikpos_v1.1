@@ -49,6 +49,7 @@ class SeedPending extends Command
         'CashReportPermissionSeeder',
         'MigrationModuleSeeder',
         'PrintFormatsModuleSeeder',
+        'ExpensesModuleSeeder',
         // Add new seeders here
     ];
 

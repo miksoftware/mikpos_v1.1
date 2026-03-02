@@ -71,8 +71,8 @@
                 </div>
                 <span class="text-sm text-slate-500">Ingresos</span>
             </div>
-            <p class="text-2xl font-bold text-slate-800">${{ number_format($totalRevenue, 0, ',', '.') }}</p>
-            <p class="text-xs text-slate-400 mt-1">{{ $totalTransactions }} ventas</p>
+            <p class="text-2xl font-bold text-slate-800">${{ number_format($totalRevenue + $totalCashIncome, 0, ',', '.') }}</p>
+            <p class="text-xs text-slate-400 mt-1">{{ $totalTransactions }} ventas{{ $totalCashIncome > 0 ? ' + mov. caja' : '' }}</p>
         </div>
 
         {{-- Cost --}}
@@ -123,6 +123,12 @@
                 <span class="font-medium text-blue-800">Ingresos por Ventas</span>
                 <span class="font-bold text-blue-800">${{ number_format($totalRevenue, 2) }}</span>
             </div>
+            @if($totalCashIncome > 0)
+            <div class="flex justify-between py-2 px-3 bg-green-50 rounded-lg">
+                <span class="font-medium text-green-800">(+) Otros Ingresos (Mov. Caja)</span>
+                <span class="font-bold text-green-800">${{ number_format($totalCashIncome, 2) }}</span>
+            </div>
+            @endif
             @if($totalDiscount > 0)
             <div class="flex justify-between py-2 px-3">
                 <span class="text-slate-600 pl-4">(-) Descuentos</span>
@@ -148,6 +154,18 @@
                 <span class="font-medium text-red-800">(-) Gastos Operativos</span>
                 <span class="font-bold text-red-800">${{ number_format($totalExpenses, 2) }}</span>
             </div>
+            @if($totalCashExpenses > 0)
+            <div class="flex justify-between py-2 px-3">
+                <span class="text-slate-600 pl-4">Egresos de Caja</span>
+                <span class="text-red-600">${{ number_format($totalCashExpenses, 2) }}</span>
+            </div>
+            @endif
+            @if($totalModuleExpenses > 0)
+            <div class="flex justify-between py-2 px-3">
+                <span class="text-slate-600 pl-4">Gastos Registrados</span>
+                <span class="text-red-600">${{ number_format($totalModuleExpenses, 2) }}</span>
+            </div>
+            @endif
             @endif
             <div class="flex justify-between py-3 px-3 {{ $netProfit >= 0 ? 'bg-emerald-100' : 'bg-red-100' }} rounded-lg border-2 {{ $netProfit >= 0 ? 'border-emerald-300' : 'border-red-300' }}">
                 <span class="font-bold text-lg {{ $netProfit >= 0 ? 'text-emerald-900' : 'text-red-900' }}">= UTILIDAD NETA</span>

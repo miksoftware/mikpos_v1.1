@@ -8,6 +8,7 @@ use App\Models\SaleItem;
 use App\Models\SalePayment;
 use App\Models\Purchase;
 use App\Models\CashMovement;
+use App\Models\Expense;
 use App\Models\Category;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
@@ -29,6 +30,9 @@ class ProfitLoss extends Component
     public float $grossProfit = 0;
     public float $grossMargin = 0;
     public float $totalExpenses = 0;
+    public float $totalCashExpenses = 0;
+    public float $totalModuleExpenses = 0;
+    public float $totalCashIncome = 0;
     public float $netProfit = 0;
     public float $netMargin = 0;
     public int $totalTransactions = 0;
@@ -141,6 +145,17 @@ class ProfitLoss extends Component
         $this->applyBranchFilter($purchasesQuery, 'purchases');
         $this->totalPurchases = (float) $purchasesQuery->sum('total');
 
+        // Cash incomes (ingresos from cash movements)
+        $cashIncomeQuery = CashMovement::where('cash_movements.type', 'income')
+            ->whereDate('cash_movements.created_at', '>=', $this->startDate)
+            ->whereDate('cash_movements.created_at', '<=', $this->endDate);
+        if ($this->selectedBranchId) {
+            $cashIncomeQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', $this->selectedBranchId));
+        } elseif (!auth()->user()->isSuperAdmin()) {
+            $cashIncomeQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', auth()->user()->branch_id));
+        }
+        $this->totalCashIncome = (float) $cashIncomeQuery->sum('amount');
+
         // Cash expenses (egresos from cash movements)
         $expensesQuery = CashMovement::where('cash_movements.type', 'expense')
             ->whereDate('cash_movements.created_at', '>=', $this->startDate)
@@ -150,15 +165,29 @@ class ProfitLoss extends Component
         } elseif (!auth()->user()->isSuperAdmin()) {
             $expensesQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', auth()->user()->branch_id));
         }
-        $this->totalExpenses = (float) $expensesQuery->sum('amount');
+        $this->totalCashExpenses = (float) $expensesQuery->sum('amount');
 
-        // Gross profit = Revenue - Cost of goods sold
-        $this->grossProfit = $this->totalRevenue - $this->totalCost;
-        $this->grossMargin = $this->totalRevenue > 0 ? ($this->grossProfit / $this->totalRevenue) * 100 : 0;
+        // Module expenses (from expenses table)
+        $moduleExpensesQuery = Expense::whereDate('expenses.created_at', '>=', $this->startDate)
+            ->whereDate('expenses.created_at', '<=', $this->endDate);
+        if ($this->selectedBranchId) {
+            $moduleExpensesQuery->where('expenses.branch_id', $this->selectedBranchId);
+        } elseif (!auth()->user()->isSuperAdmin()) {
+            $moduleExpensesQuery->where('expenses.branch_id', auth()->user()->branch_id);
+        }
+        $this->totalModuleExpenses = (float) $moduleExpensesQuery->sum('amount');
+
+        // Total expenses = cash egresos + module expenses
+        $this->totalExpenses = $this->totalCashExpenses + $this->totalModuleExpenses;
+
+        // Gross profit = Revenue + Cash Income - Cost of goods sold
+        $this->grossProfit = $this->totalRevenue + $this->totalCashIncome - $this->totalCost;
+        $totalIncome = $this->totalRevenue + $this->totalCashIncome;
+        $this->grossMargin = $totalIncome > 0 ? ($this->grossProfit / $totalIncome) * 100 : 0;
 
         // Net profit = Gross profit - Expenses
         $this->netProfit = $this->grossProfit - $this->totalExpenses;
-        $this->netMargin = $this->totalRevenue > 0 ? ($this->netProfit / $this->totalRevenue) * 100 : 0;
+        $this->netMargin = $totalIncome > 0 ? ($this->netProfit / $totalIncome) * 100 : 0;
     }
 
     private function loadChartData()
@@ -273,22 +302,38 @@ class ProfitLoss extends Component
         $this->topProfitableProducts = $allProducts->sortByDesc('profit')->take(10)->values()->toArray();
         $this->topLossProducts = $allProducts->filter(fn($p) => $p['profit'] < 0)->sortBy('profit')->take(10)->values()->toArray();
 
-        // Expense breakdown
-        $expQuery = CashMovement::where('cash_movements.type', 'expense')
+        // Expense breakdown (cash movements + module expenses)
+        $cashExpenses = CashMovement::where('cash_movements.type', 'expense')
             ->whereDate('cash_movements.created_at', '>=', $this->startDate)
             ->whereDate('cash_movements.created_at', '<=', $this->endDate);
         if ($this->selectedBranchId) {
-            $expQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', $this->selectedBranchId));
+            $cashExpenses->whereHas('reconciliation', fn($q) => $q->where('branch_id', $this->selectedBranchId));
         } elseif (!auth()->user()->isSuperAdmin()) {
-            $expQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', auth()->user()->branch_id));
+            $cashExpenses->whereHas('reconciliation', fn($q) => $q->where('branch_id', auth()->user()->branch_id));
         }
-        $this->expenseBreakdown = $expQuery
+        $cashExpenseData = $cashExpenses
             ->select('concept', DB::raw('SUM(amount) as total'), DB::raw('COUNT(*) as count'))
             ->groupBy('concept')
-            ->orderByDesc('total')
-            ->limit(10)
             ->get()
-            ->map(fn($e) => ['concept' => $e->concept, 'total' => round($e->total, 2), 'count' => $e->count])
+            ->map(fn($e) => ['concept' => $e->concept . ' (Caja)', 'total' => round($e->total, 2), 'count' => $e->count]);
+
+        $moduleExpenses = Expense::whereDate('expenses.created_at', '>=', $this->startDate)
+            ->whereDate('expenses.created_at', '<=', $this->endDate);
+        if ($this->selectedBranchId) {
+            $moduleExpenses->where('expenses.branch_id', $this->selectedBranchId);
+        } elseif (!auth()->user()->isSuperAdmin()) {
+            $moduleExpenses->where('expenses.branch_id', auth()->user()->branch_id);
+        }
+        $moduleExpenseData = $moduleExpenses
+            ->select('description as concept', DB::raw('SUM(amount) as total'), DB::raw('COUNT(*) as count'))
+            ->groupBy('description')
+            ->get()
+            ->map(fn($e) => ['concept' => $e->concept, 'total' => round($e->total, 2), 'count' => $e->count]);
+
+        $this->expenseBreakdown = $cashExpenseData->concat($moduleExpenseData)
+            ->sortByDesc('total')
+            ->take(10)
+            ->values()
             ->toArray();
     }
 

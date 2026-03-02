@@ -70,7 +70,7 @@ class Combos extends Component
         $user = auth()->user();
         
         $query = Combo::query()
-            ->with('branch')
+            ->with(['branch', 'items.product'])
             ->withCount('items');
 
         // Apply branch filter

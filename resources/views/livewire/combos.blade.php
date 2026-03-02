@@ -64,6 +64,7 @@
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Sucursal</th>
                         @endif
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Productos</th>
+                        <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Stock</th>
                         <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Precio Original</th>
                         <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Precio Combo</th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Ahorro</th>
@@ -105,6 +106,29 @@
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-700">
                                 {{ $item->items_count }} productos
                             </span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            @if($item->hasStock())
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                Disponible
+                            </span>
+                            @else
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                Sin stock
+                            </span>
+                            @php
+                                $outOfStock = $item->items->filter(function ($ci) {
+                                    return $ci->product && $ci->product->current_stock < $ci->quantity;
+                                });
+                            @endphp
+                            @if($outOfStock->count() > 0)
+                            <div class="text-[10px] text-red-500 mt-1 max-w-[120px] truncate" title="{{ $outOfStock->map(fn($ci) => $ci->product->name)->implode(', ') }}">
+                                {{ $outOfStock->first()->product->name }}{{ $outOfStock->count() > 1 ? ' +' . ($outOfStock->count() - 1) : '' }}
+                            </div>
+                            @endif
+                            @endif
                         </td>
                         <td class="px-6 py-4 text-right">
                             <span class="text-slate-500 line-through">${{ number_format($item->original_price, 2) }}</span>
@@ -181,7 +205,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="{{ $needsBranchSelection ? 9 : 8 }}" class="px-6 py-12 text-center">
+                        <td colspan="{{ $needsBranchSelection ? 10 : 9 }}" class="px-6 py-12 text-center">
                             <svg class="w-12 h-12 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                             <p class="text-slate-500">No hay combos registrados</p>
                             @if($search || $filterStatus || $filterLimitType)
