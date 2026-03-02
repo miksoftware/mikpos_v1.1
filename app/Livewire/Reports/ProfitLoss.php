@@ -178,16 +178,17 @@ class ProfitLoss extends Component
         }
         $this->totalModuleExpenses = (float) $moduleExpensesQuery->sum('amount');
 
-        // Payroll expenses (paid payrolls in period)
-        $payrollQuery = \App\Models\Payroll::where('payrolls.status', 'pagada')
+        // Payroll expenses (paid payrolls in period) - direct join for efficiency
+        $payrollExpQuery = \App\Models\PayrollDetail::join('payrolls', 'payroll_details.payroll_id', '=', 'payrolls.id')
+            ->where('payrolls.status', 'pagada')
             ->whereDate('payrolls.payment_date', '>=', $this->startDate)
             ->whereDate('payrolls.payment_date', '<=', $this->endDate);
         if ($this->selectedBranchId) {
-            $payrollQuery->where('payrolls.branch_id', $this->selectedBranchId);
+            $payrollExpQuery->where('payrolls.branch_id', $this->selectedBranchId);
         } elseif (!auth()->user()->isSuperAdmin()) {
-            $payrollQuery->where('payrolls.branch_id', auth()->user()->branch_id);
+            $payrollExpQuery->where('payrolls.branch_id', auth()->user()->branch_id);
         }
-        $this->totalPayrollExpenses = (float) $payrollQuery->get()->sum(fn($p) => $p->details()->sum('net_pay'));
+        $this->totalPayrollExpenses = (float) $payrollExpQuery->sum('payroll_details.net_pay');
 
         // Total expenses = cash egresos + module expenses + payroll
         $this->totalExpenses = $this->totalCashExpenses + $this->totalModuleExpenses + $this->totalPayrollExpenses;
@@ -342,7 +343,18 @@ class ProfitLoss extends Component
             ->get()
             ->map(fn($e) => ['concept' => $e->concept, 'total' => round($e->total, 2), 'count' => $e->count]);
 
-        $this->expenseBreakdown = $cashExpenseData->concat($moduleExpenseData)
+        $allExpenses = $cashExpenseData->concat($moduleExpenseData);
+
+        // Add payroll to expense breakdown if there are payroll expenses
+        if ($this->totalPayrollExpenses > 0) {
+            $allExpenses = $allExpenses->push([
+                'concept' => 'Nómina',
+                'total' => round($this->totalPayrollExpenses, 2),
+                'count' => 1,
+            ]);
+        }
+
+        $this->expenseBreakdown = $allExpenses
             ->sortByDesc('total')
             ->take(10)
             ->values()
