@@ -17,8 +17,28 @@ class FixCreditSalesWithRefunds extends Command
         $sales = Sale::with(['refunds', 'creditNotes'])
             ->where('payment_type', 'credit')
             ->where('status', 'completed')
-            ->whereIn('payment_status', ['pending', 'partial'])
+            ->where(function ($q) {
+                // Include pending/partial that need fixing
+                $q->whereIn('payment_status', ['pending', 'partial'])
+                  // Also include 'paid' that might have been incorrectly set by previous fix
+                  ->orWhere(function ($sq) {
+                      $sq->where('payment_status', 'paid')
+                         ->where('paid_amount', '<', \Illuminate\Support\Facades\DB::raw('credit_amount'));
+                  });
+            })
             ->get();
+
+        // Also check paid sales that have refunds/credit notes (may have been wrongly marked)
+        $paidWithReturns = Sale::where('payment_type', 'credit')
+            ->where('status', 'completed')
+            ->where('payment_status', 'paid')
+            ->where(function ($q) {
+                $q->whereHas('refunds', fn($r) => $r->where('status', 'completed'))
+                  ->orWhereHas('creditNotes', fn($cn) => $cn->whereIn('status', ['pending', 'validated']));
+            })
+            ->get();
+
+        $sales = $sales->merge($paidWithReturns)->unique('id');
 
         $this->info("Found {$sales->count()} credit sale(s) with pending/partial status...");
 
