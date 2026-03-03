@@ -823,4 +823,179 @@ class ReportExportController extends Controller
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ])->deleteFileAfterSend(true);
     }
+
+    public function paymentMethodsExcel(Request $request)
+    {
+        $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->get('end_date', now()->format('Y-m-d'));
+        $branchId = $request->get('branch_id');
+        $cashRegisterId = $request->get('cash_register_id');
+        $paymentMethodId = $request->get('payment_method_id');
+        $userId = $request->get('user_id');
+        $user = auth()->user();
+
+        $branchName = 'Todas';
+        if ($branchId) {
+            $branchName = Branch::find($branchId)?->name ?? 'Todas';
+        } elseif (!$user->isSuperAdmin()) {
+            $branchId = $user->branch_id;
+            $branchName = Branch::find($branchId)?->name ?? '';
+        }
+
+        // Base query
+        $baseQuery = SalePayment::join('sales', 'sale_payments.sale_id', '=', 'sales.id')
+            ->join('payment_methods', 'sale_payments.payment_method_id', '=', 'payment_methods.id')
+            ->where('sales.status', 'completed')
+            ->whereDate('sales.created_at', '>=', $startDate)
+            ->whereDate('sales.created_at', '<=', $endDate);
+
+        if ($branchId) $baseQuery->where('sales.branch_id', $branchId);
+        if ($cashRegisterId) {
+            $baseQuery->whereHas('sale.cashReconciliation', fn($q) => $q->where('cash_register_id', $cashRegisterId));
+        }
+        if ($paymentMethodId) $baseQuery->where('sale_payments.payment_method_id', $paymentMethodId);
+        if ($userId) $baseQuery->where('sales.user_id', $userId);
+
+        // Summary by payment method
+        $summary = (clone $baseQuery)->select(
+            'payment_methods.name',
+            DB::raw('SUM(sale_payments.amount) as total'),
+            DB::raw('COUNT(DISTINCT sales.id) as transaction_count')
+        )->groupBy('payment_methods.id', 'payment_methods.name')->orderByDesc('total')->get();
+
+        $grandTotal = $summary->sum('total');
+
+        // Detail
+        $detail = (clone $baseQuery)->join('users', 'sales.user_id', '=', 'users.id')
+            ->leftJoin('branches', 'sales.branch_id', '=', 'branches.id')
+            ->select(
+                'sales.invoice_number',
+                'sales.created_at',
+                'sales.total as sale_total',
+                'sale_payments.amount',
+                'payment_methods.name as payment_method_name',
+                'users.name as user_name',
+                'branches.name as branch_name'
+            )->orderByDesc('sales.created_at')->get();
+
+        // By user
+        $byUser = (clone $baseQuery)->join('users', 'sales.user_id', '=', 'users.id')
+            ->select(
+                'users.name as user_name',
+                'payment_methods.name as payment_method_name',
+                DB::raw('SUM(sale_payments.amount) as total'),
+                DB::raw('COUNT(DISTINCT sales.id) as transaction_count')
+            )->groupBy('users.id', 'users.name', 'payment_methods.name')
+            ->orderBy('users.name')->orderByDesc('total')->get();
+
+        // Build Excel
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Medios de Pago');
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'A855F7']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '9333EA']]],
+        ];
+        $titleStyle = ['font' => ['bold' => true, 'size' => 16, 'color' => ['rgb' => '1E293B']], 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]];
+        $subtitleStyle = ['font' => ['bold' => true, 'size' => 12, 'color' => ['rgb' => 'A855F7']]];
+        $dataStyle = ['borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E2E8F0']]]];
+
+        $row = 1;
+        $sheet->setCellValue('A' . $row, 'REPORTE DE MEDIOS DE PAGO');
+        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->getStyle('A' . $row)->applyFromArray($titleStyle);
+        $sheet->getRowDimension($row)->setRowHeight(30);
+        $row += 2;
+
+        $sheet->setCellValue('A' . $row, 'Período:'); $sheet->setCellValue('B' . $row, $startDate . ' - ' . $endDate); $sheet->getStyle('A' . $row)->getFont()->setBold(true); $row++;
+        $sheet->setCellValue('A' . $row, 'Sucursal:'); $sheet->setCellValue('B' . $row, $branchName); $sheet->getStyle('A' . $row)->getFont()->setBold(true); $row++;
+        $sheet->setCellValue('A' . $row, 'Generado:'); $sheet->setCellValue('B' . $row, now()->format('d/m/Y H:i')); $sheet->getStyle('A' . $row)->getFont()->setBold(true); $row += 2;
+
+        // Summary section
+        $sheet->setCellValue('A' . $row, 'RESUMEN POR MÉTODO DE PAGO'); $sheet->getStyle('A' . $row)->applyFromArray($subtitleStyle); $row++;
+        $sheet->setCellValue('A' . $row, 'Método de Pago'); $sheet->setCellValue('B' . $row, 'Transacciones'); $sheet->setCellValue('C' . $row, 'Total'); $sheet->setCellValue('D' . $row, '% del Total');
+        $sheet->getStyle('A' . $row . ':D' . $row)->applyFromArray($headerStyle); $row++;
+
+        foreach ($summary as $item) {
+            $pct = $grandTotal > 0 ? ($item->total / $grandTotal) * 100 : 0;
+            $sheet->setCellValue('A' . $row, $item->name);
+            $sheet->setCellValue('B' . $row, $item->transaction_count);
+            $sheet->setCellValue('C' . $row, $item->total);
+            $sheet->setCellValue('D' . $row, number_format($pct, 1) . '%');
+            $sheet->getStyle('A' . $row . ':D' . $row)->applyFromArray($dataStyle);
+            $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $row++;
+        }
+        // Total row
+        $sheet->setCellValue('A' . $row, 'TOTAL'); $sheet->setCellValue('B' . $row, $summary->sum('transaction_count')); $sheet->setCellValue('C' . $row, $grandTotal); $sheet->setCellValue('D' . $row, '100%');
+        $sheet->getStyle('A' . $row . ':D' . $row)->getFont()->setBold(true);
+        $sheet->getStyle('A' . $row . ':D' . $row)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F1F5F9');
+        $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+        $row += 2;
+
+        // By user section
+        $sheet->setCellValue('A' . $row, 'RESUMEN POR VENDEDOR'); $sheet->getStyle('A' . $row)->applyFromArray($subtitleStyle); $row++;
+        $sheet->setCellValue('A' . $row, 'Vendedor'); $sheet->setCellValue('B' . $row, 'Método de Pago'); $sheet->setCellValue('C' . $row, 'Transacciones'); $sheet->setCellValue('D' . $row, 'Total');
+        $sheet->getStyle('A' . $row . ':D' . $row)->applyFromArray($headerStyle); $row++;
+
+        foreach ($byUser as $item) {
+            $sheet->setCellValue('A' . $row, $item->user_name);
+            $sheet->setCellValue('B' . $row, $item->payment_method_name);
+            $sheet->setCellValue('C' . $row, $item->transaction_count);
+            $sheet->setCellValue('D' . $row, $item->total);
+            $sheet->getStyle('A' . $row . ':D' . $row)->applyFromArray($dataStyle);
+            $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $row++;
+        }
+        $row += 1;
+
+        // Detail section (new sheet)
+        $detailSheet = $spreadsheet->createSheet();
+        $detailSheet->setTitle('Detalle');
+        $dRow = 1;
+        $detailSheet->setCellValue('A' . $dRow, 'DETALLE DE PAGOS');
+        $detailSheet->mergeCells('A' . $dRow . ':G' . $dRow);
+        $detailSheet->getStyle('A' . $dRow)->applyFromArray($titleStyle);
+        $detailSheet->getRowDimension($dRow)->setRowHeight(30);
+        $dRow += 2;
+
+        $detailSheet->setCellValue('A' . $dRow, 'Factura'); $detailSheet->setCellValue('B' . $dRow, 'Fecha');
+        $detailSheet->setCellValue('C' . $dRow, 'Método'); $detailSheet->setCellValue('D' . $dRow, 'Vendedor');
+        $detailSheet->setCellValue('E' . $dRow, 'Sucursal'); $detailSheet->setCellValue('F' . $dRow, 'Total Venta');
+        $detailSheet->setCellValue('G' . $dRow, 'Monto Pagado');
+        $detailSheet->getStyle('A' . $dRow . ':G' . $dRow)->applyFromArray($headerStyle);
+        $dRow++;
+
+        foreach ($detail as $item) {
+            $detailSheet->setCellValue('A' . $dRow, $item->invoice_number);
+            $detailSheet->setCellValue('B' . $dRow, Carbon::parse($item->created_at)->format('d/m/Y H:i'));
+            $detailSheet->setCellValue('C' . $dRow, $item->payment_method_name);
+            $detailSheet->setCellValue('D' . $dRow, $item->user_name);
+            $detailSheet->setCellValue('E' . $dRow, $item->branch_name ?? '-');
+            $detailSheet->setCellValue('F' . $dRow, $item->sale_total);
+            $detailSheet->setCellValue('G' . $dRow, $item->amount);
+            $detailSheet->getStyle('A' . $dRow . ':G' . $dRow)->applyFromArray($dataStyle);
+            $detailSheet->getStyle('F' . $dRow . ':G' . $dRow)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $dRow++;
+        }
+
+        foreach (range('A', 'G') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+            $detailSheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'medios-pago-' . $startDate . '-' . $endDate . '.xlsx';
+        $tempFile = tempnam(sys_get_temp_dir(), 'excel');
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
+
 }

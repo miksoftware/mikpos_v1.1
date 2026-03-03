@@ -48,6 +48,7 @@ class SeedMarkExecuted extends Command
         'ExpensesModuleSeeder',
         'PayrollModuleSeeder',
         'DiscountsModuleSeeder',
+        'PaymentMethodsReportPermissionSeeder',
     ];
 
     public function handle(): int

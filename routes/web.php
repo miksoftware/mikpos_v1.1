@@ -335,5 +335,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/cash', App\Livewire\Reports\CashReport::class)
             ->name('cash')
             ->middleware('permission:reports.cash');
+
+        Route::get('/payment-methods', App\Livewire\Reports\PaymentMethodsReport::class)
+            ->name('payment-methods')
+            ->middleware('permission:reports.payment_methods');
+
+        Route::get('/payment-methods/excel', [App\Http\Controllers\ReportExportController::class, 'paymentMethodsExcel'])
+            ->name('payment-methods.excel')
+            ->middleware('permission:reports.export');
     });
 });
