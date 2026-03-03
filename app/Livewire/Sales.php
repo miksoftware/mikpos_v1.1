@@ -14,6 +14,10 @@ use App\Models\CashMovement;
 use App\Models\CashRegister;
 use App\Models\InventoryMovement;
 use App\Models\Product;
+use App\Models\Customer;
+use App\Models\PaymentMethod;
+use App\Models\SaleItem;
+use App\Models\SalePayment;
 use App\Services\FactusService;
 use App\Services\ActivityLogService;
 use Livewire\Attributes\Layout;
@@ -57,6 +61,18 @@ class Sales extends Component
     public $historyItems = [];
     
     public $isRetrying = false;
+
+    // Cancel & Replicate
+    public $replicateAfter = false;
+    public $showReplicateConfigModal = false;
+    public $replicateSaleId = null;
+    public $replicateCustomerId = null;
+    public $replicateCustomerSearch = '';
+    public $replicateCustomerResults = [];
+    public $replicateSelectedCustomer = null;
+    public $replicatePayments = [];
+    public $replicateIsCredit = false;
+    public $isProcessingReplicate = false;
 
     public $correctionConcepts = [
         '1' => 'Devolución parcial de bienes y/o no aceptación parcial del servicio',
@@ -228,6 +244,7 @@ class Sales extends Component
         $this->showCreditNoteModal = false;
         $this->creditNoteItems = [];
         $this->creditNoteReason = '';
+        $this->replicateAfter = false;
     }
 
     public function getCreditNoteTotalProperty()
@@ -361,10 +378,25 @@ class Sales extends Component
 
             ActivityLogService::logCreate('sales', $creditNote, "Nota crédito {$creditNote->number} creada para factura {$sale->invoice_number}");
 
+            // Adjust credit sale amounts if applicable
+            if ($sale->payment_type === 'credit') {
+                $this->adjustCreditSaleAfterReturn($sale, $creditNote->total);
+            }
+
             DB::commit();
 
-            $this->closeCreditNoteModal();
-            $this->closeDetailModal();
+            // If replicate requested, open config modal instead of creating sale immediately
+            if ($this->replicateAfter) {
+                $this->replicateAfter = false;
+                $this->closeCreditNoteModal();
+                $this->closeDetailModal();
+                $this->openReplicateConfigModal($sale);
+                $this->dispatch('notify', message: 'Nota crédito creada. Configure la nueva venta.', type: 'success');
+            } else {
+                $this->dispatch('notify', message: 'Nota crédito creada y validada por DIAN', type: 'success');
+                $this->closeCreditNoteModal();
+                $this->closeDetailModal();
+            }
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -479,6 +511,7 @@ class Sales extends Component
         $this->showRefundModal = false;
         $this->refundItems = [];
         $this->refundReason = '';
+        $this->replicateAfter = false;
     }
 
     public function getRefundTotalProperty()
@@ -601,13 +634,27 @@ class Sales extends Component
 
             ActivityLogService::logCreate('sales', $refund, "Devolución {$refund->number} creada para venta {$sale->invoice_number}");
 
+            // Adjust credit sale amounts if applicable
+            if ($sale->payment_type === 'credit') {
+                $this->adjustCreditSaleAfterReturn($sale, $refund->total);
+            }
+
             DB::commit();
 
-            $this->dispatch('notify', message: 'Devolución registrada correctamente', type: 'success');
             $this->dispatch('print-refund', refundId: $refund->id);
 
-            $this->closeRefundModal();
-            $this->closeDetailModal();
+            // If replicate requested, open config modal instead of creating sale immediately
+            if ($this->replicateAfter) {
+                $this->replicateAfter = false;
+                $this->closeRefundModal();
+                $this->closeDetailModal();
+                $this->openReplicateConfigModal($sale);
+                $this->dispatch('notify', message: 'Devolución registrada. Configure la nueva venta.', type: 'success');
+            } else {
+                $this->dispatch('notify', message: 'Devolución registrada correctamente', type: 'success');
+                $this->closeRefundModal();
+                $this->closeDetailModal();
+            }
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -617,7 +664,365 @@ class Sales extends Component
         $this->isProcessingRefund = false;
     }
 
+    // ==================== REPLICATE CONFIG MODAL ====================
+
+    public function openReplicateConfigModal(Sale $sale)
+    {
+        $sale->load(['customer', 'payments.paymentMethod']);
+
+        $this->replicateSaleId = $sale->id;
+        $this->replicateCustomerId = $sale->customer_id;
+        $this->replicateSelectedCustomer = $sale->customer;
+        $this->replicateCustomerSearch = '';
+        $this->replicateCustomerResults = [];
+        $this->replicateIsCredit = $sale->payment_type === 'credit';
+
+        // Load original payments
+        $this->replicatePayments = [];
+        foreach ($sale->payments as $payment) {
+            $this->replicatePayments[] = [
+                'method_id' => $payment->payment_method_id,
+                'amount' => (float) $payment->amount,
+                'reference' => $payment->reference,
+            ];
+        }
+
+        // Ensure at least one payment row
+        if (empty($this->replicatePayments)) {
+            $this->replicatePayments[] = ['method_id' => '', 'amount' => $this->replicateIsCredit ? 0 : (float) $sale->total, 'reference' => ''];
+        }
+
+        $this->showReplicateConfigModal = true;
+    }
+
+    public function updatedReplicateCustomerSearch()
+    {
+        if (strlen($this->replicateCustomerSearch) < 2) {
+            $this->replicateCustomerResults = [];
+            return;
+        }
+
+        $search = $this->replicateCustomerSearch;
+        $sale = Sale::find($this->replicateSaleId);
+        $branchId = $sale ? $sale->branch_id : null;
+
+        $this->replicateCustomerResults = Customer::where('branch_id', $branchId)
+            ->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('business_name', 'like', "%{$search}%")
+                  ->orWhere('document_number', 'like', "%{$search}%");
+            })
+            ->limit(5)
+            ->get();
+    }
+
+    public function selectReplicateCustomer($customerId)
+    {
+        $customer = Customer::find($customerId);
+        if ($customer) {
+            $this->replicateCustomerId = $customer->id;
+            $this->replicateSelectedCustomer = $customer;
+            $this->replicateCustomerSearch = '';
+            $this->replicateCustomerResults = [];
+            // Reset credit if new customer doesn't have credit
+            if (!$customer->has_credit) {
+                $this->replicateIsCredit = false;
+            }
+        }
+    }
+
+    public function clearReplicateCustomer()
+    {
+        $this->replicateCustomerId = null;
+        $this->replicateSelectedCustomer = null;
+        $this->replicateIsCredit = false;
+    }
+
+    public function addReplicatePayment()
+    {
+        $this->replicatePayments[] = ['method_id' => '', 'amount' => 0, 'reference' => ''];
+    }
+
+    public function removeReplicatePayment($index)
+    {
+        unset($this->replicatePayments[$index]);
+        $this->replicatePayments = array_values($this->replicatePayments);
+    }
+
+    public function closeReplicateConfigModal()
+    {
+        $this->showReplicateConfigModal = false;
+        $this->replicateSaleId = null;
+        $this->replicateCustomerId = null;
+        $this->replicateSelectedCustomer = null;
+        $this->replicateCustomerSearch = '';
+        $this->replicateCustomerResults = [];
+        $this->replicatePayments = [];
+        $this->replicateIsCredit = false;
+    }
+
+    public function confirmReplicate()
+    {
+        $sale = Sale::with(['items', 'payments.paymentMethod'])->find($this->replicateSaleId);
+
+        if (!$sale) {
+            $this->dispatch('notify', message: 'Venta original no encontrada', type: 'error');
+            return;
+        }
+
+        // Validate credit: customer must have credit enabled
+        if ($this->replicateIsCredit) {
+            $customer = Customer::find($this->replicateCustomerId);
+            if (!$customer || !$customer->has_credit) {
+                $this->dispatch('notify', message: 'El cliente seleccionado no tiene crédito habilitado', type: 'error');
+                return;
+            }
+        }
+
+        // Validate payments
+        $validPayments = collect($this->replicatePayments)
+            ->filter(fn($p) => (float) ($p['amount'] ?? 0) > 0 && !empty($p['method_id']));
+
+        $totalPayments = $validPayments->sum(fn($p) => (float) $p['amount']);
+
+        if (!$this->replicateIsCredit) {
+            // Cash sale: payments must cover total
+            if ($validPayments->isEmpty()) {
+                $this->dispatch('notify', message: 'Debe agregar al menos un método de pago', type: 'error');
+                return;
+            }
+            if ($totalPayments < (float) $sale->total) {
+                $this->dispatch('notify', message: 'El total de pagos no cubre el total de la venta ($' . number_format($sale->total, 0, ',', '.') . ')', type: 'error');
+                return;
+            }
+        }
+
+        $this->isProcessingReplicate = true;
+
+        try {
+            DB::beginTransaction();
+
+            $newSale = $this->replicateSale(
+                $sale,
+                $this->replicateCustomerId,
+                $validPayments->isNotEmpty() ? $validPayments->values()->all() : null,
+                $this->replicateIsCredit,
+                $totalPayments
+            );
+
+            DB::commit();
+
+            $this->dispatch('notify', message: "Nueva venta {$newSale->invoice_number} creada", type: 'success');
+            $this->dispatch('print-receipt', saleId: $newSale->id);
+            $this->closeReplicateConfigModal();
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->dispatch('notify', message: 'Error al crear venta: ' . $e->getMessage(), type: 'error');
+        }
+
+        $this->isProcessingReplicate = false;
+    }
+
+    // ==================== REPLICATE HELPER ====================
+
+    /**
+     * Replicate a sale creating a new one with the same items and payments.
+     */
+    protected function replicateSale(Sale $originalSale, ?int $customerId = null, ?array $payments = null, bool $isCredit = false, float $paidAmount = 0): Sale
+    {
+        $user = auth()->user();
+        $cashReconciliation = $this->getOpenCashReconciliation($user);
+
+        $total = (float) $originalSale->total;
+
+        // Determine payment type and status
+        if ($isCredit) {
+            $paymentType = 'credit';
+            $creditAmount = $total;
+            $effectivePaid = $paidAmount;
+            if ($effectivePaid >= $total) {
+                $paymentStatus = 'paid';
+            } elseif ($effectivePaid > 0) {
+                $paymentStatus = 'partial';
+            } else {
+                $paymentStatus = 'pending';
+            }
+        } else {
+            $paymentType = 'cash';
+            $creditAmount = 0;
+            $effectivePaid = $total;
+            $paymentStatus = 'paid';
+        }
+
+        $newSale = Sale::create([
+            'branch_id' => $originalSale->branch_id,
+            'cash_reconciliation_id' => $cashReconciliation?->id,
+            'customer_id' => $customerId ?? $originalSale->customer_id,
+            'user_id' => auth()->id(),
+            'invoice_number' => Sale::generateInvoiceNumber($originalSale->branch_id),
+            'subtotal' => $originalSale->subtotal,
+            'tax_total' => $originalSale->tax_total,
+            'discount' => $originalSale->discount,
+            'total' => $total,
+            'status' => 'completed',
+            'payment_type' => $paymentType,
+            'payment_status' => $paymentStatus,
+            'credit_amount' => $creditAmount,
+            'paid_amount' => $effectivePaid,
+            'payment_due_date' => $isCredit ? now()->addDays(30) : null,
+            'notes' => "Replicada de {$originalSale->invoice_number}",
+        ]);
+
+        // Replicate items and update stock
+        foreach ($originalSale->items as $item) {
+            SaleItem::create([
+                'sale_id' => $newSale->id,
+                'product_id' => $item->product_id,
+                'product_child_id' => $item->product_child_id,
+                'service_id' => $item->service_id,
+                'combo_id' => $item->combo_id,
+                'product_name' => $item->product_name,
+                'product_sku' => $item->product_sku,
+                'unit_price' => $item->unit_price,
+                'quantity' => $item->quantity,
+                'tax_rate' => $item->tax_rate,
+                'tax_amount' => $item->tax_amount,
+                'subtotal' => $item->subtotal,
+                'discount_type' => $item->discount_type,
+                'discount_type_value' => $item->discount_type_value,
+                'discount_amount' => $item->discount_amount,
+                'discount_reason' => $item->discount_reason,
+                'total' => $item->total,
+            ]);
+
+            // Decrement stock for products
+            if ($item->product_id) {
+                $product = Product::find($item->product_id);
+                if ($product) {
+                    InventoryMovement::createMovement(
+                        'sale', $product, 'out', (float) $item->quantity,
+                        (float) $item->unit_price,
+                        "Venta #{$newSale->invoice_number} (replicada de {$originalSale->invoice_number})",
+                        $newSale, $originalSale->branch_id
+                    );
+                    $product->decrement('current_stock', (float) $item->quantity);
+                }
+            }
+
+            // Handle combo stock
+            if ($item->combo_id) {
+                $combo = \App\Models\Combo::with(['items.product'])->find($item->combo_id);
+                if ($combo) {
+                    foreach ($combo->items as $comboItem) {
+                        if ($comboItem->product_id) {
+                            $product = Product::find($comboItem->product_id);
+                            if ($product) {
+                                $totalQty = (float) $comboItem->quantity * (float) $item->quantity;
+                                InventoryMovement::createMovement(
+                                    'sale', $product, 'out', $totalQty,
+                                    (float) $comboItem->unit_price,
+                                    "Venta #{$newSale->invoice_number} (Combo: {$combo->name})",
+                                    $newSale, $originalSale->branch_id
+                                );
+                                $product->decrement('current_stock', $totalQty);
+                            }
+                        }
+                    }
+                    $combo->incrementSales((int) $item->quantity);
+                }
+            }
+        }
+
+        // Create payments (use overrides if provided)
+        if ($payments) {
+            $saleTotal = (float) $originalSale->total;
+            $paymentsSoFar = 0;
+
+            foreach ($payments as $i => $payment) {
+                $isLast = ($i === count($payments) - 1);
+                if ($isLast) {
+                    $paymentAmount = round($saleTotal - $paymentsSoFar, 2);
+                } else {
+                    $paymentAmount = min((float) $payment['amount'], round($saleTotal - $paymentsSoFar, 2));
+                }
+
+                if ($paymentAmount > 0) {
+                    SalePayment::create([
+                        'sale_id' => $newSale->id,
+                        'payment_method_id' => $payment['method_id'],
+                        'amount' => $paymentAmount,
+                        'reference' => $payment['reference'] ?? null,
+                    ]);
+                    $paymentsSoFar += $paymentAmount;
+                }
+            }
+        } else {
+            foreach ($originalSale->payments as $payment) {
+                SalePayment::create([
+                    'sale_id' => $newSale->id,
+                    'payment_method_id' => $payment->payment_method_id,
+                    'amount' => $payment->amount,
+                    'reference' => $payment->reference,
+                ]);
+            }
+        }
+
+        // Process electronic invoice if the original was electronic
+        if ($originalSale->is_electronic) {
+            $factusService = new FactusService();
+            if ($factusService->isEnabled()) {
+                try {
+                    $factusService->createInvoice($newSale);
+                } catch (\Exception $e) {
+                    // Log but don't fail - can retry later
+                }
+            }
+        }
+
+        ActivityLogService::logCreate('sales', $newSale, "Venta {$newSale->invoice_number} replicada de {$originalSale->invoice_number}");
+
+        return $newSale;
+    }
+
     // ==================== HELPER METHODS ====================
+
+    /**
+     * Adjust credit sale amounts after a refund or credit note.
+     * Reduces credit_amount by the returned total and updates payment_status.
+     */
+    protected function adjustCreditSaleAfterReturn(Sale $sale, float $returnTotal): void
+    {
+        $sale = $sale->fresh();
+
+        // Calculate total returned (all refunds + credit notes)
+        $totalRefunded = $sale->refunds()->where('status', 'completed')->sum('total');
+        $totalCredited = $sale->creditNotes()->whereIn('status', ['pending', 'validated'])->sum('total');
+        $totalReturned = (float) $totalRefunded + (float) $totalCredited;
+
+        // New effective credit amount = original total - total returned
+        $newCreditAmount = max(0, (float) $sale->total - $totalReturned);
+
+        // Determine new payment status
+        $paidAmount = (float) $sale->paid_amount;
+        if ($newCreditAmount <= 0) {
+            // Everything was returned, mark as paid
+            $newPaymentStatus = 'paid';
+        } elseif ($paidAmount >= $newCreditAmount) {
+            // Paid amount covers remaining credit
+            $newPaymentStatus = 'paid';
+        } elseif ($paidAmount > 0) {
+            $newPaymentStatus = 'partial';
+        } else {
+            $newPaymentStatus = 'pending';
+        }
+
+        $sale->update([
+            'credit_amount' => $newCreditAmount,
+            'payment_status' => $newPaymentStatus,
+        ]);
+    }
 
     /**
      * Get open cash reconciliation for user.
@@ -803,6 +1208,7 @@ class Sales extends Component
             'isSuperAdmin' => $isSuperAdmin,
             'todaySales' => $todaySales,
             'todayCount' => $todayCount,
+            'paymentMethods' => PaymentMethod::where('is_active', true)->get(),
         ]);
     }
 }

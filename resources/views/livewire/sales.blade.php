@@ -520,7 +520,11 @@
 
                     <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
                         <button wire:click="closeCreditNoteModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
-                        <button wire:click="processCreditNote" wire:loading.attr="disabled" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl hover:from-amber-600 hover:to-orange-600 disabled:opacity-50">
+                        <button x-on:click="$wire.set('replicateAfter', true).then(() => $wire.processCreditNote())" wire:loading.attr="disabled" wire:target="processCreditNote" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl hover:from-orange-600 hover:to-amber-600 disabled:opacity-50">
+                            <span wire:loading.remove wire:target="processCreditNote">Anular y Replicar</span>
+                            <span wire:loading wire:target="processCreditNote">Procesando...</span>
+                        </button>
+                        <button wire:click="processCreditNote" wire:loading.attr="disabled" wire:target="processCreditNote" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl hover:from-amber-600 hover:to-orange-600 disabled:opacity-50">
                             <span wire:loading.remove wire:target="processCreditNote">Crear Nota Crédito</span>
                             <span wire:loading wire:target="processCreditNote">Procesando...</span>
                         </button>
@@ -643,9 +647,144 @@
 
                     <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
                         <button wire:click="closeRefundModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
-                        <button wire:click="processRefund" wire:loading.attr="disabled" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-rose-500 rounded-xl hover:from-red-600 hover:to-rose-600 disabled:opacity-50">
+                        <button x-on:click="$wire.set('replicateAfter', true).then(() => $wire.processRefund())" wire:loading.attr="disabled" wire:target="processRefund" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl hover:from-orange-600 hover:to-amber-600 disabled:opacity-50">
+                            <span wire:loading.remove wire:target="processRefund">Devolver y Replicar</span>
+                            <span wire:loading wire:target="processRefund">Procesando...</span>
+                        </button>
+                        <button wire:click="processRefund" wire:loading.attr="disabled" wire:target="processRefund" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-rose-500 rounded-xl hover:from-red-600 hover:to-rose-600 disabled:opacity-50">
                             <span wire:loading.remove wire:target="processRefund">Crear Devolución</span>
                             <span wire:loading wire:target="processRefund">Procesando...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Replicate Config Modal -->
+    @if($showReplicateConfigModal && $replicateSaleId)
+    @php $replicateSale = \App\Models\Sale::find($replicateSaleId); @endphp
+    <div class="relative z-[100]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-xl">
+                    <!-- Header -->
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">Configurar Nueva Venta</h3>
+                            <p class="text-sm text-slate-500">Replicando: {{ $replicateSale?->invoice_number }} — Total: ${{ number_format($replicateSale?->total ?? 0, 0, ',', '.') }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Content -->
+                    <div class="px-6 py-4 space-y-5 max-h-[60vh] overflow-y-auto">
+                        <!-- Customer -->
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Cliente</label>
+                            @if($replicateSelectedCustomer)
+                            <div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                <div>
+                                    <p class="text-sm font-medium text-slate-800">
+                                        {{ $replicateSelectedCustomer->business_name ?? ($replicateSelectedCustomer->first_name . ' ' . $replicateSelectedCustomer->last_name) }}
+                                    </p>
+                                    <p class="text-xs text-slate-500">{{ $replicateSelectedCustomer->document_number }}</p>
+                                </div>
+                                <button wire:click="clearReplicateCustomer" class="p-1 text-slate-400 hover:text-red-500">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+                            </div>
+                            @else
+                            <div class="relative">
+                                <input wire:model.live.debounce.300ms="replicateCustomerSearch" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Buscar cliente por nombre o documento...">
+                                @if(count($replicateCustomerResults) > 0)
+                                <div class="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-40 overflow-y-auto">
+                                    @foreach($replicateCustomerResults as $customer)
+                                    <button wire:click="selectReplicateCustomer({{ $customer->id }})" class="w-full px-3 py-2 text-left hover:bg-slate-50 text-sm">
+                                        <span class="font-medium">{{ $customer->business_name ?? ($customer->first_name . ' ' . $customer->last_name) }}</span>
+                                        <span class="text-slate-400 ml-1">{{ $customer->document_number }}</span>
+                                    </button>
+                                    @endforeach
+                                </div>
+                                @endif
+                            </div>
+                            @endif
+                        </div>
+
+                        <!-- Credit Toggle -->
+                        @if($replicateSelectedCustomer && $replicateSelectedCustomer->has_credit)
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Tipo de Pago</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button type="button" wire:click="$set('replicateIsCredit', false)"
+                                    class="p-3 rounded-xl border-2 transition-all text-left {{ !$replicateIsCredit ? 'border-green-500 bg-green-50' : 'border-slate-200 hover:border-green-300' }}">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-8 h-8 rounded-full {{ !$replicateIsCredit ? 'bg-green-100' : 'bg-slate-100' }} flex items-center justify-center">
+                                            <svg class="w-4 h-4 {{ !$replicateIsCredit ? 'text-green-600' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
+                                        </div>
+                                        <span class="text-sm font-medium {{ !$replicateIsCredit ? 'text-green-700' : 'text-slate-600' }}">Contado</span>
+                                    </div>
+                                </button>
+                                <button type="button" wire:click="$set('replicateIsCredit', true)"
+                                    class="p-3 rounded-xl border-2 transition-all text-left {{ $replicateIsCredit ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-300' }}">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-8 h-8 rounded-full {{ $replicateIsCredit ? 'bg-blue-100' : 'bg-slate-100' }} flex items-center justify-center">
+                                            <svg class="w-4 h-4 {{ $replicateIsCredit ? 'text-blue-600' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                                        </div>
+                                        <span class="text-sm font-medium {{ $replicateIsCredit ? 'text-blue-700' : 'text-slate-600' }}">Crédito</span>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                        @endif
+
+                        <!-- Payment Methods -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-sm font-medium text-slate-700">
+                                    {{ $replicateIsCredit ? 'Abono Inicial (opcional)' : 'Métodos de Pago' }}
+                                </label>
+                                <button wire:click="addReplicatePayment" class="text-xs text-[#ff7261] hover:text-[#e55a4a] font-medium">+ Agregar método</button>
+                            </div>
+                            <div class="space-y-2">
+                                @foreach($replicatePayments as $index => $payment)
+                                <div class="flex items-center gap-2">
+                                    <select wire:model="replicatePayments.{{ $index }}.method_id" class="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                        <option value="">Seleccionar...</option>
+                                        @foreach($paymentMethods as $method)
+                                        <option value="{{ $method->id }}">{{ $method->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    <input wire:model="replicatePayments.{{ $index }}.amount" type="number" step="1" min="0" class="w-32 px-3 py-2 border border-slate-300 rounded-xl text-sm text-right focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Monto">
+                                    @if(count($replicatePayments) > 1)
+                                    <button wire:click="removeReplicatePayment({{ $index }})" class="p-1.5 text-slate-400 hover:text-red-500">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                    @endif
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <!-- Total summary -->
+                        <div class="p-4 bg-orange-50 border border-orange-200 rounded-xl">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-orange-800">Total de la venta:</span>
+                                <span class="text-xl font-bold text-orange-900">${{ number_format($replicateSale?->total ?? 0, 0, ',', '.') }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                        <button wire:click="closeReplicateConfigModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
+                        <button wire:click="confirmReplicate" wire:loading.attr="disabled" wire:target="confirmReplicate" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] disabled:opacity-50">
+                            <span wire:loading.remove wire:target="confirmReplicate">Crear Nueva Venta</span>
+                            <span wire:loading wire:target="confirmReplicate">Procesando...</span>
                         </button>
                     </div>
                 </div>
