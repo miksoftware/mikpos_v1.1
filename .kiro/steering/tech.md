@@ -22,20 +22,23 @@
 
 ## Architecture
 - **MVC Pattern**: Models for data, Livewire components for controllers/views
-- **Service Layer**: `ActivityLogService` for centralized logging, `FactusService` for DIAN electronic invoicing
+- **Service Layer**: `ActivityLogService` for centralized logging, `FactusService` for DIAN electronic invoicing, `PayrollCalculatorService` for Colombian payroll calculations
 - **Permission System**: Role-based access control with granular permissions
 - **Multi-tenancy**: Branch-based data filtering and access control
 
 ## Database Schema
 - **Core Tables**: users, roles, permissions, modules, branches, activity_logs, seeder_history
 - **Geographic**: departments, municipalities
-- **Configuration**: billing_settings, tax_documents, currencies, payment_methods, taxes, system_documents, product_field_settings
+- **Configuration**: billing_settings, tax_documents, currencies, payment_methods, taxes, system_documents, product_field_settings, print_format_settings
 - **Product Catalog**: categories, subcategories, brands, units, product_models, presentations, colors, imeis, products, product_children, product_barcodes
 - **Services**: services
 - **Cash Management**: cash_registers, cash_reconciliations, cash_reconciliation_edits, cash_movements
 - **Sales**: sales, sale_items, sale_payments, sale_reprints
 - **Credit/Refund**: credit_notes, credit_note_items, credit_payments, refunds, refund_items
 - **Transactions**: customers, suppliers, combos, combo_items, purchases, purchase_items, inventory_movements
+- **Discounts**: discounts, discount_product (pivot)
+- **Expenses**: expenses
+- **Payroll**: employees, employee_loans, payrolls, payroll_details, payroll_adjustments
 - **Relationships**: Proper foreign key constraints and cascading deletes
 
 ## Production Database

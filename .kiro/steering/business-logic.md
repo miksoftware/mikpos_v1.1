@@ -291,6 +291,61 @@ if ($factus->isEnabled()) {
 - Reason is required (min 5-10 characters)
 - At least one item must be selected
 
+### Credit Sale Adjustment on Return
+When a refund or credit note is created for a credit sale, the system automatically adjusts the credit:
+
+```php
+// Called after processRefund() and processCreditNote() when sale is credit
+adjustCreditSaleAfterReturn(Sale $sale, float $returnTotal): void
+```
+
+**Logic:**
+1. Calculate total returned = sum of completed refunds + validated/pending credit notes
+2. New `credit_amount` = max(0, sale total - total returned)
+3. Determine new `payment_status`:
+   - `credit_amount <= 0` → `paid` (nothing owed, disappears from credits view)
+   - `paid_amount >= credit_amount` → `paid`
+   - `paid_amount > 0` → `partial`
+   - else → `pending`
+
+**Result:**
+- Total refund/credit note → sale disappears from Credits module (credit_amount = 0, status = paid)
+- Partial refund → Credits module shows only the remaining owed amount
+
+### Cancel & Replicate (Anular y Replicar / Devolución y Replicar)
+
+Two-step flow for canceling a sale and creating a modified replacement:
+
+**Step 1: Process the return**
+- For POS sales: "Devolución y Replicar" button inside the refund modal footer
+- For electronic invoices: "Anular y Replicar" button inside the credit note modal footer
+- Uses `$replicateAfter` boolean flag to trigger step 2
+
+**Step 2: Configure new sale (Replicate Config Modal)**
+After the refund/credit note is processed, a configuration modal opens allowing:
+- Change customer (searchable select)
+- Change payment methods (add/remove/modify amounts)
+- Toggle credit payment (only if selected customer has `has_credit = true`)
+- Set initial payment amount for credit sales (abono inicial)
+
+**`replicateSale()` method:**
+```php
+replicateSale(Sale $original, ?int $customerId, ?array $payments, bool $isCredit, float $paidAmount): Sale
+```
+- Creates new sale with same items
+- Decrements stock (inventory movements)
+- Handles combo stock
+- Creates payments (custom or copied from original)
+- Processes electronic invoice if original was electronic
+- Logs activity with reference to original sale
+
+### SystemDocument Code Field (IMPORTANT)
+- `SystemDocument` has a `code` field used for programmatic lookups (e.g., `SystemDocument::findByCode('refund')`)
+- The `code` is auto-generated from `name` via `Str::slug()` on creation only
+- Manually created documents from UI may have unexpected codes (e.g., 'devolucion' instead of 'refund')
+- **Critical**: Seeders use `firstOrCreate(['code' => 'refund'])` which won't match manually created documents with different codes
+- **Fix**: Use tinker to update the code: `SystemDocument::where('prefix', 'DEV')->first()->update(['code' => 'refund'])`
+
 
 ## Sale Invoice Number Generation
 - `Sale::generateInvoiceNumber()` searches by invoice_number LIKE pattern (not by date)
@@ -361,6 +416,12 @@ $trackedSeeders = [
     'RefundSystemDocumentSeeder',
     'PurchasesReportPermissionSeeder',
     'CashReportPermissionSeeder',
+    'MigrationModuleSeeder',
+    'PrintFormatsModuleSeeder',
+    'ExpensesModuleSeeder',
+    'PayrollModuleSeeder',
+    'DiscountsModuleSeeder',
+    'PaymentMethodsReportPermissionSeeder',
 ];
 ```
 
@@ -474,6 +535,7 @@ Current reports:
 - **CreditsReport** - Credits/receivables report
 - **PurchasesReport** - Purchases report (7 tabs, 3 Chart.js charts, filters by period/branch/supplier/payment)
 - **CashReport** - Cash report (3 tabs: Arqueos, Movimientos, Informe consolidado)
+- **PaymentMethodsReport** - Payment methods report (3 views: summary, detail, by user)
 - **Kardex** - Inventory kardex report
 
 ### Report Permissions
@@ -486,6 +548,7 @@ Current reports:
 - `reports.credits` - Credits report
 - `reports.purchases` - Purchases report
 - `reports.cash` - Cash report
+- `reports.payment_methods` - Payment methods report
 - `reports.export` - Export reports to PDF/Excel
 
 ### Adding New Reports
@@ -558,3 +621,92 @@ $quantity = (float) $item->quantity;
 ### PHP Gotchas
 - PHP string interpolation: cannot use `??` inside `"{$var->prop ?? 'default'}"` — extract to variable first
 - `auth()->id()` is null in artisan commands — use `Auth::loginUsingId()` when needed
+
+
+## Expenses Module
+
+### Overview
+- Track business expenses with payment method and optional contact (supplier/customer)
+- Branch-filtered for regular users, super admin sees all
+- Fields: `description`, `amount`, `payment_method_id`, `contact_type` (supplier/customer), `contact_id`, `branch_id`, `user_id`
+- Filters: search, payment method, date range
+- Shows total filtered amount
+- Permissions: `expenses.view/create/edit/delete`
+
+### Contact Selection
+- Polymorphic contact: `contact_type` + `contact_id`
+- Combined dropdown with suppliers and customers
+- Format: `"supplier_5"` or `"customer_3"` parsed in store method
+
+
+## Discounts Module
+
+### Overview
+- Predefined discounts that can be applied to sales in POS
+- Types: `percentage` or `fixed`
+- Scope: `global` (all products) or `specific` (selected products via pivot table)
+- Fields: `name`, `type`, `value`, `scope`, `min_quantity`, `max_uses`, `start_date`, `end_date`, `is_active`
+- Product assignment via `discount_product` pivot table
+- Permissions: `discounts.view/create/edit/delete`
+
+
+## Payroll Module (Nómina)
+
+### Overview
+Colombian payroll system with employees, payroll periods, and detailed calculations.
+
+### Employees
+- Route: `/nomina/empleados`
+- Fields: `user_id` (optional link to system user), `branch_id`, `first_name`, `last_name`, `document_type`, `document_number`, `position`, `contract_type` (indefinido/fijo/obra_labor/prestacion_servicios), `salary_type` (integral/ordinario), `base_salary`, `transport_allowance`, `transport_included_in_salary`, `hire_date`, `end_date`, `is_active`
+- Auto-calculates transport allowance based on salary vs minimum wage threshold (2 SMLMV)
+- Permissions: `employees.view/create/edit/delete`
+
+### Payrolls (Períodos de Nómina)
+- Route: `/nomina/periodos`
+- Fields: `branch_id`, `period_type` (quincenal/mensual), `period_start`, `period_end`, `status` (draft/calculated/approved/paid)
+- Status flow: draft → calculated → approved → paid
+- Each payroll has `PayrollDetail` records per employee
+
+### PayrollDetail
+- Per-employee calculation within a payroll period
+- Fields: `worked_days`, `base_salary`, `transport_allowance`, `overtime_hours`, `overtime_amount`, `commissions`, `bonuses`, `health_deduction`, `pension_deduction`, `solidarity_fund`, `tax_withholding`, `other_deductions`, `loan_deductions`, `total_earnings`, `total_deductions`, `net_pay`
+- Supports "novedades" (adjustments) editing after calculation
+
+### PayrollCalculatorService
+- Calculates: health (4%), pension (4%), solidarity fund (>4 SMLMV), income tax withholding (UVT table)
+- Overtime types with Colombian labor law rates
+- Transport allowance pro-rated by worked days
+- Provisions: cesantías, intereses cesantías, prima, vacaciones
+- Disability calculations
+- Employee loan deductions
+
+### Payslip (Desprendible)
+- Printable receipt at `/nomina/desprendible/{detail}`
+- Shows earnings, deductions, net pay breakdown
+
+### Permissions
+- `employees.view/create/edit/delete`
+- `payrolls.view/create/edit/delete`
+
+
+## Print Formats Module
+
+### Overview
+- Configure print format per document type (POS receipt, refund, etc.)
+- Formats: `thermal` (80mm) or `letter` (carta)
+- Letter format has configurable options: show_business, show_customer, show_sale_info, show_payment_info, show_amount_words, show_footer
+- Model: `PrintFormatSetting` with `document_type`, `format`, `letter_options` (JSON)
+- Route: `/print-formats`
+- Permissions: `print_formats.view/edit`
+
+
+## Migration Module (Data Import)
+
+### Overview
+- Import legacy data from SQL files into the system
+- Upload `.sql` files, select branch, run background import
+- Uses artisan command `migration:import` in background process
+- Supports cancel, status polling, and output display
+- Route: `/migration`
+- Permission: `migration.view`
+- Files stored in `storage/app/migrations/`

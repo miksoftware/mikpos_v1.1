@@ -16,10 +16,16 @@ MikPOS is a Point of Sale (POS) system designed for retail/business operations w
 - Inventory management (adjustments, transfers)
 - Combo products management
 - Services management (no inventory)
+- Discounts management (percentage/fixed, global/specific products)
+- Expense tracking with payment method and contact association
 - Electronic invoicing (DIAN/Factus)
 - Credit notes and refunds with inventory return
+- Cancel & Replicate sales (refund/credit note + create modified replacement)
+- Print format configuration (thermal/letter per document type)
+- Payroll management (employees, periods, calculations, payslips)
+- Legacy data migration from SQL files
 - Activity log viewer
-- Reports: Sales Book, Products Sold, Commissions, Profit/Loss, Credits, Purchases, Cash, Kardex
+- Reports: Sales Book, Products Sold, Commissions, Profit/Loss, Credits, Purchases, Cash, Payment Methods, Kardex
 
 ## User Roles (via roles table - many-to-many relationship)
 - **super_admin**: Full system access across all branches
@@ -64,12 +70,20 @@ MikPOS is a Point of Sale (POS) system designed for retail/business operations w
     - products - Product management
     - services - Service management
     - combos - Combo products
+    - discounts - Discount management
     - customers - Customer management
     - suppliers - Supplier management
     - purchases - Purchase orders
     - credits - Credit/payment management
+    - expenses - Expense tracking
     - inventory_adjustments - Inventory adjustments
     - inventory_transfers - Inventory transfers between branches
+  - **Payroll (Nómina):**
+    - employees - Employee management
+    - payrolls - Payroll period management
+  - **Configuration (additional):**
+    - print_formats - Print format configuration
+    - migration - Legacy data migration
   - **Report Permissions:**
     - reports.view - Base access to reports section
     - reports.products_sold - Products sold report
@@ -80,6 +94,7 @@ MikPOS is a Point of Sale (POS) system designed for retail/business operations w
     - reports.credits - Credits report
     - reports.purchases - Purchases report
     - reports.cash - Cash report
+    - reports.payment_methods - Payment methods report
     - reports.export - Export reports to PDF/Excel
 
 ## Branch-Dependent Data
@@ -92,6 +107,8 @@ The following entities are filtered by branch:
 - Cash Reconciliations (via cash register)
 - Purchases (`branch_id`)
 - Sales (`branch_id`)
+- Expenses (`branch_id`)
+- Employees (`branch_id`)
 
 **Super Admin Behavior**: Must select a branch before performing operations that require branch context (e.g., searching products in purchases).
 

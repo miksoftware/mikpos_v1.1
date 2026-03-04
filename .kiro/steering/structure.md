@@ -12,6 +12,7 @@ Root application is in the workspace root directory.
 │   ├── Http/Middleware/     # Custom middleware (CheckPermission, CheckInstallation)
 │   ├── Livewire/            # Livewire components (primary UI logic)
 │   │   ├── Auth/            # Authentication components
+│   │   ├── Nomina/          # Payroll components (Employees, Payrolls)
 │   │   └── Reports/         # Report components
 │   ├── Models/              # Eloquent models
 │   ├── Providers/           # Service providers
@@ -29,8 +30,9 @@ Root application is in the workspace root directory.
 │       ├── components/      # Reusable Blade components
 │       ├── layouts/         # Layout templates (app.blade.php, guest.blade.php)
 │       ├── livewire/        # Livewire component views
+│       │   ├── nomina/      # Payroll views
 │       │   └── reports/     # Report views
-│       └── receipts/        # Printable receipts (thermal 80mm)
+│       └── receipts/        # Printable receipts (thermal 80mm, letter)
 ├── routes/
 │   └── web.php              # Web routes (Livewire components as routes)
 ```
@@ -56,6 +58,7 @@ Root application is in the workspace root directory.
 - **Taxes** - Tax rates
 - **SystemDocuments** - System document types
 - **ProductFieldConfig** - Product field configuration
+- **PrintFormats** - Print format configuration (thermal/letter per document type)
 
 ### Product Catalog
 - **Categories** - Product categories
@@ -73,7 +76,7 @@ Root application is in the workspace root directory.
 
 ### Point of Sale
 - **PointOfSale** - Full POS interface with barcode scanning, customer search/creation
-- **Sales** - Sales listing with refunds and credit notes
+- **Sales** - Sales listing with refunds, credit notes, and cancel & replicate
 
 ### Creation/Catalog
 - **Products** - Product management with variants
@@ -82,12 +85,18 @@ Root application is in the workspace root directory.
 - **Suppliers** - Supplier management
 - **Combos** - Combo products
 - **Credits** - Credit/payment management
+- **Discounts** - Predefined discounts (percentage/fixed, global/specific products)
+- **Expenses** - Business expense tracking with payment method and contact
 
 ### Inventory
 - **Purchases** - Purchase order listing and payment control
 - **PurchaseCreate** - Purchase order creation with inline discounts
 - **InventoryAdjustments** - Inventory adjustments
 - **InventoryTransfers** - Inventory transfers between branches
+
+### Payroll (Nómina)
+- **Nomina/Employees** - Employee management with contract and salary configuration
+- **Nomina/Payrolls** - Payroll period management with calculation, approval, and payment
 
 ### Reports
 - **Reports/SalesBook** - Complete sales book report
@@ -97,7 +106,11 @@ Root application is in the workspace root directory.
 - **Reports/CreditsReport** - Credits/receivables report
 - **Reports/PurchasesReport** - Purchases report (7 tabs, 3 charts)
 - **Reports/CashReport** - Cash report (arqueos, movements, consolidated)
+- **Reports/PaymentMethodsReport** - Payment methods report (summary, detail, by user)
 - **Reports/Kardex** - Inventory kardex report
+
+### Tools
+- **Migration** - Legacy data import from SQL files
 
 ## Current Models
 
@@ -110,7 +123,7 @@ Root application is in the workspace root directory.
 
 ### Configuration
 - BillingSetting, TaxDocument, Currency, PaymentMethod, Tax
-- SystemDocument, ProductFieldSetting
+- SystemDocument, ProductFieldSetting, PrintFormatSetting
 
 ### Product Catalog
 - Category, Subcategory, Brand, Unit
@@ -131,6 +144,11 @@ Root application is in the workspace root directory.
 - CreditPayment, CreditNote, CreditNoteItem
 - Refund, RefundItem
 - InventoryMovement
+- Discount, Expense
+
+### Payroll (Nómina)
+- Employee, EmployeeLoan
+- Payroll, PayrollDetail, PayrollAdjustment
 
 ## Database Tables
 
@@ -144,7 +162,7 @@ Root application is in the workspace root directory.
 
 ### Configuration
 - billing_settings, tax_documents, currencies, payment_methods, taxes
-- system_documents, product_field_settings
+- system_documents, product_field_settings, print_format_settings
 
 ### Product Catalog
 - categories, subcategories, brands, units
@@ -165,7 +183,13 @@ Root application is in the workspace root directory.
 - credit_payments, credit_notes, credit_note_items
 - refunds, refund_items
 - inventory_movements
+- discounts, discount_product (pivot)
+- expenses
 - seeder_history (deployment tracking)
+
+### Payroll (Nómina)
+- employees, employee_loans
+- payrolls, payroll_details, payroll_adjustments
 
 ## Conventions
 
@@ -257,6 +281,7 @@ Administración
     ├── Impuestos
     ├── Documentos Sistema
     ├── Config. Campos Producto
+    ├── Formatos de Impresión
     └── Productos
         ├── Categorías
         ├── Subcategorías
@@ -271,11 +296,16 @@ Creación
 ├── Servicios
 ├── Clientes
 ├── Proveedores
-└── Combos
+├── Combos
+└── Descuentos
+Gastos
 Inventarios
 ├── Compras
 ├── Ajustes Inventario
 └── Transferencias
+Nómina
+├── Empleados
+└── Períodos de Nómina
 Reportes
 ├── Ventas
 │   ├── Libro de Ventas
@@ -284,9 +314,11 @@ Reportes
 │   ├── Utilidades
 │   ├── Créditos
 │   ├── Compras
-│   └── Cajas
+│   ├── Cajas
+│   └── Métodos de Pago
 └── Inventario
     └── Kardex
+Migración
 ```
 
 
@@ -299,7 +331,10 @@ Located in `app/Console/Commands/`
 - **SeedMarkExecuted** (`db:seed-mark-executed`) - Mark seeders as already executed
 - **FixUtcDates** (`fix:utc-dates`) - Convert UTC dates to America/Bogota timezone
 - **FixExistingRefunds** (`fix:existing-refunds`) - Fix inventory for existing refunds
+- **FixCreditSalesWithRefunds** (`fix:credit-sales`) - Fix credit sales with refunds/credit notes still showing in credits (supports `--dry-run`)
 - **GenerateSaleInventoryMovements** - Generate missing sale inventory movements
+- **ImportLegacyData** (`migration:import`) - Import legacy SQL data into the system
+- **CleanMigrationData** - Clean imported migration data
 
 ### Common Commands
 
