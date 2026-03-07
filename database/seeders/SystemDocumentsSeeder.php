@@ -44,6 +44,12 @@ class SystemDocumentsSeeder extends Seeder
                 'prefix' => 'VTA',
                 'description' => 'Documento para registro de ventas',
             ],
+            [
+                'code' => 'refund',
+                'name' => 'Devolución',
+                'prefix' => 'DEV',
+                'description' => 'Documento para devoluciones de ventas',
+            ],
         ];
 
         foreach ($documents as $doc) {
