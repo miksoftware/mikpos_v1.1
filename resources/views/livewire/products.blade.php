@@ -1486,6 +1486,7 @@
                                                 <th class="px-3 py-2 text-left font-semibold text-slate-500">Fila</th>
                                                 <th class="px-3 py-2 text-left font-semibold text-slate-500">Tipo</th>
                                                 <th class="px-3 py-2 text-left font-semibold text-slate-500">Nombre</th>
+                                                <th class="px-3 py-2 text-left font-semibold text-slate-500">Categoría</th>
                                                 <th class="px-3 py-2 text-right font-semibold text-slate-500">Precio</th>
                                                 <th class="px-3 py-2 text-center font-semibold text-slate-500">Estado</th>
                                             </tr>
@@ -1504,6 +1505,7 @@
                                                     </span>
                                                 </td>
                                                 <td class="px-3 py-2 text-slate-900 max-w-xs truncate">{{ $row['data']['nombre'] ?? '-' }}</td>
+                                                <td class="px-3 py-2 text-slate-600 max-w-xs truncate text-xs">{{ $row['data']['categoria'] ?? '-' }}</td>
                                                 <td class="px-3 py-2 text-right text-slate-600">${{ number_format(floatval($row['data']['precio_venta'] ?? 0), 0, ',', '.') }}</td>
                                                 <td class="px-3 py-2 text-center">
                                                     @if(!$row['valid'])
@@ -1536,7 +1538,7 @@
                                             </tr>
                                             @empty
                                             <tr>
-                                                <td colspan="5" class="px-3 py-8 text-center text-slate-500">
+                                                <td colspan="6" class="px-3 py-8 text-center text-slate-500">
                                                     @if($importFilter === 'errors')
                                                     <svg class="w-8 h-8 mx-auto text-green-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                                     No hay errores, todos los registros son válidos

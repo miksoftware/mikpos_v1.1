@@ -1232,7 +1232,7 @@ class Products extends Component
             $branchId = $user->branch_id;
         }
 
-        $products = Product::with(['tax', 'children.barcodes', 'barcodes'])
+        $products = Product::with(['tax', 'category', 'subcategory', 'brand', 'children.barcodes', 'barcodes'])
             ->where('branch_id', $branchId)
             ->orderBy('name')
             ->get();
@@ -1244,10 +1244,10 @@ class Products extends Component
 
         // Build CSV rows in the same format as the import template
         $headers = [
-            'tipo', 'sku', 'nombre', 'descripcion', 'producto_padre_sku',
-            'cantidad_unidades', 'stock_inicial', 'precio_compra', 'precio_venta',
-            'codigo_barras', 'tiene_comision', 'tipo_comision', 'valor_comision',
-            'precio_incluye_impuesto', 'impuesto_nombre',
+            'tipo', 'sku', 'nombre', 'descripcion', 'categoria', 'subcategoria', 'marca',
+            'producto_padre_sku', 'cantidad_unidades', 'stock_inicial', 'precio_compra',
+            'precio_venta', 'codigo_barras', 'tiene_comision', 'tipo_comision',
+            'valor_comision', 'precio_incluye_impuesto', 'impuesto_nombre',
         ];
 
         $rows = [];
@@ -1261,6 +1261,9 @@ class Products extends Component
                 $product->sku ?? '',
                 $product->name,
                 $product->description ?? '',
+                $product->category?->name ?? '',
+                $product->subcategory?->name ?? '',
+                $product->brand?->name ?? '',
                 '', // producto_padre_sku (empty for parents)
                 '', // cantidad_unidades (empty for parents)
                 (float) $product->current_stock,
@@ -1283,6 +1286,9 @@ class Products extends Component
                     $child->sku ?? '',
                     $child->name,
                     '', // description (children don't have it)
+                    '', // categoria (inherited from parent)
+                    '', // subcategoria (inherited from parent)
+                    '', // marca (inherited from parent)
                     $product->sku ?? '', // producto_padre_sku
                     (float) $child->unit_quantity,
                     '', // stock_inicial (empty for variants)
@@ -1361,17 +1367,20 @@ class Products extends Component
             'B1' => 'sku',
             'C1' => 'nombre',
             'D1' => 'descripcion',
-            'E1' => 'producto_padre_sku',
-            'F1' => 'cantidad_unidades',
-            'G1' => 'stock_inicial',
-            'H1' => 'precio_compra',
-            'I1' => 'precio_venta',
-            'J1' => 'codigo_barras',
-            'K1' => 'tiene_comision',
-            'L1' => 'tipo_comision',
-            'M1' => 'valor_comision',
-            'N1' => 'precio_incluye_impuesto',
-            'O1' => 'impuesto_nombre',
+            'E1' => 'categoria',
+            'F1' => 'subcategoria',
+            'G1' => 'marca',
+            'H1' => 'producto_padre_sku',
+            'I1' => 'cantidad_unidades',
+            'J1' => 'stock_inicial',
+            'K1' => 'precio_compra',
+            'L1' => 'precio_venta',
+            'M1' => 'codigo_barras',
+            'N1' => 'tiene_comision',
+            'O1' => 'tipo_comision',
+            'P1' => 'valor_comision',
+            'Q1' => 'precio_incluye_impuesto',
+            'R1' => 'impuesto_nombre',
         ];
 
         foreach ($headers as $cell => $value) {
@@ -1385,20 +1394,28 @@ class Products extends Component
             'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
             'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]],
         ];
-        $sheet->getStyle('A1:O1')->applyFromArray($headerStyle);
+        $sheet->getStyle('A1:R1')->applyFromArray($headerStyle);
 
         // Get available taxes for examples
         $taxes = Tax::where('is_active', true)->pluck('name')->toArray();
         $taxExample1 = $taxes[0] ?? 'IVA';
         $taxExample2 = $taxes[1] ?? 'EXENTO';
 
+        // Get example category/subcategory/brand names
+        $exampleCategory = Category::where('is_active', true)->first();
+        $catName = $exampleCategory ? $exampleCategory->name : 'Medicamentos';
+        $exampleSubcat = $exampleCategory ? Subcategory::where('category_id', $exampleCategory->id)->where('is_active', true)->first() : null;
+        $subcatName = $exampleSubcat ? $exampleSubcat->name : 'Analgésicos';
+        $exampleBrand = Brand::where('is_active', true)->first();
+        $brandName = $exampleBrand ? $exampleBrand->name : 'Genérico';
+
         // Example data
         $examples = [
-            ['PADRE', 'MED-001', 'Acetaminofén 500mg', 'Analgésico y antipirético', '', '', 100, 1500, 2500, '7701234567890', 'SI', 'PORCENTAJE', 5, 'NO', $taxExample1],
-            ['VARIANTE', '', 'Acetaminofén - Caja x 10', 'Caja de 10 tabletas', 'MED-001', 10, '', '', 22000, '7701234567891', 'NO', '', '', 'SI', ''],
-            ['PADRE', 'MED-002', 'Ibuprofeno 400mg', 'Antiinflamatorio', '', '', 50, 2000, 3500, '', 'NO', '', '', 'NO', $taxExample2],
-            ['VARIANTE', '', 'Ibuprofeno - Blister x 4', 'Blister de 4 tabletas', 'MED-002', 4, '', '', 12000, '', 'SI', 'FIJO', 500, 'NO', ''],
-            ['PADRE', '', 'Aspirina 100mg', 'Sin variantes', '', '', 30, 800, 1500, '', 'NO', '', '', 'NO', ''],
+            ['PADRE', 'MED-001', 'Acetaminofén 500mg', 'Analgésico y antipirético', $catName, $subcatName, $brandName, '', '', 100, 1500, 2500, '7701234567890', 'SI', 'PORCENTAJE', 5, 'NO', $taxExample1],
+            ['VARIANTE', '', 'Acetaminofén - Caja x 10', 'Caja de 10 tabletas', '', '', '', 'MED-001', 10, '', '', 22000, '7701234567891', 'NO', '', '', 'SI', ''],
+            ['PADRE', 'MED-002', 'Ibuprofeno 400mg', 'Antiinflamatorio', $catName, '', '', '', '', 50, 2000, 3500, '', 'NO', '', '', 'NO', $taxExample2],
+            ['VARIANTE', '', 'Ibuprofeno - Blister x 4', 'Blister de 4 tabletas', '', '', '', 'MED-002', 4, '', '', 12000, '', 'SI', 'FIJO', 500, 'NO', ''],
+            ['PADRE', '', 'Aspirina 100mg', 'Sin variantes', $catName, '', $brandName, '', '', 30, 800, 1500, '', 'NO', '', '', 'NO', ''],
         ];
 
         $row = 2;
@@ -1410,17 +1427,17 @@ class Products extends Component
             }
             // Color rows by type
             $fillColor = $data[0] === 'PADRE' ? 'E0E7FF' : 'FEF3C7';
-            $sheet->getStyle("A{$row}:O{$row}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB($fillColor);
+            $sheet->getStyle("A{$row}:R{$row}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB($fillColor);
             $row++;
         }
 
         // Auto-size columns
-        foreach (range('A', 'O') as $col) {
+        foreach (range('A', 'R') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
         // Add borders to data
-        $sheet->getStyle('A2:O6')->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+        $sheet->getStyle('A2:R6')->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
 
         // Instructions sheet
         $instructionsSheet = $spreadsheet->createSheet();
@@ -1440,6 +1457,7 @@ class Products extends Component
             ['═══════════════════════════════════════════════════════════════'],
             ['- tipo: Escriba PADRE o VARIANTE'],
             ['- nombre: Nombre del producto'],
+            ['- categoria: Nombre EXACTO de la categoría (obligatorio para PADRE)'],
             ['- precio_venta: Precio de venta al público'],
             [''],
             ['═══════════════════════════════════════════════════════════════'],
@@ -1448,6 +1466,9 @@ class Products extends Component
             ['- sku: Código único del producto (ej: MED-001, PROD-ABC)'],
             ['  * OBLIGATORIO si el producto tiene variantes'],
             ['  * Opcional si el producto NO tiene variantes (se genera automático)'],
+            ['- categoria: Nombre de la categoría (OBLIGATORIO)'],
+            ['- subcategoria: Nombre de la subcategoría (opcional, debe pertenecer a la categoría)'],
+            ['- marca: Nombre de la marca (opcional, si vacío se usa la primera marca activa)'],
             ['- stock_inicial: Cantidad inicial en inventario'],
             ['- precio_compra: Costo/precio de compra del producto'],
             ['- impuesto_nombre: Nombre del impuesto (ver lista abajo)'],
@@ -1460,12 +1481,14 @@ class Products extends Component
             ['- cantidad_unidades: Cuántas unidades del padre consume esta variante'],
             ['  Ejemplo: Una caja de 10 tabletas consume 10 unidades del padre'],
             [''],
-            ['IMPORTANTE: Las variantes heredan el impuesto del producto padre.'],
+            ['IMPORTANTE: Las variantes heredan categoría, subcategoría, marca e impuesto del padre.'],
             [''],
             ['═══════════════════════════════════════════════════════════════'],
             ['CAMPOS OPCIONALES:'],
             ['═══════════════════════════════════════════════════════════════'],
             ['- descripcion: Descripción del producto'],
+            ['- subcategoria: Subcategoría del producto (debe pertenecer a la categoría indicada)'],
+            ['- marca: Marca del producto (si vacío, se asigna la primera marca activa)'],
             ['- codigo_barras: Código de barras único (no repetir)'],
             ['- tiene_comision: Escriba SI o NO'],
             ['- tipo_comision: PORCENTAJE o FIJO (solo si tiene_comision = SI)'],
@@ -1473,9 +1496,9 @@ class Products extends Component
             ['- precio_incluye_impuesto: SI si el precio ya tiene impuesto, NO si no'],
             [''],
             ['═══════════════════════════════════════════════════════════════'],
-            ['IMPUESTOS DISPONIBLES EN SU SISTEMA:'],
+            ['CATEGORÍAS DISPONIBLES EN SU SISTEMA:'],
             ['═══════════════════════════════════════════════════════════════'],
-            ['Escriba el NOMBRE exacto del impuesto en la columna impuesto_nombre:'],
+            ['Escriba el NOMBRE exacto de la categoría en la columna categoria:'],
             [''],
         ];
 
@@ -1484,6 +1507,58 @@ class Products extends Component
             $instructionsSheet->setCellValue('A' . $rowNum, $line[0] ?? '');
             $rowNum++;
         }
+
+        // Add categories with their subcategories
+        $activeCategories = Category::where('is_active', true)->orderBy('name')->get();
+        foreach ($activeCategories as $cat) {
+            $instructionsSheet->setCellValue('A' . $rowNum, "   → {$cat->name}");
+            $rowNum++;
+            $subcats = Subcategory::where('category_id', $cat->id)->where('is_active', true)->orderBy('name')->get();
+            foreach ($subcats as $subcat) {
+                $instructionsSheet->setCellValue('A' . $rowNum, "       ↳ {$subcat->name}");
+                $rowNum++;
+            }
+        }
+
+        if ($activeCategories->isEmpty()) {
+            $instructionsSheet->setCellValue('A' . $rowNum, "   (No hay categorías configuradas)");
+            $rowNum++;
+        }
+
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '═══════════════════════════════════════════════════════════════');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, 'MARCAS DISPONIBLES EN SU SISTEMA:');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '═══════════════════════════════════════════════════════════════');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, 'Escriba el NOMBRE exacto de la marca en la columna marca (opcional):');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '');
+        $rowNum++;
+
+        $activeBrands = Brand::where('is_active', true)->orderBy('name')->get();
+        foreach ($activeBrands as $brand) {
+            $instructionsSheet->setCellValue('A' . $rowNum, "   → {$brand->name}");
+            $rowNum++;
+        }
+
+        if ($activeBrands->isEmpty()) {
+            $instructionsSheet->setCellValue('A' . $rowNum, "   (No hay marcas configuradas)");
+            $rowNum++;
+        }
+
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '═══════════════════════════════════════════════════════════════');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, 'IMPUESTOS DISPONIBLES EN SU SISTEMA:');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '═══════════════════════════════════════════════════════════════');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, 'Escriba el NOMBRE exacto del impuesto en la columna impuesto_nombre:');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '');
+        $rowNum++;
         
         // Add each tax on its own row
         $activeTaxes = Tax::where('is_active', true)->get();
@@ -1509,17 +1584,17 @@ class Products extends Component
         $rowNum++;
         $instructionsSheet->setCellValue('A' . $rowNum, 'Producto con variantes:');
         $rowNum++;
-        $instructionsSheet->setCellValue('A' . $rowNum, '  Fila 1: PADRE | MED-001 | Acetaminofén 500mg | ... ');
+        $instructionsSheet->setCellValue('A' . $rowNum, '  Fila 1: PADRE | MED-001 | Acetaminofén 500mg | ... | Medicamentos | Analgésicos | Genérico | ...');
         $rowNum++;
-        $instructionsSheet->setCellValue('A' . $rowNum, '  Fila 2: VARIANTE | (vacío) | Caja x 10 | ... | MED-001 | 10');
+        $instructionsSheet->setCellValue('A' . $rowNum, '  Fila 2: VARIANTE | (vacío) | Caja x 10 | ... | (vacío) | (vacío) | (vacío) | MED-001 | 10');
         $rowNum++;
         $instructionsSheet->setCellValue('A' . $rowNum, '');
         $rowNum++;
         $instructionsSheet->setCellValue('A' . $rowNum, 'Producto SIN variantes:');
         $rowNum++;
-        $instructionsSheet->setCellValue('A' . $rowNum, '  Fila 1: PADRE | (vacío) | Aspirina 100mg | ... ');
+        $instructionsSheet->setCellValue('A' . $rowNum, '  Fila 1: PADRE | (vacío) | Aspirina 100mg | ... | Medicamentos | (vacío) | (vacío) | ...');
         $rowNum++;
-        $instructionsSheet->setCellValue('A' . $rowNum, '  (El SKU se genera automáticamente)');
+        $instructionsSheet->setCellValue('A' . $rowNum, '  (El SKU se genera automáticamente, subcategoría y marca son opcionales)');
         $rowNum += 2;
         
         $instructionsSheet->setCellValue('A' . $rowNum, '═══════════════════════════════════════════════════════════════');
@@ -1609,7 +1684,7 @@ class Products extends Component
         $header = array_map('trim', array_map('strtolower', $header));
 
         // Required columns
-        $requiredColumns = ['tipo', 'nombre', 'precio_venta'];
+        $requiredColumns = ['tipo', 'nombre', 'precio_venta', 'categoria'];
         $missingColumns = array_diff($requiredColumns, $header);
         
         if (!empty($missingColumns)) {
@@ -1714,6 +1789,38 @@ class Products extends Component
                     $errors[] = "SKU '{$data['sku']}' ya existe en el sistema";
                 }
             }
+
+            // Validate category (required for parents)
+            $categoryName = trim($data['categoria'] ?? '');
+            if (empty($categoryName)) {
+                $errors[] = "Categoría es obligatoria para productos padre";
+            } else {
+                $category = Category::where('name', $categoryName)->where('is_active', true)->first();
+                if (!$category) {
+                    $errors[] = "Categoría '{$categoryName}' no existe o está inactiva";
+                } else {
+                    // Validate subcategory if provided
+                    $subcategoryName = trim($data['subcategoria'] ?? '');
+                    if (!empty($subcategoryName)) {
+                        $subcategory = Subcategory::where('name', $subcategoryName)
+                            ->where('category_id', $category->id)
+                            ->where('is_active', true)
+                            ->first();
+                        if (!$subcategory) {
+                            $errors[] = "Subcategoría '{$subcategoryName}' no existe en la categoría '{$categoryName}' o está inactiva";
+                        }
+                    }
+                }
+            }
+
+            // Validate brand if provided
+            $brandName = trim($data['marca'] ?? '');
+            if (!empty($brandName)) {
+                $brand = Brand::where('name', $brandName)->where('is_active', true)->first();
+                if (!$brand) {
+                    $errors[] = "Marca '{$brandName}' no existe o está inactiva";
+                }
+            }
         }
 
         if ($tipo === 'VARIANTE') {
@@ -1804,12 +1911,12 @@ class Products extends Component
             return;
         }
 
-        // Get default category
-        $defaultCategory = Category::where('is_active', true)->first();
-        if (!$defaultCategory) {
-            $this->dispatch('notify', message: 'No hay categorías configuradas', type: 'error');
-            return;
-        }
+        // Get default brand (used when brand column is empty)
+        $defaultBrand = Brand::where('is_active', true)->first();
+
+        // Pre-load categories, subcategories, and brands for faster lookup
+        $categoriesMap = Category::where('is_active', true)->pluck('id', 'name')->toArray();
+        $brandsMap = Brand::where('is_active', true)->pluck('id', 'name')->toArray();
 
         // Initialize progress tracking
         $this->isImporting = true;
@@ -1850,6 +1957,37 @@ class Products extends Component
                 }
 
                 $sku = !empty($data['sku']) ? $data['sku'] : null;
+
+                // Resolve category
+                $categoryName = trim($data['categoria'] ?? '');
+                $categoryId = $categoriesMap[$categoryName] ?? null;
+                if (!$categoryId) {
+                    \DB::rollBack();
+                    $errorCount++;
+                    $this->importErrors[] = ['row' => $row['row'], 'message' => "Categoría '{$categoryName}' no encontrada"];
+                    continue;
+                }
+
+                // Resolve subcategory (optional)
+                $subcategoryId = null;
+                $subcategoryName = trim($data['subcategoria'] ?? '');
+                if (!empty($subcategoryName)) {
+                    $subcategory = Subcategory::where('name', $subcategoryName)
+                        ->where('category_id', $categoryId)
+                        ->where('is_active', true)
+                        ->first();
+                    $subcategoryId = $subcategory?->id;
+                }
+
+                // Resolve brand (optional, default to first active brand)
+                $brandId = null;
+                $brandName = trim($data['marca'] ?? '');
+                if (!empty($brandName)) {
+                    $brandId = $brandsMap[$brandName] ?? null;
+                }
+                if (!$brandId && $defaultBrand) {
+                    $brandId = $defaultBrand->id;
+                }
                 
                 // Handle barcode: only use if not already used
                 $barcode = null;
@@ -1872,7 +2010,9 @@ class Products extends Component
                     'name' => mb_strtoupper($data['nombre']),
                     'description' => !empty($data['descripcion']) ? mb_strtoupper($data['descripcion']) : null,
                     'barcode' => $barcode,
-                    'category_id' => $defaultCategory->id,
+                    'category_id' => $categoryId,
+                    'subcategory_id' => $subcategoryId,
+                    'brand_id' => $brandId,
                     'unit_id' => $defaultUnit->id,
                     'tax_id' => $taxId,
                     'purchase_price' => floatval($data['precio_compra'] ?? 0),
