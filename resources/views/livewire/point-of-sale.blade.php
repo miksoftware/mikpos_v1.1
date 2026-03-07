@@ -1269,34 +1269,40 @@
 
     // Listen for blank print to open cash drawer
     $wire.on('print-blank-cash-drawer', () => {
-        const blankWindow = window.open('', 'cash_drawer', 'width=350,height=100');
-        if (blankWindow) {
-            blankWindow.document.write(`
-                <html>
-                <head>
-                    <title>Cajón</title>
-                    <style>
-                        @page {
-                            size: 72mm 20mm;
-                            margin: 0;
-                        }
-                        * { margin: 0; padding: 0; }
-                        body { width: 72mm; height: 20mm; overflow: hidden; }
-                    </style>
-                </head>
-                <body>
-                    <div style="height:1px;"></div>
-                    <script>
-                        window.onload = function() {
-                            window.print();
-                            setTimeout(function() { window.close(); }, 1000);
-                        };
-                    <\/script>
-                </body>
-                </html>
-            `);
-            blankWindow.document.close();
-        }
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.top = '-9999px';
+        iframe.style.left = '-9999px';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = 'none';
+        document.body.appendChild(iframe);
+
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        doc.open();
+        doc.write(`
+            <html>
+            <head>
+                <style>
+                    @page { margin: 0; }
+                    body { margin: 0; padding: 0; font-family: 'Courier New', monospace; font-size: 10px; width: 72mm; }
+                </style>
+            </head>
+            <body>
+                <div style="text-align:center; padding: 2mm 0;">.</div>
+            </body>
+            </html>
+        `);
+        doc.close();
+
+        iframe.onload = function() {
+            setTimeout(() => {
+                iframe.contentWindow.print();
+                setTimeout(() => {
+                    document.body.removeChild(iframe);
+                }, 2000);
+            }, 200);
+        };
     });
 </script>
 @endscript
