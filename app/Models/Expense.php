@@ -14,6 +14,7 @@ class Expense extends Model
         'branch_id',
         'user_id',
         'payment_method_id',
+        'payment_details',
         'contact_type',
         'contact_id',
         'description',
@@ -24,6 +25,7 @@ class Expense extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'payment_details' => 'array',
         ];
     }
 

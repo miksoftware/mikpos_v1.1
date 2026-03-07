@@ -272,14 +272,14 @@
 
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Proveedor *</label>
-                    <div class="flex gap-2">
-                        <select wire:model="supplier_id" class="flex-1 px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] @error('supplier_id') border-red-300 @enderror">
+                    <div class="flex gap-2 items-center">
+                        <select wire:model="supplier_id" class="min-w-0 flex-1 px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] @error('supplier_id') border-red-300 @enderror">
                             <option value="">Seleccionar proveedor...</option>
                             @foreach($suppliers as $supplier)
                             <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
                             @endforeach
                         </select>
-                        <button type="button" wire:click="openSupplierCreate" class="px-3 py-2 bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all flex-shrink-0" title="Crear proveedor">
+                        <button type="button" wire:click="openSupplierCreate" class="p-2 bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all flex-shrink-0" title="Crear proveedor">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                         </button>
                     </div>
@@ -598,8 +598,8 @@
                             <label class="block text-sm font-medium text-slate-700 mb-1">Tipo Documento</label>
                             <select wire:model="supplierTaxDocumentId" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                                 <option value="">Seleccionar...</option>
-                                @foreach(\App\Models\TaxDocument::where('is_active', true)->orderBy('name')->get() as $doc)
-                                <option value="{{ $doc->id }}">{{ $doc->name }}</option>
+                                @foreach(\App\Models\TaxDocument::where('is_active', true)->orderBy('description')->get() as $doc)
+                                <option value="{{ $doc->id }}">{{ $doc->description }}</option>
                                 @endforeach
                             </select>
                         </div>

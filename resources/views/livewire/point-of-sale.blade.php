@@ -1269,13 +1269,23 @@
 
     // Listen for blank print to open cash drawer
     $wire.on('print-blank-cash-drawer', () => {
-        const blankWindow = window.open('', 'cash_drawer', 'width=350,height=200');
+        const blankWindow = window.open('', 'cash_drawer', 'width=350,height=100');
         if (blankWindow) {
             blankWindow.document.write(`
                 <html>
-                <head><title>Cajón</title></head>
-                <body style="margin:0;padding:0;width:72mm;">
-                    <div style="height:20mm;"></div>
+                <head>
+                    <title>Cajón</title>
+                    <style>
+                        @page {
+                            size: 72mm 20mm;
+                            margin: 0;
+                        }
+                        * { margin: 0; padding: 0; }
+                        body { width: 72mm; height: 20mm; overflow: hidden; }
+                    </style>
+                </head>
+                <body>
+                    <div style="height:1px;"></div>
                     <script>
                         window.onload = function() {
                             window.print();

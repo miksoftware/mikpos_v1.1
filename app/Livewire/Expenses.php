@@ -30,8 +30,8 @@ class Expenses extends Component
     public string $description = '';
     #[Rule('required|numeric|min:0.01')]
     public $amount = '';
-    #[Rule('required|exists:payment_methods,id')]
     public $payment_method_id = '';
+    public array $expensePayments = [];
     public $contact_id = '';
 
     // Delete
@@ -48,6 +48,7 @@ class Expenses extends Component
     public function create()
     {
         $this->resetForm();
+        $this->expensePayments = [['method_id' => '', 'amount' => '']];
         $this->isModalOpen = true;
     }
 
@@ -57,21 +58,79 @@ class Expenses extends Component
         $this->itemId = $expense->id;
         $this->description = $expense->description;
         $this->amount = $expense->amount;
-        $this->payment_method_id = $expense->payment_method_id;
         $this->contact_id = $expense->contact_type && $expense->contact_id
             ? $expense->contact_type . '_' . $expense->contact_id
             : '';
+
+        // Load payment details
+        if ($expense->payment_details && is_array($expense->payment_details) && count($expense->payment_details) > 0) {
+            $this->expensePayments = $expense->payment_details;
+        } elseif ($expense->payment_method_id) {
+            // Legacy: single payment method
+            $this->expensePayments = [['method_id' => (string) $expense->payment_method_id, 'amount' => (string) $expense->amount]];
+        } else {
+            $this->expensePayments = [['method_id' => '', 'amount' => '']];
+        }
+
         $this->isModalOpen = true;
+    }
+
+    public function addExpensePayment()
+    {
+        $this->expensePayments[] = ['method_id' => '', 'amount' => ''];
+    }
+
+    public function removeExpensePayment(int $index)
+    {
+        if (count($this->expensePayments) > 1) {
+            array_splice($this->expensePayments, $index, 1);
+            $this->expensePayments = array_values($this->expensePayments);
+        }
+    }
+
+    public function fillRemainingExpensePayment(int $index)
+    {
+        $total = (float) ($this->amount ?: 0);
+        $otherSum = 0;
+        foreach ($this->expensePayments as $i => $p) {
+            if ($i !== $index) {
+                $otherSum += (float) ($p['amount'] ?? 0);
+            }
+        }
+        $remaining = round($total - $otherSum, 2);
+        if ($remaining > 0) {
+            $this->expensePayments[$index]['amount'] = (string) $remaining;
+        }
     }
 
     public function store()
     {
-        $this->validate();
+        $this->validate([
+            'description' => 'required|min:3',
+            'amount' => 'required|numeric|min:0.01',
+        ]);
+
+        // Validate payment methods
+        $validPayments = collect($this->expensePayments)
+            ->filter(fn($p) => !empty($p['method_id']) && (float) ($p['amount'] ?? 0) > 0);
+
+        if ($validPayments->isEmpty()) {
+            $this->dispatch('notify', message: 'Agrega al menos una forma de pago', type: 'error');
+            return;
+        }
+
+        $paymentSum = $validPayments->sum(fn($p) => (float) $p['amount']);
+        $total = (float) $this->amount;
+
+        if (abs($paymentSum - $total) > 0.01) {
+            $this->dispatch('notify', message: 'La suma de los pagos ($' . number_format($paymentSum, 2) . ') no coincide con el valor del gasto ($' . number_format($total, 2) . ')', type: 'error');
+            return;
+        }
 
         $user = auth()->user();
         $branchId = $user->isSuperAdmin() ? ($user->branch_id ?? Branch::first()?->id) : $user->branch_id;
 
-        // Parse contact selection (format: "type_id" e.g. "supplier_5" or "customer_3")
+        // Parse contact selection
         $contactType = null;
         $contactId = null;
         if ($this->contact_id) {
@@ -82,13 +141,23 @@ class Expenses extends Component
             }
         }
 
+        // Build payment details array
+        $paymentDetails = $validPayments->map(fn($p) => [
+            'method_id' => (int) $p['method_id'],
+            'amount' => round((float) $p['amount'], 2),
+        ])->values()->toArray();
+
+        // Use first payment method as primary (for backward compatibility)
+        $primaryMethodId = $paymentDetails[0]['method_id'] ?? null;
+
         if ($this->itemId) {
             $expense = Expense::findOrFail($this->itemId);
             $oldValues = $expense->toArray();
             $expense->update([
                 'description' => $this->description,
                 'amount' => $this->amount,
-                'payment_method_id' => $this->payment_method_id,
+                'payment_method_id' => $primaryMethodId,
+                'payment_details' => $paymentDetails,
                 'contact_type' => $contactType,
                 'contact_id' => $contactId,
             ]);
@@ -98,7 +167,8 @@ class Expenses extends Component
             $expense = Expense::create([
                 'branch_id' => $branchId,
                 'user_id' => $user->id,
-                'payment_method_id' => $this->payment_method_id,
+                'payment_method_id' => $primaryMethodId,
+                'payment_details' => $paymentDetails,
                 'contact_type' => $contactType,
                 'contact_id' => $contactId,
                 'description' => $this->description,
@@ -144,6 +214,7 @@ class Expenses extends Component
         $this->description = '';
         $this->amount = '';
         $this->payment_method_id = '';
+        $this->expensePayments = [['method_id' => '', 'amount' => '']];
         $this->contact_id = '';
         $this->resetValidation();
     }

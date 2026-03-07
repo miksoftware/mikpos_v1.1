@@ -97,9 +97,20 @@
                             @endif
                         </td>
                         <td class="px-6 py-4">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
-                                {{ $item->paymentMethod->name ?? '-' }}
-                            </span>
+                            @if($item->payment_details && is_array($item->payment_details) && count($item->payment_details) > 1)
+                                <div class="flex flex-wrap gap-1">
+                                    @foreach($item->payment_details as $pd)
+                                        @php $pmName = \App\Models\PaymentMethod::find($pd['method_id'])?->name ?? '-'; @endphp
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                                            {{ $pmName }}: ${{ number_format($pd['amount'], 2) }}
+                                        </span>
+                                    @endforeach
+                                </div>
+                            @else
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                                    {{ $item->paymentMethod->name ?? '-' }}
+                                </span>
+                            @endif
                         </td>
                         <td class="px-6 py-4 text-sm text-slate-600">
                             {{ $item->user->name ?? '-' }}
@@ -172,14 +183,47 @@
                             @error('amount')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Forma de Pago *</label>
-                            <select wire:model="payment_method_id" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
-                                <option value="">Seleccionar...</option>
-                                @foreach($paymentMethods as $pm)
-                                <option value="{{ $pm->id }}">{{ $pm->name }}</option>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Formas de Pago *</label>
+                            <div class="space-y-2">
+                                @foreach($expensePayments as $index => $payment)
+                                <div class="flex gap-2 items-start">
+                                    <select wire:model="expensePayments.{{ $index }}.method_id" class="min-w-0 flex-1 px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                                        <option value="">Método...</option>
+                                        @foreach($paymentMethods as $pm)
+                                        <option value="{{ $pm->id }}">{{ $pm->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    <div class="relative w-32 flex-shrink-0">
+                                        <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-slate-400 text-sm">$</span>
+                                        <input wire:model="expensePayments.{{ $index }}.amount" type="number" step="0.01" min="0" class="w-full pl-6 pr-2 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm" placeholder="0.00">
+                                    </div>
+                                    <button type="button" wire:click="fillRemainingExpensePayment({{ $index }})" class="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors flex-shrink-0" title="Llenar restante">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                    </button>
+                                    @if(count($expensePayments) > 1)
+                                    <button type="button" wire:click="removeExpensePayment({{ $index }})" class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0" title="Quitar">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                    @endif
+                                </div>
                                 @endforeach
-                            </select>
-                            @error('payment_method_id')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                            </div>
+                            <button type="button" wire:click="addExpensePayment" class="mt-2 text-sm text-[#a855f7] hover:text-[#9333ea] font-medium flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                Agregar otra forma de pago
+                            </button>
+                            @php
+                                $paymentSum = collect($expensePayments)->sum(fn($p) => (float) ($p['amount'] ?? 0));
+                                $expenseTotal = (float) ($amount ?: 0);
+                                $diff = round($expenseTotal - $paymentSum, 2);
+                            @endphp
+                            @if($amount && $diff != 0)
+                            <p class="text-xs mt-1 {{ $diff > 0 ? 'text-amber-600' : 'text-red-600' }}">
+                                {{ $diff > 0 ? 'Faltan: $' . number_format($diff, 2) : 'Excede: $' . number_format(abs($diff), 2) }}
+                            </p>
+                            @elseif($amount && $diff == 0 && $paymentSum > 0)
+                            <p class="text-xs mt-1 text-green-600">✓ Pagos completos</p>
+                            @endif
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Proveedor / Cliente</label>
