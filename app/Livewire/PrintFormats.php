@@ -12,6 +12,7 @@ class PrintFormats extends Component
 {
     public array $formats = [];
     public array $letterOptions = [];
+    public array $cashDrawerOptions = [];
     public ?string $previewFormat = null;
     public ?string $previewDocumentType = null;
 
@@ -25,12 +26,14 @@ class PrintFormats extends Component
         $settings = PrintFormatSetting::all();
         $this->formats = [];
         $this->letterOptions = [];
+        $this->cashDrawerOptions = [];
         foreach ($settings as $setting) {
             $this->formats[$setting->document_type] = $setting->format;
             $this->letterOptions[$setting->document_type] = array_merge(
                 PrintFormatSetting::DEFAULT_LETTER_OPTIONS,
                 $setting->letter_options ?? []
             );
+            $this->cashDrawerOptions[$setting->document_type] = (bool) $setting->open_cash_drawer_on_skip;
         }
     }
 
@@ -82,6 +85,26 @@ class PrintFormats extends Component
         $state = $options[$option] ? 'activado' : 'desactivado';
         ActivityLogService::logUpdate('print_formats', $setting, $oldValues, "Opción '{$label}' {$state} en formato carta");
         $this->dispatch('notify', message: "'{$label}' {$state}", type: 'success');
+    }
+
+    public function toggleCashDrawer(string $documentType)
+    {
+        if (!auth()->user()->hasPermission('print_formats.edit')) {
+            $this->dispatch('notify', message: 'No tienes permiso para editar', type: 'error');
+            return;
+        }
+
+        $setting = PrintFormatSetting::where('document_type', $documentType)->first();
+        if (!$setting) return;
+
+        $oldValues = $setting->toArray();
+        $newValue = !$setting->open_cash_drawer_on_skip;
+        $setting->update(['open_cash_drawer_on_skip' => $newValue]);
+        $this->cashDrawerOptions[$documentType] = $newValue;
+
+        $state = $newValue ? 'activada' : 'desactivada';
+        ActivityLogService::logUpdate('print_formats', $setting, $oldValues, "Apertura de cajón monedero al no imprimir {$state} en '{$setting->display_name}'");
+        $this->dispatch('notify', message: "Apertura de cajón monedero {$state}", type: 'success');
     }
 
     public function showPreview(string $documentType, string $format)

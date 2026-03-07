@@ -263,9 +263,23 @@
                                 <p class="font-medium text-slate-800">{{ $viewingPurchase->branch?->name ?? '-' }}</p>
                             </div>
                             @if($viewingPurchase->payment_type === 'cash')
-                            <div>
-                                <p class="text-sm text-slate-500">Método de Pago</p>
-                                <p class="font-medium text-slate-800">{{ $viewingPurchase->paymentMethod?->name ?? '-' }}</p>
+                            <div class="col-span-2 sm:col-span-1">
+                                <p class="text-sm text-slate-500">Método(s) de Pago</p>
+                                @php
+                                    $paymentDetails = $viewingPurchase->payment_details ? json_decode($viewingPurchase->payment_details, true) : null;
+                                @endphp
+                                @if($paymentDetails && count($paymentDetails) > 0)
+                                    <div class="space-y-1 mt-1">
+                                        @foreach($paymentDetails as $pd)
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-slate-700">{{ $pd['payment_method_name'] ?? '-' }}</span>
+                                            <span class="font-medium text-slate-800">${{ number_format($pd['amount'] ?? 0, 2) }}</span>
+                                        </div>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <p class="font-medium text-slate-800">{{ $viewingPurchase->paymentMethod?->name ?? '-' }}</p>
+                                @endif
                             </div>
                             @else
                             <div>

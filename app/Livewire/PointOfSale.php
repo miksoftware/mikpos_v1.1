@@ -22,6 +22,7 @@ use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SalePayment;
 use App\Models\InventoryMovement;
+use App\Models\PrintFormatSetting;
 use App\Services\ActivityLogService;
 use App\Services\FactusService;
 use Illuminate\Support\Facades\DB;
@@ -373,8 +374,8 @@ class PointOfSale extends Component
             return;
         }
 
-        // If barcode looks complete (8+ digits) but not found, show notification
-        if (strlen($barcode) >= 8 && preg_match('/^\d+$/', $barcode)) {
+        // If barcode looks complete (3+ digits) but not found, show notification
+        if (strlen($barcode) >= 3) {
             $this->dispatch('notify', message: 'Producto no encontrado: ' . $barcode, type: 'warning');
             $this->barcodeSearch = '';
             $this->dispatch('focus-barcode-search');
@@ -894,6 +895,11 @@ class PointOfSale extends Component
      */
     public function closePrintConfirmModal(): void
     {
+        // Check if we should open cash drawer by printing a blank page
+        if ($this->pendingPrintSaleId && PrintFormatSetting::shouldOpenCashDrawerOnSkip('pos')) {
+            $this->dispatch('print-blank-cash-drawer');
+        }
+
         $this->showPrintConfirmModal = false;
         $this->pendingPrintSaleId = null;
         $this->dispatch('focus-barcode-search');

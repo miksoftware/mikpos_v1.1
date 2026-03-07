@@ -1266,5 +1266,27 @@
             printWindow.focus();
         }
     });
+
+    // Listen for blank print to open cash drawer
+    $wire.on('print-blank-cash-drawer', () => {
+        const blankWindow = window.open('', 'cash_drawer', 'width=350,height=200');
+        if (blankWindow) {
+            blankWindow.document.write(`
+                <html>
+                <head><title>Cajón</title></head>
+                <body style="margin:0;padding:0;width:72mm;">
+                    <div style="height:20mm;"></div>
+                    <script>
+                        window.onload = function() {
+                            window.print();
+                            setTimeout(function() { window.close(); }, 1000);
+                        };
+                    <\/script>
+                </body>
+                </html>
+            `);
+            blankWindow.document.close();
+        }
+    });
 </script>
 @endscript

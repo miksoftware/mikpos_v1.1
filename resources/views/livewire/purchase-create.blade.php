@@ -272,12 +272,17 @@
 
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Proveedor *</label>
-                    <select wire:model="supplier_id" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] @error('supplier_id') border-red-300 @enderror">
-                        <option value="">Seleccionar proveedor...</option>
-                        @foreach($suppliers as $supplier)
-                        <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
-                        @endforeach
-                    </select>
+                    <div class="flex gap-2">
+                        <select wire:model="supplier_id" class="flex-1 px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] @error('supplier_id') border-red-300 @enderror">
+                            <option value="">Seleccionar proveedor...</option>
+                            @foreach($suppliers as $supplier)
+                            <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
+                            @endforeach
+                        </select>
+                        <button type="button" wire:click="openSupplierCreate" class="px-3 py-2 bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all flex-shrink-0" title="Crear proveedor">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        </button>
+                    </div>
                     @error('supplier_id') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                 </div>
 
@@ -317,16 +322,54 @@
                 </div>
 
                 @if($payment_type === 'cash')
-                {{-- Cash Payment --}}
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Método de Pago *</label>
-                    <select wire:model="payment_method_id" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] @error('payment_method_id') border-red-300 @enderror">
-                        <option value="">Seleccionar...</option>
-                        @foreach($paymentMethods as $method)
-                        <option value="{{ $method->id }}">{{ $method->name }}</option>
-                        @endforeach
-                    </select>
-                    @error('payment_method_id') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                {{-- Multiple Payment Methods --}}
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-sm font-medium text-slate-700">Métodos de Pago *</label>
+                        <button type="button" wire:click="addPaymentRow" class="text-xs text-[#a855f7] hover:text-[#9333ea] font-medium flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            Agregar método
+                        </button>
+                    </div>
+
+                    @foreach($purchasePayments as $index => $payment)
+                    <div class="flex gap-2 items-start">
+                        <select wire:model="purchasePayments.{{ $index }}.method_id" class="flex-1 px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                            <option value="">Método...</option>
+                            @foreach($paymentMethods as $method)
+                            <option value="{{ $method->id }}">{{ $method->name }}</option>
+                            @endforeach
+                        </select>
+                        <div class="relative flex-1">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-sm">$</span>
+                            <input wire:model.blur="purchasePayments.{{ $index }}.amount" type="number" step="0.01" min="0" class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm" placeholder="Monto">
+                        </div>
+                        <button type="button" wire:click="fillRemainingPayment({{ $index }})" class="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0" title="Llenar restante">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        </button>
+                        @if(count($purchasePayments) > 1)
+                        <button type="button" wire:click="removePaymentRow({{ $index }})" class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0" title="Eliminar">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                        @endif
+                    </div>
+                    @endforeach
+
+                    @php
+                        $paymentAllocated = array_sum(array_map(fn($p) => floatval($p['amount'] ?? 0), $purchasePayments));
+                        $paymentRemaining = round($total - $paymentAllocated, 2);
+                    @endphp
+                    @if($total > 0 && abs($paymentRemaining) > 0.01)
+                    <div class="p-2 rounded-lg {{ $paymentRemaining > 0 ? 'bg-amber-50' : 'bg-red-50' }}">
+                        <p class="text-xs {{ $paymentRemaining > 0 ? 'text-amber-600' : 'text-red-600' }}">
+                            {{ $paymentRemaining > 0 ? 'Falta por asignar: $' . number_format($paymentRemaining, 2) : 'Excede el total por: $' . number_format(abs($paymentRemaining), 2) }}
+                        </p>
+                    </div>
+                    @elseif($total > 0 && abs($paymentRemaining) <= 0.01)
+                    <div class="p-2 rounded-lg bg-green-50">
+                        <p class="text-xs text-green-600">Total cubierto correctamente</p>
+                    </div>
+                    @endif
                 </div>
                 @else
                 {{-- Credit Payment --}}
@@ -519,6 +562,61 @@
                         <button wire:click="storeQuickProduct" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea]">
                             <span wire:loading.remove wire:target="storeQuickProduct">Crear y Agregar</span>
                             <span wire:loading wire:target="storeQuickProduct">Creando...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Quick Supplier Create Modal --}}
+    @if($isSupplierCreateOpen)
+    <div class="relative z-[100]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="$set('isSupplierCreateOpen', false)"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl">
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-r from-[#ff7261] to-[#a855f7] flex items-center justify-center">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-900">Crear Proveedor</h3>
+                        </div>
+                        <button wire:click="$set('isSupplierCreateOpen', false)" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+                    <div class="px-6 py-4 space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
+                            <input wire:model="supplierName" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Nombre del proveedor">
+                            @error('supplierName') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Tipo Documento</label>
+                            <select wire:model="supplierTaxDocumentId" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                <option value="">Seleccionar...</option>
+                                @foreach(\App\Models\TaxDocument::where('is_active', true)->orderBy('name')->get() as $doc)
+                                <option value="{{ $doc->id }}">{{ $doc->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Número Documento</label>
+                            <input wire:model="supplierDocument" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="NIT o CC">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Teléfono</label>
+                            <input wire:model="supplierPhone" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Teléfono de contacto">
+                        </div>
+                    </div>
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 rounded-b-2xl">
+                        <button wire:click="$set('isSupplierCreateOpen', false)" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
+                        <button wire:click="storeQuickSupplier" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea]">
+                            <span wire:loading.remove wire:target="storeQuickSupplier">Crear Proveedor</span>
+                            <span wire:loading wire:target="storeQuickSupplier">Creando...</span>
                         </button>
                     </div>
                 </div>

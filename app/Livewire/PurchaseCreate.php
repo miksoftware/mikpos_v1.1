@@ -10,6 +10,7 @@ use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\Supplier;
 use App\Models\Tax;
+use App\Models\TaxDocument;
 use App\Models\Unit;
 use App\Services\ActivityLogService;
 use Livewire\Attributes\Layout;
@@ -73,6 +74,18 @@ class PurchaseCreate extends Component
     public $quickUnits = [];
     public $quickTaxes = [];
 
+    // Quick supplier creation
+    public bool $isSupplierCreateOpen = false;
+    public string $supplierName = '';
+    public string $supplierPhone = '';
+    public string $supplierDocument = '';
+    public ?int $supplierTaxDocumentId = null;
+
+    // Multiple payment methods (for cash purchases)
+    public array $purchasePayments = [];
+    public ?int $newPaymentMethodId = null;
+    public ?float $newPaymentAmount = null;
+
     public function mount(?int $id = null)
     {
         $this->purchase_date = now()->format('Y-m-d');
@@ -90,6 +103,8 @@ class PurchaseCreate extends Component
 
         if ($id) {
             $this->loadPurchase($id);
+        } else {
+            $this->purchasePayments = [['method_id' => '', 'amount' => '']];
         }
     }
 
@@ -121,6 +136,26 @@ class PurchaseCreate extends Component
         $this->paid_amount = (float) $this->purchase->paid_amount;
         $this->partial_payment_method_id = $this->purchase->partial_payment_method_id;
         $this->payment_due_date = $this->purchase->payment_due_date?->format('Y-m-d');
+
+        // Load multiple payment methods
+        if ($this->payment_type === 'cash' && $this->purchase->payment_details) {
+            $details = json_decode($this->purchase->payment_details, true);
+            if (is_array($details) && !empty($details)) {
+                $this->purchasePayments = array_map(fn($d) => [
+                    'method_id' => $d['payment_method_id'] ?? '',
+                    'amount' => $d['amount'] ?? '',
+                ], $details);
+            } else {
+                $this->purchasePayments = $this->payment_method_id
+                    ? [['method_id' => $this->payment_method_id, 'amount' => (float) $this->purchase->total]]
+                    : [['method_id' => '', 'amount' => '']];
+            }
+        } elseif ($this->payment_type === 'cash') {
+            // Legacy: single payment method
+            $this->purchasePayments = $this->payment_method_id
+                ? [['method_id' => $this->payment_method_id, 'amount' => (float) $this->purchase->total]]
+                : [['method_id' => '', 'amount' => '']];
+        }
 
         // Load items
         foreach ($this->purchase->items as $item) {
@@ -412,10 +447,79 @@ class PurchaseCreate extends Component
             $this->paid_amount = 0;
             $this->partial_payment_method_id = null;
             $this->payment_due_date = null;
+            // Initialize with one empty payment row if none exist
+            if (empty($this->purchasePayments)) {
+                $this->purchasePayments = [['method_id' => '', 'amount' => '']];
+            }
         } else {
             $this->payment_method_id = null;
+            $this->purchasePayments = [];
             $this->credit_amount = $this->total;
         }
+    }
+
+    public function addPaymentRow()
+    {
+        $this->purchasePayments[] = ['method_id' => '', 'amount' => ''];
+    }
+
+    public function removePaymentRow(int $index)
+    {
+        if (count($this->purchasePayments) > 1) {
+            array_splice($this->purchasePayments, $index, 1);
+            $this->purchasePayments = array_values($this->purchasePayments);
+        }
+    }
+
+    public function fillRemainingPayment(int $index)
+    {
+        $allocated = 0;
+        foreach ($this->purchasePayments as $i => $p) {
+            if ($i !== $index) {
+                $allocated += floatval($p['amount'] ?? 0);
+            }
+        }
+        $remaining = round($this->total - $allocated, 2);
+        if ($remaining > 0) {
+            $this->purchasePayments[$index]['amount'] = $remaining;
+        }
+    }
+
+    // Supplier quick create
+    public function openSupplierCreate()
+    {
+        $this->supplierName = '';
+        $this->supplierPhone = '';
+        $this->supplierDocument = '';
+        $this->supplierTaxDocumentId = null;
+        $this->isSupplierCreateOpen = true;
+    }
+
+    public function storeQuickSupplier()
+    {
+        $this->validate([
+            'supplierName' => 'required|min:2',
+        ], [
+            'supplierName.required' => 'El nombre es obligatorio',
+            'supplierName.min' => 'El nombre debe tener al menos 2 caracteres',
+        ]);
+
+        $supplier = Supplier::create([
+            'name' => mb_strtoupper($this->supplierName),
+            'phone' => $this->supplierPhone ?: null,
+            'document_number' => $this->supplierDocument ?: null,
+            'tax_document_id' => $this->supplierTaxDocumentId ?: null,
+            'is_active' => true,
+        ]);
+
+        ActivityLogService::logCreate('suppliers', $supplier, "Proveedor '{$supplier->name}' creado desde compras");
+
+        // Refresh suppliers list and select the new one
+        $this->suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
+        $this->supplier_id = $supplier->id;
+        $this->isSupplierCreateOpen = false;
+
+        $this->dispatch('notify', message: 'Proveedor creado correctamente', type: 'success');
     }
 
     public function saveDraft()
@@ -528,8 +632,27 @@ class PurchaseCreate extends Component
         }
 
         if ($this->payment_type === 'cash') {
-            $rules['payment_method_id'] = 'required|exists:payment_methods,id';
-            $messages['payment_method_id.required'] = 'Selecciona un método de pago';
+            // Validate multiple payments
+            if (empty($this->purchasePayments)) {
+                $this->dispatch('notify', message: 'Agrega al menos un método de pago', type: 'error');
+                return;
+            }
+            foreach ($this->purchasePayments as $i => $payment) {
+                if (empty($payment['method_id'])) {
+                    $this->dispatch('notify', message: 'Selecciona el método de pago en la fila ' . ($i + 1), type: 'error');
+                    return;
+                }
+                if (!is_numeric($payment['amount'] ?? '') || floatval($payment['amount']) <= 0) {
+                    $this->dispatch('notify', message: 'El monto debe ser mayor a 0 en la fila ' . ($i + 1), type: 'error');
+                    return;
+                }
+            }
+            // Validate total matches
+            $paymentTotal = array_sum(array_map(fn($p) => floatval($p['amount'] ?? 0), $this->purchasePayments));
+            if (abs($paymentTotal - $this->total) > 0.01) {
+                $this->dispatch('notify', message: 'El total de los pagos ($' . number_format($paymentTotal, 2) . ') no coincide con el total de la compra ($' . number_format($this->total, 2) . ')', type: 'error');
+                return;
+            }
         } else {
             $rules['credit_amount'] = 'required|numeric|min:0';
             $rules['payment_due_date'] = 'required|date';
@@ -541,6 +664,12 @@ class PurchaseCreate extends Component
 
         // Determine branch_id
         $branchId = $this->needsBranchSelection ? $this->branch_id : auth()->user()->branch_id;
+
+        // For cash: use first payment method as the main one (backward compatibility)
+        $mainPaymentMethodId = null;
+        if ($this->payment_type === 'cash' && !empty($this->purchasePayments)) {
+            $mainPaymentMethodId = $this->purchasePayments[0]['method_id'];
+        }
 
         $purchaseData = [
             'supplier_id' => $this->supplier_id,
@@ -554,13 +683,29 @@ class PurchaseCreate extends Component
             'discount_amount' => $this->discountAmount,
             'total' => $this->total,
             'payment_type' => $this->payment_type,
-            'payment_method_id' => $this->payment_type === 'cash' ? $this->payment_method_id : null,
+            'payment_method_id' => $mainPaymentMethodId,
             'credit_amount' => $this->payment_type === 'credit' ? $this->credit_amount : null,
             'paid_amount' => $this->payment_type === 'credit' ? $this->paid_amount : 0,
             'partial_payment_method_id' => $this->payment_type === 'credit' && $this->paid_amount > 0 ? $this->partial_payment_method_id : null,
             'payment_due_date' => $this->payment_type === 'credit' ? $this->payment_due_date : null,
             'notes' => $this->notes ?: null,
         ];
+
+        // Build payment details JSON for multiple payments
+        if ($this->payment_type === 'cash' && count($this->purchasePayments) > 0) {
+            $paymentDetails = [];
+            foreach ($this->purchasePayments as $p) {
+                $method = PaymentMethod::find($p['method_id']);
+                $paymentDetails[] = [
+                    'payment_method_id' => (int) $p['method_id'],
+                    'payment_method_name' => $method?->name ?? '',
+                    'amount' => round(floatval($p['amount']), 2),
+                ];
+            }
+            $purchaseData['payment_details'] = json_encode($paymentDetails);
+        } else {
+            $purchaseData['payment_details'] = null;
+        }
 
         // Determine payment status
         if ($this->payment_type === 'cash') {

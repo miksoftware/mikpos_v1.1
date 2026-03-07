@@ -155,6 +155,30 @@
                 </div>
             </div>
             @endif
+
+            <!-- Cash Drawer Option (only for POS) -->
+            @if($setting->document_type === 'pos')
+            <div class="mt-6 pt-6 border-t border-slate-200">
+                <button
+                    wire:click="toggleCashDrawer('{{ $setting->document_type }}')"
+                    class="flex items-center gap-4 w-full p-4 rounded-xl border transition-all duration-200 text-left {{ ($cashDrawerOptions[$setting->document_type] ?? false) ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-slate-50' }}">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center {{ ($cashDrawerOptions[$setting->document_type] ?? false) ? 'bg-amber-100' : 'bg-slate-200' }}">
+                        <svg class="w-5 h-5 {{ ($cashDrawerOptions[$setting->document_type] ?? false) ? 'text-amber-600' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="text-sm font-bold {{ ($cashDrawerOptions[$setting->document_type] ?? false) ? 'text-amber-800' : 'text-slate-600' }}">Abrir cajón monedero al no imprimir</span>
+                        <p class="text-xs {{ ($cashDrawerOptions[$setting->document_type] ?? false) ? 'text-amber-600' : 'text-slate-400' }} mt-0.5">Imprime una hoja en blanco para activar la apertura del cajón cuando se omite la tirilla</p>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors {{ ($cashDrawerOptions[$setting->document_type] ?? false) ? 'bg-amber-500' : 'bg-slate-300' }}">
+                            <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow {{ ($cashDrawerOptions[$setting->document_type] ?? false) ? 'translate-x-6' : 'translate-x-1' }}"></span>
+                        </div>
+                    </div>
+                </button>
+            </div>
+            @endif
         </div>
     </div>
     @endforeach

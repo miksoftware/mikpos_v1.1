@@ -11,12 +11,14 @@ class PrintFormatSetting extends Model
         'display_name',
         'format',
         'letter_options',
+        'open_cash_drawer_on_skip',
     ];
 
     protected function casts(): array
     {
         return [
             'letter_options' => 'array',
+            'open_cash_drawer_on_skip' => 'boolean',
         ];
     }
 
@@ -39,5 +41,11 @@ class PrintFormatSetting extends Model
     {
         $setting = static::where('document_type', $documentType)->first();
         return array_merge(self::DEFAULT_LETTER_OPTIONS, $setting?->letter_options ?? []);
+    }
+
+    public static function shouldOpenCashDrawerOnSkip(string $documentType): bool
+    {
+        $setting = static::where('document_type', $documentType)->first();
+        return (bool) ($setting?->open_cash_drawer_on_skip ?? false);
     }
 }

@@ -32,6 +32,7 @@ class Purchase extends Model
         'paid_amount',
         'partial_payment_method_id',
         'payment_due_date',
+        'payment_details',
         'notes',
     ];
 

@@ -217,7 +217,7 @@
                         </td>
                         <td class="px-6 py-4 text-center">
                             <span class="text-sm {{ $item->isLowStock() ? 'text-amber-600 font-medium' : 'text-slate-600' }}">
-                                {{ $item->current_stock }} {{ $item->unit?->abbreviation ?? 'und' }}
+                                {{ rtrim(rtrim(number_format($item->current_stock, 3), '0'), '.') }} {{ $item->unit?->abbreviation ?? 'und' }}
                             </span>
                             @if($item->isLowStock())
                             <div class="text-xs text-amber-500">Stock bajo</div>
@@ -322,7 +322,7 @@
                         </td>
                         <td class="px-6 py-3 text-center">
                             <span class="text-sm text-slate-500" title="Stock del producto padre">
-                                {{ $item->current_stock }} {{ $item->unit?->abbreviation ?? 'und' }}
+                                {{ rtrim(rtrim(number_format($item->current_stock, 3), '0'), '.') }} {{ $item->unit?->abbreviation ?? 'und' }}
                             </span>
                             <div class="text-xs text-slate-400">(padre)</div>
                         </td>
@@ -920,7 +920,7 @@
                                 </div>
                                 <div>
                                     <span class="text-slate-500">Stock Actual:</span>
-                                    <p class="font-medium text-slate-700">{{ $parentProduct->current_stock }} {{ $parentProduct->unit?->abbreviation ?? 'und' }}</p>
+                                    <p class="font-medium text-slate-700">{{ rtrim(rtrim(number_format($parentProduct->current_stock, 3), '0'), '.') }} {{ $parentProduct->unit?->abbreviation ?? 'und' }}</p>
                                 </div>
                             </div>
                         </div>

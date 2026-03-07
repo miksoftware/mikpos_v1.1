@@ -430,7 +430,14 @@
                 <div class="info-box-content">
                     <p><strong>Estado:</strong> {{ $purchase->getStatusLabel() }}</p>
                     <p><strong>Tipo de Pago:</strong> {{ $purchase->getPaymentTypeLabel() }}</p>
-                    @if($purchase->paymentMethod)
+                    @php
+                        $receiptPaymentDetails = $purchase->payment_details ? json_decode($purchase->payment_details, true) : null;
+                    @endphp
+                    @if($receiptPaymentDetails && count($receiptPaymentDetails) > 0)
+                        @foreach($receiptPaymentDetails as $rpd)
+                        <p><strong>{{ $rpd['payment_method_name'] ?? '-' }}:</strong> ${{ number_format($rpd['amount'] ?? 0, 2) }}</p>
+                        @endforeach
+                    @elseif($purchase->paymentMethod)
                     <p><strong>Método:</strong> {{ $purchase->paymentMethod->name }}</p>
                     @endif
                     <p><strong>Registrado por:</strong> {{ $purchase->user->name ?? 'N/A' }}</p>
