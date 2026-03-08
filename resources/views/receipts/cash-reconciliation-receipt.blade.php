@@ -9,8 +9,9 @@
         @page { size: 72mm auto; margin: 0; }
         body {
             font-family: 'Courier New', Courier, monospace;
-            font-size: 11px;
-            line-height: 1.4;
+            font-size: 12px;
+            font-weight: bold;
+            line-height: 1.5;
             width: 72mm;
             max-width: 72mm;
             padding: 2mm;
@@ -19,27 +20,27 @@
         }
         .receipt { width: 100%; }
         .header { text-align: center; padding-bottom: 6px; border-bottom: 1px dashed #000; margin-bottom: 6px; }
-        .business-name { font-size: 14px; font-weight: bold; text-transform: uppercase; margin-bottom: 2px; word-wrap: break-word; }
-        .business-info { font-size: 9px; color: #333; }
+        .business-name { font-size: 15px; font-weight: bold; text-transform: uppercase; margin-bottom: 2px; word-wrap: break-word; }
+        .business-info { font-size: 10px; color: #000; font-weight: bold; }
         .business-info p { margin: 1px 0; }
-        .title { text-align: center; font-size: 13px; font-weight: bold; padding: 4px 0; border-bottom: 1px dashed #000; margin-bottom: 6px; text-transform: uppercase; }
-        .section { margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px dashed #999; }
-        .section-title { font-size: 10px; font-weight: bold; margin-bottom: 3px; text-transform: uppercase; text-decoration: underline; }
-        .row { display: flex; justify-content: space-between; padding: 1px 0; font-size: 10px; }
-        .row .label { color: #333; }
+        .title { text-align: center; font-size: 14px; font-weight: bold; padding: 4px 0; border-bottom: 1px dashed #000; margin-bottom: 6px; text-transform: uppercase; }
+        .section { margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px dashed #000; }
+        .section-title { font-size: 11px; font-weight: bold; margin-bottom: 3px; text-transform: uppercase; text-decoration: underline; }
+        .row { display: flex; justify-content: space-between; padding: 1px 0; font-size: 11px; font-weight: bold; }
+        .row .label { color: #000; }
         .row .value { font-weight: bold; text-align: right; white-space: nowrap; }
-        .row.total { font-size: 11px; font-weight: bold; border-top: 1px solid #000; padding-top: 3px; margin-top: 3px; }
-        .row.highlight { font-size: 11px; }
-        .difference-box { text-align: center; padding: 4px; margin: 6px 0; border: 1px solid #000; font-size: 13px; font-weight: bold; }
-        .difference-box.sobrante { background: #f0fff0; }
-        .difference-box.faltante { background: #fff0f0; }
-        .difference-box.exacto { background: #f0f0ff; }
-        .movement-item { padding: 2px 0; font-size: 10px; border-bottom: 1px dotted #ccc; }
+        .row.total { font-size: 12px; font-weight: bold; border-top: 1px solid #000; padding-top: 3px; margin-top: 3px; }
+        .row.highlight { font-size: 12px; }
+        .difference-box { text-align: center; padding: 6px; margin: 6px 0; border: 2px solid #000; font-size: 14px; font-weight: bold; }
+        .difference-box.sobrante { background: #fff; }
+        .difference-box.faltante { background: #fff; }
+        .difference-box.exacto { background: #fff; }
+        .movement-item { padding: 2px 0; font-size: 11px; border-bottom: 1px dotted #000; }
         .movement-item:last-child { border-bottom: none; }
-        .footer { text-align: center; padding-top: 6px; border-top: 1px dashed #000; margin-top: 6px; font-size: 9px; color: #666; }
+        .footer { text-align: center; padding-top: 6px; border-top: 1px dashed #000; margin-top: 6px; font-size: 10px; color: #000; font-weight: bold; }
         .signatures { margin-top: 20px; }
         .signature-line { border-top: 1px solid #000; width: 80%; margin: 20px auto 3px; }
-        .signature-label { text-align: center; font-size: 9px; color: #333; }
+        .signature-label { text-align: center; font-size: 10px; color: #000; font-weight: bold; }
         @media print {
             body { padding: 1mm; width: 72mm; max-width: 72mm; }
             .no-print { display: none !important; }
@@ -130,7 +131,7 @@
                     <span class="value">${{ number_format($totalSales, 2) }}</span>
                 </div>
             @else
-                <p style="text-align: center; font-size: 12px; color: #999; padding: 4px 0;">Sin ventas</p>
+                <p style="text-align: center; font-size: 12px; color: #000; font-weight: bold; padding: 4px 0;">Sin ventas</p>
             @endif
         </div>
 
@@ -144,21 +145,21 @@
                         <span class="label">{{ $movement->type === 'income' ? '(+)' : '(-)' }} {{ $movement->concept }}</span>
                         <span class="value">${{ number_format($movement->amount, 2) }}</span>
                     </div>
-                    <div style="font-size: 10px; color: #666; padding-left: 4px;">
+                    <div style="font-size: 10px; color: #000; padding-left: 4px; font-weight: bold;">
                         {{ $movement->created_at->format('H:i') }} - {{ $movement->user->name }}
                     </div>
                 </div>
                 @endforeach
                 <div class="row" style="margin-top: 4px;">
                     <span class="label">Total Ingresos:</span>
-                    <span class="value" style="color: #060;">${{ number_format($totalIncome, 2) }}</span>
+                    <span class="value" style="color: #000;">${{ number_format($totalIncome, 2) }}</span>
                 </div>
                 <div class="row">
                     <span class="label">Total Egresos:</span>
-                    <span class="value" style="color: #600;">${{ number_format($totalExpenses, 2) }}</span>
+                    <span class="value" style="color: #000;">${{ number_format($totalExpenses, 2) }}</span>
                 </div>
             @else
-                <p style="text-align: center; font-size: 12px; color: #999; padding: 4px 0;">Sin movimientos</p>
+                <p style="text-align: center; font-size: 12px; color: #000; font-weight: bold; padding: 4px 0;">Sin movimientos</p>
             @endif
         </div>
 
@@ -176,14 +177,14 @@
                     <span class="label">(-) {{ $refund->number }}</span>
                     <span class="value">${{ number_format($refund->total, 2) }}</span>
                 </div>
-                <div style="font-size: 10px; color: #666; padding-left: 4px;">
+                <div style="font-size: 10px; color: #000; font-weight: bold; padding-left: 4px;">
                     Venta: {{ $refund->sale->invoice_number ?? '-' }} · {{ $refund->created_at->format('H:i') }}
                 </div>
             </div>
             @endforeach
             <div class="row total">
                 <span class="label">TOTAL DEVOLUCIONES:</span>
-                <span class="value" style="color: #600;">${{ number_format($receiptRefundsTotal, 2) }}</span>
+                <span class="value" style="color: #000;">${{ number_format($receiptRefundsTotal, 2) }}</span>
             </div>
         </div>
         @endif
@@ -206,7 +207,7 @@
                     <span class="label">(-) Pago prov: {{ $cp->supplier->name ?? '-' }}</span>
                     <span class="value">${{ number_format($cp->amount, 2) }}</span>
                 </div>
-                <div style="font-size: 10px; color: #666; padding-left: 4px;">
+                <div style="font-size: 10px; color: #000; font-weight: bold; padding-left: 4px;">
                     {{ $cp->paymentMethod->name ?? '' }} · {{ $cp->created_at->format('H:i') }}
                 </div>
             </div>
@@ -217,7 +218,7 @@
                     <span class="label">(+) Cobro cliente: {{ $cp->customer->first_name ?? '-' }}</span>
                     <span class="value">${{ number_format($cp->amount, 2) }}</span>
                 </div>
-                <div style="font-size: 10px; color: #666; padding-left: 4px;">
+                <div style="font-size: 10px; color: #000; font-weight: bold; padding-left: 4px;">
                     {{ $cp->paymentMethod->name ?? '' }} · {{ $cp->created_at->format('H:i') }}
                 </div>
             </div>
@@ -225,13 +226,13 @@
             @if($creditPayable->count() > 0)
             <div class="row" style="margin-top: 4px;">
                 <span class="label">Total pagos proveedores:</span>
-                <span class="value" style="color: #600;">${{ number_format($creditPayable->sum('amount'), 2) }}</span>
+                <span class="value" style="color: #000;">${{ number_format($creditPayable->sum('amount'), 2) }}</span>
             </div>
             @endif
             @if($creditReceivable->count() > 0)
             <div class="row">
                 <span class="label">Total cobros clientes:</span>
-                <span class="value" style="color: #060;">${{ number_format($creditReceivable->sum('amount'), 2) }}</span>
+                <span class="value" style="color: #000;">${{ number_format($creditReceivable->sum('amount'), 2) }}</span>
             </div>
             @endif
         </div>
