@@ -268,7 +268,8 @@
                                                 <p class="text-xs text-slate-500">{{ $item->product_sku }}</p>
                                             </td>
                                             <td class="px-4 py-2 text-center text-sm">{{ $item->quantity }}</td>
-                                            <td class="px-4 py-2 text-right text-sm">${{ number_format($item->unit_price, 0, ',', '.') }}</td>
+                                            @php $priceWithTax = $item->tax_rate > 0 ? $item->unit_price * (1 + $item->tax_rate / 100) : $item->unit_price; @endphp
+                                            <td class="px-4 py-2 text-right text-sm">${{ number_format($priceWithTax, 0, ',', '.') }}</td>
                                             <td class="px-4 py-2 text-right text-sm font-medium">${{ number_format($item->total, 0, ',', '.') }}</td>
                                         </tr>
                                         @endforeach

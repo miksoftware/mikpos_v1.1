@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\Supplier;
+use App\Models\Municipality;
 use App\Models\Tax;
 use App\Models\TaxDocument;
 use App\Models\Unit;
@@ -80,6 +81,13 @@ class PurchaseCreate extends Component
     public string $supplierPhone = '';
     public string $supplierDocument = '';
     public ?int $supplierTaxDocumentId = null;
+    public string $supplierEmail = '';
+    public $supplierDepartmentId = '';
+    public $supplierMunicipalityId = '';
+    public string $supplierAddress = '';
+    public string $supplierSalespersonName = '';
+    public string $supplierSalespersonPhone = '';
+    public array $supplierMunicipalities = [];
 
     // Multiple payment methods (for cash purchases)
     public array $purchasePayments = [];
@@ -492,23 +500,62 @@ class PurchaseCreate extends Component
         $this->supplierPhone = '';
         $this->supplierDocument = '';
         $this->supplierTaxDocumentId = null;
+        $this->supplierEmail = '';
+        $this->supplierDepartmentId = '';
+        $this->supplierMunicipalityId = '';
+        $this->supplierAddress = '';
+        $this->supplierSalespersonName = '';
+        $this->supplierSalespersonPhone = '';
+        $this->supplierMunicipalities = [];
+        $this->resetValidation();
         $this->isSupplierCreateOpen = true;
+    }
+
+    public function updatedSupplierDepartmentId()
+    {
+        $this->supplierMunicipalityId = '';
+        $this->supplierMunicipalities = $this->supplierDepartmentId
+            ? Municipality::where('department_id', $this->supplierDepartmentId)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+                ->map(fn($m) => ['id' => $m->id, 'name' => $m->name])
+                ->toArray()
+            : [];
     }
 
     public function storeQuickSupplier()
     {
         $this->validate([
             'supplierName' => 'required|min:2',
+            'supplierTaxDocumentId' => 'required|exists:tax_documents,id',
+            'supplierDocument' => 'required|string|unique:suppliers,document_number',
+            'supplierDepartmentId' => 'required|exists:departments,id',
+            'supplierMunicipalityId' => 'required|exists:municipalities,id',
+            'supplierAddress' => 'required|string|min:5',
         ], [
             'supplierName.required' => 'El nombre es obligatorio',
-            'supplierName.min' => 'El nombre debe tener al menos 2 caracteres',
+            'supplierName.min' => 'Mínimo 2 caracteres',
+            'supplierTaxDocumentId.required' => 'Selecciona un tipo de documento',
+            'supplierDocument.required' => 'El número de documento es obligatorio',
+            'supplierDocument.unique' => 'Este documento ya está registrado',
+            'supplierDepartmentId.required' => 'Selecciona un departamento',
+            'supplierMunicipalityId.required' => 'Selecciona un municipio',
+            'supplierAddress.required' => 'La dirección es obligatoria',
+            'supplierAddress.min' => 'Mínimo 5 caracteres',
         ]);
 
         $supplier = Supplier::create([
             'name' => mb_strtoupper($this->supplierName),
+            'tax_document_id' => $this->supplierTaxDocumentId,
+            'document_number' => $this->supplierDocument,
             'phone' => $this->supplierPhone ?: null,
-            'document_number' => $this->supplierDocument ?: null,
-            'tax_document_id' => $this->supplierTaxDocumentId ?: null,
+            'email' => $this->supplierEmail ?: null,
+            'department_id' => $this->supplierDepartmentId,
+            'municipality_id' => $this->supplierMunicipalityId,
+            'address' => $this->supplierAddress,
+            'salesperson_name' => $this->supplierSalespersonName ?: null,
+            'salesperson_phone' => $this->supplierSalespersonPhone ?: null,
             'is_active' => true,
         ]);
 

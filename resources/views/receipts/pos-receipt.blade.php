@@ -158,15 +158,16 @@
         .item-details {
             display: flex;
             justify-content: space-between;
-            font-size: 10px;
+            font-size: 11px;
         }
         
         .item-qty-price {
-            color: #333;
+            color: #000;
         }
         
         .item-total {
             font-weight: bold;
+            font-size: 12px;
             white-space: nowrap;
         }
         
@@ -180,12 +181,13 @@
         .total-row {
             display: flex;
             justify-content: space-between;
-            font-size: 11px;
+            font-size: 12px;
+            font-weight: bold;
             margin-bottom: 2px;
         }
         
         .total-row.grand-total {
-            font-size: 15px;
+            font-size: 16px;
             font-weight: bold;
             padding-top: 4px;
             border-top: 1px dashed #000;
@@ -203,7 +205,8 @@
         .payment-row {
             display: flex;
             justify-content: space-between;
-            font-size: 11px;
+            font-size: 12px;
+            font-weight: bold;
             margin-bottom: 2px;
         }
         
@@ -411,9 +414,13 @@
             @foreach($sale->items as $item)
             <div class="item">
                 <div class="item-name">{{ $item->product_name }}</div>
+                @php
+                    $itemPriceWithTax = $item->tax_rate > 0 ? $item->unit_price * (1 + $item->tax_rate / 100) : $item->unit_price;
+                    $itemTotalWithTax = $item->total;
+                @endphp
                 <div class="item-details">
-                    <span class="item-qty-price">{{ rtrim(rtrim(number_format($item->quantity, 3), '0'), '.') }} x ${{ number_format($item->unit_price, 0) }}</span>
-                    <span class="item-total">${{ number_format($item->subtotal, 0) }}</span>
+                    <span class="item-qty-price">{{ rtrim(rtrim(number_format($item->quantity, 3), '0'), '.') }} x ${{ number_format($itemPriceWithTax, 0) }}</span>
+                    <span class="item-total">${{ number_format($itemTotalWithTax, 0) }}</span>
                 </div>
                 @if($item->discount_amount > 0)
                 <div class="item-details" style="font-size: 9px;">

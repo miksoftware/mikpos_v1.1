@@ -226,8 +226,9 @@
                         @endif
                     </td>
                     <td class="text-center">{{ rtrim(rtrim(number_format($item->quantity, 3), '0'), '.') }}</td>
-                    <td class="text-right">${{ number_format($item->unit_price, 2) }}</td>
-                    <td class="text-right">${{ number_format($item->subtotal, 2) }}</td>
+                    @php $letterPriceWithTax = $item->tax_rate > 0 ? $item->unit_price * (1 + $item->tax_rate / 100) : $item->unit_price; @endphp
+                    <td class="text-right">${{ number_format($letterPriceWithTax, 2) }}</td>
+                    <td class="text-right">${{ number_format($item->total, 2) }}</td>
                 </tr>
                 @endforeach
             </tbody>

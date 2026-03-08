@@ -576,7 +576,7 @@
         <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="$set('isSupplierCreateOpen', false)"></div>
         <div class="fixed inset-0 z-[101] overflow-y-auto">
             <div class="flex min-h-full items-center justify-center p-4">
-                <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl">
+                <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-xl">
                     <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 rounded-full bg-gradient-to-r from-[#ff7261] to-[#a855f7] flex items-center justify-center">
@@ -588,28 +588,75 @@
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
                     </div>
-                    <div class="px-6 py-4 space-y-4">
+                    <div class="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
                             <input wire:model="supplierName" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Nombre del proveedor">
                             @error('supplierName') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Tipo Documento</label>
-                            <select wire:model="supplierTaxDocumentId" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
-                                <option value="">Seleccionar...</option>
-                                @foreach(\App\Models\TaxDocument::where('is_active', true)->orderBy('description')->get() as $doc)
-                                <option value="{{ $doc->id }}">{{ $doc->description }}</option>
-                                @endforeach
-                            </select>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Tipo Documento *</label>
+                                <select wire:model="supplierTaxDocumentId" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                    <option value="">Seleccionar...</option>
+                                    @foreach(\App\Models\TaxDocument::where('is_active', true)->orderBy('description')->get() as $doc)
+                                    <option value="{{ $doc->id }}">{{ $doc->description }}</option>
+                                    @endforeach
+                                </select>
+                                @error('supplierTaxDocumentId') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Nº Documento *</label>
+                                <input wire:model="supplierDocument" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="NIT o CC">
+                                @error('supplierDocument') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Teléfono</label>
+                                <input wire:model="supplierPhone" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Teléfono">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                                <input wire:model="supplierEmail" type="email" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="correo@ejemplo.com">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Departamento *</label>
+                                <select wire:model.live="supplierDepartmentId" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                    <option value="">Seleccionar...</option>
+                                    @foreach(\App\Models\Department::where('is_active', true)->orderBy('name')->get() as $dept)
+                                    <option value="{{ $dept->id }}">{{ $dept->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('supplierDepartmentId') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Municipio *</label>
+                                <select wire:model="supplierMunicipalityId" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                    <option value="">Seleccionar...</option>
+                                    @foreach($supplierMunicipalities as $mun)
+                                    <option value="{{ $mun['id'] }}">{{ $mun['name'] }}</option>
+                                    @endforeach
+                                </select>
+                                @error('supplierMunicipalityId') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                            </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Número Documento</label>
-                            <input wire:model="supplierDocument" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="NIT o CC">
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Dirección *</label>
+                            <input wire:model="supplierAddress" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Dirección del proveedor">
+                            @error('supplierAddress') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Teléfono</label>
-                            <input wire:model="supplierPhone" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Teléfono de contacto">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Nombre Vendedor</label>
+                                <input wire:model="supplierSalespersonName" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Nombre del vendedor">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Tel. Vendedor</label>
+                                <input wire:model="supplierSalespersonPhone" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Teléfono vendedor">
+                            </div>
                         </div>
                     </div>
                     <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 rounded-b-2xl">
