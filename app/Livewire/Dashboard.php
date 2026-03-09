@@ -45,8 +45,6 @@ class Dashboard extends Component
     // Cashier/seller personal stats
     public int $mySalesCountToday = 0;
     public float $myBestSaleToday = 0;
-    public int $mySalesCountMonth = 0;
-    public float $mySalesMonth = 0;
 
     public function mount()
     {
@@ -155,19 +153,6 @@ class Dashboard extends Component
             ->where('user_id', $userId)
             ->whereDate('created_at', today())
             ->max('total') ?? 0;
-
-        // Personal month stats
-        $this->mySalesCountMonth = Sale::where('status', 'completed')
-            ->where('user_id', $userId)
-            ->whereMonth('created_at', now()->month)
-            ->whereYear('created_at', now()->year)
-            ->count();
-
-        $this->mySalesMonth = (float) Sale::where('status', 'completed')
-            ->where('user_id', $userId)
-            ->whereMonth('created_at', now()->month)
-            ->whereYear('created_at', now()->year)
-            ->sum('total');
     }
 
     private function loadPersonalChartData()

@@ -281,15 +281,15 @@
 
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
             <div class="flex items-center justify-between mb-3">
-                <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Mi Mes</span>
+                <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Ticket Promedio</span>
                 <div class="w-10 h-10 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-xl flex items-center justify-center">
                     <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"></path>
                     </svg>
                 </div>
             </div>
-            <p class="text-2xl font-bold text-slate-800">${{ number_format($mySalesMonth, 0, ',', '.') }}</p>
-            <p class="text-xs text-slate-500 mt-1">{{ $mySalesCountMonth }} ventas este mes</p>
+            <p class="text-2xl font-bold text-slate-800">${{ number_format($averageTicketToday, 0, ',', '.') }}</p>
+            <p class="text-xs text-slate-500 mt-1">Promedio por venta hoy</p>
         </div>
     </div>
 
