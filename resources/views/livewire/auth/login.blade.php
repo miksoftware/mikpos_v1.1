@@ -33,7 +33,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path>
                                 </svg>
                             </div>
-                            <input wire:model.live="email" type="email" id="email" class="w-full pl-12 pr-4 py-3.5 bg-white/10 border border-white/20 rounded-xl text-white placeholder-orange-300/50 focus:outline-none focus:ring-2 focus:ring-[#ff7261] focus:border-transparent transition-all duration-200 backdrop-blur-sm" placeholder="tu@email.com" autocomplete="email">
+                            <input wire:model="email" type="email" id="email" class="w-full pl-12 pr-4 py-3.5 bg-white/10 border border-white/20 rounded-xl text-white placeholder-orange-300/50 focus:outline-none focus:ring-2 focus:ring-[#ff7261] focus:border-transparent transition-all duration-200 backdrop-blur-sm" placeholder="tu@email.com" autocomplete="email">
                         </div>
                         @error('email') <p class="mt-2 text-sm text-red-300 animate-fade-in">{{ $message }}</p> @enderror
                     </div>
@@ -47,7 +47,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                                 </svg>
                             </div>
-                            <input wire:model.live="password" type="password" id="password" class="w-full pl-12 pr-4 py-3.5 bg-white/10 border border-white/20 rounded-xl text-white placeholder-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 backdrop-blur-sm" placeholder="••••••••" autocomplete="current-password">
+                            <input wire:model="password" type="password" id="password" class="w-full pl-12 pr-4 py-3.5 bg-white/10 border border-white/20 rounded-xl text-white placeholder-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 backdrop-blur-sm" placeholder="••••••••" autocomplete="current-password">
                         </div>
                         @error('password') <p class="mt-2 text-sm text-red-300 animate-fade-in">{{ $message }}</p> @enderror
                     </div>
@@ -62,7 +62,7 @@
                     </div>
 
                     <!-- Submit Button -->
-                    <button type="submit" class="w-full py-3.5 px-4 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center">
+                    <button type="submit" :disabled="loading" class="w-full py-3.5 px-4 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
                         Iniciar Sesión
                     </button>
                 </form>

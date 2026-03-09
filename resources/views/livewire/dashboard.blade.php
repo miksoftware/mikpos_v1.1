@@ -30,6 +30,11 @@
         </div>
     </div>
 
+    @if($isAdmin)
+    {{-- ============================================ --}}
+    {{-- ADMIN DASHBOARD (super_admin, branch_admin) --}}
+    {{-- ============================================ --}}
+
     <!-- Today Stats -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
@@ -103,7 +108,7 @@
         </div>
     </div>
 
-    <!-- Charts Row -->
+    <!-- Charts Row (Admin) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <!-- Sales Trend Chart -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
@@ -140,7 +145,7 @@
         </div>
     </div>
 
-    <!-- Bottom Row -->
+    <!-- Bottom Row (Admin) -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Top Products -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
@@ -228,6 +233,149 @@
         </div>
     </div>
 
+    @else
+    {{-- ============================================ --}}
+    {{-- PERSONAL DASHBOARD (supervisor, cashier)     --}}
+    {{-- ============================================ --}}
+
+    <!-- Personal Stats -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Mis Ventas Hoy</span>
+                <div class="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-2xl font-bold text-slate-800">${{ number_format($salesToday, 0, ',', '.') }}</p>
+            <p class="text-xs text-slate-500 mt-1">{{ $transactionsToday }} transacciones</p>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Items Vendidos</span>
+                <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-2xl font-bold text-slate-800">{{ number_format($itemsSoldToday, 0, ',', '.') }}</p>
+            <p class="text-xs text-slate-500 mt-1">Ticket prom: ${{ number_format($averageTicketToday, 0, ',', '.') }}</p>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Mayor Venta Hoy</span>
+                <div class="w-10 h-10 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-2xl font-bold text-slate-800">${{ number_format($myBestSaleToday, 0, ',', '.') }}</p>
+            <p class="text-xs text-slate-500 mt-1">Tu mejor venta del día</p>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Mi Mes</span>
+                <div class="w-10 h-10 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-xl flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-2xl font-bold text-slate-800">${{ number_format($mySalesMonth, 0, ',', '.') }}</p>
+            <p class="text-xs text-slate-500 mt-1">{{ $mySalesCountMonth }} ventas este mes</p>
+        </div>
+    </div>
+
+    <!-- Personal Charts + Top Products -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- Sales by Hour (Personal) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">Mis Ventas por Hora (Hoy)</h3>
+            <div class="h-64" wire:ignore>
+                @if(count($salesByHour) > 0)
+                <canvas id="salesByHourChart"></canvas>
+                @else
+                <div class="flex items-center justify-center h-full text-slate-400">
+                    <div class="text-center">
+                        <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <p>No hay ventas hoy</p>
+                    </div>
+                </div>
+                @endif
+            </div>
+        </div>
+
+        <!-- Top Products Sold Today (Personal) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">Mis Top Productos (Hoy)</h3>
+            <div class="space-y-3">
+                @forelse($topProducts as $index => $product)
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm {{ $index === 0 ? 'bg-yellow-400 text-yellow-900' : ($index === 1 ? 'bg-slate-300 text-slate-700' : ($index === 2 ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600')) }}">
+                        {{ $index + 1 }}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-slate-800 text-sm truncate">{{ $product['product_name'] }}</p>
+                        <p class="text-xs text-slate-500">{{ number_format($product['quantity']) }} vendidos</p>
+                    </div>
+                    <span class="text-sm font-semibold text-slate-800">${{ number_format($product['total'], 0, ',', '.') }}</span>
+                </div>
+                @empty
+                <div class="flex items-center justify-center py-8 text-slate-400">
+                    <div class="text-center">
+                        <svg class="w-10 h-10 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                        <p class="text-sm">Aún no has vendido hoy</p>
+                    </div>
+                </div>
+                @endforelse
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions (Personal) -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">Acciones Rápidas</h3>
+            <div class="grid grid-cols-2 gap-3">
+                @if(auth()->user()->hasPermission('pos.access'))
+                <a href="{{ route('pos') }}" class="flex flex-col items-center gap-2 p-4 rounded-xl bg-slate-50 hover:bg-slate-100 transition group">
+                    <div class="w-10 h-10 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-xl flex items-center justify-center group-hover:opacity-90 transition">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <span class="text-xs font-medium text-slate-700">Ir al POS</span>
+                </a>
+                @endif
+
+                @if(auth()->user()->hasPermission('sales.view'))
+                <a href="{{ route('sales') }}" class="flex flex-col items-center gap-2 p-4 rounded-xl bg-slate-50 hover:bg-slate-100 transition group">
+                    <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center group-hover:bg-blue-200 transition">
+                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    </div>
+                    <span class="text-xs font-medium text-slate-700">Mis Ventas</span>
+                </a>
+                @endif
+
+                @if(auth()->user()->hasPermission('customers.create'))
+                <a href="{{ route('customers') }}" class="flex flex-col items-center gap-2 p-4 rounded-xl bg-slate-50 hover:bg-slate-100 transition group">
+                    <div class="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center group-hover:bg-green-200 transition">
+                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+                    </div>
+                    <span class="text-xs font-medium text-slate-700">Nuevo Cliente</span>
+                </a>
+                @endif
+            </div>
+        </div>
+    </div>
+
+    @endif
+
     <!-- Charts JavaScript -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -241,7 +389,8 @@
                 'rgba(99,102,241,0.8)'
             ];
 
-            // Sales Trend Chart
+            @if($isAdmin)
+            // Sales Trend Chart (Admin only)
             @if(count($salesByDay) > 0)
             const trendCtx = document.getElementById('salesTrendChart');
             if (trendCtx) {
@@ -275,7 +424,35 @@
             }
             @endif
 
-            // Sales by Hour Chart
+            // Payment Method Chart (Admin only)
+            @if(count($salesByPaymentMethod) > 0)
+            const paymentCtx = document.getElementById('paymentMethodChart');
+            if (paymentCtx) {
+                new Chart(paymentCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: @json(collect($salesByPaymentMethod)->pluck('name')),
+                        datasets: [{
+                            data: @json(collect($salesByPaymentMethod)->pluck('total')),
+                            backgroundColor: chartColors,
+                            borderWidth: 0,
+                            hoverOffset: 10
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '65%',
+                        plugins: {
+                            legend: { position: 'right', labels: { usePointStyle: true, padding: 12, font: { size: 11 } } }
+                        }
+                    }
+                });
+            }
+            @endif
+            @endif
+
+            // Sales by Hour Chart (Both admin and personal)
             @if(count($salesByHour) > 0)
             const hourCtx = document.getElementById('salesByHourChart');
             if (hourCtx) {
@@ -297,33 +474,6 @@
                         scales: {
                             y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
                             x: { grid: { display: false } }
-                        }
-                    }
-                });
-            }
-            @endif
-
-            // Payment Method Chart
-            @if(count($salesByPaymentMethod) > 0)
-            const paymentCtx = document.getElementById('paymentMethodChart');
-            if (paymentCtx) {
-                new Chart(paymentCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: @json(collect($salesByPaymentMethod)->pluck('name')),
-                        datasets: [{
-                            data: @json(collect($salesByPaymentMethod)->pluck('total')),
-                            backgroundColor: chartColors,
-                            borderWidth: 0,
-                            hoverOffset: 10
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '65%',
-                        plugins: {
-                            legend: { position: 'right', labels: { usePointStyle: true, padding: 12, font: { size: 11 } } }
                         }
                     }
                 });

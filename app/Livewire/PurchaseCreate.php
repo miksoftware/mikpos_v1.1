@@ -94,6 +94,14 @@ class PurchaseCreate extends Component
     public ?int $newPaymentMethodId = null;
     public ?float $newPaymentAmount = null;
 
+    // Global purchase discount
+    public $showGlobalDiscountModal = false;
+    public $globalDiscountType = 'percentage';
+    public $globalDiscountValue = '';
+    public $globalDiscountReason = '';
+    public $globalDiscountApplied = false;
+    public $globalDiscountAmount = 0;
+
     public function mount(?int $id = null)
     {
         $this->purchase_date = now()->format('Y-m-d');
@@ -144,6 +152,15 @@ class PurchaseCreate extends Component
         $this->paid_amount = (float) $this->purchase->paid_amount;
         $this->partial_payment_method_id = $this->purchase->partial_payment_method_id;
         $this->payment_due_date = $this->purchase->payment_due_date?->format('Y-m-d');
+
+        // Load global discount
+        if ($this->purchase->global_discount_type) {
+            $this->globalDiscountApplied = true;
+            $this->globalDiscountType = $this->purchase->global_discount_type;
+            $this->globalDiscountValue = (string) $this->purchase->global_discount_value;
+            $this->globalDiscountReason = $this->purchase->global_discount_reason ?? '';
+            $this->globalDiscountAmount = (float) $this->purchase->global_discount_amount;
+        }
 
         // Load multiple payment methods
         if ($this->payment_type === 'cash' && $this->purchase->payment_details) {
@@ -401,6 +418,10 @@ class PurchaseCreate extends Component
     public function clearCart()
     {
         $this->cartItems = [];
+        $this->globalDiscountApplied = false;
+        $this->globalDiscountAmount = 0;
+        $this->globalDiscountValue = '';
+        $this->globalDiscountReason = '';
         $this->calculateTotals();
     }
 
@@ -433,7 +454,21 @@ class PurchaseCreate extends Component
         $this->subtotal = collect($this->cartItems)->sum('subtotal');
         $this->taxAmount = collect($this->cartItems)->sum('tax_amount');
         $this->discountAmount = collect($this->cartItems)->sum('discount');
-        $this->total = $this->subtotal + $this->taxAmount - $this->discountAmount;
+        $baseTotal = $this->subtotal + $this->taxAmount - $this->discountAmount;
+
+        // Recalculate global discount amount if applied (percentage may change with cart changes)
+        if ($this->globalDiscountApplied) {
+            $value = (float) str_replace(',', '.', $this->globalDiscountValue);
+            if ($this->globalDiscountType === 'percentage' && $value > 0) {
+                $this->globalDiscountAmount = round($baseTotal * ($value / 100), 2);
+            }
+            // For fixed, keep the amount as-is but cap it
+            if ($this->globalDiscountAmount > $baseTotal) {
+                $this->globalDiscountAmount = $baseTotal;
+            }
+        }
+
+        $this->total = $baseTotal - $this->globalDiscountAmount;
 
         // Auto-set credit amount if credit type
         if ($this->payment_type === 'credit' && !$this->credit_amount) {
@@ -491,6 +526,77 @@ class PurchaseCreate extends Component
         if ($remaining > 0) {
             $this->purchasePayments[$index]['amount'] = $remaining;
         }
+    }
+
+    public function openGlobalDiscountModal()
+    {
+        if (empty($this->cartItems)) {
+            $this->dispatch('notify', message: 'Agrega productos primero', type: 'warning');
+            return;
+        }
+
+        if (!$this->globalDiscountApplied) {
+            $this->globalDiscountType = 'percentage';
+            $this->globalDiscountValue = '';
+            $this->globalDiscountReason = '';
+        }
+
+        $this->showGlobalDiscountModal = true;
+    }
+
+    public function applyGlobalDiscount()
+    {
+        $value = (float) str_replace(',', '.', $this->globalDiscountValue);
+
+        if ($value < 0) {
+            $this->dispatch('notify', message: 'El descuento no puede ser negativo', type: 'error');
+            return;
+        }
+
+        if ($this->globalDiscountType === 'percentage' && $value > 100) {
+            $this->dispatch('notify', message: 'El porcentaje no puede ser mayor a 100%', type: 'error');
+            return;
+        }
+
+        $baseTotal = $this->subtotal + $this->taxAmount - $this->discountAmount;
+
+        if ($value > 0) {
+            if ($this->globalDiscountType === 'percentage') {
+                $discountAmount = round($baseTotal * ($value / 100), 2);
+            } else {
+                $discountAmount = round($value, 2);
+            }
+
+            if ($discountAmount > $baseTotal) {
+                $this->dispatch('notify', message: 'El descuento no puede ser mayor al total', type: 'error');
+                return;
+            }
+
+            $this->globalDiscountApplied = true;
+            $this->globalDiscountAmount = $discountAmount;
+        } else {
+            $this->globalDiscountApplied = false;
+            $this->globalDiscountAmount = 0;
+        }
+
+        $this->calculateTotals();
+        $this->showGlobalDiscountModal = false;
+        $this->dispatch('notify', message: $value > 0 ? 'Descuento global aplicado' : 'Descuento global eliminado');
+    }
+
+    public function removeGlobalDiscount()
+    {
+        $this->globalDiscountApplied = false;
+        $this->globalDiscountAmount = 0;
+        $this->globalDiscountValue = '';
+        $this->globalDiscountReason = '';
+        $this->calculateTotals();
+        $this->dispatch('notify', message: 'Descuento global eliminado');
+    }
+
+    public function closeGlobalDiscountModal()
+    {
+        $this->showGlobalDiscountModal = false;
     }
 
     // Supplier quick create
@@ -727,7 +833,7 @@ class PurchaseCreate extends Component
             'due_date' => $this->due_date ?: null,
             'subtotal' => $this->subtotal,
             'tax_amount' => $this->taxAmount,
-            'discount_amount' => $this->discountAmount,
+            'discount_amount' => $this->discountAmount + $this->globalDiscountAmount,
             'total' => $this->total,
             'payment_type' => $this->payment_type,
             'payment_method_id' => $mainPaymentMethodId,
@@ -736,6 +842,10 @@ class PurchaseCreate extends Component
             'partial_payment_method_id' => $this->payment_type === 'credit' && $this->paid_amount > 0 ? $this->partial_payment_method_id : null,
             'payment_due_date' => $this->payment_type === 'credit' ? $this->payment_due_date : null,
             'notes' => $this->notes ?: null,
+            'global_discount_type' => $this->globalDiscountApplied ? $this->globalDiscountType : null,
+            'global_discount_value' => $this->globalDiscountApplied ? (float) str_replace(',', '.', $this->globalDiscountValue) : 0,
+            'global_discount_amount' => $this->globalDiscountAmount,
+            'global_discount_reason' => $this->globalDiscountApplied && trim($this->globalDiscountReason) ? trim($this->globalDiscountReason) : null,
         ];
 
         // Build payment details JSON for multiple payments

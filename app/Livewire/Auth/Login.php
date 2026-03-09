@@ -40,21 +40,22 @@ class Login extends Component
         }
     }
 
-    public function updated($propertyName)
-    {
-        $this->validateOnly($propertyName);
-    }
-
     public function login()
     {
         $this->loading = true;
-        
-        $this->validate();
+
+        try {
+            $this->validate();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->loading = false;
+            throw $e;
+        }
 
         $throttleKey = Str::transliterate(Str::lower($this->email).'|'.request()->ip());
 
         if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
-            $this->addError('email', 'Demasiados intentos de inicio de sesión. Por favor intente nuevamente en unos minutos.');
+            $seconds = RateLimiter::availableIn($throttleKey);
+            $this->addError('email', "Demasiados intentos. Intente nuevamente en {$seconds} segundos.");
             $this->loading = false;
             return;
         }

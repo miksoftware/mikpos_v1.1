@@ -37,6 +37,10 @@ class Sale extends Model
         'paid_amount',
         'payment_due_date',
         'notes',
+        'global_discount_type',
+        'global_discount_value',
+        'global_discount_amount',
+        'global_discount_reason',
     ];
 
     protected function casts(): array
@@ -52,6 +56,8 @@ class Sale extends Model
             'dian_validated_at' => 'datetime',
             'dian_response' => 'array',
             'payment_due_date' => 'date',
+            'global_discount_value' => 'decimal:2',
+            'global_discount_amount' => 'decimal:2',
         ];
     }
 

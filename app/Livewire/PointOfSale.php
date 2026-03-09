@@ -112,6 +112,14 @@ class PointOfSale extends Component
     // Credit sale
     public bool $isCredit = false;
 
+    // Global invoice discount
+    public $showGlobalDiscountModal = false;
+    public $globalDiscountType = 'percentage';
+    public $globalDiscountValue = '';
+    public $globalDiscountReason = '';
+    public $globalDiscountApplied = false;
+    public $globalDiscountAmount = 0;
+
     public function mount()
     {
         $user = auth()->user();
@@ -1123,6 +1131,10 @@ class PointOfSale extends Component
     public function clearCart()
     {
         $this->cart = [];
+        $this->globalDiscountApplied = false;
+        $this->globalDiscountAmount = 0;
+        $this->globalDiscountValue = '';
+        $this->globalDiscountReason = '';
     }
 
     // Discount methods
@@ -1223,6 +1235,77 @@ class PointOfSale extends Component
         $this->discountReason = '';
     }
 
+    public function openGlobalDiscountModal()
+    {
+        if (empty($this->cart)) {
+            $this->dispatch('notify', message: 'Agrega productos al carrito', type: 'warning');
+            return;
+        }
+
+        if (!$this->globalDiscountApplied) {
+            $this->globalDiscountType = 'percentage';
+            $this->globalDiscountValue = '';
+            $this->globalDiscountReason = '';
+        }
+
+        $this->showGlobalDiscountModal = true;
+    }
+
+    public function applyGlobalDiscount()
+    {
+        $value = (float) str_replace(',', '.', $this->globalDiscountValue);
+
+        if ($value < 0) {
+            $this->dispatch('notify', message: 'El descuento no puede ser negativo', type: 'error');
+            return;
+        }
+
+        if ($this->globalDiscountType === 'percentage' && $value > 100) {
+            $this->dispatch('notify', message: 'El porcentaje no puede ser mayor a 100%', type: 'error');
+            return;
+        }
+
+        $baseTotal = collect($this->cart)->sum('subtotal')
+            - collect($this->cart)->sum('discount_amount')
+            + collect($this->cart)->sum('tax_amount');
+
+        if ($value > 0) {
+            if ($this->globalDiscountType === 'percentage') {
+                $discountAmount = round($baseTotal * ($value / 100), 2);
+            } else {
+                $discountAmount = round($value, 2);
+            }
+
+            if ($discountAmount > $baseTotal) {
+                $this->dispatch('notify', message: 'El descuento no puede ser mayor al total', type: 'error');
+                return;
+            }
+
+            $this->globalDiscountApplied = true;
+            $this->globalDiscountAmount = $discountAmount;
+        } else {
+            $this->globalDiscountApplied = false;
+            $this->globalDiscountAmount = 0;
+        }
+
+        $this->showGlobalDiscountModal = false;
+        $this->dispatch('notify', message: $value > 0 ? 'Descuento global aplicado' : 'Descuento global eliminado');
+    }
+
+    public function removeGlobalDiscount()
+    {
+        $this->globalDiscountApplied = false;
+        $this->globalDiscountAmount = 0;
+        $this->globalDiscountValue = '';
+        $this->globalDiscountReason = '';
+        $this->dispatch('notify', message: 'Descuento global eliminado');
+    }
+
+    public function closeGlobalDiscountModal()
+    {
+        $this->showGlobalDiscountModal = false;
+    }
+
     public function getSubtotalProperty()
     {
         return collect($this->cart)->sum('subtotal');
@@ -1240,7 +1323,8 @@ class PointOfSale extends Component
 
     public function getTotalProperty()
     {
-        return $this->getSubtotalProperty() - $this->getDiscountTotalProperty() + $this->getTaxTotalProperty();
+        $total = $this->getSubtotalProperty() - $this->getDiscountTotalProperty() + $this->getTaxTotalProperty();
+        return $total - $this->globalDiscountAmount;
     }
 
     public function getItemCountProperty()
@@ -1314,9 +1398,14 @@ class PointOfSale extends Component
             })
             ->first();
         
-        // Initialize with one payment method with the total amount
+        // Initialize with one payment method
+        // If user has cash denominations permission, start empty so they use the bills/coins panel
+        $initialAmount = auth()->user()->hasPermission('pos.cash_denominations')
+            ? ''
+            : $this->getTotalProperty();
+
         $this->payments = [
-            ['method_id' => $defaultPaymentMethod?->id ?? '', 'amount' => $this->getTotalProperty()]
+            ['method_id' => $defaultPaymentMethod?->id ?? '', 'amount' => $initialAmount]
         ];
         $this->isCredit = false;
         $this->showPaymentModal = true;
@@ -1400,7 +1489,7 @@ class PointOfSale extends Component
                 'invoice_number' => Sale::generateInvoiceNumber($this->branchId),
                 'subtotal' => $this->getSubtotalProperty(),
                 'tax_total' => $this->getTaxTotalProperty(),
-                'discount' => $this->getDiscountTotalProperty(),
+                'discount' => $this->getDiscountTotalProperty() + $this->globalDiscountAmount,
                 'total' => $total,
                 'status' => 'completed',
                 'payment_type' => $paymentType,
@@ -1408,6 +1497,10 @@ class PointOfSale extends Component
                 'credit_amount' => $this->isCredit ? $total : 0,
                 'paid_amount' => $paidAmount,
                 'notes' => $this->paymentNotes ?: null,
+                'global_discount_type' => $this->globalDiscountApplied ? $this->globalDiscountType : null,
+                'global_discount_value' => $this->globalDiscountApplied ? (float) str_replace(',', '.', $this->globalDiscountValue) : 0,
+                'global_discount_amount' => $this->globalDiscountAmount,
+                'global_discount_reason' => $this->globalDiscountApplied && trim($this->globalDiscountReason) ? trim($this->globalDiscountReason) : null,
             ]);
             
             // Create sale items and update stock
@@ -1560,6 +1653,10 @@ class PointOfSale extends Component
             $this->payments = [];
             $this->paymentNotes = '';
             $this->isCredit = false;
+            $this->globalDiscountApplied = false;
+            $this->globalDiscountAmount = 0;
+            $this->globalDiscountValue = '';
+            $this->globalDiscountReason = '';
             $this->loadDefaultCustomer();
             
         } catch (\Exception $e) {
@@ -1705,6 +1802,11 @@ class PointOfSale extends Component
             'item_count' => $this->getItemCountProperty(),
             'created_at' => now()->format('H:i'),
             'note' => $this->holdNote,
+            'global_discount_applied' => $this->globalDiscountApplied,
+            'global_discount_type' => $this->globalDiscountType,
+            'global_discount_value' => $this->globalDiscountValue,
+            'global_discount_reason' => $this->globalDiscountReason,
+            'global_discount_amount' => $this->globalDiscountAmount,
         ];
         
         $this->heldOrders[] = $heldOrder;
@@ -1713,6 +1815,10 @@ class PointOfSale extends Component
         // Clear current cart
         $this->cart = [];
         $this->holdNote = '';
+        $this->globalDiscountApplied = false;
+        $this->globalDiscountAmount = 0;
+        $this->globalDiscountValue = '';
+        $this->globalDiscountReason = '';
         $this->loadDefaultCustomer();
         
         $this->dispatch('notify', message: 'Orden guardada en espera', type: 'success');
@@ -1748,6 +1854,13 @@ class PointOfSale extends Component
                 $this->selectedCustomer = $customer;
             }
         }
+
+        // Restore global discount
+        $this->globalDiscountApplied = $order['global_discount_applied'] ?? false;
+        $this->globalDiscountType = $order['global_discount_type'] ?? 'percentage';
+        $this->globalDiscountValue = $order['global_discount_value'] ?? '';
+        $this->globalDiscountReason = $order['global_discount_reason'] ?? '';
+        $this->globalDiscountAmount = $order['global_discount_amount'] ?? 0;
         
         // Remove from held orders
         unset($this->heldOrders[$index]);

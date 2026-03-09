@@ -53,6 +53,7 @@ class SeedPending extends Command
         'PayrollModuleSeeder',
         'DiscountsModuleSeeder',
         'PaymentMethodsReportPermissionSeeder',
+        'PosCashDenominationsPermissionSeeder',
         // Add new seeders here
     ];
 

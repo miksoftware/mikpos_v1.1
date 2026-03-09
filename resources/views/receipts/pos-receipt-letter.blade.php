@@ -274,10 +274,19 @@
                     <span>${{ number_format($sale->tax_total, 2) }}</span>
                 </div>
                 @endif
-                @if($sale->discount > 0)
+                @php
+                    $itemDiscounts = $sale->discount - ($sale->global_discount_amount ?? 0);
+                @endphp
+                @if($itemDiscounts > 0)
                 <div class="total-row">
-                    <span>Descuento:</span>
-                    <span>-${{ number_format($sale->discount, 2) }}</span>
+                    <span>Descuento{{ ($sale->global_discount_amount ?? 0) > 0 ? ' (items)' : '' }}:</span>
+                    <span>-${{ number_format($itemDiscounts, 2) }}</span>
+                </div>
+                @endif
+                @if(($sale->global_discount_amount ?? 0) > 0)
+                <div class="total-row">
+                    <span>Desc. factura{{ $sale->global_discount_type === 'percentage' ? ' (' . rtrim(rtrim(number_format($sale->global_discount_value, 2), '0'), '.') . '%)' : '' }}:</span>
+                    <span>-${{ number_format($sale->global_discount_amount, 2) }}</span>
                 </div>
                 @endif
                 <div class="total-row grand-total">

@@ -1,6 +1,7 @@
 <div class="h-screen flex flex-col bg-slate-100" x-data="{ showCustomerSearch: false }" 
     @keydown.f7.window.prevent="showCustomerSearch = true; $nextTick(() => $refs.customerSearchInput?.focus())"
     @keydown.f3.window.prevent="$wire.applyAllSpecialPrices()"
+    @keydown.f4.window.prevent="$wire.openGlobalDiscountModal()"
     @close-customer-modal.window="showCustomerSearch = false">
     <!-- Top Header Bar -->
     <header class="h-14 bg-gradient-to-r from-[#1a1225] to-[#2d1f3d] flex items-center justify-between px-4 flex-shrink-0">
@@ -281,7 +282,7 @@
                     </div>
                     @if($this->getDiscountTotalProperty() > 0)
                     <div class="flex justify-between text-sm">
-                        <span class="text-amber-600">Descuentos</span>
+                        <span class="text-amber-600">Desc. productos</span>
                         <span class="font-medium text-amber-600">-${{ number_format($this->getDiscountTotalProperty(), 2) }}</span>
                     </div>
                     @endif
@@ -289,6 +290,17 @@
                         <span class="text-slate-500">Impuestos</span>
                         <span class="font-medium">${{ number_format($taxTotal, 2) }}</span>
                     </div>
+                    @if($globalDiscountApplied && $globalDiscountAmount > 0)
+                    <div class="flex justify-between text-sm items-center">
+                        <span class="text-purple-600 flex items-center gap-1">
+                            Desc. factura
+                            <button wire:click="removeGlobalDiscount" class="text-red-400 hover:text-red-600 transition" title="Quitar descuento">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </span>
+                        <span class="font-medium text-purple-600">-${{ number_format($globalDiscountAmount, 2) }}</span>
+                    </div>
+                    @endif
                     <div class="flex justify-between text-lg pt-2 border-t border-slate-200">
                         <span class="font-bold text-slate-800">Total</span>
                         <span class="font-bold text-[#ff7261]">${{ number_format($total, 2) }}</span>
@@ -297,13 +309,22 @@
                 
                 {{-- Special Price Button --}}
                 @if(count($cart) > 0)
-                <button wire:click="applyAllSpecialPrices" class="w-full mb-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl transition flex items-center justify-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    Aplicar Precio Especial a Todo
-                    <span class="text-xs px-1.5 py-0.5 rounded bg-green-200 text-green-800">F3</span>
-                </button>
+                <div class="grid grid-cols-2 gap-2">
+                    <button wire:click="applyAllSpecialPrices" class="px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl transition flex items-center justify-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        P. Especial
+                        <span class="text-xs px-1 py-0.5 rounded bg-green-200 text-green-800">F3</span>
+                    </button>
+                    <button wire:click="openGlobalDiscountModal" class="px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl transition flex items-center justify-center gap-1 {{ $globalDiscountApplied ? 'ring-2 ring-purple-400' : '' }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                        </svg>
+                        Desc. Factura
+                        <span class="text-xs px-1 py-0.5 rounded bg-purple-200 text-purple-800">F4</span>
+                    </button>
+                </div>
                 @endif
 
                 <div class="grid grid-cols-3 gap-2">
@@ -793,6 +814,72 @@
     </div>
     @endif
 
+    <!-- Global Invoice Discount Modal -->
+    @if($showGlobalDiscountModal)
+    <div class="fixed inset-0 z-[100]">
+        <div class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100]" wire:click="closeGlobalDiscountModal"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl">
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-slate-900">Descuento a Factura</h3>
+                        <button wire:click="closeGlobalDiscountModal" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="px-6 py-4 space-y-4">
+                        <div class="p-3 bg-purple-50 rounded-xl text-center">
+                            <p class="text-sm text-purple-600">Total actual de la factura</p>
+                            <p class="text-2xl font-bold text-purple-700">${{ number_format(collect($cart)->sum('subtotal') - collect($cart)->sum('discount_amount') + collect($cart)->sum('tax_amount'), 2) }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Tipo de descuento</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button wire:click="$set('globalDiscountType', 'percentage')" class="px-4 py-2 text-sm font-medium rounded-xl border-2 transition {{ $globalDiscountType === 'percentage' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-600 hover:border-purple-300' }}">
+                                    Porcentaje (%)
+                                </button>
+                                <button wire:click="$set('globalDiscountType', 'fixed')" class="px-4 py-2 text-sm font-medium rounded-xl border-2 transition {{ $globalDiscountType === 'fixed' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-600 hover:border-purple-300' }}">
+                                    Valor Fijo ($)
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">{{ $globalDiscountType === 'percentage' ? 'Porcentaje' : 'Valor' }}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">{{ $globalDiscountType === 'percentage' ? '%' : '$' }}</span>
+                                <input wire:model="globalDiscountValue" type="number" step="0.01" min="0" max="{{ $globalDiscountType === 'percentage' ? '100' : '' }}" class="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500" placeholder="0" autofocus>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Razón (opcional)</label>
+                            <input wire:model="globalDiscountReason" type="text" class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500" placeholder="Ej: Descuento especial, promoción...">
+                        </div>
+                    </div>
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-between gap-3">
+                        <div>
+                            @if($globalDiscountApplied)
+                            <button wire:click="removeGlobalDiscount" wire:click.stop="closeGlobalDiscountModal" class="px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-xl hover:bg-red-50">
+                                Quitar Descuento
+                            </button>
+                            @endif
+                        </div>
+                        <div class="flex gap-3">
+                            <button wire:click="closeGlobalDiscountModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
+                                Cancelar
+                            </button>
+                            <button wire:click="applyGlobalDiscount" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl hover:from-purple-600 hover:to-purple-700">
+                                Aplicar Descuento
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <!-- Payment Modal with Multiple Methods -->
     @if($showPaymentModal)
     <div class="fixed inset-0 z-[100]">
@@ -814,6 +901,9 @@
                         <div class="text-center py-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl">
                             <p class="text-sm text-slate-500 mb-1">Total a Pagar</p>
                             <p class="text-4xl font-bold text-[#ff7261]">${{ number_format($total, 2) }}</p>
+                            @if($globalDiscountApplied && $globalDiscountAmount > 0)
+                            <p class="text-xs text-purple-600 mt-1">Incluye desc. factura: -${{ number_format($globalDiscountAmount, 2) }}</p>
+                            @endif
                         </div>
 
                         <!-- Credit Toggle (only if customer has credit) -->
@@ -886,6 +976,88 @@
                                 @endforeach
                             </div>
                         </div>
+
+                        <!-- Payment Summary -->
+                        @if(auth()->user()->hasPermission('pos.cash_denominations') && !$isCredit)
+                        <!-- Cash Denominations Panel -->
+                        <div x-data="{
+                            denominations: [],
+                            bills: [100000, 50000, 20000, 10000, 5000, 2000],
+                            coins: [1000, 500],
+                            get denomTotal() { return this.denominations.reduce((sum, d) => sum + d, 0) },
+                            get denomChange() { return Math.max(0, this.denomTotal - {{ $total }}) },
+                            addDenom(value) {
+                                this.denominations.push(value);
+                                $wire.set('payments.0.amount', this.denomTotal);
+                            },
+                            removeLast() {
+                                if (this.denominations.length > 0) {
+                                    this.denominations.pop();
+                                    $wire.set('payments.0.amount', this.denomTotal || '');
+                                }
+                            },
+                            clearDenoms() {
+                                this.denominations = [];
+                                $wire.set('payments.0.amount', '');
+                            }
+                        }" class="p-4 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border border-slate-200">
+                            <div class="flex items-center justify-between mb-3">
+                                <p class="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+                                    <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                    Billetes y Monedas
+                                </p>
+                                <div class="flex items-center gap-1">
+                                    <button @click="removeLast()" x-show="denominations.length > 0" class="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Deshacer último">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>
+                                    </button>
+                                    <button @click="clearDenoms()" x-show="denominations.length > 0" class="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Limpiar todo">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {{-- Bills --}}
+                            <div class="grid grid-cols-3 gap-2 mb-2">
+                                <template x-for="bill in bills" :key="'bill-'+bill">
+                                    <button @click="addDenom(bill)" class="relative group py-3 px-2 bg-white hover:bg-green-50 border border-slate-200 hover:border-green-400 rounded-lg transition-all duration-150 active:scale-95 shadow-sm hover:shadow">
+                                        <div class="text-center">
+                                            <span class="text-sm text-green-700 font-bold block" x-text="'$' + bill.toLocaleString('es-CO')"></span>
+                                        </div>
+                                        <div class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-green-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition">+</div>
+                                    </button>
+                                </template>
+                            </div>
+
+                            {{-- Coins --}}
+                            <div class="grid grid-cols-3 gap-2 mb-3">
+                                <template x-for="coin in coins" :key="'coin-'+coin">
+                                    <button @click="addDenom(coin)" class="relative group py-3 px-2 bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-400 rounded-full transition-all duration-150 active:scale-95 shadow-sm hover:shadow">
+                                        <div class="text-center">
+                                            <span class="text-sm text-amber-700 font-bold" x-text="'$' + coin.toLocaleString('es-CO')"></span>
+                                        </div>
+                                        <div class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition">+</div>
+                                    </button>
+                                </template>
+                            </div>
+
+                            {{-- Denomination summary --}}
+                            <div x-show="denominations.length > 0" x-transition class="space-y-1.5">
+                                <div class="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
+                                    <template x-for="(d, i) in denominations" :key="'d-'+i">
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-slate-200 text-slate-700" x-text="'$' + d.toLocaleString('es-CO')"></span>
+                                    </template>
+                                </div>
+                                <div class="flex justify-between items-center pt-2 border-t border-slate-200">
+                                    <span class="text-xs font-medium text-slate-500">Recibido:</span>
+                                    <span class="text-sm font-bold text-green-600" x-text="'$' + denomTotal.toLocaleString('es-CO')"></span>
+                                </div>
+                                <div class="flex justify-between items-center" x-show="denomChange > 0">
+                                    <span class="text-xs font-medium text-slate-500">Cambio:</span>
+                                    <span class="text-sm font-bold text-amber-600" x-text="'$' + denomChange.toLocaleString('es-CO')"></span>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
 
                         <!-- Payment Summary -->
                         <div class="p-4 bg-slate-50 rounded-xl space-y-2">

@@ -289,6 +289,21 @@
                                     <span class="text-slate-500">Impuestos</span>
                                     <span class="text-slate-700">${{ number_format($selectedSale->tax_total, 0, ',', '.') }}</span>
                                 </div>
+                                @php
+                                    $saleItemDiscounts = $selectedSale->discount - ($selectedSale->global_discount_amount ?? 0);
+                                @endphp
+                                @if($saleItemDiscounts > 0)
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-amber-600">Descuento{{ ($selectedSale->global_discount_amount ?? 0) > 0 ? ' (items)' : '' }}</span>
+                                    <span class="text-amber-600">-${{ number_format($saleItemDiscounts, 0, ',', '.') }}</span>
+                                </div>
+                                @endif
+                                @if(($selectedSale->global_discount_amount ?? 0) > 0)
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-purple-600">Desc. factura{{ $selectedSale->global_discount_type === 'percentage' ? ' (' . rtrim(rtrim(number_format($selectedSale->global_discount_value, 2), '0'), '.') . '%)' : '' }}</span>
+                                    <span class="text-purple-600">-${{ number_format($selectedSale->global_discount_amount, 0, ',', '.') }}</span>
+                                </div>
+                                @endif
                                 <div class="flex justify-between text-lg font-bold pt-2 border-t border-slate-200">
                                     <span class="text-slate-800">Total</span>
                                     <span class="text-slate-900">${{ number_format($selectedSale->total, 0, ',', '.') }}</span>
