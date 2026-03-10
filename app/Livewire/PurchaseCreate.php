@@ -3,11 +3,15 @@
 namespace App\Livewire;
 
 use App\Models\Branch;
+use App\Models\Brand;
 use App\Models\Category;
 use App\Models\PaymentMethod;
 use App\Models\Product;
+use App\Models\ProductBarcode;
+use App\Models\ProductFieldSetting;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
+use App\Models\Subcategory;
 use App\Models\Supplier;
 use App\Models\Municipality;
 use App\Models\Tax;
@@ -16,10 +20,13 @@ use App\Models\Unit;
 use App\Services\ActivityLogService;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 #[Layout('layouts.app')]
 class PurchaseCreate extends Component
 {
+    use WithFileUploads;
+
     // Edit mode
     public ?int $purchaseId = null;
     public ?Purchase $purchase = null;
@@ -66,12 +73,27 @@ class PurchaseCreate extends Component
     // Quick product creation
     public bool $isQuickCreateOpen = false;
     public string $quickName = '';
+    public string $quickDescription = '';
     public ?int $quickCategoryId = null;
+    public ?int $quickSubcategoryId = null;
+    public ?int $quickBrandId = null;
     public ?int $quickUnitId = null;
     public ?int $quickTaxId = null;
+    public string $quickBarcode = '';
     public float $quickPurchasePrice = 0;
     public float $quickSalePrice = 0;
+    public float $quickSpecialPrice = 0;
+    public bool $quickPriceIncludesTax = false;
+    public float $quickMinStock = 0;
+    public float $quickMaxStock = 0;
+    public bool $quickHasCommission = false;
+    public string $quickCommissionType = 'percentage';
+    public float $quickCommissionValue = 0;
+    public $quickImage = null;
+    public bool $quickIsActive = true;
     public $quickCategories = [];
+    public $quickSubcategories = [];
+    public $quickBrands = [];
     public $quickUnits = [];
     public $quickTaxes = [];
 
@@ -683,17 +705,40 @@ class PurchaseCreate extends Component
     public function openQuickCreate()
     {
         $this->quickCategories = Category::where('is_active', true)->orderBy('name')->get();
+        $this->quickSubcategories = [];
+        $this->quickBrands = Brand::where('is_active', true)->orderBy('name')->get();
         $this->quickUnits = Unit::where('is_active', true)->orderBy('name')->get();
         $this->quickTaxes = Tax::where('is_active', true)->orderBy('name')->get();
 
         $this->quickName = mb_strtoupper($this->productSearch);
+        $this->quickDescription = '';
         $this->quickCategoryId = null;
+        $this->quickSubcategoryId = null;
+        $this->quickBrandId = null;
         $this->quickUnitId = null;
         $this->quickTaxId = null;
+        $this->quickBarcode = '';
         $this->quickPurchasePrice = 0;
         $this->quickSalePrice = 0;
+        $this->quickSpecialPrice = 0;
+        $this->quickPriceIncludesTax = false;
+        $this->quickMinStock = 0;
+        $this->quickMaxStock = 0;
+        $this->quickHasCommission = false;
+        $this->quickCommissionType = 'percentage';
+        $this->quickCommissionValue = 0;
+        $this->quickImage = null;
+        $this->quickIsActive = true;
 
         $this->isQuickCreateOpen = true;
+    }
+
+    public function updatedQuickCategoryId($value)
+    {
+        $this->quickSubcategoryId = null;
+        $this->quickSubcategories = $value
+            ? Subcategory::where('category_id', $value)->where('is_active', true)->orderBy('name')->get()
+            : [];
     }
 
     public function storeQuickProduct()
@@ -709,6 +754,11 @@ class PurchaseCreate extends Component
             'quickUnitId' => 'required|exists:units,id',
             'quickPurchasePrice' => 'required|numeric|min:0',
             'quickSalePrice' => 'required|numeric|min:0',
+            'quickBarcode' => 'nullable|string',
+            'quickImage' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'quickMinStock' => 'nullable|numeric|min:0',
+            'quickMaxStock' => 'nullable|numeric|min:0',
+            'quickSpecialPrice' => 'nullable|numeric|min:0',
         ], [
             'quickName.required' => 'El nombre es obligatorio',
             'quickName.min' => 'El nombre debe tener al menos 2 caracteres',
@@ -716,25 +766,56 @@ class PurchaseCreate extends Component
             'quickUnitId.required' => 'La unidad es obligatoria',
             'quickPurchasePrice.required' => 'El precio de compra es obligatorio',
             'quickSalePrice.required' => 'El precio de venta es obligatorio',
+            'quickImage.image' => 'El archivo debe ser una imagen',
+            'quickImage.mimes' => 'La imagen debe ser JPG, PNG o WebP',
+            'quickImage.max' => 'La imagen no debe superar 2MB',
         ]);
 
         $branchId = $this->needsBranchSelection ? $this->branch_id : auth()->user()->branch_id;
 
+        // Handle image upload
+        $imagePath = null;
+        if ($this->quickImage) {
+            $imagePath = $this->quickImage->store('products', 'public');
+        }
+
         $product = Product::create([
             'branch_id' => $branchId,
             'name' => mb_strtoupper($this->quickName),
+            'description' => $this->quickDescription ? mb_strtoupper($this->quickDescription) : null,
             'category_id' => $this->quickCategoryId,
+            'subcategory_id' => $this->quickSubcategoryId ?: null,
+            'brand_id' => $this->quickBrandId ?: null,
             'unit_id' => $this->quickUnitId,
             'tax_id' => $this->quickTaxId ?: null,
+            'barcode' => $this->quickBarcode ?: null,
             'purchase_price' => $this->quickPurchasePrice,
             'sale_price' => $this->quickSalePrice,
+            'special_price' => $this->quickSpecialPrice ?: null,
+            'price_includes_tax' => $this->quickPriceIncludesTax,
             'current_stock' => 0,
-            'min_stock' => 0,
-            'is_active' => true,
+            'min_stock' => $this->quickMinStock,
+            'max_stock' => $this->quickMaxStock ?: null,
+            'has_commission' => $this->quickHasCommission,
+            'commission_type' => $this->quickHasCommission ? $this->quickCommissionType : null,
+            'commission_value' => $this->quickHasCommission ? $this->quickCommissionValue : null,
+            'is_active' => $this->quickIsActive,
+            'image' => $imagePath,
         ]);
 
         $product->generateSku();
         $product->save();
+
+        // Save barcode to product_barcodes table
+        if ($this->quickBarcode) {
+            ProductBarcode::create([
+                'product_id' => $product->id,
+                'product_child_id' => null,
+                'barcode' => $this->quickBarcode,
+                'description' => 'Código principal',
+                'is_primary' => true,
+            ]);
+        }
 
         ActivityLogService::logCreate('products', $product, "Producto '{$product->name}' creado desde compras");
 

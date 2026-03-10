@@ -86,7 +86,7 @@ class Purchase extends Model
 
     public function items(): HasMany
     {
-        return $this->hasMany(PurchaseItem::class);
+        return $this->hasMany(PurchaseItem::class)->orderBy('id');
     }
 
     public function inventoryMovements(): MorphMany
