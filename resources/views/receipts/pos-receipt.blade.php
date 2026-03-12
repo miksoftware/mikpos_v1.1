@@ -17,8 +17,9 @@
         }
         
         body {
-            font-family: 'Courier New', Courier, monospace;
+            font-family: 'Arial Black', 'Arial Bold', 'Helvetica Bold', Arial, sans-serif;
             font-size: 11px;
+            font-weight: bold;
             line-height: 1.4;
             width: 72mm;
             max-width: 72mm;
@@ -141,7 +142,7 @@
         .item {
             margin-bottom: 4px;
             padding-bottom: 3px;
-            border-bottom: 1px dotted #999;
+            border-bottom: 1px dotted #000;
         }
         
         .item:last-child {
@@ -164,7 +165,6 @@
         .item-qty-price {
             color: #000;
         }
-        
         .item-total {
             font-weight: bold;
             font-size: 12px;
@@ -221,7 +221,7 @@
             font-weight: bold;
             margin-top: 4px;
             padding-top: 4px;
-            border-top: 1px dotted #999;
+            border-top: 1px dotted #000;
         }
         
         /* DIAN Info */
@@ -297,10 +297,10 @@
         
         .powered-by {
             font-size: 9px;
-            color: #555;
+            color: #000;
             margin-top: 6px;
             padding-top: 4px;
-            border-top: 1px dotted #ccc;
+            border-top: 1px dotted #000;
         }
         
         /* Print styles */

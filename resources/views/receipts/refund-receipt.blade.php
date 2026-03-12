@@ -17,8 +17,9 @@
         }
         
         body {
-            font-family: 'Courier New', monospace;
+            font-family: 'Arial Black', 'Arial Bold', 'Helvetica Bold', Arial, sans-serif;
             font-size: 11px;
+            font-weight: bold;
             line-height: 1.4;
             width: 72mm;
             max-width: 72mm;
@@ -44,7 +45,8 @@
         
         .branch-info {
             font-size: 9px;
-            color: #333;
+            color: #000;
+            font-weight: bold;
         }
         
         .document-type {
@@ -68,7 +70,7 @@
         .section {
             margin: 8px 0;
             padding: 6px 0;
-            border-bottom: 1px dashed #ccc;
+            border-bottom: 1px dashed #000;
         }
         
         .section-title {
@@ -76,7 +78,7 @@
             font-weight: bold;
             text-transform: uppercase;
             margin-bottom: 4px;
-            color: #666;
+            color: #000;
         }
         
         .info-row {
@@ -87,7 +89,7 @@
         }
         
         .info-label {
-            color: #666;
+            color: #000;
         }
         
         .info-value {
@@ -104,7 +106,8 @@
         
         .original-sale-title {
             font-size: 10px;
-            color: #666;
+            color: #000;
+            font-weight: bold;
             margin-bottom: 4px;
         }
         
@@ -128,7 +131,7 @@
         
         .item {
             padding: 4px 0;
-            border-bottom: 1px dotted #ddd;
+            border-bottom: 1px dotted #000;
         }
         
         .item-name {
@@ -138,7 +141,7 @@
         
         .item-sku {
             font-size: 9px;
-            color: #666;
+            color: #000;
         }
         
         .item-details {
@@ -187,7 +190,7 @@
         
         .reason-text {
             font-size: 11px;
-            color: #333;
+            color: #000;
         }
         
         .footer {
@@ -199,7 +202,7 @@
         
         .footer-text {
             font-size: 10px;
-            color: #666;
+            color: #000;
             margin: 4px 0;
         }
         
@@ -212,7 +215,7 @@
         
         .signature-label {
             font-size: 10px;
-            color: #666;
+            color: #000;
         }
         
         @media print {

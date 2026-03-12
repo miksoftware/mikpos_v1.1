@@ -55,6 +55,7 @@ class SeedPending extends Command
         'PaymentMethodsReportPermissionSeeder',
         'PosCashDenominationsPermissionSeeder',
         'EcommerceModuleSeeder',
+        'EcommerceSystemDocumentSeeder',
         // Add new seeders here
     ];
 

@@ -8,7 +8,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         @page { size: 72mm auto; margin: 0; }
         body {
-            font-family: 'Courier New', Courier, monospace;
+            font-family: 'Arial Black', 'Arial Bold', 'Helvetica Bold', Arial, sans-serif;
             font-size: 12px;
             font-weight: bold;
             line-height: 1.5;
