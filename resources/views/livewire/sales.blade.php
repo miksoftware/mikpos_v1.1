@@ -22,7 +22,7 @@
 
     <!-- Filters -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-4">
             <div class="lg:col-span-2">
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -36,6 +36,21 @@
             </div>
             <div>
                 <input wire:model.live="dateTo" type="date" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+            </div>
+            <div>
+                <select wire:model.live="filterSource" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                    <option value="">Todos los orígenes</option>
+                    <option value="pos">POS</option>
+                    <option value="ecommerce">E-commerce</option>
+                </select>
+            </div>
+            <div>
+                <select wire:model.live="filterStatus" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                    <option value="">Todos los estados</option>
+                    <option value="completed">Completada</option>
+                    <option value="pending_approval">Pendiente aprobación</option>
+                    <option value="rejected">Rechazada</option>
+                </select>
             </div>
             <div>
                 <select wire:model.live="filterElectronic" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
@@ -68,7 +83,7 @@
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Cliente</th>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Fecha</th>
                         <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Total</th>
-                        <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Tipo</th>
+                        <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Origen</th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Estado</th>
                         <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Acciones</th>
                     </tr>
@@ -113,23 +128,34 @@
                             <p class="font-semibold text-slate-900">${{ number_format($sale->total, 0, ',', '.') }}</p>
                         </td>
                         <td class="px-6 py-4 text-center">
-                            @if($sale->is_electronic)
+                            @if($sale->source === 'ecommerce')
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">E-commerce</span>
+                            @elseif($sale->is_electronic)
                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">FE</span>
                             @else
                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">POS</span>
                             @endif
                         </td>
                         <td class="px-6 py-4 text-center">
-                            @if($sale->is_electronic && $sale->cufe)
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">✓</span>
+                            @if($sale->status === 'pending_approval')
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Pendiente</span>
+                            @elseif($sale->status === 'rejected')
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">Rechazada</span>
+                            @elseif($sale->status === 'completed')
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Completada</span>
                             @elseif($sale->is_electronic && !$sale->cufe)
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">Error</span>
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">Error DIAN</span>
                             @else
                             <span class="text-slate-400 text-xs">-</span>
                             @endif
                         </td>
                         <td class="px-6 py-4 text-right">
                             <div class="flex items-center justify-end gap-1">
+                                @if($sale->isEcommerce() && $sale->isPendingApproval())
+                                <button wire:click="viewEcommerceOrder({{ $sale->id }})" class="p-2 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded-lg transition-colors" title="Ver pedido e-commerce">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                                </button>
+                                @endif
                                 <button wire:click="viewSale({{ $sale->id }})" class="p-2 text-slate-400 hover:text-[#ff7261] hover:bg-orange-50 rounded-lg transition-colors" title="Ver detalle">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                 </button>
@@ -802,6 +828,206 @@
                             <span wire:loading.remove wire:target="confirmReplicate">Crear Nueva Venta</span>
                             <span wire:loading wire:target="confirmReplicate">Procesando...</span>
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- E-commerce Order Detail Modal -->
+    @if($showEcommerceDetailModal && $selectedSale && $ecommerceOrder)
+    <div class="relative z-[100]">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="closeEcommerceDetailModal"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-3xl bg-white rounded-2xl shadow-xl">
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900">Pedido E-commerce</h3>
+                                <p class="text-sm text-slate-500">{{ $selectedSale->invoice_number }}</p>
+                            </div>
+                        </div>
+                        <button wire:click="closeEcommerceDetailModal" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <div class="px-6 py-4 space-y-6 max-h-[70vh] overflow-y-auto">
+                        <!-- Status Banner -->
+                        <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-amber-700">Pendiente de Aprobación</p>
+                                    <p class="text-sm text-amber-600">Este pedido requiere revisión antes de ser procesado</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Customer Info -->
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-700 mb-3">Datos del Cliente</h4>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="p-4 bg-slate-50 rounded-xl">
+                                    <p class="text-xs text-slate-500 mb-1">Cliente</p>
+                                    <p class="font-medium text-slate-800">{{ $selectedSale->customer->full_name ?? 'Sin cliente' }}</p>
+                                    <p class="text-sm text-slate-500">{{ $selectedSale->customer->document_number ?? '' }}</p>
+                                </div>
+                                <div class="p-4 bg-slate-50 rounded-xl">
+                                    <p class="text-xs text-slate-500 mb-1">Contacto</p>
+                                    <p class="font-medium text-slate-800">{{ $selectedSale->customer->email ?? 'N/A' }}</p>
+                                    <p class="text-sm text-slate-500">{{ $selectedSale->customer->phone ?? '' }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Shipping Info -->
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-700 mb-3">Dirección de Envío</h4>
+                            <div class="p-4 bg-slate-50 rounded-xl space-y-2">
+                                <div class="flex items-start gap-2">
+                                    <svg class="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    <div>
+                                        <p class="text-sm text-slate-800">{{ $ecommerceOrder->shipping_address ?? 'No especificada' }}</p>
+                                        <p class="text-xs text-slate-500">
+                                            {{ $ecommerceOrder->shippingMunicipality->name ?? '' }}{{ $ecommerceOrder->shippingMunicipality && $ecommerceOrder->shippingDepartment ? ', ' : '' }}{{ $ecommerceOrder->shippingDepartment->name ?? '' }}
+                                        </p>
+                                    </div>
+                                </div>
+                                @if($ecommerceOrder->shipping_phone)
+                                <div class="flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+                                    <p class="text-sm text-slate-800">{{ $ecommerceOrder->shipping_phone }}</p>
+                                </div>
+                                @endif
+                                @if($ecommerceOrder->customer_notes)
+                                <div class="flex items-start gap-2 pt-2 border-t border-slate-200">
+                                    <svg class="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path></svg>
+                                    <div>
+                                        <p class="text-xs text-slate-500 mb-0.5">Notas del cliente</p>
+                                        <p class="text-sm text-slate-800">{{ $ecommerceOrder->customer_notes }}</p>
+                                    </div>
+                                </div>
+                                @endif
+                            </div>
+                        </div>
+
+                        <!-- Products -->
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-700 mb-3">Productos</h4>
+                            <div class="border border-slate-200 rounded-xl overflow-hidden">
+                                <table class="min-w-full divide-y divide-slate-200">
+                                    <thead class="bg-slate-50">
+                                        <tr>
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-slate-500">Producto</th>
+                                            <th class="px-4 py-2 text-center text-xs font-medium text-slate-500">Cant.</th>
+                                            <th class="px-4 py-2 text-right text-xs font-medium text-slate-500">Precio</th>
+                                            <th class="px-4 py-2 text-right text-xs font-medium text-slate-500">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-200">
+                                        @foreach($selectedSale->items as $item)
+                                        <tr>
+                                            <td class="px-4 py-2">
+                                                <p class="text-sm text-slate-800">{{ $item->product_name }}</p>
+                                                <p class="text-xs text-slate-500">{{ $item->product_sku }}</p>
+                                            </td>
+                                            <td class="px-4 py-2 text-center text-sm">{{ rtrim(rtrim(number_format($item->quantity, 3), '0'), '.') }}</td>
+                                            @php $priceWithTax = $item->tax_rate > 0 ? $item->unit_price * (1 + $item->tax_rate / 100) : $item->unit_price; @endphp
+                                            <td class="px-4 py-2 text-right text-sm">${{ number_format($priceWithTax, 0, ',', '.') }}</td>
+                                            <td class="px-4 py-2 text-right text-sm font-medium">${{ number_format($item->total, 0, ',', '.') }}</td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Payment Method -->
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-700 mb-3">Método de Pago</h4>
+                            <div class="p-4 bg-slate-50 rounded-xl">
+                                @foreach($selectedSale->payments as $payment)
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-slate-700">{{ $payment->paymentMethod->name ?? 'N/A' }}</span>
+                                    <span class="text-sm font-medium text-slate-800">${{ number_format($payment->amount, 0, ',', '.') }}</span>
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <!-- Totals -->
+                        <div class="border-t border-slate-200 pt-4">
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-slate-500">Subtotal</span>
+                                    <span class="text-slate-700">${{ number_format($selectedSale->subtotal, 0, ',', '.') }}</span>
+                                </div>
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-slate-500">Impuestos</span>
+                                    <span class="text-slate-700">${{ number_format($selectedSale->tax_total, 0, ',', '.') }}</span>
+                                </div>
+                                <div class="flex justify-between text-lg font-bold pt-2 border-t border-slate-200">
+                                    <span class="text-slate-800">Total</span>
+                                    <span class="text-slate-900">${{ number_format($selectedSale->total, 0, ',', '.') }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer with Approve/Reject buttons -->
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                        <button wire:click="closeEcommerceDetailModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cerrar</button>
+                        <div class="flex items-center gap-3">
+                            <button wire:click="openRejectModal({{ $selectedSale->id }})" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                Rechazar
+                            </button>
+                            <button wire:click="approveOrder({{ $selectedSale->id }})" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl hover:from-green-600 hover:to-emerald-600">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                Aprobar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Reject Order Modal -->
+    @if($showRejectModal)
+    <div class="relative z-[102]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[102]" wire:click="closeRejectModal"></div>
+        <div class="fixed inset-0 z-[103] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl">
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">Rechazar Pedido</h3>
+                            <p class="text-sm text-slate-500">Esta acción devolverá el stock reservado</p>
+                        </div>
+                    </div>
+                    <div class="px-6 py-4 space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Motivo del rechazo</label>
+                            <textarea wire:model="rejectReason" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500/50 focus:border-red-500" placeholder="Describa el motivo del rechazo (mínimo 10 caracteres)..."></textarea>
+                            @error('rejectReason') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                        <button wire:click="closeRejectModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
+                        <button wire:click="rejectOrder" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700">Confirmar Rechazo</button>
                     </div>
                 </div>
             </div>

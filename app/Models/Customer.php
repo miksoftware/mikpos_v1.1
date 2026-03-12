@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
 
-class Customer extends Model
+class Customer extends Authenticatable
 {
     use HasFactory;
 
@@ -21,6 +22,9 @@ class Customer extends Model
         'business_name',
         'phone',
         'email',
+        'password',
+        'email_verified_at',
+        'remember_token',
         'department_id',
         'municipality_id',
         'address',
@@ -30,6 +34,11 @@ class Customer extends Model
         'is_default',
     ];
 
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -37,6 +46,8 @@ class Customer extends Model
             'is_active' => 'boolean',
             'is_default' => 'boolean',
             'credit_limit' => 'decimal:2',
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
         ];
     }
 
@@ -69,6 +80,16 @@ class Customer extends Model
     public function municipality(): BelongsTo
     {
         return $this->belongsTo(Municipality::class);
+    }
+
+    public function ecommerceOrders(): HasMany
+    {
+        return $this->hasMany(EcommerceOrder::class);
+    }
+
+    public function sales(): HasMany
+    {
+        return $this->hasMany(Sale::class);
     }
 
     public function getFullNameAttribute(): string

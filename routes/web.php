@@ -28,6 +28,29 @@ Route::post('/logout', function () {
     return redirect('/login');
 })->name('logout');
 
+// E-commerce routes (guest - customer guard)
+Route::prefix('shop')->middleware('guest:customer')->group(function () {
+    Route::get('/login', App\Livewire\Shop\Auth\Login::class)->name('shop.login');
+    Route::get('/register', App\Livewire\Shop\Auth\Register::class)->name('shop.register');
+});
+
+// E-commerce routes (authenticated - customer guard)
+Route::prefix('shop')->middleware('ecommerce.auth')->group(function () {
+    Route::get('/', App\Livewire\Shop\Catalog::class)->name('shop.catalog');
+    Route::get('/product/{product}', App\Livewire\Shop\ProductDetail::class)->name('shop.product');
+    Route::get('/cart', App\Livewire\Shop\Cart::class)->name('shop.cart');
+    Route::get('/checkout', App\Livewire\Shop\Checkout::class)->name('shop.checkout');
+    Route::get('/order/{sale}', App\Livewire\Shop\OrderConfirmation::class)->name('shop.order');
+    Route::get('/orders', App\Livewire\Shop\Orders::class)->name('shop.orders');
+
+    Route::post('/logout', function () {
+        Auth::guard('customer')->logout();
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
+        return redirect('/shop/login');
+    })->name('shop.logout');
+});
+
 // Protected routes
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', App\Livewire\Dashboard::class)

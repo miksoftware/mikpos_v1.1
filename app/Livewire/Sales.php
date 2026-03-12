@@ -20,6 +20,7 @@ use App\Models\SaleItem;
 use App\Models\SalePayment;
 use App\Services\FactusService;
 use App\Services\ActivityLogService;
+use App\Services\EcommerceCheckoutService;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -34,6 +35,7 @@ class Sales extends Component
     public $filterStatus = '';
     public $filterElectronic = '';
     public $filterBranch = '';
+    public $filterSource = '';
     public $dateFrom = '';
     public $dateTo = '';
     
@@ -81,6 +83,13 @@ class Sales extends Component
         '4' => 'Ajuste de precio',
         '5' => 'Otros',
     ];
+
+    // E-commerce order management
+    public $showEcommerceDetailModal = false;
+    public $ecommerceOrder = null;
+    public $showRejectModal = false;
+    public $rejectReason = '';
+    public $rejectSaleId = null;
 
     public function mount()
     {
@@ -1097,6 +1106,111 @@ class Sales extends Component
         $this->historyType = '';
     }
 
+    public function viewEcommerceOrder($saleId)
+    {
+        $this->selectedSale = Sale::with([
+            'customer.taxDocument',
+            'user',
+            'branch',
+            'items.product',
+            'payments.paymentMethod',
+            'ecommerceOrder.shippingDepartment',
+            'ecommerceOrder.shippingMunicipality',
+        ])->find($saleId);
+
+        $this->ecommerceOrder = $this->selectedSale?->ecommerceOrder;
+        $this->showEcommerceDetailModal = true;
+    }
+
+    public function closeEcommerceDetailModal()
+    {
+        $this->showEcommerceDetailModal = false;
+        $this->selectedSale = null;
+        $this->ecommerceOrder = null;
+    }
+
+    public function approveOrder($saleId)
+    {
+        if (!auth()->user()->hasPermission('ecommerce_orders.approve')) {
+            $this->dispatch('notify', message: 'No tienes permiso para aprobar pedidos', type: 'error');
+            return;
+        }
+
+        $sale = Sale::find($saleId);
+
+        if (!$sale || !$sale->isEcommerce() || !$sale->isPendingApproval()) {
+            $this->dispatch('notify', message: 'El pedido no puede ser aprobado', type: 'error');
+            return;
+        }
+
+        try {
+            $service = new EcommerceCheckoutService();
+            $service->approveOrder($sale);
+
+            $this->showEcommerceDetailModal = false;
+            $this->selectedSale = null;
+            $this->ecommerceOrder = null;
+            $this->dispatch('notify', message: 'Pedido aprobado exitosamente', type: 'success');
+        } catch (\Exception $e) {
+            $this->dispatch('notify', message: 'Error al aprobar el pedido: ' . $e->getMessage(), type: 'error');
+        }
+    }
+
+    public function openRejectModal($saleId)
+    {
+        if (!auth()->user()->hasPermission('ecommerce_orders.reject')) {
+            $this->dispatch('notify', message: 'No tienes permiso para rechazar pedidos', type: 'error');
+            return;
+        }
+
+        $this->rejectSaleId = $saleId;
+        $this->rejectReason = '';
+        $this->showRejectModal = true;
+    }
+
+    public function closeRejectModal()
+    {
+        $this->showRejectModal = false;
+        $this->rejectSaleId = null;
+        $this->rejectReason = '';
+    }
+
+    public function rejectOrder()
+    {
+        if (!auth()->user()->hasPermission('ecommerce_orders.reject')) {
+            $this->dispatch('notify', message: 'No tienes permiso para rechazar pedidos', type: 'error');
+            return;
+        }
+
+        $this->validate([
+            'rejectReason' => 'required|min:10',
+        ], [
+            'rejectReason.required' => 'El motivo de rechazo es obligatorio.',
+            'rejectReason.min' => 'El motivo debe tener al menos 10 caracteres.',
+        ]);
+
+        $sale = Sale::find($this->rejectSaleId);
+
+        if (!$sale || !$sale->isEcommerce() || !$sale->isPendingApproval()) {
+            $this->dispatch('notify', message: 'El pedido no puede ser rechazado', type: 'error');
+            return;
+        }
+
+        try {
+            $service = new EcommerceCheckoutService();
+            $service->rejectOrder($sale, $this->rejectReason);
+
+            $this->closeRejectModal();
+            $this->showEcommerceDetailModal = false;
+            $this->selectedSale = null;
+            $this->ecommerceOrder = null;
+            $this->dispatch('notify', message: 'Pedido rechazado exitosamente', type: 'success');
+        } catch (\Exception $e) {
+            $this->dispatch('notify', message: 'Error al rechazar el pedido: ' . $e->getMessage(), type: 'error');
+        }
+    }
+
+
     public function viewCreditNotePdf($creditNoteId)
     {
         $creditNote = CreditNote::find($creditNoteId);
@@ -1170,7 +1284,8 @@ class Sales extends Component
                        });
                 });
             })
-            ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
+            ->when($this->filterStatus, fn($q) => $q->where('sales.status', $this->filterStatus))
+            ->when($this->filterSource, fn($q) => $q->where('sales.source', $this->filterSource))
             ->when($this->filterElectronic !== '', function ($q) {
                 if ($this->filterElectronic === 'electronic') {
                     $q->where('is_electronic', true)->whereNotNull('cufe');
