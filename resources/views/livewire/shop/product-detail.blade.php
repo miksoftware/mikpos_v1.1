@@ -11,7 +11,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {{-- Image --}}
         <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-            <div class="aspect-square bg-slate-100">
+            <div class="aspect-[4/3] bg-slate-100">
                 <img src="{{ $product->getDisplayImageUrl() }}" alt="{{ $product->name }}"
                     class="w-full h-full object-cover">
             </div>
@@ -46,11 +46,8 @@
 
             {{-- Stock & Unit --}}
             <div class="flex items-center gap-4 text-sm">
-                <span class="{{ $product->current_stock <= $product->min_stock ? 'text-red-500' : 'text-green-600' }}">
-                    {{ rtrim(rtrim(number_format($product->current_stock, 3), '0'), '.') }} disponibles
-                </span>
                 @if($product->unit)
-                    <span class="text-slate-500">· {{ $product->unit->name }} ({{ $product->unit->abbreviation }})</span>
+                    <span class="text-slate-500">{{ $product->unit->name }} ({{ $product->unit->abbreviation }})</span>
                 @endif
             </div>
 
@@ -87,17 +84,16 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
                             </svg>
                         </button>
-                        <input type="number" wire:model.live.debounce.300ms="quantity" min="1" max="{{ (int) $this->maxStock }}"
+                        <input type="number" wire:model.live.debounce.300ms="quantity" min="1" {{ $product->manages_inventory ? 'max=' . (int) $this->maxStock : '' }}
                             class="w-16 text-center border-x border-slate-300 py-2 text-sm font-medium focus:outline-none">
                         <button wire:click="incrementQuantity"
                             class="px-3 py-2 text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
-                            {{ $quantity >= (int) $this->maxStock ? 'disabled' : '' }}>
+                            {{ $product->manages_inventory && $quantity >= (int) $this->maxStock ? 'disabled' : '' }}>
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                             </svg>
                         </button>
                     </div>
-                    <span class="text-sm text-slate-500">Máx: {{ rtrim(rtrim(number_format($this->maxStock, 3), '0'), '.') }}</span>
                 </div>
             </div>
 

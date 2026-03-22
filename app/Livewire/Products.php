@@ -73,6 +73,7 @@ class Products extends Component
     public ?int $max_stock = null;
     public int $current_stock = 0;
     public bool $is_active = true;
+    public bool $manages_inventory = true;
     public bool $has_commission = false;
     public ?string $commission_type = 'percentage';
     public ?float $commission_value = null;
@@ -339,6 +340,7 @@ class Products extends Component
         $this->max_stock = $item->max_stock;
         $this->current_stock = $item->current_stock;
         $this->is_active = $item->is_active;
+        $this->manages_inventory = $item->manages_inventory;
         
         // Load configurable fields
         $this->presentation_id = $item->presentation_id;
@@ -415,6 +417,7 @@ class Products extends Component
             'max_stock' => $this->max_stock ?: null,
             'current_stock' => $this->current_stock,
             'is_active' => $this->is_active,
+            'manages_inventory' => $this->manages_inventory,
             'has_commission' => $this->has_commission,
             'commission_type' => $this->has_commission ? $this->commission_type : null,
             'commission_value' => $this->has_commission ? $this->commission_value : null,
@@ -1198,6 +1201,7 @@ class Products extends Component
         $this->max_stock = null;
         $this->current_stock = 0;
         $this->is_active = true;
+        $this->manages_inventory = true;
         $this->has_commission = false;
         $this->commission_type = 'percentage';
         $this->commission_value = null;

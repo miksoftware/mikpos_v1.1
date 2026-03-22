@@ -15,12 +15,16 @@ class ProductDetail extends Component
 
     public function mount(Product $product): void
     {
-        // Validate product belongs to ecommerce branch, is active and has stock
+        // Validate product belongs to ecommerce branch and is active
         if (
             $product->branch_id != config('ecommerce.branch_id') ||
-            !$product->is_active ||
-            $product->current_stock <= 0
+            !$product->is_active
         ) {
+            abort(404);
+        }
+
+        // Products with inventory must have stock
+        if ($product->manages_inventory && $product->current_stock <= 0) {
             abort(404);
         }
 
@@ -40,6 +44,7 @@ class ProductDetail extends Component
 
     public function getMaxStockProperty(): float
     {
+        if (!$this->product->manages_inventory) return 9999;
         return (float) $this->product->current_stock;
     }
 
@@ -59,7 +64,8 @@ class ProductDetail extends Component
 
     public function updatedQuantity(): void
     {
-        $this->quantity = max(1, min((int) $this->quantity, (int) $this->maxStock));
+        $max = $this->product->manages_inventory ? (int) $this->maxStock : 9999;
+        $this->quantity = max(1, min((int) $this->quantity, $max));
     }
 
     public function addToCart(): void
@@ -76,6 +82,7 @@ class ProductDetail extends Component
             : $this->product->getSalePriceWithTax();
 
         $taxRate = $this->product->tax ? (float) $this->product->tax->value : 0;
+        $managesInventory = (bool) $this->product->manages_inventory;
 
         // Check if product/variant already in cart
         $existingIndex = null;
@@ -91,8 +98,13 @@ class ProductDetail extends Component
 
         if ($existingIndex !== null) {
             $newQty = $cart['items'][$existingIndex]['quantity'] + $this->quantity;
-            $cart['items'][$existingIndex]['quantity'] = min($newQty, (int) $this->maxStock);
+            if ($managesInventory) {
+                $cart['items'][$existingIndex]['quantity'] = min($newQty, (int) $this->maxStock);
+            } else {
+                $cart['items'][$existingIndex]['quantity'] = $newQty;
+            }
             $cart['items'][$existingIndex]['max_stock'] = $this->maxStock;
+            $cart['items'][$existingIndex]['manages_inventory'] = $managesInventory;
         } else {
             $cart['items'][] = [
                 'product_id' => $this->product->id,
@@ -101,8 +113,9 @@ class ProductDetail extends Component
                 'sku' => $variant ? $variant->sku : $this->product->sku,
                 'unit_price' => $unitPrice,
                 'tax_rate' => $taxRate,
-                'quantity' => min($this->quantity, (int) $this->maxStock),
+                'quantity' => $managesInventory ? min($this->quantity, (int) $this->maxStock) : $this->quantity,
                 'max_stock' => $this->maxStock,
+                'manages_inventory' => $managesInventory,
                 'image' => $variant ? $variant->getDisplayImage() : $this->product->getDisplayImage(),
             ];
         }

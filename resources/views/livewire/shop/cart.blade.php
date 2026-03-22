@@ -72,12 +72,12 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
                                             </svg>
                                         </button>
-                                        <input type="number" value="{{ $item['quantity'] }}" min="1" max="{{ (int) $item['max_stock'] }}"
+                                        <input type="number" value="{{ $item['quantity'] }}" min="1" {{ ($item['manages_inventory'] ?? true) ? 'max=' . (int) $item['max_stock'] : '' }}
                                             wire:change="updateQuantity({{ $index }}, $event.target.value)"
                                             class="w-12 text-center border-x border-slate-300 py-1.5 text-sm font-medium focus:outline-none">
                                         <button wire:click="updateQuantity({{ $index }}, {{ $item['quantity'] + 1 }})"
                                             class="px-2.5 py-1.5 text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
-                                            {{ $item['quantity'] >= (int) $item['max_stock'] ? 'disabled' : '' }}>
+                                            {{ ($item['manages_inventory'] ?? true) && $item['quantity'] >= (int) $item['max_stock'] ? 'disabled' : '' }}>
                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                                             </svg>

@@ -94,7 +94,9 @@ class Catalog extends Component
 
     public function getModalMaxStockProperty(): float
     {
-        return $this->selectedProduct ? (float) $this->selectedProduct->current_stock : 0;
+        if (!$this->selectedProduct) return 0;
+        if (!$this->selectedProduct->manages_inventory) return 9999;
+        return (float) $this->selectedProduct->current_stock;
     }
 
     public function incrementModalQuantity(): void
@@ -130,8 +132,13 @@ class Catalog extends Component
     public function quickAddToCart(int $productId): void
     {
         $product = Product::with(['tax'])->find($productId);
-        if (!$product || !$product->is_active || $product->current_stock <= 0) {
+        if (!$product || !$product->is_active) {
             $this->dispatch('notify', message: 'Producto no disponible', type: 'error');
+            return;
+        }
+
+        if ($product->manages_inventory && $product->current_stock <= 0) {
+            $this->dispatch('notify', message: 'Producto sin stock disponible', type: 'error');
             return;
         }
 
@@ -174,7 +181,7 @@ class Catalog extends Component
 
         $quantity = max(1, (int) $quantity);
         $product = Product::find($cart['items'][$index]['product_id']);
-        if ($product) {
+        if ($product && $product->manages_inventory) {
             $quantity = min($quantity, (int) $product->current_stock);
             $cart['items'][$index]['max_stock'] = (float) $product->current_stock;
         }
@@ -214,7 +221,8 @@ class Catalog extends Component
             : $product->getSalePriceWithTax();
 
         $taxRate = $product->tax ? (float) $product->tax->value : 0;
-        $maxStock = (float) $product->current_stock;
+        $managesInventory = (bool) $product->manages_inventory;
+        $maxStock = $managesInventory ? (float) $product->current_stock : 9999;
 
         $existingIndex = null;
         foreach ($cart['items'] as $index => $item) {
@@ -226,11 +234,16 @@ class Catalog extends Component
 
         if ($existingIndex !== null) {
             $newQty = $cart['items'][$existingIndex]['quantity'] + $quantity;
-            $cart['items'][$existingIndex]['quantity'] = min($newQty, (int) $maxStock);
-            $cart['items'][$existingIndex]['max_stock'] = $maxStock;
-            if ($newQty > (int) $maxStock) {
-                $this->dispatch('notify', message: "Stock máximo disponible: {$maxStock}", type: 'warning');
+            if ($managesInventory) {
+                $cart['items'][$existingIndex]['quantity'] = min($newQty, (int) $maxStock);
+                if ($newQty > (int) $maxStock) {
+                    $this->dispatch('notify', message: "Stock máximo disponible: {$maxStock}", type: 'warning');
+                }
+            } else {
+                $cart['items'][$existingIndex]['quantity'] = $newQty;
             }
+            $cart['items'][$existingIndex]['max_stock'] = $maxStock;
+            $cart['items'][$existingIndex]['manages_inventory'] = $managesInventory;
         } else {
             $cart['items'][] = [
                 'product_id' => $product->id,
@@ -239,8 +252,9 @@ class Catalog extends Component
                 'sku' => $variant ? $variant->sku : $product->sku,
                 'unit_price' => $unitPrice,
                 'tax_rate' => $taxRate,
-                'quantity' => min($quantity, (int) $maxStock),
+                'quantity' => $managesInventory ? min($quantity, (int) $maxStock) : $quantity,
                 'max_stock' => $maxStock,
+                'manages_inventory' => $managesInventory,
                 'image' => $variant ? $variant->getDisplayImage() : $product->getDisplayImage(),
             ];
         }
@@ -258,7 +272,10 @@ class Catalog extends Component
 
         $query = Product::query()
             ->where('is_active', true)
-            ->where('current_stock', '>', 0)
+            ->where(function ($q) {
+                $q->where('manages_inventory', false)
+                  ->orWhere('current_stock', '>', 0);
+            })
             ->where('branch_id', $branchId)
             ->with(['category', 'brand', 'tax']);
 
@@ -281,14 +298,18 @@ class Catalog extends Component
         $products = $query->orderBy('name')->paginate($this->perPage);
 
         $availableCategoryIds = Product::where('is_active', true)
-            ->where('current_stock', '>', 0)
+            ->where(function ($q) {
+                $q->where('manages_inventory', false)->orWhere('current_stock', '>', 0);
+            })
             ->where('branch_id', $branchId)
             ->whereNotNull('category_id')
             ->distinct()
             ->pluck('category_id');
 
         $availableBrandIds = Product::where('is_active', true)
-            ->where('current_stock', '>', 0)
+            ->where(function ($q) {
+                $q->where('manages_inventory', false)->orWhere('current_stock', '>', 0);
+            })
             ->where('branch_id', $branchId)
             ->whereNotNull('brand_id')
             ->distinct()

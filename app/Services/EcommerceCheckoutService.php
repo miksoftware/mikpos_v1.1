@@ -191,6 +191,11 @@ class EcommerceCheckoutService
                 continue;
             }
 
+            // Skip stock validation for products that don't manage inventory
+            if (!$product->manages_inventory) {
+                continue;
+            }
+
             if ((float) $product->current_stock < (float) $item['quantity']) {
                 $outOfStock[] = $item['name'] . " (disponible: {$product->current_stock}, solicitado: {$item['quantity']})";
             }
@@ -211,6 +216,16 @@ class EcommerceCheckoutService
 
             foreach ($cartItems as $item) {
                 $product = Product::lockForUpdate()->find($item['product_id']);
+
+                // Skip stock reservation for products that don't manage inventory
+                if (!$product->manages_inventory) {
+                    continue;
+                }
+
+                if (!$systemDocument) {
+                    continue;
+                }
+
                 $quantity = (float) $item['quantity'];
 
                 $stockBefore = (float) $product->current_stock;
@@ -245,13 +260,17 @@ class EcommerceCheckoutService
         $branchId = (int) config('ecommerce.branch_id');
         $systemDocument = SystemDocument::findByCode('ecommerce-sale');
 
+        if (!$systemDocument) {
+            return;
+        }
+
         foreach ($sale->items as $saleItem) {
             if (!$saleItem->product_id) {
                 continue;
             }
 
             $product = Product::lockForUpdate()->find($saleItem->product_id);
-            if (!$product) {
+            if (!$product || !$product->manages_inventory) {
                 continue;
             }
 

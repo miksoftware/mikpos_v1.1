@@ -49,7 +49,7 @@
             @foreach($products as $product)
                 <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-md hover:border-slate-300 transition-all group flex flex-col">
                     {{-- Image (clickable to open modal) --}}
-                    <div class="aspect-square bg-slate-100 overflow-hidden cursor-pointer" wire:click="openProductModal({{ $product->id }})">
+                    <div class="aspect-[4/3] bg-slate-100 overflow-hidden cursor-pointer" wire:click="openProductModal({{ $product->id }})">
                         <img src="{{ $product->getDisplayImageUrl() }}" alt="{{ $product->name }}"
                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
                     </div>
@@ -73,10 +73,6 @@
 
                         <p class="text-xs sm:text-lg font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] bg-clip-text text-transparent">
                             ${{ number_format($product->getSalePriceWithTax(), 0, ',', '.') }}
-                        </p>
-
-                        <p class="hidden sm:block text-xs {{ $product->current_stock <= $product->min_stock ? 'text-red-500' : 'text-green-600' }}">
-                            {{ rtrim(rtrim(number_format($product->current_stock, 3), '0'), '.') }} disponibles
                         </p>
 
                         {{-- Quick Add to Cart Button --}}
@@ -133,7 +129,7 @@
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-0">
                             {{-- Image --}}
-                            <div class="aspect-square bg-slate-100 rounded-t-2xl sm:rounded-l-2xl sm:rounded-tr-none overflow-hidden">
+                            <div class="aspect-[4/3] sm:aspect-square bg-slate-100 rounded-t-2xl sm:rounded-l-2xl sm:rounded-tr-none overflow-hidden">
                                 <img src="{{ $selectedProduct->getDisplayImageUrl() }}" alt="{{ $selectedProduct->name }}" class="w-full h-full object-cover">
                             </div>
 
@@ -159,11 +155,8 @@
                                 </p>
 
                                 <div class="flex items-center gap-3 text-sm">
-                                    <span class="{{ $selectedProduct->current_stock <= $selectedProduct->min_stock ? 'text-red-500' : 'text-green-600' }}">
-                                        {{ rtrim(rtrim(number_format($selectedProduct->current_stock, 3), '0'), '.') }} disponibles
-                                    </span>
                                     @if($selectedProduct->unit)
-                                        <span class="text-slate-400">· {{ $selectedProduct->unit->abbreviation }}</span>
+                                        <span class="text-slate-400">{{ $selectedProduct->unit->abbreviation }}</span>
                                     @endif
                                 </div>
 
@@ -194,12 +187,11 @@
                                                 <button wire:click="decrementModalQuantity" class="px-2.5 py-1.5 text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50" {{ $modalQuantity <= 1 ? 'disabled' : '' }}>
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
                                                 </button>
-                                                <input type="number" wire:model.live.debounce.300ms="modalQuantity" min="1" max="{{ (int) $this->modalMaxStock }}" class="w-14 text-center border-x border-slate-300 py-1.5 text-sm font-medium focus:outline-none">
-                                                <button wire:click="incrementModalQuantity" class="px-2.5 py-1.5 text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50" {{ $modalQuantity >= (int) $this->modalMaxStock ? 'disabled' : '' }}>
+                                                <input type="number" wire:model.live.debounce.300ms="modalQuantity" min="1" {{ $selectedProduct->manages_inventory ? 'max=' . (int) $this->modalMaxStock : '' }} class="w-14 text-center border-x border-slate-300 py-1.5 text-sm font-medium focus:outline-none">
+                                                <button wire:click="incrementModalQuantity" class="px-2.5 py-1.5 text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50" {{ $selectedProduct->manages_inventory && $modalQuantity >= (int) $this->modalMaxStock ? 'disabled' : '' }}>
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                                 </button>
                                             </div>
-                                            <span class="text-xs text-slate-400">Máx: {{ rtrim(rtrim(number_format($this->modalMaxStock, 3), '0'), '.') }}</span>
                                         </div>
                                     </div>
 

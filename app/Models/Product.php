@@ -38,6 +38,7 @@ class Product extends Model
         'max_stock',
         'current_stock',
         'is_active',
+        'manages_inventory',
         'has_commission',
         'commission_type',
         'commission_value',
@@ -47,6 +48,7 @@ class Product extends Model
     {
         return [
             'is_active' => 'boolean',
+            'manages_inventory' => 'boolean',
             'price_includes_tax' => 'boolean',
             'has_commission' => 'boolean',
             'purchase_price' => 'decimal:2',

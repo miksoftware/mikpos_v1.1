@@ -149,7 +149,7 @@ class EcommerceOrders extends Component
                         $saleItem = SaleItem::find($itemId);
                         if ($saleItem && $saleItem->product_id) {
                             $product = Product::find($saleItem->product_id);
-                            if ($product) {
+                            if ($product && $product->manages_inventory) {
                                 $product->increment('current_stock', (float) $saleItem->quantity);
                             }
                         }

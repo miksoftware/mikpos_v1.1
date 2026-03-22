@@ -216,11 +216,15 @@
                             @endif
                         </td>
                         <td class="px-6 py-4 text-center">
+                            @if($item->manages_inventory)
                             <span class="text-sm {{ $item->isLowStock() ? 'text-amber-600 font-medium' : 'text-slate-600' }}">
                                 {{ rtrim(rtrim(number_format($item->current_stock, 3), '0'), '.') }} {{ $item->unit?->abbreviation ?? 'und' }}
                             </span>
                             @if($item->isLowStock())
                             <div class="text-xs text-amber-500">Stock bajo</div>
+                            @endif
+                            @else
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">Sin inventario</span>
                             @endif
                         </td>
                         <td class="px-6 py-4 text-center">
@@ -690,6 +694,19 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
                                 Inventario
                             </h4>
+                            <div class="mb-4">
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <div class="relative" x-data="{ checked: @entangle('manages_inventory') }">
+                                        <input type="checkbox" wire:model.live="manages_inventory" class="sr-only" x-model="checked">
+                                        <div @click="checked = !checked" class="w-10 h-5 rounded-full transition-colors duration-200" :class="checked ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7]' : 'bg-slate-300'">
+                                            <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200" :class="checked ? 'translate-x-5' : ''"></div>
+                                        </div>
+                                    </div>
+                                    <span class="text-sm font-medium text-slate-700">Maneja inventario</span>
+                                </label>
+                                <p class="text-xs text-slate-500 mt-1 ml-[52px]">Si se desactiva, el producto se podrá vender sin control de stock.</p>
+                            </div>
+                            @if($manages_inventory)
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-1">Stock Inicial *</label>
@@ -707,6 +724,7 @@
                                     @error('max_stock')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
                                 </div>
                             </div>
+                            @endif
                         </div>
                         <div>
                             <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">

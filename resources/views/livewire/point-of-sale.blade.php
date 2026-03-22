@@ -461,7 +461,11 @@
                             <div class="flex items-center justify-between mt-auto">
                                 <p class="text-[9px] text-slate-500 truncate">{{ $item['brand'] ?? ($item['type'] === 'combo' ? ($item['items_count'] ?? '') . ' items' : 'Sin marca') }}</p>
                                 @if($item['type'] !== 'service' && $item['type'] !== 'combo')
-                                <span class="text-[9px] font-semibold {{ $item['stock'] <= 5 ? 'text-red-500' : 'text-green-600' }}">{{ rtrim(rtrim(number_format((float)$item['stock'], 3), '0'), '.') }} {{ $item['unit'] ?? 'uds' }}</span>
+                                    @if($item['manages_inventory'] ?? true)
+                                    <span class="text-[9px] font-semibold {{ $item['stock'] <= 5 ? 'text-red-500' : 'text-green-600' }}">{{ rtrim(rtrim(number_format((float)$item['stock'], 3), '0'), '.') }} {{ $item['unit'] ?? 'uds' }}</span>
+                                    @else
+                                    <span class="text-[9px] font-semibold text-purple-600">∞</span>
+                                    @endif
                                 @endif
                             </div>
                         </div>
@@ -1336,11 +1340,13 @@
                         </div>
                         
                         <!-- Stock Info -->
+                        @if($weightModalProduct['manages_inventory'] ?? true)
                         <p class="text-center text-sm text-slate-500">
                             Stock disponible: 
                             {{ number_format($weightModalProduct['stock'], 3) }} 
                             {{ $weightModalProduct['unit'] }}
                         </p>
+                        @endif
                     </div>
                     
                     <!-- Footer -->

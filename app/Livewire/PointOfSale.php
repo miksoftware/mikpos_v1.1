@@ -445,8 +445,8 @@ class PointOfSale extends Component
         
         if (!$product) return;
         
-        // Check if product has stock
-        if ($product->current_stock <= 0) {
+        // Check if product has stock (only for products that manage inventory)
+        if ($product->manages_inventory && $product->current_stock <= 0) {
             $this->dispatch('notify', message: 'Producto sin stock disponible', type: 'error');
             return;
         }
@@ -467,9 +467,9 @@ class PointOfSale extends Component
         // This ensures parent and first child have different cart keys
         $cartKey = $productId . '-' . ($childId ?? 'parent');
         
-        // Check stock availability
+        // Check stock availability (only for products that manage inventory)
         $currentQtyInCart = isset($this->cart[$cartKey]) ? $this->cart[$cartKey]['quantity'] : 0;
-        if ($currentQtyInCart >= $product->current_stock) {
+        if ($product->manages_inventory && $currentQtyInCart >= $product->current_stock) {
             $this->dispatch('notify', message: 'Stock insuficiente. Disponible: ' . number_format($product->current_stock, 3), type: 'warning');
             return;
         }
@@ -809,6 +809,7 @@ class PointOfSale extends Component
             'price' => round($priceWithTax, 2),
             'unit' => $product->unit?->abbreviation ?? 'UND',
             'stock' => (float) $product->current_stock,
+            'manages_inventory' => (bool) $product->manages_inventory,
             'image' => $displayImage,
         ];
         
@@ -857,9 +858,10 @@ class PointOfSale extends Component
         // Round quantity to 3 decimal places
         $quantity = round($quantity, 3);
 
-        // Validate quantity <= stock
+        // Validate quantity <= stock (only for inventory-managed products)
         $stock = $this->weightModalProduct['stock'];
-        if ($quantity > $stock) {
+        $managesInventory = $this->weightModalProduct['manages_inventory'] ?? true;
+        if ($managesInventory && $quantity > $stock) {
             $formattedStock = rtrim(rtrim(number_format($stock, 3), '0'), '.');
             $this->dispatch('notify', message: "Stock insuficiente. Disponible: {$formattedStock}", type: 'error');
             return;
@@ -938,11 +940,11 @@ class PointOfSale extends Component
         // Cart key: use 'parent' suffix when selling parent directly, child_id otherwise
         $cartKey = $productId . '-' . ($childId ?? 'parent');
         
-        // Check stock availability (including existing cart quantity)
+        // Check stock availability (including existing cart quantity) - only for inventory-managed products
         $currentQtyInCart = isset($this->cart[$cartKey]) ? $this->cart[$cartKey]['quantity'] : 0;
         $totalQty = $currentQtyInCart + $quantity;
         
-        if ($totalQty > $product->current_stock) {
+        if ($product->manages_inventory && $totalQty > $product->current_stock) {
             $available = $product->current_stock - $currentQtyInCart;
             $formattedAvailable = rtrim(rtrim(number_format($available, 3), '0'), '.');
             $this->dispatch('notify', message: "Stock insuficiente. Disponible: {$formattedAvailable}", type: 'warning');
@@ -1528,7 +1530,7 @@ class PointOfSale extends Component
                 // Update product stock (only for products, not services or combos)
                 if ($item['product_id']) {
                     $product = Product::find($item['product_id']);
-                    if ($product) {
+                    if ($product && $product->manages_inventory) {
                         // Create inventory movement for sale
                         InventoryMovement::createMovement(
                             'sale',
@@ -1553,7 +1555,7 @@ class PointOfSale extends Component
                         foreach ($combo->items as $comboItem) {
                             if ($comboItem->product_id) {
                                 $product = Product::find($comboItem->product_id);
-                                if ($product) {
+                                if ($product && $product->manages_inventory) {
                                     $totalQty = (float) $comboItem->quantity * (float) $item['quantity'];
                                     InventoryMovement::createMovement(
                                         'sale',
@@ -1917,12 +1919,15 @@ class PointOfSale extends Component
         // Build combined list of sellable items (parents without children + all children)
         $sellableItems = collect();
         
-        // Query for products with stock
+        // Query for products with stock or products that don't manage inventory
         $productsQuery = Product::with(['category', 'brand', 'tax', 'unit', 'children' => function ($q) {
                 $q->where('is_active', true);
             }])
             ->where('is_active', true)
-            ->where('current_stock', '>', 0)
+            ->where(function ($q) {
+                $q->where('manages_inventory', false)
+                  ->orWhere('current_stock', '>', 0);
+            })
             ->forBranch($this->branchId);
         
         if ($this->selectedCategory) {
@@ -1962,6 +1967,7 @@ class PointOfSale extends Component
                         ? $product->sale_price 
                         : $product->getSalePriceWithTax(),
                     'stock' => (float) $product->current_stock,
+                    'manages_inventory' => (bool) $product->manages_inventory,
                     'image' => $product->image,
                     'unit' => $product->unit?->abbreviation ?? 'UND',
                 ]);
@@ -1979,6 +1985,7 @@ class PointOfSale extends Component
                         ? $product->sale_price 
                         : $product->getSalePriceWithTax(),
                     'stock' => (float) $product->current_stock,
+                    'manages_inventory' => (bool) $product->manages_inventory,
                     'image' => $product->image,
                     'unit' => $product->unit?->abbreviation ?? 'UND',
                     'has_variants' => true,
@@ -1999,6 +2006,7 @@ class PointOfSale extends Component
                             ? $child->sale_price 
                             : $child->getSalePriceWithTax(),
                         'stock' => (float) $product->current_stock, // Stock is at parent level
+                        'manages_inventory' => (bool) $product->manages_inventory,
                         'image' => $child->image ?? $product->image,
                         'unit' => $product->unit?->abbreviation ?? 'UND',
                     ]);

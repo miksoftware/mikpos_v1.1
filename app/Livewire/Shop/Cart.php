@@ -29,8 +29,13 @@ class Cart extends Component
     public function addToCart(int $productId, ?int $productChildId = null): void
     {
         $product = Product::with(['tax'])->find($productId);
-        if (!$product || !$product->is_active || $product->current_stock <= 0) {
+        if (!$product || !$product->is_active) {
             $this->dispatch('notify', message: 'Producto no disponible', type: 'error');
+            return;
+        }
+
+        if ($product->manages_inventory && $product->current_stock <= 0) {
+            $this->dispatch('notify', message: 'Producto sin stock disponible', type: 'error');
             return;
         }
 
@@ -48,7 +53,8 @@ class Cart extends Component
             : $product->getSalePriceWithTax();
 
         $taxRate = $product->tax ? (float) $product->tax->value : 0;
-        $maxStock = (float) $product->current_stock;
+        $managesInventory = (bool) $product->manages_inventory;
+        $maxStock = $managesInventory ? (float) $product->current_stock : 9999;
 
         // Check if already in cart
         $existingIndex = null;
@@ -61,11 +67,16 @@ class Cart extends Component
 
         if ($existingIndex !== null) {
             $newQty = $this->items[$existingIndex]['quantity'] + 1;
-            $this->items[$existingIndex]['quantity'] = min($newQty, (int) $maxStock);
-            $this->items[$existingIndex]['max_stock'] = $maxStock;
-            if ($newQty > (int) $maxStock) {
-                $this->dispatch('notify', message: "Stock máximo disponible: {$maxStock}", type: 'warning');
+            if ($managesInventory) {
+                $this->items[$existingIndex]['quantity'] = min($newQty, (int) $maxStock);
+                if ($newQty > (int) $maxStock) {
+                    $this->dispatch('notify', message: "Stock máximo disponible: {$maxStock}", type: 'warning');
+                }
+            } else {
+                $this->items[$existingIndex]['quantity'] = $newQty;
             }
+            $this->items[$existingIndex]['max_stock'] = $maxStock;
+            $this->items[$existingIndex]['manages_inventory'] = $managesInventory;
         } else {
             $this->items[] = [
                 'product_id' => $productId,
@@ -76,6 +87,7 @@ class Cart extends Component
                 'tax_rate' => $taxRate,
                 'quantity' => 1,
                 'max_stock' => $maxStock,
+                'manages_inventory' => $managesInventory,
                 'image' => $variant ? $variant->getDisplayImage() : $product->getDisplayImage(),
             ];
         }
@@ -95,7 +107,7 @@ class Cart extends Component
         // Refresh current stock from DB
         $item = $this->items[$index];
         $product = Product::find($item['product_id']);
-        if ($product) {
+        if ($product && $product->manages_inventory) {
             $currentStock = (int) $product->current_stock;
             $this->items[$index]['max_stock'] = (float) $product->current_stock;
 
@@ -157,10 +169,15 @@ class Cart extends Component
         foreach ($this->items as $index => &$item) {
             $product = $products->get($item['product_id']);
             if ($product) {
-                $item['max_stock'] = (float) $product->current_stock;
-                if ($item['quantity'] > (int) $product->current_stock) {
-                    $item['quantity'] = max(1, (int) $product->current_stock);
-                    $changed = true;
+                $item['manages_inventory'] = (bool) $product->manages_inventory;
+                if ($product->manages_inventory) {
+                    $item['max_stock'] = (float) $product->current_stock;
+                    if ($item['quantity'] > (int) $product->current_stock) {
+                        $item['quantity'] = max(1, (int) $product->current_stock);
+                        $changed = true;
+                    }
+                } else {
+                    $item['max_stock'] = 9999;
                 }
             }
         }
