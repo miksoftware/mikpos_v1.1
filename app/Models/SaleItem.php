@@ -28,6 +28,8 @@ class SaleItem extends Model
         'discount_amount',
         'discount_reason',
         'total',
+        'is_unavailable',
+        'unavailable_reason',
     ];
 
     protected function casts(): array
@@ -41,6 +43,7 @@ class SaleItem extends Model
             'discount_type_value' => 'decimal:2',
             'discount_amount' => 'decimal:2',
             'total' => 'decimal:2',
+            'is_unavailable' => 'boolean',
         ];
     }
 

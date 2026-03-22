@@ -29,10 +29,12 @@
                                 <div class="flex items-center justify-between mb-2">
                                     <span class="text-sm font-bold text-slate-900">{{ $order->invoice_number }}</span>
                                     @php
-                                        $statusConfig = match($order->status) {
-                                            'pending_approval' => ['label' => 'Pendiente', 'class' => 'bg-amber-100 text-amber-800'],
-                                            'completed' => ['label' => 'Aprobado', 'class' => 'bg-green-100 text-green-800'],
-                                            'rejected' => ['label' => 'Rechazado', 'class' => 'bg-red-100 text-red-800'],
+                                        $ecoStatus = $order->ecommerceOrder?->status;
+                                        $statusConfig = match(true) {
+                                            $ecoStatus === 'partial' => ['label' => 'Parcial', 'class' => 'bg-orange-100 text-orange-800'],
+                                            $ecoStatus === 'rejected' || $order->status === 'rejected' => ['label' => 'Rechazado', 'class' => 'bg-red-100 text-red-800'],
+                                            $order->status === 'pending_approval' => ['label' => 'Pendiente', 'class' => 'bg-amber-100 text-amber-800'],
+                                            $order->status === 'completed' => ['label' => 'Aprobado', 'class' => 'bg-green-100 text-green-800'],
                                             default => ['label' => ucfirst($order->status), 'class' => 'bg-slate-100 text-slate-800'],
                                         };
                                     @endphp
@@ -69,10 +71,12 @@
                             </div>
                             <div class="flex items-center gap-3">
                                 @php
-                                    $detailStatus = match($selectedSale->status) {
-                                        'pending_approval' => ['label' => 'Pendiente de aprobación', 'class' => 'bg-amber-100 text-amber-800'],
-                                        'completed' => ['label' => 'Aprobado', 'class' => 'bg-green-100 text-green-800'],
-                                        'rejected' => ['label' => 'Rechazado', 'class' => 'bg-red-100 text-red-800'],
+                                    $detailEcoStatus = $selectedSale->ecommerceOrder?->status;
+                                    $detailStatus = match(true) {
+                                        $detailEcoStatus === 'partial' => ['label' => 'Enviado parcialmente', 'class' => 'bg-orange-100 text-orange-800'],
+                                        $detailEcoStatus === 'rejected' || $selectedSale->status === 'rejected' => ['label' => 'Rechazado', 'class' => 'bg-red-100 text-red-800'],
+                                        $selectedSale->status === 'pending_approval' => ['label' => 'Pendiente de aprobación', 'class' => 'bg-amber-100 text-amber-800'],
+                                        $selectedSale->status === 'completed' => ['label' => 'Aprobado', 'class' => 'bg-green-100 text-green-800'],
                                         default => ['label' => ucfirst($selectedSale->status), 'class' => 'bg-slate-100 text-slate-800'],
                                     };
                                 @endphp
@@ -92,6 +96,21 @@
                             <div class="px-6 py-3 text-sm text-slate-500 border-b border-slate-100">
                                 Fecha: {{ $selectedSale->created_at->format('d/m/Y H:i') }}
                             </div>
+
+                            {{-- Partial Order Notice --}}
+                            @if($selectedSale->ecommerceOrder?->status === 'partial')
+                                <div class="px-6 py-3 bg-orange-50 border-b border-orange-100">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                                        </svg>
+                                        <div>
+                                            <p class="text-sm font-medium text-orange-800">Pedido enviado parcialmente</p>
+                                            <p class="text-sm text-orange-700 mt-0.5">Algunos productos no pudieron ser enviados. Revisa los detalles a continuación.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
 
                             {{-- Rejection Reason --}}
                             @if($selectedSale->status === 'rejected' && $selectedSale->ecommerceOrder?->rejection_reason)
@@ -113,12 +132,20 @@
                                 <h3 class="text-sm font-semibold text-slate-700 mb-3">Productos</h3>
                                 <div class="space-y-3">
                                     @foreach($selectedSale->items as $item)
-                                        <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center justify-between text-sm {{ $item->is_unavailable ? 'opacity-60' : '' }}">
                                             <div class="flex-1 min-w-0">
-                                                <p class="font-medium text-slate-900 truncate">{{ $item->product_name }}</p>
+                                                <div class="flex items-center gap-2">
+                                                    <p class="font-medium text-slate-900 truncate {{ $item->is_unavailable ? 'line-through' : '' }}">{{ $item->product_name }}</p>
+                                                    @if($item->is_unavailable)
+                                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 flex-shrink-0">No enviado</span>
+                                                    @endif
+                                                </div>
                                                 <p class="text-slate-500">${{ number_format($item->unit_price, 0, ',', '.') }} x {{ rtrim(rtrim(number_format($item->quantity, 3), '0'), '.') }}</p>
+                                                @if($item->is_unavailable && $item->unavailable_reason)
+                                                    <p class="text-xs text-orange-600 mt-0.5">Motivo: {{ $item->unavailable_reason }}</p>
+                                                @endif
                                             </div>
-                                            <span class="font-medium text-slate-900 ml-4">${{ number_format($item->total, 0, ',', '.') }}</span>
+                                            <span class="font-medium text-slate-900 ml-4 {{ $item->is_unavailable ? 'line-through' : '' }}">${{ number_format($item->total, 0, ',', '.') }}</span>
                                         </div>
                                     @endforeach
                                 </div>

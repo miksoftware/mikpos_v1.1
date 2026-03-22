@@ -45,7 +45,7 @@
 
     {{-- Product Grid --}}
     @if($products->count() > 0)
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div class="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
             @foreach($products as $product)
                 <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-md hover:border-slate-300 transition-all group flex flex-col">
                     {{-- Image (clickable to open modal) --}}
@@ -55,8 +55,8 @@
                     </div>
 
                     {{-- Info --}}
-                    <div class="p-4 space-y-2 flex-1 flex flex-col">
-                        <div class="flex items-center gap-2 text-xs text-slate-500">
+                    <div class="p-2 sm:p-4 space-y-1 sm:space-y-2 flex-1 flex flex-col">
+                        <div class="hidden sm:flex items-center gap-2 text-xs text-slate-500">
                             @if($product->category)
                                 <span>{{ $product->category->name }}</span>
                             @endif
@@ -68,26 +68,27 @@
                             @endif
                         </div>
 
-                        <h3 class="font-semibold text-slate-900 text-sm leading-tight line-clamp-2 cursor-pointer hover:text-[#ff7261] transition-colors"
+                        <h3 class="font-semibold text-slate-900 text-[10px] sm:text-sm leading-tight line-clamp-2 cursor-pointer hover:text-[#ff7261] transition-colors"
                             wire:click="openProductModal({{ $product->id }})">{{ $product->name }}</h3>
 
-                        <p class="text-lg font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] bg-clip-text text-transparent">
+                        <p class="text-xs sm:text-lg font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] bg-clip-text text-transparent">
                             ${{ number_format($product->getSalePriceWithTax(), 0, ',', '.') }}
                         </p>
 
-                        <p class="text-xs {{ $product->current_stock <= $product->min_stock ? 'text-red-500' : 'text-green-600' }}">
+                        <p class="hidden sm:block text-xs {{ $product->current_stock <= $product->min_stock ? 'text-red-500' : 'text-green-600' }}">
                             {{ rtrim(rtrim(number_format($product->current_stock, 3), '0'), '.') }} disponibles
                         </p>
 
                         {{-- Quick Add to Cart Button --}}
-                        <div class="mt-auto pt-2">
+                        <div class="mt-auto pt-1 sm:pt-2">
                             @auth('customer')
                                 <button wire:click="quickAddToCart({{ $product->id }})"
-                                    class="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    class="w-full flex items-center justify-center gap-1 sm:gap-1.5 px-1 sm:px-3 py-1.5 sm:py-2 text-[9px] sm:text-xs font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-lg sm:rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all">
+                                    <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"></path>
                                     </svg>
-                                    Añadir al carrito
+                                    <span class="hidden sm:inline">Añadir al carrito</span>
+                                    <span class="sm:hidden">Añadir</span>
                                 </button>
                             @endauth
                         </div>

@@ -52,6 +52,7 @@ class SeedMarkExecuted extends Command
         'PosCashDenominationsPermissionSeeder',
         'EcommerceModuleSeeder',
         'EcommerceSystemDocumentSeeder',
+        'EcommerceOrdersModuleSeeder',
     ];
 
     public function handle(): int

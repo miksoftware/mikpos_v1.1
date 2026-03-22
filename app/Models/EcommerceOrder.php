@@ -19,6 +19,7 @@ class EcommerceOrder extends Model
         'shipping_phone',
         'customer_notes',
         'rejection_reason',
+        'status',
     ];
 
     public function sale(): BelongsTo

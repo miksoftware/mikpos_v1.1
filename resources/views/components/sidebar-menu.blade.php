@@ -114,6 +114,29 @@
 @endif
 @endif
 
+<!-- Pedidos Tienda -->
+@if (auth()->user()->hasPermission('ecommerce_orders.view'))
+@if($mobile)
+<div class="{{ $sectionClass }}">
+    <a href="{{ route('ecommerce-orders') }}" @click="mobileMenuOpen = false"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-xl {{ request()->routeIs('ecommerce-orders') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+        </svg>
+        <span class="font-medium">Pedidos Tienda</span>
+    </a>
+</div>
+@else
+<a href="{{ route('ecommerce-orders') }}"
+    class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group {{ request()->routeIs('ecommerce-orders') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
+    <svg class="w-5 h-5 flex-shrink-0 group-hover:text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+    </svg>
+    <span x-show="sidebarOpen" class="font-medium">Pedidos Tienda</span>
+</a>
+@endif
+@endif
+
 <!-- Créditos -->
 @if (auth()->user()->hasPermission('credits.view'))
 @if($mobile)

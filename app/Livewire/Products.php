@@ -100,6 +100,7 @@ class Products extends Component
     public ?string $childSize = null;
     public ?float $childWeight = null;
     public float $childSalePrice = 0;
+    public ?float $childSpecialPrice = null;
     public bool $childPriceIncludesTax = false;
     public ?string $childImei = null;
     public bool $childIsActive = true;
@@ -655,6 +656,7 @@ class Products extends Component
         $this->childSize = $child->size;
         $this->childWeight = $child->weight;
         $this->childSalePrice = (float) $child->sale_price;
+        $this->childSpecialPrice = $child->special_price ? (float) $child->special_price : null;
         $this->childPriceIncludesTax = $child->price_includes_tax;
         $this->childImei = $child->imei;
         $this->childIsActive = $child->is_active;
@@ -715,6 +717,7 @@ class Products extends Component
             'size' => $this->childSize ?: null,
             'weight' => $this->childWeight ?: null,
             'sale_price' => $this->childSalePrice,
+            'special_price' => $this->childSpecialPrice ?: null,
             'price_includes_tax' => $this->childPriceIncludesTax,
             'imei' => $this->childImei ?: null,
             'is_active' => $this->childIsActive,
@@ -1119,6 +1122,7 @@ class Products extends Component
         $this->childSize = null;
         $this->childWeight = null;
         $this->childSalePrice = 0;
+        $this->childSpecialPrice = null;
         $this->childPriceIncludesTax = false;
         $this->childImei = null;
         $this->childIsActive = true;

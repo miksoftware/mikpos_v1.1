@@ -197,6 +197,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('sales')
         ->middleware('permission:sales.view');
 
+    // Ecommerce Orders
+    Route::get('/ecommerce-orders', App\Livewire\EcommerceOrders::class)
+        ->name('ecommerce-orders')
+        ->middleware('permission:ecommerce_orders.view');
+
     // Billing Settings
     Route::get('/billing-settings', App\Livewire\BillingSettings::class)
         ->name('billing-settings')
