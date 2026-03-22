@@ -335,6 +335,9 @@ class Product extends Model
      */
     public function isLowStock(): bool
     {
+        if (!$this->manages_inventory) {
+            return false;
+        }
         return $this->current_stock <= $this->min_stock;
     }
 

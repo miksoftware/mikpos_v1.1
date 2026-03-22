@@ -695,11 +695,10 @@
                                 Inventario
                             </h4>
                             <div class="mb-4">
-                                <label class="flex items-center gap-3 cursor-pointer">
-                                    <div class="relative" x-data="{ checked: @entangle('manages_inventory') }">
-                                        <input type="checkbox" wire:model.live="manages_inventory" class="sr-only" x-model="checked">
-                                        <div @click="checked = !checked" class="w-10 h-5 rounded-full transition-colors duration-200" :class="checked ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7]' : 'bg-slate-300'">
-                                            <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200" :class="checked ? 'translate-x-5' : ''"></div>
+                                <label class="flex items-center gap-3 cursor-pointer" wire:click.prevent="$toggle('manages_inventory')">
+                                    <div class="relative">
+                                        <div class="w-10 h-5 rounded-full transition-colors duration-200 {{ $manages_inventory ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7]' : 'bg-slate-300' }}">
+                                            <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 {{ $manages_inventory ? 'translate-x-5' : '' }}"></div>
                                         </div>
                                     </div>
                                     <span class="text-sm font-medium text-slate-700">Maneja inventario</span>
