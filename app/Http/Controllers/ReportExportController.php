@@ -998,4 +998,113 @@ class ReportExportController extends Controller
         ])->deleteFileAfterSend(true);
     }
 
+    public function ecommerceOrdersReportPdf(Request $request)
+    {
+        $dateFrom = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
+        $dateTo = $request->get('date_to', now()->format('Y-m-d'));
+        $status = $request->get('status', 'all');
+
+        $query = SaleItem::query()
+            ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->leftJoin('customers', 'sales.customer_id', '=', 'customers.id')
+            ->where('sales.source', 'ecommerce')
+            ->where('sale_items.is_unavailable', false);
+
+        if ($status === 'pending') {
+            $query->where('sales.status', 'pending_approval');
+        } elseif ($status === 'approved') {
+            $query->where('sales.status', 'completed');
+        } elseif ($status === 'rejected') {
+            $query->where('sales.status', 'rejected');
+        } else {
+            $query->whereIn('sales.status', ['pending_approval', 'completed', 'rejected']);
+        }
+
+        if ($dateFrom) {
+            $query->whereDate('sales.created_at', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $query->whereDate('sales.created_at', '<=', $dateTo);
+        }
+
+        $items = $query->select(
+            'sale_items.product_id',
+            'sale_items.product_name',
+            'sale_items.product_sku',
+            'sales.customer_id',
+            DB::raw("COALESCE(CONCAT(customers.first_name, ' ', customers.last_name), customers.business_name, 'Sin cliente') as customer_name"),
+            DB::raw('SUM(sale_items.quantity) as total_quantity'),
+        )
+        ->groupBy(
+            'sale_items.product_id',
+            'sale_items.product_name',
+            'sale_items.product_sku',
+            'sales.customer_id',
+            'customers.first_name',
+            'customers.last_name',
+            'customers.business_name',
+        )
+        ->get();
+
+        $products = [];
+        $customers = [];
+
+        foreach ($items as $item) {
+            $productKey = $item->product_id ?? $item->product_name;
+            $customerKey = $item->customer_id ?? 'sin_cliente';
+            $customerName = trim($item->customer_name) ?: 'Sin cliente';
+
+            if (!isset($products[$productKey])) {
+                $products[$productKey] = [
+                    'name' => $item->product_name,
+                    'sku' => $item->product_sku,
+                    'quantities' => [],
+                    'total' => 0,
+                ];
+            }
+
+            if (!isset($customers[$customerKey])) {
+                $customers[$customerKey] = $customerName;
+            }
+
+            $qty = (float) $item->total_quantity;
+            $products[$productKey]['quantities'][$customerKey] = ($products[$productKey]['quantities'][$customerKey] ?? 0) + $qty;
+            $products[$productKey]['total'] += $qty;
+        }
+
+        uasort($products, fn($a, $b) => strcmp($a['name'], $b['name']));
+        asort($customers);
+
+        $customerTotals = [];
+        foreach ($customers as $key => $name) {
+            $customerTotals[$key] = 0;
+            foreach ($products as $product) {
+                $customerTotals[$key] += $product['quantities'][$key] ?? 0;
+            }
+        }
+
+        $statusLabel = match($status) {
+            'pending' => 'Pendientes',
+            'approved' => 'Aprobados',
+            'rejected' => 'Rechazados',
+            default => 'Todos',
+        };
+
+        $data = [
+            'products' => $products,
+            'customers' => $customers,
+            'customerTotals' => $customerTotals,
+            'grandTotal' => collect($products)->sum('total'),
+            'startDate' => Carbon::parse($dateFrom)->format('d/m/Y'),
+            'endDate' => Carbon::parse($dateTo)->format('d/m/Y'),
+            'statusLabel' => $statusLabel,
+            'generatedAt' => now()->format('d/m/Y H:i:s'),
+        ];
+
+        $pdf = Pdf::loadView('reports.ecommerce-orders-report-pdf', $data);
+        $pdf->setPaper('a4', 'landscape');
+
+        return $pdf->download('reporte-pedidos-tienda-' . now()->format('Y-m-d') . '.pdf');
+    }
+
 }

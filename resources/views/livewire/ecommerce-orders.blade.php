@@ -31,11 +31,15 @@
             <svg class="w-4 h-4 inline -mt-0.5 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
             Productos
         </button>
+        <button wire:click="$set('activeTab', 'report')"
+            class="px-4 py-2 text-sm font-medium rounded-lg transition-all {{ $activeTab === 'report' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700' }}">
+            <svg class="w-4 h-4 inline -mt-0.5 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Reporte
+        </button>
     </div>
 
     @if($activeTab === 'products')
-    {{-- Aggregated Products View --}}
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    {{-- Aggregated Products View --}}    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         @if($aggregatedProducts->count() > 0)
         <div class="px-4 py-3 bg-slate-50 border-b border-slate-200">
             <p class="text-sm text-slate-600">
@@ -116,6 +120,184 @@
         </div>
         @endif
     </div>
+    @elseif($activeTab === 'report')
+    {{-- Report Tab --}}
+    <div x-data="{
+        chartRendered: false,
+        renderChart() {
+            if (this.chartRendered) return;
+            this.chartRendered = true;
+            const ctx = document.getElementById('topProductsChart');
+            if (!ctx) return;
+            const labels = @js(($reportData['topProducts'] ?? collect())->pluck('name')->toArray());
+            const data = @js(($reportData['topProducts'] ?? collect())->pluck('total')->toArray());
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.map(l => l.length > 20 ? l.substring(0, 20) + '...' : l),
+                    datasets: [{
+                        label: 'Cantidad',
+                        data: data,
+                        backgroundColor: [
+                            'rgba(255, 114, 97, 0.8)', 'rgba(168, 85, 247, 0.8)', 'rgba(59, 130, 246, 0.8)',
+                            'rgba(16, 185, 129, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(239, 68, 68, 0.8)',
+                            'rgba(99, 102, 241, 0.8)', 'rgba(236, 72, 153, 0.8)', 'rgba(20, 184, 166, 0.8)',
+                            'rgba(251, 146, 60, 0.8)'
+                        ],
+                        borderRadius: 8,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                        x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+    }" x-init="$nextTick(() => renderChart())" wire:key="report-tab-{{ $reportDateFrom }}-{{ $reportDateTo }}-{{ $reportStatus }}">
+        {{-- Report Filters --}}
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-4">
+            <div class="flex flex-wrap items-end gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Desde</label>
+                    <input type="date" wire:model.live="reportDateFrom" class="px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Hasta</label>
+                    <input type="date" wire:model.live="reportDateTo" class="px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Estado</label>
+                    <select wire:model.live="reportStatus" class="px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                        <option value="all">Todos</option>
+                        <option value="pending">Pendientes</option>
+                        <option value="approved">Aprobados</option>
+                        <option value="rejected">Rechazados</option>
+                    </select>
+                </div>
+                <a href="{{ route('ecommerce-orders.report-pdf', ['date_from' => $reportDateFrom, 'date_to' => $reportDateTo, 'status' => $reportStatus]) }}"
+                    target="_blank"
+                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    Descargar PDF
+                </a>
+            </div>
+        </div>
+
+        @if(!empty($reportData))
+        @php
+            $products = $reportData['products'] ?? [];
+            $customers = $reportData['customers'] ?? [];
+            $customerTotals = $reportData['customerTotals'] ?? [];
+            $grandTotal = $reportData['grandTotal'] ?? 0;
+            $topProducts = $reportData['topProducts'] ?? collect();
+        @endphp
+
+        {{-- Summary Cards --}}
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div class="bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-2xl p-4 text-white">
+                <p class="text-xs opacity-80">Productos</p>
+                <p class="text-2xl font-bold">{{ count($products) }}</p>
+            </div>
+            <div class="bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl p-4 text-white">
+                <p class="text-xs opacity-80">Clientes</p>
+                <p class="text-2xl font-bold">{{ count($customers) }}</p>
+            </div>
+            <div class="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl p-4 text-white">
+                <p class="text-xs opacity-80">Total Unidades</p>
+                <p class="text-2xl font-bold">{{ rtrim(rtrim(number_format($grandTotal, 3), '0'), '.') }}</p>
+            </div>
+        </div>
+
+        {{-- Chart --}}
+        @if($topProducts->count() > 0)
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-4">
+            <h3 class="text-sm font-semibold text-slate-700 mb-3">Top 10 Productos Más Pedidos</h3>
+            <div style="height: 280px;">
+                <canvas id="topProductsChart"></canvas>
+            </div>
+        </div>
+        @endif
+
+        {{-- Cross-tab Table --}}
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            @if(count($products) > 0)
+            <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <p class="text-sm text-slate-600">
+                    <span class="font-semibold">{{ count($products) }}</span> producto(s) ×
+                    <span class="font-semibold">{{ count($customers) }}</span> cliente(s)
+                </p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-slate-50">
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase sticky left-0 bg-slate-50 z-10 min-w-[200px]">Producto</th>
+                            @foreach($customers as $key => $name)
+                            <th class="px-3 py-3 text-center text-xs font-semibold text-slate-500 uppercase min-w-[80px]" title="{{ $name }}">
+                                {{ \Illuminate\Support\Str::limit($name, 12) }}
+                            </th>
+                            @endforeach
+                            <th class="px-4 py-3 text-center text-xs font-bold text-purple-700 uppercase bg-purple-50 min-w-[80px]">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        @foreach($products as $product)
+                        <tr class="hover:bg-slate-50/50 transition-colors">
+                            <td class="px-4 py-2.5 sticky left-0 bg-white z-10">
+                                <p class="text-sm font-medium text-slate-900">{{ $product['name'] }}</p>
+                                @if($product['sku'])
+                                <p class="text-xs text-slate-400">{{ $product['sku'] }}</p>
+                                @endif
+                            </td>
+                            @foreach($customers as $custKey => $custName)
+                            <td class="px-3 py-2.5 text-center">
+                                @if(($product['quantities'][$custKey] ?? 0) > 0)
+                                <span class="text-sm font-semibold text-slate-900">{{ rtrim(rtrim(number_format($product['quantities'][$custKey], 3), '0'), '.') }}</span>
+                                @else
+                                <span class="text-slate-300">-</span>
+                                @endif
+                            </td>
+                            @endforeach
+                            <td class="px-4 py-2.5 text-center bg-purple-50">
+                                <span class="text-sm font-bold text-purple-700">{{ rtrim(rtrim(number_format($product['total'], 3), '0'), '.') }}</span>
+                            </td>
+                        </tr>
+                        @endforeach
+                        {{-- Totals row --}}
+                        <tr class="bg-slate-800 text-white">
+                            <td class="px-4 py-3 sticky left-0 bg-slate-800 z-10 font-bold text-sm">TOTAL</td>
+                            @foreach($customers as $custKey => $custName)
+                            <td class="px-3 py-3 text-center font-bold text-sm">
+                                @if(($customerTotals[$custKey] ?? 0) > 0)
+                                {{ rtrim(rtrim(number_format($customerTotals[$custKey], 3), '0'), '.') }}
+                                @else
+                                -
+                                @endif
+                            </td>
+                            @endforeach
+                            <td class="px-4 py-3 text-center font-bold text-sm bg-purple-900">
+                                {{ rtrim(rtrim(number_format($grandTotal, 3), '0'), '.') }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            @else
+            <div class="px-4 py-12 text-center">
+                <svg class="w-12 h-12 text-slate-300 mb-3 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <p class="text-slate-500">No hay datos para los filtros seleccionados</p>
+            </div>
+            @endif
+        </div>
+        @endif
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     @else
     {{-- Filters --}}
     <div class="flex flex-wrap items-center gap-3 mb-4">
@@ -354,13 +536,20 @@
 
                     {{-- Footer --}}
                     @if($selectedSale->status === 'pending_approval')
-                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-between">
                         <button wire:click="openRejectModal({{ $selectedSale->id }})" class="px-4 py-2 text-sm font-medium text-red-700 bg-white border border-red-300 rounded-xl hover:bg-red-50">
                             Rechazar
                         </button>
-                        <button wire:click="approveOrder" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea]">
-                            Aprobar pedido
-                        </button>
+                        <div class="flex gap-3">
+                            @if(collect($unavailableItems)->contains('is_unavailable', true))
+                            <button wire:click="saveUnavailableItems" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
+                                Guardar cambios
+                            </button>
+                            @endif
+                            <button wire:click="approveOrder" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea]">
+                                Aprobar pedido
+                            </button>
+                        </div>
                     </div>
                     @endif
                 </div>

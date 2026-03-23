@@ -39,7 +39,7 @@ class Orders extends Component
 
         $orders = Sale::where('customer_id', $customer->id)
             ->where('source', 'ecommerce')
-            ->with(['payments.paymentMethod', 'ecommerceOrder'])
+            ->with(['payments.paymentMethod', 'ecommerceOrder', 'items'])
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 

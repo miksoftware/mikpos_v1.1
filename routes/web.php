@@ -202,6 +202,10 @@ Route::middleware(['auth'])->group(function () {
         ->name('ecommerce-orders')
         ->middleware('permission:ecommerce_orders.view');
 
+    Route::get('/ecommerce-orders/report-pdf', [App\Http\Controllers\ReportExportController::class, 'ecommerceOrdersReportPdf'])
+        ->name('ecommerce-orders.report-pdf')
+        ->middleware('permission:ecommerce_orders.view');
+
     // Billing Settings
     Route::get('/billing-settings', App\Livewire\BillingSettings::class)
         ->name('billing-settings')

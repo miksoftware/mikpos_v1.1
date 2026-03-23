@@ -41,10 +41,17 @@ class EcommerceOrders extends Component
     public array $selectedOrders = [];
     public bool $selectAll = false;
 
+    // Report tab
+    public string $reportDateFrom = '';
+    public string $reportDateTo = '';
+    public string $reportStatus = 'all';
+
     public function mount()
     {
         $this->dateFrom = now()->startOfMonth()->format('Y-m-d');
         $this->dateTo = now()->format('Y-m-d');
+        $this->reportDateFrom = now()->startOfMonth()->format('Y-m-d');
+        $this->reportDateTo = now()->format('Y-m-d');
     }
 
     public function updatingSearch()
@@ -117,6 +124,55 @@ class EcommerceOrders extends Component
             if (!$this->unavailableItems[$itemId]['is_unavailable']) {
                 $this->unavailableItems[$itemId]['reason'] = '';
             }
+        }
+    }
+
+    public function saveUnavailableItems()
+    {
+        if (!$this->selectedSale) return;
+
+        try {
+            DB::beginTransaction();
+
+            foreach ($this->unavailableItems as $itemId => $data) {
+                $saleItem = SaleItem::find($itemId);
+                if (!$saleItem) continue;
+
+                $wasUnavailable = (bool) $saleItem->is_unavailable;
+                $nowUnavailable = (bool) $data['is_unavailable'];
+
+                SaleItem::where('id', $itemId)->update([
+                    'is_unavailable' => $nowUnavailable,
+                    'unavailable_reason' => $nowUnavailable ? ($data['reason'] ?: 'Producto no disponible') : null,
+                ]);
+
+                // Return stock if newly marked unavailable
+                if ($nowUnavailable && !$wasUnavailable && $saleItem->product_id) {
+                    $product = Product::find($saleItem->product_id);
+                    if ($product && $product->manages_inventory) {
+                        $product->increment('current_stock', (float) $saleItem->quantity);
+                    }
+                }
+
+                // Re-reserve stock if unmarked
+                if (!$nowUnavailable && $wasUnavailable && $saleItem->product_id) {
+                    $product = Product::find($saleItem->product_id);
+                    if ($product && $product->manages_inventory) {
+                        $product->decrement('current_stock', (float) $saleItem->quantity);
+                    }
+                }
+            }
+
+            DB::commit();
+
+            // Refresh the sale data in the modal
+            $this->selectedSale->refresh();
+            $this->selectedSale->load('items.product');
+
+            $this->dispatch('notify', message: 'Cambios guardados', type: 'success');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->dispatch('notify', message: 'Error: ' . $e->getMessage(), type: 'error');
         }
     }
 
@@ -328,9 +384,107 @@ class EcommerceOrders extends Component
         return $query;
     }
 
+    public function getReportData(): array
+    {
+        $query = SaleItem::query()
+            ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->leftJoin('customers', 'sales.customer_id', '=', 'customers.id')
+            ->where('sales.source', 'ecommerce')
+            ->where('sale_items.is_unavailable', false);
+
+        if ($this->reportStatus === 'pending') {
+            $query->where('sales.status', 'pending_approval');
+        } elseif ($this->reportStatus === 'approved') {
+            $query->where('sales.status', 'completed');
+        } elseif ($this->reportStatus === 'rejected') {
+            $query->where('sales.status', 'rejected');
+        } else {
+            $query->whereIn('sales.status', ['pending_approval', 'completed', 'rejected']);
+        }
+
+        if ($this->reportDateFrom) {
+            $query->whereDate('sales.created_at', '>=', $this->reportDateFrom);
+        }
+        if ($this->reportDateTo) {
+            $query->whereDate('sales.created_at', '<=', $this->reportDateTo);
+        }
+
+        $items = $query->select(
+            'sale_items.product_id',
+            'sale_items.product_name',
+            'sale_items.product_sku',
+            'sales.customer_id',
+            DB::raw("COALESCE(CONCAT(customers.first_name, ' ', customers.last_name), customers.business_name, 'Sin cliente') as customer_name"),
+            DB::raw('SUM(sale_items.quantity) as total_quantity'),
+        )
+        ->groupBy(
+            'sale_items.product_id',
+            'sale_items.product_name',
+            'sale_items.product_sku',
+            'sales.customer_id',
+            'customers.first_name',
+            'customers.last_name',
+            'customers.business_name',
+        )
+        ->get();
+
+        // Build cross-tab: products (rows) x customers (columns)
+        $products = [];
+        $customers = [];
+
+        foreach ($items as $item) {
+            $productKey = $item->product_id ?? $item->product_name;
+            $customerKey = $item->customer_id ?? 'sin_cliente';
+            $customerName = trim($item->customer_name) ?: 'Sin cliente';
+
+            if (!isset($products[$productKey])) {
+                $products[$productKey] = [
+                    'name' => $item->product_name,
+                    'sku' => $item->product_sku,
+                    'quantities' => [],
+                    'total' => 0,
+                ];
+            }
+
+            if (!isset($customers[$customerKey])) {
+                $customers[$customerKey] = $customerName;
+            }
+
+            $qty = (float) $item->total_quantity;
+            $products[$productKey]['quantities'][$customerKey] = ($products[$productKey]['quantities'][$customerKey] ?? 0) + $qty;
+            $products[$productKey]['total'] += $qty;
+        }
+
+        // Sort products by name
+        uasort($products, fn($a, $b) => strcmp($a['name'], $b['name']));
+
+        // Sort customers by name
+        asort($customers);
+
+        // Customer totals
+        $customerTotals = [];
+        foreach ($customers as $key => $name) {
+            $customerTotals[$key] = 0;
+            foreach ($products as $product) {
+                $customerTotals[$key] += $product['quantities'][$key] ?? 0;
+            }
+        }
+
+        // Top products for chart (top 10 by total)
+        $topProducts = collect($products)->sortByDesc('total')->take(10)->values();
+
+        return [
+            'products' => $products,
+            'customers' => $customers,
+            'customerTotals' => $customerTotals,
+            'grandTotal' => collect($products)->sum('total'),
+            'topProducts' => $topProducts,
+        ];
+    }
+
     public function render()
     {
-        $orders = $this->activeTab !== 'products' ? $this->buildQuery()->paginate(15) : null;
+        $orders = !in_array($this->activeTab, ['products', 'report']) ? $this->buildQuery()->paginate(15) : null;
 
         $pendingCount = Sale::where('source', 'ecommerce')->where('status', 'pending_approval')->count();
         $approvedCount = Sale::where('source', 'ecommerce')->where('status', 'completed')->count();
@@ -371,12 +525,19 @@ class EcommerceOrders extends Component
                 });
         }
 
+        // Build report data for the "report" tab
+        $reportData = [];
+        if ($this->activeTab === 'report') {
+            $reportData = $this->getReportData();
+        }
+
         return view('livewire.ecommerce-orders', [
             'orders' => $orders,
             'pendingCount' => $pendingCount,
             'approvedCount' => $approvedCount,
             'rejectedCount' => $rejectedCount,
             'aggregatedProducts' => $aggregatedProducts,
+            'reportData' => $reportData,
         ]);
     }
 }
