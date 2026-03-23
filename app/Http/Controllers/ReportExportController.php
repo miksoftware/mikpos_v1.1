@@ -25,6 +25,7 @@ use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Color;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
 class ReportExportController extends Controller
 {
@@ -1017,10 +1018,14 @@ class ReportExportController extends Controller
         $customerTotals = $data['customerTotals'];
         $grandTotal = $data['grandTotal'];
         $customerKeys = array_keys($customers);
+        $totalColumns = count($customerKeys) + 2; // product + customers + total
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Pedidos Tienda');
+
+        $colLetter = fn(int $idx) => Coordinate::stringFromColumnIndex($idx);
+        $cell = fn(int $c, int $r) => $colLetter($c) . $r;
 
         // Styles
         $titleStyle = [
@@ -1054,12 +1059,12 @@ class ReportExportController extends Controller
         ];
 
         $row = 1;
-        $lastCol = count($customerKeys) + 2; // product col + customer cols + total col
+        $lastColL = $colLetter($totalColumns);
+        $totalColL = $colLetter($totalColumns);
 
         // Title
-        $lastColLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($lastCol);
         $sheet->setCellValue('A' . $row, 'TABLA DE PEDIDOS - TIENDA');
-        $sheet->mergeCells('A' . $row . ':' . $lastColLetter . $row);
+        $sheet->mergeCells('A' . $row . ':' . $lastColL . $row);
         $sheet->getStyle('A' . $row)->applyFromArray($titleStyle);
         $sheet->getRowDimension($row)->setRowHeight(30);
         $row += 2;
@@ -1079,75 +1084,74 @@ class ReportExportController extends Controller
         $row += 2;
 
         // Summary row
-        $summaryStyle = [
+        $summaryBase = [
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FF7261']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
-            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E55A4A']]],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
         ];
         $sheet->setCellValue('A' . $row, 'Productos: ' . count($products));
-        $sheet->getStyle('A' . $row)->applyFromArray($summaryStyle);
+        $sheet->getStyle('A' . $row)->applyFromArray(array_merge($summaryBase, [
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FF7261']],
+        ]));
         $sheet->setCellValue('B' . $row, 'Clientes: ' . count($customers));
-        $summaryStyle['fill']['startColor']['rgb'] = '8B5CF6';
-        $summaryStyle['borders']['allBorders']['color']['rgb'] = '7C3AED';
-        $sheet->getStyle('B' . $row)->applyFromArray($summaryStyle);
+        $sheet->getStyle('B' . $row)->applyFromArray(array_merge($summaryBase, [
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '8B5CF6']],
+        ]));
         $sheet->setCellValue('C' . $row, 'Total Uds: ' . $grandTotal);
-        $summaryStyle['fill']['startColor']['rgb'] = '10B981';
-        $summaryStyle['borders']['allBorders']['color']['rgb'] = '059669';
-        $sheet->getStyle('C' . $row)->applyFromArray($summaryStyle);
+        $sheet->getStyle('C' . $row)->applyFromArray(array_merge($summaryBase, [
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '10B981']],
+        ]));
         $sheet->getRowDimension($row)->setRowHeight(28);
         $row += 2;
 
         // Table header
+        $headerRow = $row;
         $col = 1;
-        $sheet->setCellValueByColumnAndRow($col, $row, 'PRODUCTO');
+        $sheet->setCellValue($cell($col, $row), 'PRODUCTO');
         $col++;
-        foreach ($customers as $key => $name) {
-            $sheet->setCellValueByColumnAndRow($col, $row, $name);
+        foreach ($customers as $name) {
+            $sheet->setCellValue($cell($col, $row), $name);
             $col++;
         }
-        $sheet->setCellValueByColumnAndRow($col, $row, 'TOTAL');
+        $sheet->setCellValue($cell($col, $row), 'TOTAL');
 
-        // Apply header styles
-        $headerRange = 'A' . $row . ':' . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($customerKeys) + 1) . $row;
+        $headerRange = 'A' . $row . ':' . $colLetter(count($customerKeys) + 1) . $row;
         $sheet->getStyle($headerRange)->applyFromArray($headerStyle);
-        $totalColLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($customerKeys) + 2);
-        $sheet->getStyle($totalColLetter . $row)->applyFromArray($totalHeaderStyle);
+        $sheet->getStyle($totalColL . $row)->applyFromArray($totalHeaderStyle);
         $sheet->getRowDimension($row)->setRowHeight(25);
         $row++;
 
         // Data rows
         foreach ($products as $product) {
             $col = 1;
-            $sheet->setCellValueByColumnAndRow($col, $row, $product['name'] . ($product['sku'] ? ' (' . $product['sku'] . ')' : ''));
+            $sheet->setCellValue($cell($col, $row), $product['name']);
             $col++;
             foreach ($customerKeys as $custKey) {
                 $qty = $product['quantities'][$custKey] ?? 0;
                 if ($qty > 0) {
-                    $sheet->setCellValueByColumnAndRow($col, $row, $qty);
+                    $sheet->setCellValue($cell($col, $row), $qty);
                 }
                 $col++;
             }
-            $sheet->setCellValueByColumnAndRow($col, $row, $product['total']);
+            $sheet->setCellValue($cell($col, $row), $product['total']);
 
-            // Style data row
-            $rowRange = 'A' . $row . ':' . $totalColLetter . $row;
+            $rowRange = 'A' . $row . ':' . $totalColL . $row;
             $sheet->getStyle($rowRange)->applyFromArray($dataStyle);
 
             // Alternate row color
             if ($row % 2 == 0) {
-                $sheet->getStyle('A' . $row . ':' . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($customerKeys) + 1) . $row)
+                $sheet->getStyle('A' . $row . ':' . $colLetter(count($customerKeys) + 1) . $row)
                     ->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F8FAFC');
             }
 
             // Total column highlight
-            $sheet->getStyle($totalColLetter . $row)->getFill()
+            $sheet->getStyle($totalColL . $row)->getFill()
                 ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F3E8FF');
-            $sheet->getStyle($totalColLetter . $row)->getFont()->setBold(true)->getColor()->setRGB('7C3AED');
+            $sheet->getStyle($totalColL . $row)->getFont()->setBold(true)->getColor()->setRGB('7C3AED');
 
             // Number format for quantity columns
-            for ($c = 2; $c <= count($customerKeys) + 2; $c++) {
-                $sheet->getStyleByColumnAndRow($c, $row)->getNumberFormat()->setFormatCode('#,##0.###');
+            for ($c = 2; $c <= $totalColumns; $c++) {
+                $sheet->getStyle($colLetter($c) . $row)->getNumberFormat()->setFormatCode('#,##0.###');
             }
 
             $row++;
@@ -1155,31 +1159,28 @@ class ReportExportController extends Controller
 
         // Totals row
         $col = 1;
-        $sheet->setCellValueByColumnAndRow($col, $row, 'TOTAL');
+        $sheet->setCellValue($cell($col, $row), 'TOTAL');
         $col++;
         foreach ($customerKeys as $custKey) {
             $val = $customerTotals[$custKey] ?? 0;
             if ($val > 0) {
-                $sheet->setCellValueByColumnAndRow($col, $row, $val);
+                $sheet->setCellValue($cell($col, $row), $val);
             }
             $col++;
         }
-        $sheet->setCellValueByColumnAndRow($col, $row, $grandTotal);
+        $sheet->setCellValue($cell($col, $row), $grandTotal);
 
-        $totalsRange = 'A' . $row . ':' . $totalColLetter . $row;
-        $sheet->getStyle($totalsRange)->applyFromArray($totalRowStyle);
+        $sheet->getStyle('A' . $row . ':' . $totalColL . $row)->applyFromArray($totalRowStyle);
         $sheet->getRowDimension($row)->setRowHeight(25);
 
-        // Auto-size columns
+        // Column widths
         $sheet->getColumnDimension('A')->setWidth(35);
-        for ($c = 2; $c <= count($customerKeys) + 2; $c++) {
-            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
-            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        for ($c = 2; $c <= $totalColumns; $c++) {
+            $sheet->getColumnDimension($colLetter($c))->setAutoSize(true);
         }
 
-        // Freeze panes (freeze first column + header row)
-        $headerRowNum = $row - count($products) - 1;
-        $sheet->freezePane('B' . ($headerRowNum + 1));
+        // Freeze panes
+        $sheet->freezePane('B' . ($headerRow + 1));
 
         $writer = new Xlsx($spreadsheet);
         $filename = 'reporte-pedidos-tienda-' . now()->format('Y-m-d') . '.xlsx';

@@ -223,9 +223,6 @@
                         <tr class="hover:bg-slate-50/50 transition-colors">
                             <td class="px-4 py-2.5 sticky left-0 bg-white z-10">
                                 <p class="text-sm font-medium text-slate-900">{{ $product['name'] }}</p>
-                                @if($product['sku'])
-                                <p class="text-xs text-slate-400">{{ $product['sku'] }}</p>
-                                @endif
                             </td>
                             @foreach($rCustomers as $custKey => $custName)
                             <td class="px-3 py-2.5 text-center">

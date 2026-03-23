@@ -112,9 +112,6 @@
                 <tr>
                     <td style="padding: 5px 4px; border: 1px solid #e2e8f0; {{ $loop->even ? 'background: #f8fafc;' : '' }}">
                         <strong>{{ $product['name'] }}</strong>
-                        @if($product['sku'])
-                        <br><span style="color: #64748b; font-size: 7px;">{{ $product['sku'] }}</span>
-                        @endif
                     </td>
                     @foreach($customers as $custKey => $custName)
                     <td style="padding: 5px 3px; text-align: center; border: 1px solid #e2e8f0; {{ $loop->parent->even ? 'background: #f8fafc;' : '' }}">
