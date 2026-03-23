@@ -94,7 +94,25 @@
         </div>
 
         <div class="mt-6">
-            {{ $products->links() }}
+            @if($products->hasPages())
+            <div class="flex items-center justify-center gap-2">
+                @if($products->onFirstPage())
+                    <span class="px-4 py-2 text-sm font-medium text-slate-400 bg-slate-100 rounded-xl cursor-not-allowed">← Anterior</span>
+                @else
+                    <button wire:click="previousPage" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors">← Anterior</button>
+                @endif
+
+                <span class="px-3 py-2 text-sm text-slate-500">
+                    {{ $products->currentPage() }} / {{ $products->lastPage() }}
+                </span>
+
+                @if($products->hasMorePages())
+                    <button wire:click="nextPage" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-colors">Siguiente →</button>
+                @else
+                    <span class="px-4 py-2 text-sm font-medium text-slate-400 bg-slate-100 rounded-xl cursor-not-allowed">Siguiente →</span>
+                @endif
+            </div>
+            @endif
         </div>
     @else
         <div class="text-center py-16">

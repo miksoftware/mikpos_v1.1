@@ -46,7 +46,7 @@
                                 </svg>
                             </div>
                         @endif
-                        <span class="text-lg font-bold text-slate-900 hidden sm:block">{{ $shopName }}</span>
+                        <span class="text-lg font-bold text-slate-900">{{ $shopName }}</span>
                     </a>
 
                     {{-- Desktop Nav --}}
