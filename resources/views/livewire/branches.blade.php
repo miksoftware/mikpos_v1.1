@@ -41,9 +41,13 @@
                     <tr class="hover:bg-slate-50/50 transition-colors">
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="flex items-center">
+                                @if($branch->logo)
+                                <img src="{{ Storage::url($branch->logo) }}" alt="{{ $branch->name }}" class="w-10 h-10 rounded-xl object-contain border border-slate-200 bg-white flex-shrink-0">
+                                @else
                                 <div class="w-10 h-10 rounded-xl bg-gradient-to-br {{ $branch->is_active ? 'from-[#ff7261]/20 to-[#a855f7]/20' : 'from-slate-100 to-slate-200' }} flex items-center justify-center flex-shrink-0">
                                     <svg class="w-5 h-5 {{ $branch->is_active ? 'text-[#ff7261]' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                                 </div>
+                                @endif
                                 <div class="ml-4">
                                     <div class="text-sm font-semibold text-slate-900">{{ $branch->name }}</div>
                                     <div class="text-sm text-slate-500">{{ $branch->code }}</div>
@@ -142,6 +146,26 @@
                                     <label class="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
                                     <input wire:model="name" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Sucursal Principal">
                                     @error('name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Logo</label>
+                                    <div class="flex items-center gap-4">
+                                        @if($existingLogo && !$logo)
+                                            <div class="relative">
+                                                <img src="{{ Storage::url($existingLogo) }}" alt="Logo" class="w-16 h-16 rounded-xl object-contain border border-slate-200 bg-white">
+                                                <button type="button" wire:click="removeLogo" class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600">
+                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                </button>
+                                            </div>
+                                        @elseif($logo)
+                                            <img src="{{ $logo->temporaryUrl() }}" alt="Preview" class="w-16 h-16 rounded-xl object-contain border border-slate-200 bg-white">
+                                        @endif
+                                        <div class="flex-1">
+                                            <input wire:model="logo" type="file" accept="image/*" class="w-full text-sm text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200">
+                                            <p class="text-xs text-slate-400 mt-1">JPG, PNG, WebP o SVG. Máx 2MB.</p>
+                                            @error('logo') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                                        </div>
+                                    </div>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-1">CUIT/RUC/NIT</label>
@@ -275,9 +299,13 @@
                     </div>
                     <div class="p-6 space-y-4">
                         <div class="flex items-center gap-4">
+                            @if($viewingBranch->logo)
+                            <img src="{{ Storage::url($viewingBranch->logo) }}" alt="{{ $viewingBranch->name }}" class="w-16 h-16 rounded-xl object-contain border border-slate-200 bg-white">
+                            @else
                             <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-[#ff7261]/20 to-[#a855f7]/20 flex items-center justify-center">
                                 <svg class="w-8 h-8 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                             </div>
+                            @endif
                             <div>
                                 <h4 class="text-xl font-bold text-slate-800">{{ $viewingBranch->name }}</h4>
                                 <p class="text-slate-500">{{ $viewingBranch->code }}</p>

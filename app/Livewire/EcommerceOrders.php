@@ -330,17 +330,53 @@ class EcommerceOrders extends Component
 
     public function render()
     {
-        $orders = $this->buildQuery()->paginate(15);
+        $orders = $this->activeTab !== 'products' ? $this->buildQuery()->paginate(15) : null;
 
         $pendingCount = Sale::where('source', 'ecommerce')->where('status', 'pending_approval')->count();
         $approvedCount = Sale::where('source', 'ecommerce')->where('status', 'completed')->count();
         $rejectedCount = Sale::where('source', 'ecommerce')->where('status', 'rejected')->count();
+
+        // Build aggregated products list for the "products" tab
+        $aggregatedProducts = collect();
+        if ($this->activeTab === 'products') {
+            $aggregatedProducts = SaleItem::query()
+                ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
+                ->where('sales.source', 'ecommerce')
+                ->where('sales.status', 'pending_approval')
+                ->where('sale_items.is_unavailable', false)
+                ->select(
+                    'sale_items.product_id',
+                    'sale_items.product_child_id',
+                    'sale_items.product_name',
+                    'sale_items.product_sku',
+                    'sale_items.unit_price',
+                    DB::raw('SUM(sale_items.quantity) as total_quantity'),
+                    DB::raw('COUNT(DISTINCT sale_items.sale_id) as order_count'),
+                )
+                ->groupBy(
+                    'sale_items.product_id',
+                    'sale_items.product_child_id',
+                    'sale_items.product_name',
+                    'sale_items.product_sku',
+                    'sale_items.unit_price',
+                )
+                ->orderBy('sale_items.product_name')
+                ->get()
+                ->map(function ($item) {
+                    $product = $item->product_id ? Product::find($item->product_id) : null;
+                    $item->current_stock = $product ? (float) $product->current_stock : 0;
+                    $item->manages_inventory = $product ? (bool) $product->manages_inventory : true;
+                    $item->image = $product?->image;
+                    return $item;
+                });
+        }
 
         return view('livewire.ecommerce-orders', [
             'orders' => $orders,
             'pendingCount' => $pendingCount,
             'approvedCount' => $approvedCount,
             'rejectedCount' => $rejectedCount,
+            'aggregatedProducts' => $aggregatedProducts,
         ]);
     }
 }

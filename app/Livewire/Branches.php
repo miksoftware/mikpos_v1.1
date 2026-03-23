@@ -6,15 +6,18 @@ use App\Models\Branch;
 use App\Models\Department;
 use App\Models\Municipality;
 use App\Services\ActivityLogService;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Rule;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
 #[Layout('layouts.app')]
 class Branches extends Component
 {
     use WithPagination;
+    use WithFileUploads;
 
     public $search = '';
     public $isModalOpen = false;
@@ -47,6 +50,10 @@ class Branches extends Component
     public $receipt_header;
     public $show_in_pos = true;
     public $is_active = true;
+
+    // Logo upload
+    public $logo = null;
+    public ?string $existingLogo = null;
 
     // Select options
     public $departments = [];
@@ -145,6 +152,8 @@ class Branches extends Component
         $this->receipt_header = $branch->receipt_header;
         $this->show_in_pos = $branch->show_in_pos;
         $this->is_active = $branch->is_active;
+        $this->existingLogo = $branch->logo;
+        $this->logo = null;
         $this->isModalOpen = true;
     }
 
@@ -170,13 +179,24 @@ class Branches extends Component
             'tax_id' => 'nullable|max:25',
             'email' => 'nullable|email|max:120',
             'phone' => 'nullable|max:20',
+            'logo' => 'nullable|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
         ];
 
         $this->validate($rules);
 
+        // Handle logo upload
+        $logoPath = $this->existingLogo;
+        if ($this->logo) {
+            if ($this->existingLogo && Storage::disk('public')->exists($this->existingLogo)) {
+                Storage::disk('public')->delete($this->existingLogo);
+            }
+            $logoPath = $this->logo->store('branches', 'public');
+        }
+
         $data = [
             'code' => strtoupper($this->code),
             'name' => $this->name,
+            'logo' => $logoPath,
             'tax_id' => $this->tax_id,
             'department_id' => $this->department_id ?: null,
             'municipality_id' => $this->municipality_id ?: null,
@@ -258,11 +278,22 @@ class Branches extends Component
         ActivityLogService::logUpdate('branches', $branch, $oldValues, "Sucursal '{$branch->name}' {$status}");
     }
 
+    public function removeLogo()
+    {
+        if ($this->existingLogo && Storage::disk('public')->exists($this->existingLogo)) {
+            Storage::disk('public')->delete($this->existingLogo);
+        }
+        $this->existingLogo = null;
+        $this->logo = null;
+    }
+
     private function resetForm()
     {
         $this->branchId = null;
         $this->code = '';
         $this->name = '';
+        $this->logo = null;
+        $this->existingLogo = null;
         $this->tax_id = '';
         $this->department_id = '';
         $this->municipality_id = '';

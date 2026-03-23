@@ -13,6 +13,7 @@ class Branch extends Model
     protected $fillable = [
         'code',
         'name',
+        'logo',
         'tax_id',
         'department_id',
         'municipality_id',
