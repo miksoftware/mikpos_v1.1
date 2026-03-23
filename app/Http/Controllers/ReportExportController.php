@@ -1000,6 +1000,199 @@ class ReportExportController extends Controller
 
     public function ecommerceOrdersReportPdf(Request $request)
     {
+        $data = $this->getEcommerceReportData($request);
+
+        $pdf = Pdf::loadView('reports.ecommerce-orders-report-pdf', $data);
+        $pdf->setPaper('a4', 'landscape');
+
+        return $pdf->download('reporte-pedidos-tienda-' . now()->format('Y-m-d') . '.pdf');
+    }
+
+    public function ecommerceOrdersReportExcel(Request $request)
+    {
+        $data = $this->getEcommerceReportData($request);
+
+        $products = $data['products'];
+        $customers = $data['customers'];
+        $customerTotals = $data['customerTotals'];
+        $grandTotal = $data['grandTotal'];
+        $customerKeys = array_keys($customers);
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Pedidos Tienda');
+
+        // Styles
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 16, 'color' => ['rgb' => '1E293B']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+        ];
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 10],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'A855F7']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '9333EA']]],
+        ];
+        $totalHeaderStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 10],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '7C3AED']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '6D28D9']]],
+        ];
+        $dataStyle = [
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E2E8F0']]],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+        $totalRowStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 10],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E293B']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '0F172A']]],
+        ];
+        $metaLabelStyle = [
+            'font' => ['bold' => true, 'size' => 10, 'color' => ['rgb' => '64748B']],
+        ];
+
+        $row = 1;
+        $lastCol = count($customerKeys) + 2; // product col + customer cols + total col
+
+        // Title
+        $lastColLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($lastCol);
+        $sheet->setCellValue('A' . $row, 'TABLA DE PEDIDOS - TIENDA');
+        $sheet->mergeCells('A' . $row . ':' . $lastColLetter . $row);
+        $sheet->getStyle('A' . $row)->applyFromArray($titleStyle);
+        $sheet->getRowDimension($row)->setRowHeight(30);
+        $row += 2;
+
+        // Meta
+        $sheet->setCellValue('A' . $row, 'Período:');
+        $sheet->setCellValue('B' . $row, $data['startDate'] . ' - ' . $data['endDate']);
+        $sheet->getStyle('A' . $row)->applyFromArray($metaLabelStyle);
+        $row++;
+        $sheet->setCellValue('A' . $row, 'Estado:');
+        $sheet->setCellValue('B' . $row, $data['statusLabel']);
+        $sheet->getStyle('A' . $row)->applyFromArray($metaLabelStyle);
+        $row++;
+        $sheet->setCellValue('A' . $row, 'Generado:');
+        $sheet->setCellValue('B' . $row, $data['generatedAt']);
+        $sheet->getStyle('A' . $row)->applyFromArray($metaLabelStyle);
+        $row += 2;
+
+        // Summary row
+        $summaryStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FF7261']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E55A4A']]],
+        ];
+        $sheet->setCellValue('A' . $row, 'Productos: ' . count($products));
+        $sheet->getStyle('A' . $row)->applyFromArray($summaryStyle);
+        $sheet->setCellValue('B' . $row, 'Clientes: ' . count($customers));
+        $summaryStyle['fill']['startColor']['rgb'] = '8B5CF6';
+        $summaryStyle['borders']['allBorders']['color']['rgb'] = '7C3AED';
+        $sheet->getStyle('B' . $row)->applyFromArray($summaryStyle);
+        $sheet->setCellValue('C' . $row, 'Total Uds: ' . $grandTotal);
+        $summaryStyle['fill']['startColor']['rgb'] = '10B981';
+        $summaryStyle['borders']['allBorders']['color']['rgb'] = '059669';
+        $sheet->getStyle('C' . $row)->applyFromArray($summaryStyle);
+        $sheet->getRowDimension($row)->setRowHeight(28);
+        $row += 2;
+
+        // Table header
+        $col = 1;
+        $sheet->setCellValueByColumnAndRow($col, $row, 'PRODUCTO');
+        $col++;
+        foreach ($customers as $key => $name) {
+            $sheet->setCellValueByColumnAndRow($col, $row, $name);
+            $col++;
+        }
+        $sheet->setCellValueByColumnAndRow($col, $row, 'TOTAL');
+
+        // Apply header styles
+        $headerRange = 'A' . $row . ':' . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($customerKeys) + 1) . $row;
+        $sheet->getStyle($headerRange)->applyFromArray($headerStyle);
+        $totalColLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($customerKeys) + 2);
+        $sheet->getStyle($totalColLetter . $row)->applyFromArray($totalHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(25);
+        $row++;
+
+        // Data rows
+        foreach ($products as $product) {
+            $col = 1;
+            $sheet->setCellValueByColumnAndRow($col, $row, $product['name'] . ($product['sku'] ? ' (' . $product['sku'] . ')' : ''));
+            $col++;
+            foreach ($customerKeys as $custKey) {
+                $qty = $product['quantities'][$custKey] ?? 0;
+                if ($qty > 0) {
+                    $sheet->setCellValueByColumnAndRow($col, $row, $qty);
+                }
+                $col++;
+            }
+            $sheet->setCellValueByColumnAndRow($col, $row, $product['total']);
+
+            // Style data row
+            $rowRange = 'A' . $row . ':' . $totalColLetter . $row;
+            $sheet->getStyle($rowRange)->applyFromArray($dataStyle);
+
+            // Alternate row color
+            if ($row % 2 == 0) {
+                $sheet->getStyle('A' . $row . ':' . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($customerKeys) + 1) . $row)
+                    ->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F8FAFC');
+            }
+
+            // Total column highlight
+            $sheet->getStyle($totalColLetter . $row)->getFill()
+                ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F3E8FF');
+            $sheet->getStyle($totalColLetter . $row)->getFont()->setBold(true)->getColor()->setRGB('7C3AED');
+
+            // Number format for quantity columns
+            for ($c = 2; $c <= count($customerKeys) + 2; $c++) {
+                $sheet->getStyleByColumnAndRow($c, $row)->getNumberFormat()->setFormatCode('#,##0.###');
+            }
+
+            $row++;
+        }
+
+        // Totals row
+        $col = 1;
+        $sheet->setCellValueByColumnAndRow($col, $row, 'TOTAL');
+        $col++;
+        foreach ($customerKeys as $custKey) {
+            $val = $customerTotals[$custKey] ?? 0;
+            if ($val > 0) {
+                $sheet->setCellValueByColumnAndRow($col, $row, $val);
+            }
+            $col++;
+        }
+        $sheet->setCellValueByColumnAndRow($col, $row, $grandTotal);
+
+        $totalsRange = 'A' . $row . ':' . $totalColLetter . $row;
+        $sheet->getStyle($totalsRange)->applyFromArray($totalRowStyle);
+        $sheet->getRowDimension($row)->setRowHeight(25);
+
+        // Auto-size columns
+        $sheet->getColumnDimension('A')->setWidth(35);
+        for ($c = 2; $c <= count($customerKeys) + 2; $c++) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        // Freeze panes (freeze first column + header row)
+        $headerRowNum = $row - count($products) - 1;
+        $sheet->freezePane('B' . ($headerRowNum + 1));
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'reporte-pedidos-tienda-' . now()->format('Y-m-d') . '.xlsx';
+        $tempFile = tempnam(sys_get_temp_dir(), 'excel');
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
+
+    private function getEcommerceReportData(Request $request): array
+    {
         $dateFrom = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
         $dateTo = $request->get('date_to', now()->format('Y-m-d'));
         $status = $request->get('status', 'all');
@@ -1090,7 +1283,7 @@ class ReportExportController extends Controller
             default => 'Todos',
         };
 
-        $data = [
+        return [
             'products' => $products,
             'customers' => $customers,
             'customerTotals' => $customerTotals,
@@ -1100,11 +1293,6 @@ class ReportExportController extends Controller
             'statusLabel' => $statusLabel,
             'generatedAt' => now()->format('d/m/Y H:i:s'),
         ];
-
-        $pdf = Pdf::loadView('reports.ecommerce-orders-report-pdf', $data);
-        $pdf->setPaper('a4', 'landscape');
-
-        return $pdf->download('reporte-pedidos-tienda-' . now()->format('Y-m-d') . '.pdf');
     }
 
 }
