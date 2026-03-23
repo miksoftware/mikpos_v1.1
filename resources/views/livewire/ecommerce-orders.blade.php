@@ -173,7 +173,6 @@
             $rCustomers = $reportData['customers'] ?? [];
             $rCustomerTotals = $reportData['customerTotals'] ?? [];
             $rGrandTotal = $reportData['grandTotal'] ?? 0;
-            $rTopProducts = $reportData['topProducts'] ?? collect();
         @endphp
 
         {{-- Summary Cards --}}
@@ -191,49 +190,6 @@
                 <p class="text-2xl font-bold mt-1">{{ rtrim(rtrim(number_format($rGrandTotal, 3), '0'), '.') }}</p>
             </div>
         </div>
-
-        {{-- Chart --}}
-        @if($rTopProducts->count() > 0)
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-5"
-            x-data="{
-                init() {
-                    const ctx = this.$refs.chartCanvas;
-                    if (!ctx) return;
-                    new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: {{ Js::from($rTopProducts->pluck('name')->map(fn($n) => \Illuminate\Support\Str::limit($n, 20))->toArray()) }},
-                            datasets: [{
-                                label: 'Cantidad',
-                                data: {{ Js::from($rTopProducts->pluck('total')->toArray()) }},
-                                backgroundColor: [
-                                    'rgba(255, 114, 97, 0.8)', 'rgba(168, 85, 247, 0.8)', 'rgba(59, 130, 246, 0.8)',
-                                    'rgba(16, 185, 129, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(239, 68, 68, 0.8)',
-                                    'rgba(99, 102, 241, 0.8)', 'rgba(236, 72, 153, 0.8)', 'rgba(20, 184, 166, 0.8)',
-                                    'rgba(251, 146, 60, 0.8)'
-                                ],
-                                borderRadius: 8,
-                                borderSkipped: false,
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: false } },
-                            scales: {
-                                y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
-                                x: { grid: { display: false }, ticks: { font: { size: 10 } } }
-                            }
-                        }
-                    });
-                }
-            }">
-            <h3 class="text-sm font-semibold text-slate-700 mb-3">Top 10 Productos Más Pedidos</h3>
-            <div style="height: 280px;">
-                <canvas x-ref="chartCanvas"></canvas>
-            </div>
-        </div>
-        @endif
 
         {{-- Cross-tab Table --}}
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -307,7 +263,6 @@
         </div>
         @endif
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     @else
     {{-- Filters --}}
     <div class="flex flex-wrap items-center gap-3 mb-4">

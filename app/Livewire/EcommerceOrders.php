@@ -513,15 +513,11 @@ class EcommerceOrders extends Component
             }
         }
 
-        // Top products for chart (top 10 by total)
-        $topProducts = collect($products)->sortByDesc('total')->take(10)->values();
-
         return [
             'products' => $products,
             'customers' => $customers,
             'customerTotals' => $customerTotals,
             'grandTotal' => collect($products)->sum('total'),
-            'topProducts' => $topProducts,
         ];
     }
 
