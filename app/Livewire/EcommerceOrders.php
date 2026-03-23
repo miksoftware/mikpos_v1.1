@@ -42,6 +42,7 @@ class EcommerceOrders extends Component
     public bool $selectAll = false;
 
     // Report tab
+    public string $reportPeriod = 'month';
     public string $reportDateFrom = '';
     public string $reportDateTo = '';
     public string $reportStatus = 'all';
@@ -50,8 +51,7 @@ class EcommerceOrders extends Component
     {
         $this->dateFrom = now()->startOfMonth()->format('Y-m-d');
         $this->dateTo = now()->format('Y-m-d');
-        $this->reportDateFrom = now()->startOfMonth()->format('Y-m-d');
-        $this->reportDateTo = now()->format('Y-m-d');
+        $this->applyReportPeriod();
     }
 
     public function updatingSearch()
@@ -72,6 +72,46 @@ class EcommerceOrders extends Component
             $this->selectedOrders = $this->getCurrentPageOrderIds();
         } else {
             $this->selectedOrders = [];
+        }
+    }
+
+    public function updatedReportPeriod()
+    {
+        $this->applyReportPeriod();
+    }
+
+    private function applyReportPeriod(): void
+    {
+        $today = now();
+        switch ($this->reportPeriod) {
+            case 'today':
+                $this->reportDateFrom = $today->format('Y-m-d');
+                $this->reportDateTo = $today->format('Y-m-d');
+                break;
+            case 'yesterday':
+                $yesterday = $today->copy()->subDay();
+                $this->reportDateFrom = $yesterday->format('Y-m-d');
+                $this->reportDateTo = $yesterday->format('Y-m-d');
+                break;
+            case 'week':
+                $this->reportDateFrom = $today->copy()->startOfWeek()->format('Y-m-d');
+                $this->reportDateTo = $today->format('Y-m-d');
+                break;
+            case 'last_week':
+                $this->reportDateFrom = $today->copy()->subWeek()->startOfWeek()->format('Y-m-d');
+                $this->reportDateTo = $today->copy()->subWeek()->endOfWeek()->format('Y-m-d');
+                break;
+            case 'month':
+                $this->reportDateFrom = $today->copy()->startOfMonth()->format('Y-m-d');
+                $this->reportDateTo = $today->format('Y-m-d');
+                break;
+            case 'last_month':
+                $this->reportDateFrom = $today->copy()->subMonth()->startOfMonth()->format('Y-m-d');
+                $this->reportDateTo = $today->copy()->subMonth()->endOfMonth()->format('Y-m-d');
+                break;
+            case 'custom':
+                // Keep current dates
+                break;
         }
     }
 
@@ -162,6 +202,9 @@ class EcommerceOrders extends Component
                     }
                 }
             }
+
+            // Recalculate sale totals based on available items
+            $this->recalculateSaleTotals($this->selectedSale);
 
             DB::commit();
 

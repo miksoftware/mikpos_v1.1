@@ -39,7 +39,8 @@
     </div>
 
     @if($activeTab === 'products')
-    {{-- Aggregated Products View --}}    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    {{-- Aggregated Products View --}}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         @if($aggregatedProducts->count() > 0)
         <div class="px-4 py-3 bg-slate-50 border-b border-slate-200">
             <p class="text-sm text-slate-600">
@@ -122,47 +123,23 @@
     </div>
     @elseif($activeTab === 'report')
     {{-- Report Tab --}}
-    <div x-data="{
-        chartRendered: false,
-        renderChart() {
-            if (this.chartRendered) return;
-            this.chartRendered = true;
-            const ctx = document.getElementById('topProductsChart');
-            if (!ctx) return;
-            const labels = @js(($reportData['topProducts'] ?? collect())->pluck('name')->toArray());
-            const data = @js(($reportData['topProducts'] ?? collect())->pluck('total')->toArray());
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels.map(l => l.length > 20 ? l.substring(0, 20) + '...' : l),
-                    datasets: [{
-                        label: 'Cantidad',
-                        data: data,
-                        backgroundColor: [
-                            'rgba(255, 114, 97, 0.8)', 'rgba(168, 85, 247, 0.8)', 'rgba(59, 130, 246, 0.8)',
-                            'rgba(16, 185, 129, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(239, 68, 68, 0.8)',
-                            'rgba(99, 102, 241, 0.8)', 'rgba(236, 72, 153, 0.8)', 'rgba(20, 184, 166, 0.8)',
-                            'rgba(251, 146, 60, 0.8)'
-                        ],
-                        borderRadius: 8,
-                        borderSkipped: false,
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
-                        x: { grid: { display: false }, ticks: { font: { size: 10 } } }
-                    }
-                }
-            });
-        }
-    }" x-init="$nextTick(() => renderChart())" wire:key="report-tab-{{ $reportDateFrom }}-{{ $reportDateTo }}-{{ $reportStatus }}">
+    <div wire:key="report-tab-{{ $reportDateFrom }}-{{ $reportDateTo }}-{{ $reportStatus }}">
         {{-- Report Filters --}}
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-4">
-            <div class="flex flex-wrap items-end gap-3">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-5">
+            <div class="flex flex-wrap items-end gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Período</label>
+                    <select wire:model.live="reportPeriod" class="px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                        <option value="today">Hoy</option>
+                        <option value="yesterday">Ayer</option>
+                        <option value="week">Esta semana</option>
+                        <option value="last_week">Semana anterior</option>
+                        <option value="month">Este mes</option>
+                        <option value="last_month">Mes anterior</option>
+                        <option value="custom">Personalizado</option>
+                    </select>
+                </div>
+                @if($reportPeriod === 'custom')
                 <div>
                     <label class="block text-xs font-medium text-slate-500 mb-1">Desde</label>
                     <input type="date" wire:model.live="reportDateFrom" class="px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
@@ -171,6 +148,7 @@
                     <label class="block text-xs font-medium text-slate-500 mb-1">Hasta</label>
                     <input type="date" wire:model.live="reportDateTo" class="px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                 </div>
+                @endif
                 <div>
                     <label class="block text-xs font-medium text-slate-500 mb-1">Estado</label>
                     <select wire:model.live="reportStatus" class="px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
@@ -191,46 +169,79 @@
 
         @if(!empty($reportData))
         @php
-            $products = $reportData['products'] ?? [];
-            $customers = $reportData['customers'] ?? [];
-            $customerTotals = $reportData['customerTotals'] ?? [];
-            $grandTotal = $reportData['grandTotal'] ?? 0;
-            $topProducts = $reportData['topProducts'] ?? collect();
+            $rProducts = $reportData['products'] ?? [];
+            $rCustomers = $reportData['customers'] ?? [];
+            $rCustomerTotals = $reportData['customerTotals'] ?? [];
+            $rGrandTotal = $reportData['grandTotal'] ?? 0;
+            $rTopProducts = $reportData['topProducts'] ?? collect();
         @endphp
 
         {{-- Summary Cards --}}
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-            <div class="bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-2xl p-4 text-white">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+            <div class="bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-2xl p-5 text-white">
                 <p class="text-xs opacity-80">Productos</p>
-                <p class="text-2xl font-bold">{{ count($products) }}</p>
+                <p class="text-2xl font-bold mt-1">{{ count($rProducts) }}</p>
             </div>
-            <div class="bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl p-4 text-white">
+            <div class="bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl p-5 text-white">
                 <p class="text-xs opacity-80">Clientes</p>
-                <p class="text-2xl font-bold">{{ count($customers) }}</p>
+                <p class="text-2xl font-bold mt-1">{{ count($rCustomers) }}</p>
             </div>
-            <div class="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl p-4 text-white">
+            <div class="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl p-5 text-white">
                 <p class="text-xs opacity-80">Total Unidades</p>
-                <p class="text-2xl font-bold">{{ rtrim(rtrim(number_format($grandTotal, 3), '0'), '.') }}</p>
+                <p class="text-2xl font-bold mt-1">{{ rtrim(rtrim(number_format($rGrandTotal, 3), '0'), '.') }}</p>
             </div>
         </div>
 
         {{-- Chart --}}
-        @if($topProducts->count() > 0)
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-4">
+        @if($rTopProducts->count() > 0)
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-5"
+            x-data="{
+                init() {
+                    const ctx = this.$refs.chartCanvas;
+                    if (!ctx) return;
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: {{ Js::from($rTopProducts->pluck('name')->map(fn($n) => \Illuminate\Support\Str::limit($n, 20))->toArray()) }},
+                            datasets: [{
+                                label: 'Cantidad',
+                                data: {{ Js::from($rTopProducts->pluck('total')->toArray()) }},
+                                backgroundColor: [
+                                    'rgba(255, 114, 97, 0.8)', 'rgba(168, 85, 247, 0.8)', 'rgba(59, 130, 246, 0.8)',
+                                    'rgba(16, 185, 129, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(239, 68, 68, 0.8)',
+                                    'rgba(99, 102, 241, 0.8)', 'rgba(236, 72, 153, 0.8)', 'rgba(20, 184, 166, 0.8)',
+                                    'rgba(251, 146, 60, 0.8)'
+                                ],
+                                borderRadius: 8,
+                                borderSkipped: false,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                                x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+                            }
+                        }
+                    });
+                }
+            }">
             <h3 class="text-sm font-semibold text-slate-700 mb-3">Top 10 Productos Más Pedidos</h3>
             <div style="height: 280px;">
-                <canvas id="topProductsChart"></canvas>
+                <canvas x-ref="chartCanvas"></canvas>
             </div>
         </div>
         @endif
 
         {{-- Cross-tab Table --}}
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            @if(count($products) > 0)
-            <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            @if(count($rProducts) > 0)
+            <div class="px-5 py-3 bg-slate-50 border-b border-slate-200">
                 <p class="text-sm text-slate-600">
-                    <span class="font-semibold">{{ count($products) }}</span> producto(s) ×
-                    <span class="font-semibold">{{ count($customers) }}</span> cliente(s)
+                    <span class="font-semibold">{{ count($rProducts) }}</span> producto(s) ×
+                    <span class="font-semibold">{{ count($rCustomers) }}</span> cliente(s)
                 </p>
             </div>
             <div class="overflow-x-auto">
@@ -238,7 +249,7 @@
                     <thead>
                         <tr class="bg-slate-50">
                             <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase sticky left-0 bg-slate-50 z-10 min-w-[200px]">Producto</th>
-                            @foreach($customers as $key => $name)
+                            @foreach($rCustomers as $key => $name)
                             <th class="px-3 py-3 text-center text-xs font-semibold text-slate-500 uppercase min-w-[80px]" title="{{ $name }}">
                                 {{ \Illuminate\Support\Str::limit($name, 12) }}
                             </th>
@@ -247,7 +258,7 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
-                        @foreach($products as $product)
+                        @foreach($rProducts as $product)
                         <tr class="hover:bg-slate-50/50 transition-colors">
                             <td class="px-4 py-2.5 sticky left-0 bg-white z-10">
                                 <p class="text-sm font-medium text-slate-900">{{ $product['name'] }}</p>
@@ -255,7 +266,7 @@
                                 <p class="text-xs text-slate-400">{{ $product['sku'] }}</p>
                                 @endif
                             </td>
-                            @foreach($customers as $custKey => $custName)
+                            @foreach($rCustomers as $custKey => $custName)
                             <td class="px-3 py-2.5 text-center">
                                 @if(($product['quantities'][$custKey] ?? 0) > 0)
                                 <span class="text-sm font-semibold text-slate-900">{{ rtrim(rtrim(number_format($product['quantities'][$custKey], 3), '0'), '.') }}</span>
@@ -269,20 +280,19 @@
                             </td>
                         </tr>
                         @endforeach
-                        {{-- Totals row --}}
                         <tr class="bg-slate-800 text-white">
                             <td class="px-4 py-3 sticky left-0 bg-slate-800 z-10 font-bold text-sm">TOTAL</td>
-                            @foreach($customers as $custKey => $custName)
+                            @foreach($rCustomers as $custKey => $custName)
                             <td class="px-3 py-3 text-center font-bold text-sm">
-                                @if(($customerTotals[$custKey] ?? 0) > 0)
-                                {{ rtrim(rtrim(number_format($customerTotals[$custKey], 3), '0'), '.') }}
+                                @if(($rCustomerTotals[$custKey] ?? 0) > 0)
+                                {{ rtrim(rtrim(number_format($rCustomerTotals[$custKey], 3), '0'), '.') }}
                                 @else
                                 -
                                 @endif
                             </td>
                             @endforeach
                             <td class="px-4 py-3 text-center font-bold text-sm bg-purple-900">
-                                {{ rtrim(rtrim(number_format($grandTotal, 3), '0'), '.') }}
+                                {{ rtrim(rtrim(number_format($rGrandTotal, 3), '0'), '.') }}
                             </td>
                         </tr>
                     </tbody>
@@ -498,21 +508,31 @@
                         </div>
 
                         {{-- Totals --}}
+                        @php
+                            $availableItems = $selectedSale->items->where('is_unavailable', false);
+                            $modalSubtotal = $availableItems->sum('subtotal');
+                            $modalTaxTotal = $availableItems->sum('tax_amount');
+                            $modalTotal = $availableItems->sum('total');
+                            $hasAnyUnavailable = $selectedSale->items->where('is_unavailable', true)->count() > 0;
+                        @endphp
                         <div class="bg-slate-50 rounded-xl p-4 space-y-1">
                             <div class="flex justify-between text-sm">
                                 <span class="text-slate-500">Subtotal</span>
-                                <span class="text-slate-900">${{ number_format($selectedSale->subtotal, 0, ',', '.') }}</span>
+                                <span class="text-slate-900">${{ number_format($modalSubtotal, 0, ',', '.') }}</span>
                             </div>
-                            @if($selectedSale->tax_total > 0)
+                            @if($modalTaxTotal > 0)
                             <div class="flex justify-between text-sm">
                                 <span class="text-slate-500">Impuestos</span>
-                                <span class="text-slate-900">${{ number_format($selectedSale->tax_total, 0, ',', '.') }}</span>
+                                <span class="text-slate-900">${{ number_format($modalTaxTotal, 0, ',', '.') }}</span>
                             </div>
                             @endif
                             <div class="flex justify-between text-base font-bold pt-2 border-t border-slate-200">
                                 <span class="text-slate-900">Total</span>
-                                <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#ff7261] to-[#a855f7]">${{ number_format($selectedSale->total, 0, ',', '.') }}</span>
+                                <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#ff7261] to-[#a855f7]">${{ number_format($modalTotal, 0, ',', '.') }}</span>
                             </div>
+                            @if($hasAnyUnavailable)
+                            <p class="text-xs text-orange-600 pt-1">* Total ajustado excluyendo productos no disponibles</p>
+                            @endif
                         </div>
 
                         {{-- Payment --}}
