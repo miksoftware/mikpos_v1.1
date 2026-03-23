@@ -32,7 +32,7 @@
         </div>
     @else
         {{-- Header --}}
-        <header class="bg-white border-b border-slate-200 sticky top-0 z-40" x-data="{ mobileMenuOpen: false }">
+        <header class="bg-white border-b border-slate-200 fixed top-0 left-0 right-0 z-40" x-data="{ mobileMenuOpen: false }">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
                     {{-- Logo --}}
@@ -136,7 +136,7 @@
         </header>
 
         {{-- Page Content --}}
-        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1">
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 mt-16">
             {{ $slot }}
         </main>
 
