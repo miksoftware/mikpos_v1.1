@@ -278,9 +278,16 @@ class Products extends Component
         $colors = Color::where('is_active', true)->orderBy('name')->get();
         $productModels = ProductModel::where('is_active', true)->orderBy('name')->get();
 
-        // Check if current branch has ecommerce enabled
-        $branchId = $this->needsBranchSelection ? $this->filterBranch : $user->branch_id;
-        $ecommerceEnabled = $branchId ? Branch::where('id', $branchId)->value('ecommerce_enabled') : false;
+        // Check if ecommerce is enabled for the relevant branch(es)
+        if ($this->needsBranchSelection) {
+            if ($this->filterBranch) {
+                $ecommerceEnabled = (bool) Branch::where('id', $this->filterBranch)->value('ecommerce_enabled');
+            } else {
+                $ecommerceEnabled = Branch::where('is_active', true)->where('ecommerce_enabled', true)->exists();
+            }
+        } else {
+            $ecommerceEnabled = $user->branch_id ? (bool) Branch::where('id', $user->branch_id)->value('ecommerce_enabled') : false;
+        }
 
         return view('livewire.products', [
             'items' => $items,
