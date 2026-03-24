@@ -33,11 +33,8 @@ class ProductDetail extends Component
             $q->where('show_in_shop', true);
         }]);
 
-        // Auto-select first active variant if available
-        $firstVariant = $this->product->activeChildren->first();
-        if ($firstVariant) {
-            $this->selectedVariantId = $firstVariant->id;
-        }
+        // No auto-select variant - parent is selected by default
+        $this->selectedVariantId = null;
     }
 
     public function updatedSelectedVariantId(): void

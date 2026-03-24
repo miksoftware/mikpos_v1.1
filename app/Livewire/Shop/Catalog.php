@@ -76,7 +76,7 @@ class Catalog extends Component
             return;
         }
 
-        $this->selectedVariantId = $this->selectedProduct->activeChildren->first()?->id;
+        $this->selectedVariantId = null;
         $this->modalQuantity = 1;
         $this->showProductModal = true;
     }

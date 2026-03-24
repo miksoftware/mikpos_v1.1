@@ -202,8 +202,18 @@
                                 {{-- Variants --}}
                                 @if($selectedProduct->activeChildren->count() > 0)
                                     <div>
-                                        <label class="block text-xs font-medium text-slate-700 mb-1.5">Variante</label>
+                                        <label class="block text-xs font-medium text-slate-700 mb-1.5">Presentación</label>
                                         <div class="flex flex-wrap gap-1.5">
+                                            <button wire:click="$set('selectedVariantId', null)"
+                                                class="px-3 py-1.5 text-xs rounded-lg border-2 transition-all
+                                                    {{ $selectedVariantId === null
+                                                        ? 'border-[#ff7261] bg-[#ff7261]/5 text-[#ff7261] font-medium'
+                                                        : 'border-slate-200 text-slate-700 hover:border-slate-300' }}">
+                                                {{ $selectedProduct->name }}
+                                                <span class="text-xs {{ $selectedVariantId === null ? 'text-[#ff7261]/70' : 'text-slate-400' }}">
+                                                    · ${{ number_format($selectedProduct->getSalePriceWithTax(), 0, ',', '.') }}
+                                                </span>
+                                            </button>
                                             @foreach($selectedProduct->activeChildren as $variant)
                                                 <button wire:click="$set('selectedVariantId', {{ $variant->id }})"
                                                     class="px-3 py-1.5 text-xs rounded-lg border-2 transition-all
@@ -211,6 +221,9 @@
                                                             ? 'border-[#ff7261] bg-[#ff7261]/5 text-[#ff7261] font-medium'
                                                             : 'border-slate-200 text-slate-700 hover:border-slate-300' }}">
                                                     {{ $variant->name }}
+                                                    <span class="text-xs {{ $selectedVariantId === $variant->id ? 'text-[#ff7261]/70' : 'text-slate-400' }}">
+                                                        · ${{ number_format($variant->getSalePriceWithTax(), 0, ',', '.') }}
+                                                    </span>
                                                 </button>
                                             @endforeach
                                         </div>
