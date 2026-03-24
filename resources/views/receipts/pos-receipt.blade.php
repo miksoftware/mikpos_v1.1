@@ -398,6 +398,20 @@
             @if($sale->customer->document_number)
             <div class="customer-doc">{{ $sale->customer->taxDocument->abbreviation ?? 'Doc' }}: {{ $sale->customer->document_number }}</div>
             @endif
+            @if($sale->source === 'ecommerce' && $sale->ecommerceOrder)
+            @if($sale->ecommerceOrder->shipping_address)
+            <div class="customer-doc" style="margin-top: 3px;"><strong>Dir:</strong> {{ $sale->ecommerceOrder->shipping_address }}</div>
+            @endif
+            @if($sale->ecommerceOrder->shippingMunicipality || $sale->ecommerceOrder->shippingDepartment)
+            <div class="customer-doc">{{ $sale->ecommerceOrder->shippingMunicipality?->name }}{{ $sale->ecommerceOrder->shippingDepartment ? ', ' . $sale->ecommerceOrder->shippingDepartment->name : '' }}</div>
+            @endif
+            @if($sale->ecommerceOrder->shipping_phone)
+            <div class="customer-doc"><strong>Tel:</strong> {{ $sale->ecommerceOrder->shipping_phone }}</div>
+            @endif
+            @if($sale->ecommerceOrder->customer_notes)
+            <div class="customer-doc" style="margin-top: 3px; font-style: italic;"><strong>Obs:</strong> {{ $sale->ecommerceOrder->customer_notes }}</div>
+            @endif
+            @endif
             @else
             <span class="customer-type-badge">Persona Natural</span>
             <div class="customer-name">Consumidor Final</div>

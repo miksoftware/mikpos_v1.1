@@ -258,6 +258,8 @@ Route::middleware(['auth'])->group(function () {
             'items',
             'payments.paymentMethod',
             'cashReconciliation.cashRegister',
+            'ecommerceOrder.shippingDepartment',
+            'ecommerceOrder.shippingMunicipality',
         ]);
 
         $format = App\Models\PrintFormatSetting::getFormat('pos');

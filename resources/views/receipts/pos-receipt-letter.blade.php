@@ -167,8 +167,20 @@
                         @if($sale->customer->phone)
                             Tel: {{ $sale->customer->phone }}<br>
                         @endif
-                        @if($sale->customer->address)
-                            {{ $sale->customer->address }}@if($sale->customer->municipality), {{ $sale->customer->municipality->name }}@endif<br>
+                        @if($sale->source === 'ecommerce' && $sale->ecommerceOrder)
+                            @if($sale->ecommerceOrder->shipping_address)
+                                <strong>Dir. envío:</strong> {{ $sale->ecommerceOrder->shipping_address }}<br>
+                            @endif
+                            @if($sale->ecommerceOrder->shippingMunicipality || $sale->ecommerceOrder->shippingDepartment)
+                                {{ $sale->ecommerceOrder->shippingMunicipality?->name }}{{ $sale->ecommerceOrder->shippingDepartment ? ', ' . $sale->ecommerceOrder->shippingDepartment->name : '' }}<br>
+                            @endif
+                            @if($sale->ecommerceOrder->shipping_phone)
+                                Tel. envío: {{ $sale->ecommerceOrder->shipping_phone }}<br>
+                            @endif
+                        @else
+                            @if($sale->customer->address)
+                                {{ $sale->customer->address }}@if($sale->customer->municipality), {{ $sale->customer->municipality->name }}@endif<br>
+                            @endif
                         @endif
                         @if($sale->customer->email)
                             {{ $sale->customer->email }}

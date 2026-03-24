@@ -423,10 +423,14 @@
                             @if($selectedOrder->shipping_phone)
                                 <p class="text-sm text-slate-500">Tel: {{ $selectedOrder->shipping_phone }}</p>
                             @endif
-                            @if($selectedOrder->customer_notes)
-                                <p class="text-sm text-slate-600 mt-2 italic">"{{ $selectedOrder->customer_notes }}"</p>
-                            @endif
                         </div>
+
+                        @if($selectedOrder->customer_notes)
+                        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                            <p class="text-xs font-semibold text-amber-600 uppercase mb-1">Observaciones del cliente</p>
+                            <p class="text-sm text-amber-800">{{ $selectedOrder->customer_notes }}</p>
+                        </div>
+                        @endif
                         @endif
 
                         {{-- Products --}}

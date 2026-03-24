@@ -171,7 +171,7 @@
                                 <h2 class="text-lg font-bold text-slate-900">{{ $selectedProduct->name }}</h2>
 
                                 @if($selectedProduct->description)
-                                    <p class="text-sm text-slate-600 line-clamp-3">{{ $selectedProduct->description }}</p>
+                                    <p class="text-xs text-slate-500 leading-relaxed">{{ Str::limit($selectedProduct->description, 300) }}</p>
                                 @endif
 
                                 @php

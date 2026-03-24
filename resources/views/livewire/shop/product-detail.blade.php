@@ -34,7 +34,7 @@
 
             {{-- Description --}}
             @if($product->description)
-                <p class="text-slate-600 leading-relaxed">{{ $product->description }}</p>
+                <p class="text-sm text-slate-500 leading-relaxed">{{ Str::limit($product->description, 300) }}</p>
             @endif
 
             {{-- Price --}}
