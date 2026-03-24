@@ -32,6 +32,7 @@ Route::post('/logout', function () {
 Route::prefix('shop')->middleware(['guest:customer', 'ecommerce.check'])->group(function () {
     Route::get('/login', App\Livewire\Shop\Auth\Login::class)->name('shop.login');
     Route::get('/register', App\Livewire\Shop\Auth\Register::class)->name('shop.register');
+    Route::get('/forgot-password', App\Livewire\Shop\Auth\ForgotPassword::class)->name('shop.forgot-password');
 });
 
 // E-commerce routes (authenticated - customer guard)

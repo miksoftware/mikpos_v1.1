@@ -36,6 +36,11 @@
                     <span wire:loading.remove wire:target="login">Iniciar sesión</span>
                     <span wire:loading wire:target="login">Ingresando...</span>
                 </button>
+
+                {{-- Forgot Password --}}
+                <div class="text-center mt-3">
+                    <a href="{{ route('shop.forgot-password') }}" class="text-xs text-[#ff7261] hover:text-[#e55a4a]" wire:navigate>¿Olvidaste tu contraseña?</a>
+                </div>
             </form>
         </div>
 
