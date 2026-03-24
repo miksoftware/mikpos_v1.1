@@ -323,7 +323,7 @@ class EcommerceCheckoutService
                 Mail::to($customer->email)->send(new EcommerceOrderPlaced($sale));
             }
 
-            // Email to POS users with ecommerce_orders permission
+            // Email to all active POS users with email
             $branchId = (int) config('ecommerce.branch_id');
             $posUsers = User::where('is_active', true)
                 ->where(function ($q) use ($branchId) {
@@ -331,10 +331,18 @@ class EcommerceCheckoutService
                       ->orWhereHas('roles', fn($r) => $r->where('name', 'super_admin'));
                 })
                 ->whereNotNull('email')
+                ->where('email', '!=', '')
                 ->get();
 
+            Log::info("Enviando notificación de nuevo pedido #{$sale->invoice_number} a {$posUsers->count()} usuario(s) POS");
+
             foreach ($posUsers as $user) {
-                Mail::to($user->email)->send(new EcommerceNewOrderNotification($sale));
+                try {
+                    Mail::to($user->email)->send(new EcommerceNewOrderNotification($sale));
+                    Log::info("Email enviado a {$user->email}");
+                } catch (\Exception $e) {
+                    Log::error("Error enviando email a {$user->email}: " . $e->getMessage());
+                }
             }
         } catch (\Exception $e) {
             Log::error('Error enviando emails de pedido e-commerce: ' . $e->getMessage());
