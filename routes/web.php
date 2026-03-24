@@ -29,7 +29,7 @@ Route::post('/logout', function () {
 })->name('logout');
 
 // E-commerce routes (guest - customer guard)
-Route::prefix('shop')->middleware('guest:customer')->group(function () {
+Route::prefix('shop')->middleware(['guest:customer', 'ecommerce.check'])->group(function () {
     Route::get('/login', App\Livewire\Shop\Auth\Login::class)->name('shop.login');
     Route::get('/register', App\Livewire\Shop\Auth\Register::class)->name('shop.register');
 });

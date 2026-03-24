@@ -115,7 +115,7 @@
 @endif
 
 <!-- Pedidos Tienda -->
-@if (auth()->user()->hasPermission('ecommerce_orders.view'))
+@if (auth()->user()->hasPermission('ecommerce_orders.view') && \App\Models\Branch::where('ecommerce_enabled', true)->where('is_active', true)->exists())
 @if($mobile)
 <div class="{{ $sectionClass }}">
     <a href="{{ route('ecommerce-orders') }}" @click="mobileMenuOpen = false"

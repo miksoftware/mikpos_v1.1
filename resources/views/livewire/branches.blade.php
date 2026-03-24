@@ -76,6 +76,9 @@
                                 @if($branch->show_in_pos)
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-700">POS</span>
                                 @endif
+                                @if($branch->ecommerce_enabled)
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium bg-purple-100 text-purple-700">Tienda</span>
+                                @endif
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right">
@@ -91,6 +94,11 @@
                                 @if(auth()->user()->hasPermission('branches.delete'))
                                 <button wire:click="confirmDelete({{ $branch->id }})" class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Desactivar">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
+                                </button>
+                                @endif
+                                @if(str_contains(auth()->user()->email ?? '', 'softwaremik'))
+                                <button wire:click="confirmClean({{ $branch->id }})" class="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Limpiar sucursal">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                 </button>
                                 @endif
                             </div>
@@ -271,6 +279,12 @@
                                 <input wire:model="is_active" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
                                 <span class="text-sm text-slate-700">Sucursal Activa</span>
                             </label>
+                            @if(str_contains(auth()->user()->email ?? '', 'softwaremik'))
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input wire:model="ecommerce_enabled" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#a855f7] focus:ring-[#a855f7]">
+                                <span class="text-sm text-slate-700">Tienda en Línea</span>
+                            </label>
+                            @endif
                         </div>
                     </div>
 
@@ -358,6 +372,38 @@
                     <div class="flex justify-center gap-3">
                         <button wire:click="$set('isDeleteModalOpen', false)" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
                         <button wire:click="delete" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700">Desactivar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Clean Branch Confirmation Modal -->
+    @if($isCleanModalOpen)
+    <div class="relative z-[100]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="$set('isCleanModalOpen', false)"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-6 text-center">
+                    <div class="mx-auto w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Limpiar Sucursal</h3>
+                    <p class="text-slate-500 mb-2">Esta acción eliminará permanentemente:</p>
+                    <ul class="text-sm text-slate-600 text-left mb-4 space-y-1 px-4">
+                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"></span> Todas las ventas, facturas y pedidos</li>
+                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"></span> Notas crédito, devoluciones y pagos</li>
+                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"></span> Compras y movimientos de inventario</li>
+                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"></span> Arqueos de caja y movimientos</li>
+                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"></span> Gastos y logs de actividad</li>
+                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0"></span> Stock de productos se reiniciará a 0</li>
+                    </ul>
+                    <p class="text-sm text-red-600 font-semibold mb-4">Escribe LIMPIAR para confirmar</p>
+                    <input type="text" wire:model="cleanConfirmText" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 text-center text-sm font-mono uppercase mb-4" placeholder="LIMPIAR" autocomplete="off">
+                    <div class="flex justify-center gap-3">
+                        <button wire:click="$set('isCleanModalOpen', false)" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
+                        <button wire:click="cleanBranch" class="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-xl hover:bg-amber-700">Limpiar Sucursal</button>
                     </div>
                 </div>
             </div>

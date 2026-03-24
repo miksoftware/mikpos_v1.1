@@ -30,6 +30,7 @@ class Branch extends Model
         'authorization_date',
         'receipt_header',
         'show_in_pos',
+        'ecommerce_enabled',
         'is_active',
     ];
 
@@ -38,6 +39,7 @@ class Branch extends Model
         return [
             'authorization_date' => 'date',
             'show_in_pos' => 'boolean',
+            'ecommerce_enabled' => 'boolean',
             'is_active' => 'boolean',
         ];
     }

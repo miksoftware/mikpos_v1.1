@@ -5,7 +5,16 @@ namespace App\Livewire;
 use App\Models\Branch;
 use App\Models\Department;
 use App\Models\Municipality;
+use App\Models\Sale;
+use App\Models\Purchase;
+use App\Models\CashReconciliation;
+use App\Models\CreditPayment;
+use App\Models\Expense;
+use App\Models\InventoryMovement;
+use App\Models\ActivityLog;
+use App\Models\Product;
 use App\Services\ActivityLogService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Rule;
@@ -23,7 +32,10 @@ class Branches extends Component
     public $isModalOpen = false;
     public $isDeleteModalOpen = false;
     public $isViewModalOpen = false;
+    public $isCleanModalOpen = false;
     public $branchIdToDelete = null;
+    public $branchIdToClean = null;
+    public $cleanConfirmText = '';
     public $viewingBranch = null;
 
     // Form properties
@@ -49,6 +61,7 @@ class Branches extends Component
     public $authorization_date;
     public $receipt_header;
     public $show_in_pos = true;
+    public $ecommerce_enabled = false;
     public $is_active = true;
 
     // Logo upload
@@ -151,6 +164,7 @@ class Branches extends Component
         $this->authorization_date = $branch->authorization_date?->format('Y-m-d');
         $this->receipt_header = $branch->receipt_header;
         $this->show_in_pos = $branch->show_in_pos;
+        $this->ecommerce_enabled = $branch->ecommerce_enabled;
         $this->is_active = $branch->is_active;
         $this->existingLogo = $branch->logo;
         $this->logo = null;
@@ -211,6 +225,7 @@ class Branches extends Component
             'authorization_date' => $this->authorization_date ?: null,
             'receipt_header' => $this->receipt_header,
             'show_in_pos' => $this->show_in_pos,
+            'ecommerce_enabled' => $this->ecommerce_enabled,
             'is_active' => $this->is_active,
         ];
 
@@ -287,6 +302,75 @@ class Branches extends Component
         $this->logo = null;
     }
 
+    public function confirmClean($id)
+    {
+        if (!str_contains(auth()->user()->email ?? '', 'softwaremik')) {
+            return;
+        }
+
+        $this->branchIdToClean = $id;
+        $this->cleanConfirmText = '';
+        $this->isCleanModalOpen = true;
+    }
+
+    public function cleanBranch()
+    {
+        if (!str_contains(auth()->user()->email ?? '', 'softwaremik')) {
+            return;
+        }
+
+        if ($this->cleanConfirmText !== 'LIMPIAR') {
+            $this->dispatch('notify', message: 'Debes escribir LIMPIAR para confirmar', type: 'error');
+            return;
+        }
+
+        $branch = Branch::find($this->branchIdToClean);
+        if (!$branch) {
+            $this->isCleanModalOpen = false;
+            return;
+        }
+
+        DB::beginTransaction();
+        try {
+            $branchId = $branch->id;
+
+            // 1. Delete credit payments for this branch
+            CreditPayment::where('branch_id', $branchId)->delete();
+
+            // 2. Delete sales (cascades: sale_items, sale_payments, sale_reprints, credit_notes, credit_note_items, refunds, refund_items, ecommerce_orders)
+            Sale::where('branch_id', $branchId)->delete();
+
+            // 3. Delete purchases and purchase_items (cascade)
+            Purchase::where('branch_id', $branchId)->delete();
+
+            // 4. Delete inventory movements for this branch
+            InventoryMovement::where('branch_id', $branchId)->delete();
+
+            // 5. Delete cash reconciliations (cascades: cash_movements, cash_reconciliation_edits)
+            CashReconciliation::where('branch_id', $branchId)->delete();
+
+            // 6. Delete expenses
+            Expense::where('branch_id', $branchId)->delete();
+
+            // 7. Reset product stock to 0 (only for products that manage inventory)
+            Product::where('branch_id', $branchId)
+                ->where('manages_inventory', true)
+                ->update(['current_stock' => 0]);
+
+            // 8. Delete activity logs for this branch
+            ActivityLog::where('branch_id', $branchId)->delete();
+
+            DB::commit();
+
+            $this->isCleanModalOpen = false;
+            $this->cleanConfirmText = '';
+            $this->dispatch('notify', message: "Sucursal '{$branch->name}' limpiada correctamente. Todos los datos transaccionales fueron eliminados.");
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->dispatch('notify', message: 'Error al limpiar: ' . $e->getMessage(), type: 'error');
+        }
+    }
+
     private function resetForm()
     {
         $this->branchId = null;
@@ -309,6 +393,7 @@ class Branches extends Component
         $this->authorization_date = '';
         $this->receipt_header = '';
         $this->show_in_pos = true;
+        $this->ecommerce_enabled = false;
         $this->is_active = true;
     }
 }
