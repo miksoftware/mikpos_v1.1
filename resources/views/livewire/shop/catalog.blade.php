@@ -75,6 +75,12 @@
                             ${{ number_format($product->getSalePriceWithTax(), 0, ',', '.') }}
                         </p>
 
+                        @if($showStockInShop && $product->manages_inventory)
+                        <p class="text-[9px] sm:text-xs {{ $product->current_stock > 0 ? 'text-green-600' : 'text-red-500' }}">
+                            {{ rtrim(rtrim(number_format($product->current_stock, 3), '0'), '.') }} disponible(s)
+                        </p>
+                        @endif
+
                         {{-- Quick Add to Cart Button --}}
                         <div class="mt-auto pt-1 sm:pt-2">
                             @auth('customer')
@@ -171,6 +177,12 @@
                                 <p class="text-2xl font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] bg-clip-text text-transparent">
                                     ${{ number_format($selectedProduct->getSalePriceWithTax(), 0, ',', '.') }}
                                 </p>
+
+                                @if($showStockInShop && $selectedProduct->manages_inventory)
+                                <p class="text-xs {{ $selectedProduct->current_stock > 0 ? 'text-green-600' : 'text-red-500' }}">
+                                    {{ rtrim(rtrim(number_format($selectedProduct->current_stock, 3), '0'), '.') }} disponible(s)
+                                </p>
+                                @endif
 
                                 <div class="flex items-center gap-3 text-sm">
                                     @if($selectedProduct->unit)

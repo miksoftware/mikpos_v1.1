@@ -13,6 +13,7 @@ use App\Models\Expense;
 use App\Models\InventoryMovement;
 use App\Models\ActivityLog;
 use App\Models\Product;
+use App\Models\ProductChild;
 use App\Services\ActivityLogService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -62,6 +63,7 @@ class Branches extends Component
     public $receipt_header;
     public $show_in_pos = true;
     public $ecommerce_enabled = false;
+    public $show_stock_in_shop = false;
     public $is_active = true;
 
     // Logo upload
@@ -165,6 +167,7 @@ class Branches extends Component
         $this->receipt_header = $branch->receipt_header;
         $this->show_in_pos = $branch->show_in_pos;
         $this->ecommerce_enabled = $branch->ecommerce_enabled;
+        $this->show_stock_in_shop = $branch->show_stock_in_shop;
         $this->is_active = $branch->is_active;
         $this->existingLogo = $branch->logo;
         $this->logo = null;
@@ -226,6 +229,7 @@ class Branches extends Component
             'receipt_header' => $this->receipt_header,
             'show_in_pos' => $this->show_in_pos,
             'ecommerce_enabled' => $this->ecommerce_enabled,
+            'show_stock_in_shop' => $this->show_stock_in_shop,
             'is_active' => $this->is_active,
         ];
 
@@ -236,6 +240,13 @@ class Branches extends Component
         }
 
         $branch = Branch::updateOrCreate(['id' => $this->branchId], $data);
+
+        // When enabling ecommerce, mark all branch products as show_in_shop
+        if ($this->ecommerce_enabled && (!$oldValues || !($oldValues['ecommerce_enabled'] ?? false))) {
+            Product::where('branch_id', $branch->id)->update(['show_in_shop' => true]);
+            ProductChild::whereHas('product', fn($q) => $q->where('branch_id', $branch->id))
+                ->update(['show_in_shop' => true]);
+        }
 
         // Log activity
         if ($isNew) {
@@ -394,6 +405,7 @@ class Branches extends Component
         $this->receipt_header = '';
         $this->show_in_pos = true;
         $this->ecommerce_enabled = false;
+        $this->show_stock_in_shop = false;
         $this->is_active = true;
     }
 }

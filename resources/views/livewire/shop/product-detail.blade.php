@@ -49,6 +49,11 @@
                 @if($product->unit)
                     <span class="text-slate-500">{{ $product->unit->name }} ({{ $product->unit->abbreviation }})</span>
                 @endif
+                @if($showStockInShop && $product->manages_inventory)
+                    <span class="{{ $product->current_stock > 0 ? 'text-green-600' : 'text-red-500' }}">
+                        {{ rtrim(rtrim(number_format($product->current_stock, 3), '0'), '.') }} disponible(s)
+                    </span>
+                @endif
             </div>
 
             {{-- Variants --}}

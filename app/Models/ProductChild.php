@@ -29,6 +29,7 @@ class ProductChild extends Model
         'image',
         'imei',
         'is_active',
+        'show_in_shop',
         'has_commission',
         'commission_type',
         'commission_value',
@@ -44,6 +45,7 @@ class ProductChild extends Model
             'commission_value' => 'decimal:2',
             'price_includes_tax' => 'boolean',
             'is_active' => 'boolean',
+            'show_in_shop' => 'boolean',
             'has_commission' => 'boolean',
         ];
     }

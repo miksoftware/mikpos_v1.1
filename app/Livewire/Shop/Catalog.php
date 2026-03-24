@@ -67,7 +67,9 @@ class Catalog extends Component
     // Product detail modal methods
     public function openProductModal(int $productId): void
     {
-        $this->selectedProduct = Product::with(['category', 'brand', 'unit', 'tax', 'activeChildren'])
+        $this->selectedProduct = Product::with(['category', 'brand', 'unit', 'tax', 'activeChildren' => function ($q) {
+                $q->where('show_in_shop', true);
+            }])
             ->find($productId);
 
         if (!$this->selectedProduct) {
@@ -272,6 +274,7 @@ class Catalog extends Component
 
         $query = Product::query()
             ->where('is_active', true)
+            ->where('show_in_shop', true)
             ->where(function ($q) {
                 $q->where('manages_inventory', false)
                   ->orWhere('current_stock', '>', 0);
@@ -298,6 +301,7 @@ class Catalog extends Component
         $products = $query->orderBy('name')->paginate($this->perPage);
 
         $availableCategoryIds = Product::where('is_active', true)
+            ->where('show_in_shop', true)
             ->where(function ($q) {
                 $q->where('manages_inventory', false)->orWhere('current_stock', '>', 0);
             })
@@ -307,6 +311,7 @@ class Catalog extends Component
             ->pluck('category_id');
 
         $availableBrandIds = Product::where('is_active', true)
+            ->where('show_in_shop', true)
             ->where(function ($q) {
                 $q->where('manages_inventory', false)->orWhere('current_stock', '>', 0);
             })
@@ -325,10 +330,14 @@ class Catalog extends Component
             ->orderBy('name')
             ->get();
 
+        $branch = \App\Models\Branch::find($branchId);
+        $showStockInShop = $branch ? (bool) $branch->show_stock_in_shop : false;
+
         return view('livewire.shop.catalog', [
             'products' => $products,
             'categories' => $categories,
             'brands' => $brands,
+            'showStockInShop' => $showStockInShop,
         ]);
     }
 }

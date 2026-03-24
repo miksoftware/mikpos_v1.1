@@ -18,7 +18,8 @@ class ProductDetail extends Component
         // Validate product belongs to ecommerce branch and is active
         if (
             $product->branch_id != config('ecommerce.branch_id') ||
-            !$product->is_active
+            !$product->is_active ||
+            !$product->show_in_shop
         ) {
             abort(404);
         }
@@ -28,7 +29,9 @@ class ProductDetail extends Component
             abort(404);
         }
 
-        $this->product = $product->load(['category', 'brand', 'unit', 'tax', 'activeChildren']);
+        $this->product = $product->load(['category', 'brand', 'unit', 'tax', 'activeChildren' => function ($q) {
+            $q->where('show_in_shop', true);
+        }]);
 
         // Auto-select first active variant if available
         $firstVariant = $this->product->activeChildren->first();
@@ -129,6 +132,11 @@ class ProductDetail extends Component
 
     public function render()
     {
-        return view('livewire.shop.product-detail');
+        $branch = \App\Models\Branch::find(config('ecommerce.branch_id'));
+        $showStockInShop = $branch ? (bool) $branch->show_stock_in_shop : false;
+
+        return view('livewire.shop.product-detail', [
+            'showStockInShop' => $showStockInShop,
+        ]);
     }
 }

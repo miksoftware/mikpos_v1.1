@@ -112,6 +112,37 @@
         </div>
     </div>
 
+    {{-- Bulk Shop Toggle Bar --}}
+    @if($ecommerceEnabled)
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input wire:model.live="selectAllShop" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                    <span class="text-sm font-medium text-slate-700">Seleccionar todos</span>
+                </label>
+                @if(count($selectedShopProducts) > 0)
+                <span class="text-sm text-slate-500">({{ count($selectedShopProducts) }} seleccionados)</span>
+                @endif
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-sm text-slate-500 mr-1">
+                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"></path></svg>
+                    Tienda en línea:
+                </span>
+                <button wire:click="bulkToggleShop(true)" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors disabled:opacity-50" {{ count($selectedShopProducts) === 0 ? 'disabled' : '' }}>
+                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    Mostrar
+                </button>
+                <button wire:click="bulkToggleShop(false)" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50" {{ count($selectedShopProducts) === 0 ? 'disabled' : '' }}>
+                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>
+                    Ocultar
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- Products Table --}}
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="overflow-x-auto">
@@ -171,6 +202,9 @@
                         </td>
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-3">
+                                @if($ecommerceEnabled)
+                                <input wire:model.live="selectedShopProducts" value="{{ $item->id }}" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261] flex-shrink-0">
+                                @endif
                                 @if($item->image)
                                 <img src="{{ Storage::url($item->image) }}" alt="{{ $item->name }}" class="w-10 h-10 rounded-lg object-cover">
                                 @else
@@ -179,7 +213,18 @@
                                 </div>
                                 @endif
                                 <div>
-                                    <div class="font-medium text-slate-900">{{ $item->name }}</div>
+                                    <div class="font-medium text-slate-900 flex items-center gap-1.5">
+                                        {{ $item->name }}
+                                        @if($ecommerceEnabled)
+                                        <button wire:click="toggleShopVisibility({{ $item->id }})" class="p-0.5 rounded transition-colors {{ $item->show_in_shop ? 'text-green-500 hover:text-green-700' : 'text-slate-300 hover:text-slate-500' }}" title="{{ $item->show_in_shop ? 'Visible en tienda' : 'Oculto en tienda' }}">
+                                            @if($item->show_in_shop)
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                            @else
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>
+                                            @endif
+                                        </button>
+                                        @endif
+                                    </div>
                                     <div class="text-sm text-slate-500">SKU: {{ $item->sku ?? 'Sin SKU' }}</div>
                                 </div>
                             </div>
@@ -725,6 +770,19 @@
                             </div>
                             @endif
                         </div>
+                        @if($ecommerceEnabled)
+                        <div>
+                            <label class="flex items-center gap-3 cursor-pointer" wire:click.prevent="$toggle('show_in_shop')">
+                                <div class="relative">
+                                    <div class="w-10 h-5 rounded-full transition-colors duration-200 {{ $show_in_shop ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7]' : 'bg-slate-300' }}">
+                                        <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 {{ $show_in_shop ? 'translate-x-5' : '' }}"></div>
+                                    </div>
+                                </div>
+                                <span class="text-sm font-medium text-slate-700">Mostrar en tienda en línea</span>
+                            </label>
+                            <p class="text-xs text-slate-500 mt-1 ml-[52px]">Si se desactiva, el producto no aparecerá en la tienda en línea.</p>
+                        </div>
+                        @endif
                         <div>
                             <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"></path></svg>
@@ -1219,11 +1277,17 @@
                         </div>
 
                         {{-- Status --}}
-                        <div class="pt-2">
+                        <div class="pt-2 space-y-2">
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input wire:model="childIsActive" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
                                 <span class="text-sm text-slate-700">Variante activa</span>
                             </label>
+                            @if($ecommerceEnabled)
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input wire:model="childShowInShop" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                                <span class="text-sm text-slate-700">Mostrar en tienda en línea</span>
+                            </label>
+                            @endif
                         </div>
 
                         {{-- Image Upload Section for Child --}}

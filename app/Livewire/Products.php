@@ -74,6 +74,7 @@ class Products extends Component
     public int $current_stock = 0;
     public bool $is_active = true;
     public bool $manages_inventory = true;
+    public bool $show_in_shop = true;
     public bool $has_commission = false;
     public ?string $commission_type = 'percentage';
     public ?float $commission_value = null;
@@ -105,6 +106,7 @@ class Products extends Component
     public bool $childPriceIncludesTax = false;
     public ?string $childImei = null;
     public bool $childIsActive = true;
+    public bool $childShowInShop = true;
     public bool $childHasCommission = false;
     public ?string $childCommissionType = 'percentage';
     public ?float $childCommissionValue = null;
@@ -155,6 +157,10 @@ class Products extends Component
     public ?int $bulkDeleteCategoryFilter = null;
     public array $bulkDeleteSelected = []; // array of product IDs
     public bool $isBulkDeleting = false;
+
+    // Bulk shop toggle
+    public array $selectedShopProducts = [];
+    public bool $selectAllShop = false;
 
     public function mount()
     {
@@ -272,6 +278,10 @@ class Products extends Component
         $colors = Color::where('is_active', true)->orderBy('name')->get();
         $productModels = ProductModel::where('is_active', true)->orderBy('name')->get();
 
+        // Check if current branch has ecommerce enabled
+        $branchId = $this->needsBranchSelection ? $this->filterBranch : $user->branch_id;
+        $ecommerceEnabled = $branchId ? Branch::where('id', $branchId)->value('ecommerce_enabled') : false;
+
         return view('livewire.products', [
             'items' => $items,
             'categories' => $categories,
@@ -281,6 +291,7 @@ class Products extends Component
             'presentations' => $presentations,
             'colors' => $colors,
             'productModels' => $productModels,
+            'ecommerceEnabled' => $ecommerceEnabled,
         ]);
     }
 
@@ -341,6 +352,7 @@ class Products extends Component
         $this->current_stock = $item->current_stock;
         $this->is_active = $item->is_active;
         $this->manages_inventory = $item->manages_inventory;
+        $this->show_in_shop = $item->show_in_shop;
         
         // Load configurable fields
         $this->presentation_id = $item->presentation_id;
@@ -418,6 +430,7 @@ class Products extends Component
             'current_stock' => $this->current_stock,
             'is_active' => $this->is_active,
             'manages_inventory' => $this->manages_inventory,
+            'show_in_shop' => $this->show_in_shop,
             'has_commission' => $this->has_commission,
             'commission_type' => $this->has_commission ? $this->commission_type : null,
             'commission_value' => $this->has_commission ? $this->commission_value : null,
@@ -615,6 +628,59 @@ class Products extends Component
         }
     }
 
+    // Shop visibility methods
+
+    public function toggleShopVisibility(int $id)
+    {
+        if (!auth()->user()->hasPermission('products.edit')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        $product = Product::find($id);
+        if ($product) {
+            $product->show_in_shop = !$product->show_in_shop;
+            $product->save();
+            // Also update children
+            $product->children()->update(['show_in_shop' => $product->show_in_shop]);
+        }
+    }
+
+    public function bulkToggleShop(bool $visible)
+    {
+        if (!auth()->user()->hasPermission('products.edit')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        if (empty($this->selectedShopProducts)) {
+            $this->dispatch('notify', message: 'Selecciona al menos un producto', type: 'error');
+            return;
+        }
+
+        Product::whereIn('id', $this->selectedShopProducts)->update(['show_in_shop' => $visible]);
+        ProductChild::whereIn('product_id', $this->selectedShopProducts)->update(['show_in_shop' => $visible]);
+
+        $count = count($this->selectedShopProducts);
+        $this->selectedShopProducts = [];
+        $this->selectAllShop = false;
+        $this->dispatch('notify', message: $count . ' producto(s) ' . ($visible ? 'visibles' : 'ocultos') . ' en tienda');
+    }
+
+    public function updatedSelectAllShop($value)
+    {
+        if ($value) {
+            $user = auth()->user();
+            $branchId = $this->needsBranchSelection ? $this->filterBranch : $user->branch_id;
+            if ($branchId) {
+                $this->selectedShopProducts = Product::where('branch_id', $branchId)
+                    ->pluck('id')->map(fn($id) => (string) $id)->toArray();
+            }
+        } else {
+            $this->selectedShopProducts = [];
+        }
+    }
+
     // Child Product Methods
 
     public function createChild(int $parentId)
@@ -663,6 +729,7 @@ class Products extends Component
         $this->childPriceIncludesTax = $child->price_includes_tax;
         $this->childImei = $child->imei;
         $this->childIsActive = $child->is_active;
+        $this->childShowInShop = $child->show_in_shop;
         $this->childHasCommission = $child->has_commission;
         $this->childCommissionType = $child->commission_type ?? 'percentage';
         $this->childCommissionValue = $child->commission_value ? (float) $child->commission_value : null;
@@ -724,6 +791,7 @@ class Products extends Component
             'price_includes_tax' => $this->childPriceIncludesTax,
             'imei' => $this->childImei ?: null,
             'is_active' => $this->childIsActive,
+            'show_in_shop' => $this->childShowInShop,
             'has_commission' => $this->childHasCommission,
             'commission_type' => $this->childHasCommission ? $this->childCommissionType : null,
             'commission_value' => $this->childHasCommission ? $this->childCommissionValue : null,
@@ -1129,6 +1197,7 @@ class Products extends Component
         $this->childPriceIncludesTax = false;
         $this->childImei = null;
         $this->childIsActive = true;
+        $this->childShowInShop = true;
         $this->childHasCommission = false;
         $this->childCommissionType = 'percentage';
         $this->childCommissionValue = null;
@@ -1202,6 +1271,7 @@ class Products extends Component
         $this->current_stock = 0;
         $this->is_active = true;
         $this->manages_inventory = true;
+        $this->show_in_shop = true;
         $this->has_commission = false;
         $this->commission_type = 'percentage';
         $this->commission_value = null;

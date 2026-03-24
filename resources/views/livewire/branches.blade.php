@@ -284,6 +284,12 @@
                                 <input wire:model="ecommerce_enabled" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#a855f7] focus:ring-[#a855f7]">
                                 <span class="text-sm text-slate-700">Tienda en Línea</span>
                             </label>
+                            @if($ecommerce_enabled)
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input wire:model="show_stock_in_shop" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#a855f7] focus:ring-[#a855f7]">
+                                <span class="text-sm text-slate-700">Mostrar cantidad disponible en tienda</span>
+                            </label>
+                            @endif
                             @endif
                         </div>
                     </div>
