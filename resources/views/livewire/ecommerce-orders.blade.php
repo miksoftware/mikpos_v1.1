@@ -349,6 +349,9 @@
                                 <button wire:click="viewOrder({{ $order->id }})" class="p-1.5 text-slate-400 hover:text-[#a855f7] rounded-lg hover:bg-slate-100" title="Ver detalle">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                 </button>
+                                <a href="{{ route('receipt.show', $order->id) }}" target="_blank" class="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-blue-50" title="Imprimir recibo">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                                </a>
                                 @if($activeTab === 'pending')
                                 <button wire:click="approveOrder({{ $order->id }})" wire:confirm="¿Aprobar este pedido?" class="p-1.5 text-slate-400 hover:text-green-600 rounded-lg hover:bg-green-50" title="Aprobar">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -512,11 +515,19 @@
                     </div>
 
                     {{-- Footer --}}
-                    @if($selectedSale->status === 'pending_approval')
                     <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-between">
-                        <button wire:click="openRejectModal({{ $selectedSale->id }})" class="px-4 py-2 text-sm font-medium text-red-700 bg-white border border-red-300 rounded-xl hover:bg-red-50">
-                            Rechazar
-                        </button>
+                        <div class="flex gap-3">
+                            @if($selectedSale->status === 'pending_approval')
+                            <button wire:click="openRejectModal({{ $selectedSale->id }})" class="px-4 py-2 text-sm font-medium text-red-700 bg-white border border-red-300 rounded-xl hover:bg-red-50">
+                                Rechazar
+                            </button>
+                            @endif
+                            <a href="{{ route('receipt.show', $selectedSale->id) }}" target="_blank" class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                                Imprimir
+                            </a>
+                        </div>
+                        @if($selectedSale->status === 'pending_approval')
                         <div class="flex gap-3">
                             @if(collect($unavailableItems)->contains('is_unavailable', true))
                             <button wire:click="saveUnavailableItems" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
@@ -527,8 +538,8 @@
                                 Aprobar pedido
                             </button>
                         </div>
+                        @endif
                     </div>
-                    @endif
                 </div>
             </div>
         </div>

@@ -142,6 +142,29 @@ unset($__defined_vars, $__key, $__value); ?>
 <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 
+<!-- Pedidos Tienda -->
+<?php if(auth()->user()->hasPermission('ecommerce_orders.view') && \App\Models\Branch::where('ecommerce_enabled', true)->where('is_active', true)->exists()): ?>
+<?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($mobile): ?>
+<div class="<?php echo e($sectionClass); ?>">
+    <a href="<?php echo e(route('ecommerce-orders')); ?>" @click="mobileMenuOpen = false"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-xl <?php echo e(request()->routeIs('ecommerce-orders') ? $activeClass : $inactiveClass); ?>">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+        </svg>
+        <span class="font-medium">Pedidos Tienda</span>
+    </a>
+</div>
+<?php else: ?>
+<a href="<?php echo e(route('ecommerce-orders')); ?>"
+    class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group <?php echo e(request()->routeIs('ecommerce-orders') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'); ?>">
+    <svg class="w-5 h-5 flex-shrink-0 group-hover:text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+    </svg>
+    <span x-show="sidebarOpen" class="font-medium">Pedidos Tienda</span>
+</a>
+<?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+<?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
 <!-- Créditos -->
 <?php if(auth()->user()->hasPermission('credits.view')): ?>
 <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($mobile): ?>

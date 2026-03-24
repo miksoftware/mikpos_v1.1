@@ -479,7 +479,7 @@
                 $totalPaid += $payment->amount;
             @endphp
             <div class="payment-row">
-                <span class="payment-method">{{ $payment->paymentMethod->name }}</span>
+                <span class="payment-method">{{ $payment->paymentMethod->name ?? 'N/A' }}</span>
                 <span>${{ number_format($payment->amount, 0) }}</span>
             </div>
             @endforeach
@@ -508,7 +508,7 @@
 
         <!-- Seller -->
         <div class="seller-section">
-            <p><strong>Atendido por:</strong> {{ $sale->user->name }}</p>
+            <p><strong>{{ $sale->source === 'ecommerce' ? 'Origen:' : 'Atendido por:' }}</strong> {{ $sale->source === 'ecommerce' ? 'Tienda en línea' : ($sale->user->name ?? 'N/A') }}</p>
             @if($sale->cashReconciliation && $sale->cashReconciliation->cashRegister)
             <p><strong>Caja:</strong> {{ $sale->cashReconciliation->cashRegister->name }}</p>
             @endif

@@ -190,7 +190,7 @@
                         <strong>Tipo:</strong> Documento POS<br>
                     @endif
                     <strong>Fecha:</strong> {{ $sale->created_at->format('d/m/Y H:i') }}<br>
-                    <strong>Vendedor:</strong> {{ $sale->user->name }}
+                    <strong>{{ $sale->source === 'ecommerce' ? 'Origen:' : 'Vendedor:' }}</strong> {{ $sale->source === 'ecommerce' ? 'Tienda en línea' : ($sale->user->name ?? 'N/A') }}
                     @if($sale->cashReconciliation && $sale->cashReconciliation->cashRegister)
                         <br><strong>Caja:</strong> {{ $sale->cashReconciliation->cashRegister->name }}
                     @endif
@@ -252,7 +252,7 @@
                 @if($sale->payments->count() > 0)
                     <br><br><strong>Forma de pago:</strong>
                     @foreach($sale->payments as $payment)
-                        <br>{{ $payment->paymentMethod->name }}: ${{ number_format($payment->amount, 2) }}
+                        <br>{{ $payment->paymentMethod->name ?? 'N/A' }}: ${{ number_format($payment->amount, 2) }}
                     @endforeach
                     @php $totalPaid = $sale->payments->sum('amount'); @endphp
                     @if($totalPaid > $sale->total)
