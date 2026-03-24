@@ -39,8 +39,17 @@
 
             {{-- Price --}}
             <div>
+                @php
+                    $displayPrice = $product->getSalePriceWithTax();
+                    if ($selectedVariantId) {
+                        $selectedVariant = $product->activeChildren->find($selectedVariantId);
+                        if ($selectedVariant) {
+                            $displayPrice = $selectedVariant->getSalePriceWithTax();
+                        }
+                    }
+                @endphp
                 <p class="text-3xl font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] bg-clip-text text-transparent">
-                    ${{ number_format($product->getSalePriceWithTax(), 0, ',', '.') }}
+                    ${{ number_format($displayPrice, 0, ',', '.') }}
                 </p>
             </div>
 

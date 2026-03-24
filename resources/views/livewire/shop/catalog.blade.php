@@ -174,8 +174,17 @@
                                     <p class="text-sm text-slate-600 line-clamp-3">{{ $selectedProduct->description }}</p>
                                 @endif
 
+                                @php
+                                    $displayPrice = $selectedProduct->getSalePriceWithTax();
+                                    if ($selectedVariantId) {
+                                        $selectedVariant = $selectedProduct->activeChildren->find($selectedVariantId);
+                                        if ($selectedVariant) {
+                                            $displayPrice = $selectedVariant->getSalePriceWithTax();
+                                        }
+                                    }
+                                @endphp
                                 <p class="text-2xl font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] bg-clip-text text-transparent">
-                                    ${{ number_format($selectedProduct->getSalePriceWithTax(), 0, ',', '.') }}
+                                    ${{ number_format($displayPrice, 0, ',', '.') }}
                                 </p>
 
                                 @if($showStockInShop && $selectedProduct->manages_inventory)
