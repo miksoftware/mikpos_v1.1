@@ -2,6 +2,10 @@
 
 namespace App\Services;
 
+use App\Mail\EcommerceNewOrderNotification;
+use App\Mail\EcommerceOrderPlaced;
+use App\Mail\EcommerceOrderStatusChanged;
+use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\EcommerceOrder;
 use App\Models\InventoryMovement;
@@ -10,7 +14,10 @@ use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SalePayment;
 use App\Models\SystemDocument;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class EcommerceCheckoutService
 {
@@ -103,6 +110,9 @@ class EcommerceCheckoutService
             // Reserve stock
             $this->reserveStock($sale, $cartItems);
 
+            // Send email notifications
+            $this->sendOrderPlacedEmails($sale, $customer);
+
             return $sale;
         });
     }
@@ -122,6 +132,8 @@ class EcommerceCheckoutService
             ['status' => 'pending_approval'],
             ['status' => 'completed']
         );
+
+        $this->sendStatusChangedEmail($sale, 'completed');
     }
 
     /**
@@ -146,6 +158,8 @@ class EcommerceCheckoutService
                 ['status' => 'pending_approval'],
                 ['status' => 'rejected', 'rejection_reason' => $reason]
             );
+
+            $this->sendStatusChangedEmail($sale, 'rejected', $reason);
         });
     }
 
@@ -295,6 +309,50 @@ class EcommerceCheckoutService
                 'notes' => "Rechazo pedido e-commerce #{$sale->invoice_number}",
                 'movement_date' => now(),
             ]);
+        }
+    }
+
+    /**
+     * Send order confirmation email to customer and notification to POS users.
+     */
+    public function sendOrderPlacedEmails(Sale $sale, Customer $customer): void
+    {
+        try {
+            // Email to customer
+            if ($customer->email) {
+                Mail::to($customer->email)->send(new EcommerceOrderPlaced($sale));
+            }
+
+            // Email to POS users with ecommerce_orders permission
+            $branchId = (int) config('ecommerce.branch_id');
+            $posUsers = User::where('is_active', true)
+                ->where(function ($q) use ($branchId) {
+                    $q->where('branch_id', $branchId)
+                      ->orWhereHas('roles', fn($r) => $r->where('name', 'super_admin'));
+                })
+                ->whereNotNull('email')
+                ->get();
+
+            foreach ($posUsers as $user) {
+                Mail::to($user->email)->send(new EcommerceNewOrderNotification($sale));
+            }
+        } catch (\Exception $e) {
+            Log::error('Error enviando emails de pedido e-commerce: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Send status change email to customer.
+     */
+    public function sendStatusChangedEmail(Sale $sale, string $newStatus, ?string $reason = null): void
+    {
+        try {
+            $customer = $sale->customer;
+            if ($customer && $customer->email) {
+                Mail::to($customer->email)->send(new EcommerceOrderStatusChanged($sale, $newStatus, $reason));
+            }
+        } catch (\Exception $e) {
+            Log::error('Error enviando email de cambio de estado: ' . $e->getMessage());
         }
     }
 }

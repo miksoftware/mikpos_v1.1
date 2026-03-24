@@ -1,7 +1,63 @@
-<div wire:poll.10s="poll" x-data="{ open: @entangle('isOpen') }" @click.away="open = false" class="relative">
+<div wire:poll.10s="poll"
+    x-data="{
+        open: @entangle('isOpen'),
+        audioCtx: null,
+        ensureAudio() {
+            if (!this.audioCtx) {
+                this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (this.audioCtx.state === 'suspended') {
+                this.audioCtx.resume();
+            }
+            return this.audioCtx;
+        },
+        playSound() {
+            try {
+                const ctx = this.ensureAudio();
+                const now = ctx.currentTime;
+
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.frequency.value = 800;
+                osc1.type = 'sine';
+                gain1.gain.setValueAtTime(0.3, now);
+                gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc1.start(now);
+                osc1.stop(now + 0.5);
+
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.frequency.value = 1000;
+                osc2.type = 'sine';
+                gain2.gain.setValueAtTime(0, now);
+                gain2.gain.setValueAtTime(0.3, now + 0.25);
+                gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.75);
+                osc2.start(now + 0.25);
+                osc2.stop(now + 0.75);
+            } catch (e) {
+                console.log('Audio not available:', e);
+            }
+        }
+    }"
+    x-init="
+        document.addEventListener('click', () => { ensureAudio(); }, { once: true });
+        document.addEventListener('touchstart', () => { ensureAudio(); }, { once: true });
+    "
+    @click.away="open = false"
+    @play-notification-sound.window="playSound()"
+    class="relative">
+
     {{-- Bell Button --}}
-    <button @click="open = !open; if(open) $wire.markAllRead()" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 relative transition-colors">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <button @click="open = !open; if(open) $wire.markAllRead()"
+        class="p-2 rounded-lg relative transition-colors"
+        :class="$wire.unreadCount > 0 ? 'text-[#ff7261] hover:bg-red-50' : 'text-slate-500 hover:bg-slate-100'">
+        <svg class="w-5 h-5 transition-transform"
+            :class="$wire.unreadCount > 0 ? 'animate-[bell-ring_1s_ease-in-out_3]' : ''"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
         </svg>
         @if($unreadCount > 0)
@@ -12,9 +68,15 @@
     </button>
 
     {{-- Dropdown --}}
-    <div x-show="open" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
-         x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
-         class="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden" style="display: none;">
+    <div x-show="open"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0 scale-95"
+        x-transition:enter-end="opacity-100 scale-100"
+        x-transition:leave="transition ease-in duration-100"
+        x-transition:leave-start="opacity-100 scale-100"
+        x-transition:leave-end="opacity-0 scale-95"
+        class="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden"
+        style="display: none;">
 
         {{-- Header --}}
         <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
@@ -66,44 +128,24 @@
         @endif
     </div>
 
-    {{-- Notification Sound --}}
-    <audio id="notification-sound" preload="auto">
-        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgipGDcFhUYIKRkYFpWFdlg5KPfmtdXGmBkI5+bWBdaoGQjX5tYF1qgZCNfm1gXWqBkI1+bWBdaoGQjX5tYF1qgZCNfm1gXWqBkI1+bWBdaoGQjX5tYF1q" type="audio/wav">
-    </audio>
+    {{-- Bell ring animation --}}
+    <style>
+        @keyframes bell-ring {
+            0%, 100% { transform: rotate(0deg); }
+            10% { transform: rotate(14deg); }
+            20% { transform: rotate(-14deg); }
+            30% { transform: rotate(10deg); }
+            40% { transform: rotate(-8deg); }
+            50% { transform: rotate(4deg); }
+            60% { transform: rotate(0deg); }
+        }
+    </style>
 
     @script
     <script>
         $wire.on('new-order-notification', () => {
-            // Play sound
-            try {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioCtx.createOscillator();
-                const gainNode = audioCtx.createGain();
-                oscillator.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-                oscillator.frequency.value = 800;
-                oscillator.type = 'sine';
-                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-                oscillator.start(audioCtx.currentTime);
-                oscillator.stop(audioCtx.currentTime + 0.5);
-
-                // Second beep
-                setTimeout(() => {
-                    const osc2 = audioCtx.createOscillator();
-                    const gain2 = audioCtx.createGain();
-                    osc2.connect(gain2);
-                    gain2.connect(audioCtx.destination);
-                    osc2.frequency.value = 1000;
-                    osc2.type = 'sine';
-                    gain2.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                    gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-                    osc2.start(audioCtx.currentTime);
-                    osc2.stop(audioCtx.currentTime + 0.5);
-                }, 200);
-            } catch (e) {
-                console.log('Audio not available');
-            }
+            // Dispatch custom event so Alpine picks it up and plays sound
+            window.dispatchEvent(new CustomEvent('play-notification-sound'));
 
             // Browser notification
             if (Notification.permission === 'granted') {
@@ -115,14 +157,6 @@
                 Notification.requestPermission();
             }
         });
-
-        // Request notification permission on first interaction
-        document.addEventListener('click', function requestPerm() {
-            if (Notification.permission === 'default') {
-                Notification.requestPermission();
-            }
-            document.removeEventListener('click', requestPerm);
-        }, { once: true });
     </script>
     @endscript
 </div>

@@ -2,6 +2,8 @@
 
 namespace App\Livewire;
 
+use App\Mail\EcommerceItemsUnavailable;
+use App\Mail\EcommerceOrderStatusChanged;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\EcommerceOrder;
@@ -13,6 +15,8 @@ use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 #[Layout('layouts.app')]
 class EcommerceOrders extends Component
@@ -212,6 +216,23 @@ class EcommerceOrders extends Component
             $this->selectedSale->refresh();
             $this->selectedSale->load('items.product');
 
+            // Send email to customer about unavailable items
+            try {
+                $unavailableNames = $this->selectedSale->items
+                    ->filter(fn($item) => $item->is_unavailable)
+                    ->pluck('product_name')
+                    ->toArray();
+
+                if (!empty($unavailableNames)) {
+                    $customer = $this->selectedSale->customer;
+                    if ($customer && $customer->email) {
+                        Mail::to($customer->email)->send(new EcommerceItemsUnavailable($this->selectedSale, $unavailableNames));
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error('Error enviando email de productos no disponibles: ' . $e->getMessage());
+            }
+
             $this->dispatch('notify', message: 'Cambios guardados', type: 'success');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -283,6 +304,17 @@ class EcommerceOrders extends Component
             );
 
             DB::commit();
+
+            // Send status changed email to customer
+            try {
+                $sale->refresh();
+                $customer = $sale->customer;
+                if ($customer && $customer->email) {
+                    Mail::to($customer->email)->send(new EcommerceOrderStatusChanged($sale, 'completed'));
+                }
+            } catch (\Exception $e) {
+                Log::error('Error enviando email de aprobación: ' . $e->getMessage());
+            }
 
             $this->closeDetailModal();
             $this->dispatch('notify', message: 'Pedido aprobado exitosamente', type: 'success');
