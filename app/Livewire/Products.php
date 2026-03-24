@@ -653,6 +653,20 @@ class Products extends Component
         }
     }
 
+    public function toggleChildShopVisibility(int $id)
+    {
+        if (!auth()->user()->hasPermission('products.edit')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        $child = ProductChild::find($id);
+        if ($child) {
+            $child->show_in_shop = !$child->show_in_shop;
+            $child->save();
+        }
+    }
+
     public function bulkToggleShop(bool $visible)
     {
         if (!auth()->user()->hasPermission('products.edit')) {
