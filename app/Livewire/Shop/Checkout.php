@@ -50,6 +50,14 @@ class Checkout extends Component
         if ($customer->address) {
             $this->address = $customer->address;
         }
+
+        // Default payment method to "Efectivo"
+        $defaultPayment = PaymentMethod::where('is_active', true)
+            ->where('name', 'like', '%efectivo%')
+            ->first();
+        if ($defaultPayment) {
+            $this->payment_method_id = (string) $defaultPayment->id;
+        }
     }
 
     public function updatedDepartmentId(): void
