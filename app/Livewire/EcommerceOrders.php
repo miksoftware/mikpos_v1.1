@@ -258,28 +258,47 @@ class EcommerceOrders extends Component
             $hasUnavailable = false;
             if ($this->selectedSale && $this->selectedSale->id === $saleId) {
                 foreach ($this->unavailableItems as $itemId => $data) {
-                    if ($data['is_unavailable']) {
+                    $saleItem = SaleItem::find($itemId);
+                    if (!$saleItem) continue;
+
+                    $wasUnavailable = (bool) $saleItem->is_unavailable;
+                    $nowUnavailable = (bool) $data['is_unavailable'];
+
+                    if ($nowUnavailable) {
                         $hasUnavailable = true;
-                        SaleItem::where('id', $itemId)->update([
+                        $saleItem->update([
                             'is_unavailable' => true,
                             'unavailable_reason' => $data['reason'] ?: 'Producto no disponible',
                         ]);
 
-                        // Return stock for unavailable items
-                        $saleItem = SaleItem::find($itemId);
-                        if ($saleItem && $saleItem->product_id) {
+                        // Return stock for unavailable items (only if it wasn't already returned)
+                        if (!$wasUnavailable && $saleItem->product_id) {
                             $product = Product::find($saleItem->product_id);
                             if ($product && $product->manages_inventory) {
                                 $product->increment('current_stock', (float) $saleItem->quantity);
                             }
                         }
                     } else {
-                        SaleItem::where('id', $itemId)->update([
+                        $saleItem->update([
                             'is_unavailable' => false,
                             'unavailable_reason' => null,
                         ]);
+
+                        // Re-reserve stock if it was previously unavailable
+                        if ($wasUnavailable && $saleItem->product_id) {
+                            $product = Product::find($saleItem->product_id);
+                            if ($product && $product->manages_inventory) {
+                                $product->decrement('current_stock', (float) $saleItem->quantity);
+                            }
+                        }
                     }
                 }
+            }
+
+            // Check if there are any available items left
+            $availableItemsCount = $sale->items()->where('is_unavailable', false)->count();
+            if ($availableItemsCount === 0) {
+                throw new \Exception('No hay productos disponibles para aprobar. Por favor rechace el pedido.');
             }
 
             // Update order status
@@ -290,8 +309,21 @@ class EcommerceOrders extends Component
             $sale->update(['status' => 'completed', 'source' => 'ecommerce']);
 
             // Recalculate totals if items were marked unavailable
-            if ($hasUnavailable) {
-                $this->recalculateSaleTotals($sale);
+            // We always do this before electronic invoicing to ensure correct totals
+            $this->recalculateSaleTotals($sale);
+
+            // PROCESS ELECTRONIC INVOICE (DIAN/FACTUS)
+            // If the customer has electronic invoicing data or it's enabled globally
+            $factusService = new FactusService();
+            if ($factusService->isEnabled()) {
+                try {
+                    $factusService->createInvoice($sale->fresh());
+                } catch (\Exception $e) {
+                    Log::error('Error facturando pedido e-commerce #' . $sale->invoice_number . ': ' . $e->getMessage());
+                    // We don't roll back because the sale is already approved in our system
+                    // But we notify the user
+                    $this->dispatch('notify', message: 'Pedido aprobado pero falló factura electrónica: ' . $e->getMessage(), type: 'warning');
+                }
             }
 
             ActivityLogService::log(

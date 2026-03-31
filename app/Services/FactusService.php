@@ -298,7 +298,10 @@ class FactusService
     {
         $items = [];
 
-        foreach ($sale->items as $item) {
+        // Only include items that are not marked as unavailable
+        $availableItems = $sale->items()->where('is_unavailable', false)->get();
+
+        foreach ($availableItems as $item) {
             // unit_price is the base price (without tax)
             // Factus expects price with tax included
             $taxRate = (float) $item->tax_rate;
