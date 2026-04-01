@@ -10,6 +10,7 @@ use App\Models\EcommerceOrder;
 use App\Models\Product;
 use App\Models\InventoryMovement;
 use App\Services\EcommerceCheckoutService;
+use App\Services\FactusService;
 use App\Services\ActivityLogService;
 use Livewire\Attributes\Layout;
 use Livewire\Component;

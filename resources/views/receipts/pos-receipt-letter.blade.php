@@ -223,7 +223,7 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($sale->items as $index => $item)
+                @foreach($sale->items->where('is_unavailable', false)->values() as $index => $item)
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>

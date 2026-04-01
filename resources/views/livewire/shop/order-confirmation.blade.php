@@ -29,7 +29,7 @@
             <div class="px-6 py-4">
                 <h3 class="text-sm font-semibold text-slate-700 mb-3">Productos</h3>
                 <div class="space-y-3">
-                    @foreach($sale->items as $item)
+                    @foreach($sale->items->where('is_unavailable', false) as $item)
                         <div class="flex items-center justify-between text-sm">
                             <div class="flex-1">
                                 <span class="font-medium text-slate-900">{{ $item->product_name }}</span>

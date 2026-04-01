@@ -425,7 +425,7 @@
                 <span>Producto</span>
                 <span>Total</span>
             </div>
-            @foreach($sale->items as $item)
+            @foreach($sale->items->where('is_unavailable', false) as $item)
             <div class="item">
                 <div class="item-name">{{ $item->product_name }}</div>
                 @php
