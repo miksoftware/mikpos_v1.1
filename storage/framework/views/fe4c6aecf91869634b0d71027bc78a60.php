@@ -5,7 +5,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
-    <title><?php echo e($title ?? 'Tienda - MikPOS'); ?></title>
+    <?php
+        $shopBranch = \App\Models\Branch::find(config('ecommerce.branch_id'));
+        $shopName = $shopBranch->name ?? 'Tienda';
+    ?>
+    <title><?php echo e($title ?? $shopName); ?></title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800" rel="stylesheet" />
     <?php echo app('Illuminate\Foundation\Vite')(['resources/css/app.css', 'resources/js/app.js']); ?>
@@ -29,17 +33,21 @@
         </div>
     <?php else: ?>
         
-        <header class="bg-white border-b border-slate-200 sticky top-0 z-40" x-data="{ mobileMenuOpen: false }">
+        <header class="bg-white border-b border-slate-200 fixed top-0 left-0 right-0 z-40" x-data="{ mobileMenuOpen: false }">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
                     
                     <a href="<?php echo e(route('shop.catalog')); ?>" class="flex items-center gap-3 flex-shrink-0">
-                        <div class="w-9 h-9 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-xl flex items-center justify-center shadow-sm">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
-                            </svg>
-                        </div>
-                        <span class="text-lg font-bold text-slate-900 hidden sm:block">MikPOS <span class="text-sm font-normal text-slate-500">Tienda</span></span>
+                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($shopBranch && $shopBranch->logo): ?>
+                            <img src="<?php echo e(Storage::url($shopBranch->logo)); ?>" alt="<?php echo e($shopName); ?>" class="h-9 w-auto object-contain">
+                        <?php else: ?>
+                            <div class="w-9 h-9 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-xl flex items-center justify-center shadow-sm">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                                </svg>
+                            </div>
+                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                        <span class="text-lg font-bold text-slate-900"><?php echo e($shopName); ?></span>
                     </a>
 
                     
@@ -131,7 +139,7 @@
         </header>
 
         
-        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1">
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 mt-16">
             <?php echo e($slot); ?>
 
         </main>
@@ -141,14 +149,18 @@
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div class="flex items-center gap-2">
-                        <div class="w-7 h-7 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-lg flex items-center justify-center">
-                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
-                            </svg>
-                        </div>
-                        <span class="text-sm font-medium text-slate-500">MikPOS Tienda</span>
+                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($shopBranch && $shopBranch->logo): ?>
+                            <img src="<?php echo e(Storage::url($shopBranch->logo)); ?>" alt="<?php echo e($shopName); ?>" class="h-7 w-auto object-contain">
+                        <?php else: ?>
+                            <div class="w-7 h-7 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-lg flex items-center justify-center">
+                                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                                </svg>
+                            </div>
+                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                        <span class="text-sm font-medium text-slate-500"><?php echo e($shopName); ?></span>
                     </div>
-                    <p class="text-sm text-slate-400">&copy; <?php echo e(date('Y')); ?> MikPOS. Todos los derechos reservados.</p>
+                    <p class="text-sm text-slate-400">&copy; <?php echo e(date('Y')); ?> <?php echo e($shopName); ?>. Todos los derechos reservados.</p>
                 </div>
             </div>
         </footer>

@@ -46,18 +46,18 @@
 
     
     <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($products->count() > 0): ?>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div class="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
             <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $products; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $product): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                 <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-md hover:border-slate-300 transition-all group flex flex-col">
                     
-                    <div class="aspect-square bg-slate-100 overflow-hidden cursor-pointer" wire:click="openProductModal(<?php echo e($product->id); ?>)">
+                    <div class="aspect-[4/3] bg-slate-100 overflow-hidden cursor-pointer" wire:click="openProductModal(<?php echo e($product->id); ?>)">
                         <img src="<?php echo e($product->getDisplayImageUrl()); ?>" alt="<?php echo e($product->name); ?>"
                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
                     </div>
 
                     
-                    <div class="p-4 space-y-2 flex-1 flex flex-col">
-                        <div class="flex items-center gap-2 text-xs text-slate-500">
+                    <div class="p-2 sm:p-4 space-y-1 sm:space-y-2 flex-1 flex flex-col">
+                        <div class="hidden sm:flex items-center gap-2 text-xs text-slate-500">
                             <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($product->category): ?>
                                 <span><?php echo e($product->category->name); ?></span>
                             <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
@@ -69,27 +69,30 @@
                             <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                         </div>
 
-                        <h3 class="font-semibold text-slate-900 text-sm leading-tight line-clamp-2 cursor-pointer hover:text-[#ff7261] transition-colors"
+                        <h3 class="font-semibold text-slate-900 text-[10px] sm:text-sm leading-tight line-clamp-2 cursor-pointer hover:text-[#ff7261] transition-colors"
                             wire:click="openProductModal(<?php echo e($product->id); ?>)"><?php echo e($product->name); ?></h3>
 
-                        <p class="text-lg font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] bg-clip-text text-transparent">
+                        <p class="text-xs sm:text-lg font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] bg-clip-text text-transparent">
                             $<?php echo e(number_format($product->getSalePriceWithTax(), 0, ',', '.')); ?>
 
                         </p>
 
-                        <p class="text-xs <?php echo e($product->current_stock <= $product->min_stock ? 'text-red-500' : 'text-green-600'); ?>">
-                            <?php echo e(rtrim(rtrim(number_format($product->current_stock, 3), '0'), '.')); ?> disponibles
+                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($showStockInShop && $product->manages_inventory): ?>
+                        <p class="text-[9px] sm:text-xs <?php echo e($product->current_stock > 0 ? 'text-green-600' : 'text-red-500'); ?>">
+                            <?php echo e(rtrim(rtrim(number_format($product->current_stock, 3), '0'), '.')); ?> disponible(s)
                         </p>
+                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 
                         
-                        <div class="mt-auto pt-2">
+                        <div class="mt-auto pt-1 sm:pt-2">
                             <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(auth()->guard('customer')->check()): ?>
                                 <button wire:click="quickAddToCart(<?php echo e($product->id); ?>)"
-                                    class="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    class="w-full flex items-center justify-center gap-1 sm:gap-1.5 px-1 sm:px-3 py-1.5 sm:py-2 text-[9px] sm:text-xs font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-lg sm:rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all">
+                                    <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"></path>
                                     </svg>
-                                    Añadir al carrito
+                                    <span class="hidden sm:inline">Añadir al carrito</span>
+                                    <span class="sm:hidden">Añadir</span>
                                 </button>
                             <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                         </div>
@@ -99,8 +102,26 @@
         </div>
 
         <div class="mt-6">
-            <?php echo e($products->links()); ?>
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($products->hasPages()): ?>
+            <div class="flex items-center justify-center gap-2">
+                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($products->onFirstPage()): ?>
+                    <span class="px-4 py-2 text-sm font-medium text-slate-400 bg-slate-100 rounded-xl cursor-not-allowed">← Anterior</span>
+                <?php else: ?>
+                    <button wire:click="previousPage" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors">← Anterior</button>
+                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 
+                <span class="px-3 py-2 text-sm text-slate-500">
+                    <?php echo e($products->currentPage()); ?> / <?php echo e($products->lastPage()); ?>
+
+                </span>
+
+                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($products->hasMorePages()): ?>
+                    <button wire:click="nextPage" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-colors">Siguiente →</button>
+                <?php else: ?>
+                    <span class="px-4 py-2 text-sm font-medium text-slate-400 bg-slate-100 rounded-xl cursor-not-allowed">Siguiente →</span>
+                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+            </div>
+            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
         </div>
     <?php else: ?>
         <div class="text-center py-16">
@@ -135,7 +156,7 @@
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-0">
                             
-                            <div class="aspect-square bg-slate-100 rounded-t-2xl sm:rounded-l-2xl sm:rounded-tr-none overflow-hidden">
+                            <div class="aspect-[4/3] sm:aspect-square bg-slate-100 rounded-t-2xl sm:rounded-l-2xl sm:rounded-tr-none overflow-hidden">
                                 <img src="<?php echo e($selectedProduct->getDisplayImageUrl()); ?>" alt="<?php echo e($selectedProduct->name); ?>" class="w-full h-full object-cover">
                             </div>
 
@@ -153,28 +174,52 @@
                                 <h2 class="text-lg font-bold text-slate-900"><?php echo e($selectedProduct->name); ?></h2>
 
                                 <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($selectedProduct->description): ?>
-                                    <p class="text-sm text-slate-600 line-clamp-3"><?php echo e($selectedProduct->description); ?></p>
+                                    <p class="text-xs text-slate-500 leading-relaxed"><?php echo e(Str::limit($selectedProduct->description, 300)); ?></p>
                                 <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 
+                                <?php
+                                    $displayPrice = $selectedProduct->getSalePriceWithTax();
+                                    if ($selectedVariantId) {
+                                        $selectedVariant = $selectedProduct->activeChildren->find($selectedVariantId);
+                                        if ($selectedVariant) {
+                                            $displayPrice = $selectedVariant->getSalePriceWithTax();
+                                        }
+                                    }
+                                ?>
                                 <p class="text-2xl font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] bg-clip-text text-transparent">
-                                    $<?php echo e(number_format($selectedProduct->getSalePriceWithTax(), 0, ',', '.')); ?>
+                                    $<?php echo e(number_format($displayPrice, 0, ',', '.')); ?>
 
                                 </p>
 
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($showStockInShop && $selectedProduct->manages_inventory): ?>
+                                <p class="text-xs <?php echo e($selectedProduct->current_stock > 0 ? 'text-green-600' : 'text-red-500'); ?>">
+                                    <?php echo e(rtrim(rtrim(number_format($selectedProduct->current_stock, 3), '0'), '.')); ?> disponible(s)
+                                </p>
+                                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
                                 <div class="flex items-center gap-3 text-sm">
-                                    <span class="<?php echo e($selectedProduct->current_stock <= $selectedProduct->min_stock ? 'text-red-500' : 'text-green-600'); ?>">
-                                        <?php echo e(rtrim(rtrim(number_format($selectedProduct->current_stock, 3), '0'), '.')); ?> disponibles
-                                    </span>
                                     <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($selectedProduct->unit): ?>
-                                        <span class="text-slate-400">· <?php echo e($selectedProduct->unit->abbreviation); ?></span>
+                                        <span class="text-slate-400"><?php echo e($selectedProduct->unit->abbreviation); ?></span>
                                     <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                                 </div>
 
                                 
                                 <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($selectedProduct->activeChildren->count() > 0): ?>
                                     <div>
-                                        <label class="block text-xs font-medium text-slate-700 mb-1.5">Variante</label>
+                                        <label class="block text-xs font-medium text-slate-700 mb-1.5">Presentación</label>
                                         <div class="flex flex-wrap gap-1.5">
+                                            <button wire:click="$set('selectedVariantId', null)"
+                                                class="px-3 py-1.5 text-xs rounded-lg border-2 transition-all
+                                                    <?php echo e($selectedVariantId === null
+                                                        ? 'border-[#ff7261] bg-[#ff7261]/5 text-[#ff7261] font-medium'
+                                                        : 'border-slate-200 text-slate-700 hover:border-slate-300'); ?>">
+                                                <?php echo e($selectedProduct->name); ?>
+
+                                                <span class="text-xs <?php echo e($selectedVariantId === null ? 'text-[#ff7261]/70' : 'text-slate-400'); ?>">
+                                                    · $<?php echo e(number_format($selectedProduct->getSalePriceWithTax(), 0, ',', '.')); ?>
+
+                                                </span>
+                                            </button>
                                             <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $selectedProduct->activeChildren; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $variant): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                                                 <button wire:click="$set('selectedVariantId', <?php echo e($variant->id); ?>)"
                                                     class="px-3 py-1.5 text-xs rounded-lg border-2 transition-all
@@ -183,6 +228,10 @@
                                                             : 'border-slate-200 text-slate-700 hover:border-slate-300'); ?>">
                                                     <?php echo e($variant->name); ?>
 
+                                                    <span class="text-xs <?php echo e($selectedVariantId === $variant->id ? 'text-[#ff7261]/70' : 'text-slate-400'); ?>">
+                                                        · $<?php echo e(number_format($variant->getSalePriceWithTax(), 0, ',', '.')); ?>
+
+                                                    </span>
                                                 </button>
                                             <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                                         </div>
@@ -198,12 +247,11 @@
                                                 <button wire:click="decrementModalQuantity" class="px-2.5 py-1.5 text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50" <?php echo e($modalQuantity <= 1 ? 'disabled' : ''); ?>>
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
                                                 </button>
-                                                <input type="number" wire:model.live.debounce.300ms="modalQuantity" min="1" max="<?php echo e((int) $this->modalMaxStock); ?>" class="w-14 text-center border-x border-slate-300 py-1.5 text-sm font-medium focus:outline-none">
-                                                <button wire:click="incrementModalQuantity" class="px-2.5 py-1.5 text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50" <?php echo e($modalQuantity >= (int) $this->modalMaxStock ? 'disabled' : ''); ?>>
+                                                <input type="number" wire:model.live.debounce.300ms="modalQuantity" min="1" <?php echo e($selectedProduct->manages_inventory ? 'max=' . (int) $this->modalMaxStock : ''); ?> class="w-14 text-center border-x border-slate-300 py-1.5 text-sm font-medium focus:outline-none">
+                                                <button wire:click="incrementModalQuantity" class="px-2.5 py-1.5 text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50" <?php echo e($selectedProduct->manages_inventory && $modalQuantity >= (int) $this->modalMaxStock ? 'disabled' : ''); ?>>
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                                 </button>
                                             </div>
-                                            <span class="text-xs text-slate-400">Máx: <?php echo e(rtrim(rtrim(number_format($this->modalMaxStock, 3), '0'), '.')); ?></span>
                                         </div>
                                     </div>
 
@@ -287,7 +335,7 @@
                                 <span>$<?php echo e(number_format($this->cartTotal, 0, ',', '.')); ?></span>
                             </div>
                             <a href="<?php echo e(route('shop.checkout')); ?>" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all">
-                                Proceder al pago
+                                Finalizar pedido
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                             </a>
                         </div>
