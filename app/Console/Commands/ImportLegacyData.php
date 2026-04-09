@@ -925,7 +925,7 @@ class ImportLegacyData extends Command
 
             $tipoComision = strtoupper(trim($row['tipo_comision'] ?? 'NINGUNA'));
             $hasCommission = $tipoComision !== 'NINGUNA';
-            $commissionType = match ($tipoComision) { 'PORCENTAJE' => 'percentage', 'VALOR' => 'fixed', default => null };
+            $commissionType = match ($tipoComision) { 'PORCENTAJE' => 'percentage', 'VALOR' => 'fixed', default => 'fixed' };
 
             $service = new Service([
                 'branch_id' => $this->branchId, 'name' => $name,
