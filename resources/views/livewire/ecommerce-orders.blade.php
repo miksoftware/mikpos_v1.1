@@ -466,6 +466,18 @@
                                         <p class="text-xs text-orange-700 font-medium">⚠ No enviado: {{ $item->unavailable_reason ?? 'Sin motivo' }}</p>
                                     </div>
                                     @endif
+
+                                    @if($item->original_quantity && (float) $item->original_quantity !== (float) $item->quantity)
+                                    <div class="mt-2 pt-2 border-t border-blue-200">
+                                        <p class="text-xs text-blue-700 font-medium">
+                                            ✏ Cantidad modificada: <span class="line-through">{{ rtrim(rtrim(number_format($item->original_quantity, 3), '0'), '.') }}</span>
+                                            → {{ rtrim(rtrim(number_format($item->quantity, 3), '0'), '.') }}
+                                        </p>
+                                        @if($item->quantity_change_reason)
+                                        <p class="text-xs text-blue-600 mt-0.5">Motivo: {{ $item->quantity_change_reason }}</p>
+                                        @endif
+                                    </div>
+                                    @endif
                                 </div>
                                 @endforeach
                             </div>
@@ -525,6 +537,10 @@
                             <button wire:click="openRejectModal({{ $selectedSale->id }})" class="px-4 py-2 text-sm font-medium text-red-700 bg-white border border-red-300 rounded-xl hover:bg-red-50">
                                 Rechazar
                             </button>
+                            <button wire:click="openEditQuantitiesModal" class="px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-300 rounded-xl hover:bg-blue-50">
+                                <svg class="w-4 h-4 inline -mt-0.5 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                Editar cantidades
+                            </button>
                             @endif
                             <a href="{{ route('receipt.show', $selectedSale->id) }}" target="_blank" class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
@@ -568,6 +584,79 @@
                     <div class="flex justify-center gap-3 mt-4">
                         <button wire:click="closeRejectModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
                         <button wire:click="rejectOrder" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700">Rechazar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Edit Quantities Modal --}}
+    @if($showEditQuantitiesModal)
+    <div class="relative z-[100]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="closeEditQuantitiesModal"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-xl">
+                    {{-- Header --}}
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">Editar Cantidades</h3>
+                            <p class="text-sm text-slate-500">Pedido {{ $selectedSale?->invoice_number }}</p>
+                        </div>
+                        <button wire:click="closeEditQuantitiesModal" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    {{-- Content --}}
+                    <div class="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                        @foreach($editableItems as $itemId => $item)
+                        <div class="border border-slate-200 rounded-xl p-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-sm font-medium text-slate-900">{{ $item['product_name'] }}</p>
+                                <span class="text-xs text-slate-500">${{ number_format($item['unit_price'], 0, ',', '.') }} c/u</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="flex-1">
+                                    <label class="block text-xs text-slate-500 mb-1">Cantidad actual</label>
+                                    <div class="px-3 py-2 bg-slate-100 rounded-lg text-sm text-slate-600">
+                                        {{ rtrim(rtrim(number_format($item['current_quantity'], 3), '0'), '.') }}
+                                    </div>
+                                </div>
+                                <div class="flex items-center pt-5">
+                                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                                </div>
+                                <div class="flex-1">
+                                    <label class="block text-xs text-slate-500 mb-1">Nueva cantidad</label>
+                                    <input type="number" wire:model="editableItems.{{ $itemId }}.new_quantity"
+                                        min="0" step="0.001"
+                                        class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]
+                                        {{ (float) $item['new_quantity'] !== (float) $item['current_quantity'] ? 'border-blue-400 bg-blue-50' : '' }}">
+                                </div>
+                            </div>
+                            @if((float) $item['new_quantity'] !== (float) $item['current_quantity'])
+                            <div class="mt-2 text-xs text-blue-600">
+                                Nuevo total: ${{ number_format($item['unit_price'] * (float) $item['new_quantity'], 0, ',', '.') }}
+                            </div>
+                            @endif
+                        </div>
+                        @endforeach
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Motivo del cambio <span class="text-red-500">*</span></label>
+                            <textarea wire:model="quantityChangeReason" rows="2" placeholder="Ej: Ajuste por disponibilidad de inventario..."
+                                class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm"></textarea>
+                            @error('quantityChangeReason')<span class="text-red-500 text-xs">{{ $message }}</span>@enderror
+                        </div>
+                    </div>
+
+                    {{-- Footer --}}
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                        <button wire:click="closeEditQuantitiesModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
+                        <button wire:click="saveEditedQuantities" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea]">
+                            Guardar cambios
+                        </button>
                     </div>
                 </div>
             </div>

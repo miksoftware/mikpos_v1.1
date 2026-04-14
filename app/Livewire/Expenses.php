@@ -20,6 +20,8 @@ class Expenses extends Component
 
     public string $search = '';
     public string $filterPaymentMethod = '';
+    public string $filterContactType = '';
+    public string $filterContact = '';
     public ?string $filterDateFrom = null;
     public ?string $filterDateTo = null;
 
@@ -199,10 +201,18 @@ class Expenses extends Component
         $this->dispatch('notify', message: 'Gasto eliminado correctamente', type: 'success');
     }
 
+    public function updatedFilterContactType()
+    {
+        $this->filterContact = '';
+        $this->resetPage();
+    }
+
     public function clearFilters()
     {
         $this->search = '';
         $this->filterPaymentMethod = '';
+        $this->filterContactType = '';
+        $this->filterContact = '';
         $this->filterDateFrom = null;
         $this->filterDateTo = null;
         $this->resetPage();
@@ -229,24 +239,47 @@ class Expenses extends Component
             $query->where('branch_id', $user->branch_id);
         }
 
-        $items = $query
-            ->when(trim($this->search), function ($q) {
+        // Apply filters
+        $query->when(trim($this->search), function ($q) {
                 $q->where('description', 'like', '%' . trim($this->search) . '%');
             })
-            ->when($this->filterPaymentMethod, fn($q) => $q->where('payment_method_id', $this->filterPaymentMethod))
-            ->when($this->filterDateFrom, fn($q) => $q->whereDate('created_at', '>=', $this->filterDateFrom))
-            ->when($this->filterDateTo, fn($q) => $q->whereDate('created_at', '<=', $this->filterDateTo))
-            ->latest()
-            ->paginate(10);
+            ->when($this->filterPaymentMethod, fn($q) => $q->where('expenses.payment_method_id', $this->filterPaymentMethod))
+            ->when($this->filterDateFrom, fn($q) => $q->whereDate('expenses.created_at', '>=', $this->filterDateFrom))
+            ->when($this->filterDateTo, fn($q) => $q->whereDate('expenses.created_at', '<=', $this->filterDateTo))
+            ->when($this->filterContactType, fn($q) => $q->where('expenses.contact_type', $this->filterContactType))
+            ->when(trim($this->filterContact), function ($q) {
+                $search = '%' . trim($this->filterContact) . '%';
+                $q->where(function ($sub) use ($search) {
+                    // Search in suppliers
+                    $sub->where(function ($s) use ($search) {
+                        $s->where('expenses.contact_type', 'supplier')
+                          ->whereIn('expenses.contact_id', function ($sq) use ($search) {
+                              $sq->select('id')->from('suppliers')
+                                 ->where(function ($w) use ($search) {
+                                     $w->where('name', 'like', $search)
+                                       ->orWhere('document_number', 'like', $search);
+                                 });
+                          });
+                    })
+                    // Search in customers
+                    ->orWhere(function ($s) use ($search) {
+                        $s->where('expenses.contact_type', 'customer')
+                          ->whereIn('expenses.contact_id', function ($sq) use ($search) {
+                              $sq->select('id')->from('customers')
+                                 ->where(function ($w) use ($search) {
+                                     $w->where('first_name', 'like', $search)
+                                       ->orWhere('last_name', 'like', $search)
+                                       ->orWhere('business_name', 'like', $search)
+                                       ->orWhere('document_number', 'like', $search);
+                                 });
+                          });
+                    });
+                });
+            });
 
-        $totalFiltered = $query
-            ->when(trim($this->search), function ($q) {
-                $q->where('description', 'like', '%' . trim($this->search) . '%');
-            })
-            ->when($this->filterPaymentMethod, fn($q) => $q->where('payment_method_id', $this->filterPaymentMethod))
-            ->when($this->filterDateFrom, fn($q) => $q->whereDate('created_at', '>=', $this->filterDateFrom))
-            ->when($this->filterDateTo, fn($q) => $q->whereDate('created_at', '<=', $this->filterDateTo))
-            ->sum('amount');
+        $totalFiltered = (clone $query)->sum('expenses.amount');
+
+        $items = $query->latest('expenses.created_at')->paginate(10);
 
         // Build contacts list: suppliers + customers
         $branchId = $user->isSuperAdmin() ? null : $user->branch_id;

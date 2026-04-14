@@ -30,6 +30,8 @@ class SaleItem extends Model
         'total',
         'is_unavailable',
         'unavailable_reason',
+        'original_quantity',
+        'quantity_change_reason',
     ];
 
     protected function casts(): array
@@ -37,6 +39,7 @@ class SaleItem extends Model
         return [
             'unit_price' => 'decimal:2',
             'quantity' => 'decimal:3',
+            'original_quantity' => 'decimal:3',
             'tax_rate' => 'decimal:2',
             'tax_amount' => 'decimal:2',
             'subtotal' => 'decimal:2',

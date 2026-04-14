@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Mail\EcommerceItemsUnavailable;
+use App\Mail\EcommerceOrderItemsModified;
 use App\Mail\EcommerceOrderStatusChanged;
 use App\Models\Sale;
 use App\Models\SaleItem;
@@ -45,6 +46,11 @@ class EcommerceOrders extends Component
     // Bulk selection
     public array $selectedOrders = [];
     public bool $selectAll = false;
+
+    // Edit quantities modal
+    public bool $showEditQuantitiesModal = false;
+    public array $editableItems = [];
+    public string $quantityChangeReason = '';
 
     // Report tab
     public string $reportPeriod = 'month';
@@ -235,6 +241,151 @@ class EcommerceOrders extends Component
             }
 
             $this->dispatch('notify', message: 'Cambios guardados', type: 'success');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->dispatch('notify', message: 'Error: ' . $e->getMessage(), type: 'error');
+        }
+    }
+
+    public function openEditQuantitiesModal()
+    {
+        if (!$this->selectedSale) return;
+
+        $this->editableItems = [];
+        foreach ($this->selectedSale->items as $item) {
+            if ($item->is_unavailable) continue;
+
+            $this->editableItems[$item->id] = [
+                'product_name' => $item->product_name,
+                'unit_price' => (float) $item->unit_price,
+                'tax_rate' => (float) $item->tax_rate,
+                'current_quantity' => (float) $item->quantity,
+                'new_quantity' => (float) $item->quantity,
+            ];
+        }
+        $this->quantityChangeReason = '';
+        $this->showEditQuantitiesModal = true;
+    }
+
+    public function closeEditQuantitiesModal()
+    {
+        $this->showEditQuantitiesModal = false;
+        $this->editableItems = [];
+        $this->quantityChangeReason = '';
+    }
+
+    public function saveEditedQuantities()
+    {
+        $this->validate([
+            'quantityChangeReason' => 'required|min:5',
+        ], [
+            'quantityChangeReason.required' => 'El motivo del cambio es obligatorio.',
+            'quantityChangeReason.min' => 'El motivo debe tener al menos 5 caracteres.',
+        ]);
+
+        if (!$this->selectedSale) return;
+
+        // Check that at least one quantity changed
+        $hasChanges = false;
+        foreach ($this->editableItems as $data) {
+            if ((float) $data['new_quantity'] !== (float) $data['current_quantity']) {
+                $hasChanges = true;
+                break;
+            }
+        }
+
+        if (!$hasChanges) {
+            $this->dispatch('notify', message: 'No hay cambios en las cantidades', type: 'warning');
+            return;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $changes = [];
+
+            foreach ($this->editableItems as $itemId => $data) {
+                $newQty = (float) $data['new_quantity'];
+                $oldQty = (float) $data['current_quantity'];
+
+                if ($newQty === $oldQty) continue;
+                if ($newQty < 0) continue;
+
+                $saleItem = SaleItem::find($itemId);
+                if (!$saleItem) continue;
+
+                // Track the change
+                $changes[] = [
+                    'product_name' => $saleItem->product_name,
+                    'old_quantity' => $oldQty,
+                    'new_quantity' => $newQty,
+                    'reason' => $this->quantityChangeReason,
+                ];
+
+                // Adjust inventory
+                if ($saleItem->product_id) {
+                    $product = Product::find($saleItem->product_id);
+                    if ($product && $product->manages_inventory) {
+                        $diff = $oldQty - $newQty;
+                        if ($diff > 0) {
+                            // Quantity reduced → return stock
+                            $product->increment('current_stock', $diff);
+                        } elseif ($diff < 0) {
+                            // Quantity increased → reserve more stock
+                            $product->decrement('current_stock', abs($diff));
+                        }
+                    }
+                }
+
+                // Recalculate item totals
+                $lineTotal = $saleItem->unit_price * $newQty;
+                $taxAmount = 0;
+                if ((float) $saleItem->tax_rate > 0) {
+                    $priceWithoutTax = $saleItem->unit_price / (1 + (float) $saleItem->tax_rate / 100);
+                    $taxAmount = ($saleItem->unit_price - $priceWithoutTax) * $newQty;
+                }
+
+                $saleItem->update([
+                    'original_quantity' => $saleItem->original_quantity ?? $oldQty,
+                    'quantity' => $newQty,
+                    'quantity_change_reason' => $this->quantityChangeReason,
+                    'tax_amount' => round($taxAmount, 2),
+                    'subtotal' => round($lineTotal - $taxAmount, 2),
+                    'total' => round($lineTotal, 2),
+                ]);
+            }
+
+            // Recalculate sale totals
+            $this->recalculateSaleTotals($this->selectedSale);
+
+            ActivityLogService::log(
+                'ecommerce_orders',
+                'update',
+                "Cantidades modificadas en pedido #{$this->selectedSale->invoice_number}: {$this->quantityChangeReason}",
+                $this->selectedSale,
+                ['items' => collect($changes)->map(fn($c) => "{$c['product_name']}: {$c['old_quantity']}")->implode(', ')],
+                ['items' => collect($changes)->map(fn($c) => "{$c['product_name']}: {$c['new_quantity']}")->implode(', ')],
+            );
+
+            DB::commit();
+
+            // Send email to customer
+            try {
+                $this->selectedSale->refresh();
+                $customer = $this->selectedSale->customer;
+                if ($customer && $customer->email && !empty($changes)) {
+                    Mail::to($customer->email)->send(new EcommerceOrderItemsModified($this->selectedSale, $changes));
+                }
+            } catch (\Exception $e) {
+                Log::error('Error enviando email de cambio de cantidades: ' . $e->getMessage());
+            }
+
+            // Refresh modal data
+            $this->selectedSale->refresh();
+            $this->selectedSale->load('items.product');
+
+            $this->closeEditQuantitiesModal();
+            $this->dispatch('notify', message: 'Cantidades actualizadas correctamente', type: 'success');
         } catch (\Exception $e) {
             DB::rollBack();
             $this->dispatch('notify', message: 'Error: ' . $e->getMessage(), type: 'error');

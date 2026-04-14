@@ -27,7 +27,8 @@ class CreditsReport extends Component
     public string $creditType = ''; // payable, receivable
     public string $paymentStatus = ''; // pending, partial, paid
     public string $search = '';
-    public string $viewMode = 'summary'; // summary, by_customer, by_supplier, by_date, payments
+    public string $viewMode = 'summary'; // summary, by_customer, by_customer_grouped, by_supplier, by_date, payments
+    public ?int $expandedCustomerId = null;
 
     // Summary data
     public array $summary = [];
@@ -90,6 +91,7 @@ class CreditsReport extends Component
 
     public function updatedViewMode()
     {
+        $this->expandedCustomerId = null;
         $this->resetPage();
     }
 
@@ -360,6 +362,8 @@ class CreditsReport extends Component
     {
         if ($this->viewMode === 'by_customer') {
             return $this->getByCustomerData();
+        } elseif ($this->viewMode === 'by_customer_grouped') {
+            return $this->getByCustomerGroupedData();
         } elseif ($this->viewMode === 'by_supplier') {
             return $this->getBySupplierData();
         } elseif ($this->viewMode === 'by_date') {
@@ -399,6 +403,65 @@ class CreditsReport extends Component
             )
             ->orderByDesc('sales.created_at')
             ->paginate(15);
+    }
+
+    private function getByCustomerGroupedData()
+    {
+        // Get customer summaries
+        $query = Sale::where('sales.payment_type', 'credit')
+            ->where('sales.status', 'completed')
+            ->whereNotNull('sales.customer_id')
+            ->join('customers', 'sales.customer_id', '=', 'customers.id');
+        $this->applyBranchFilter($query, 'sales');
+        $this->applyDateFilter($query, 'sales');
+
+        if ($this->paymentStatus) {
+            $query->where('sales.payment_status', $this->paymentStatus);
+        }
+
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->where('customers.first_name', 'like', "%{$this->search}%")
+                    ->orWhere('customers.last_name', 'like', "%{$this->search}%")
+                    ->orWhere('customers.business_name', 'like', "%{$this->search}%")
+                    ->orWhere('customers.document_number', 'like', "%{$this->search}%");
+            });
+        }
+
+        $customers = $query->select(
+                'customers.id',
+                'customers.document_number',
+                'customers.phone',
+                DB::raw("CASE WHEN customers.customer_type = 'juridico' THEN customers.business_name ELSE CONCAT(customers.first_name, ' ', customers.last_name) END as customer_name"),
+                DB::raw('COUNT(sales.id) as total_invoices'),
+                DB::raw('SUM(sales.credit_amount) as total_credit'),
+                DB::raw('SUM(sales.paid_amount) as total_paid'),
+                DB::raw('SUM(sales.credit_amount - sales.paid_amount) as total_remaining')
+            )
+            ->groupBy('customers.id', 'customers.customer_type', 'customers.business_name', 'customers.first_name', 'customers.last_name', 'customers.document_number', 'customers.phone')
+            ->orderByDesc('total_remaining')
+            ->paginate(15);
+
+        // Load invoices for expanded customer
+        $expandedInvoices = collect();
+        if ($this->expandedCustomerId) {
+            $invQuery = Sale::where('sales.payment_type', 'credit')
+                ->where('sales.status', 'completed')
+                ->where('sales.customer_id', $this->expandedCustomerId);
+            $this->applyBranchFilter($invQuery, 'sales');
+            $this->applyDateFilter($invQuery, 'sales');
+            if ($this->paymentStatus) {
+                $invQuery->where('sales.payment_status', $this->paymentStatus);
+            }
+            $expandedInvoices = $invQuery->orderByDesc('sales.created_at')->get();
+        }
+
+        return ['customers' => $customers, 'expandedInvoices' => $expandedInvoices];
+    }
+
+    public function toggleCustomer($customerId)
+    {
+        $this->expandedCustomerId = $this->expandedCustomerId == $customerId ? null : $customerId;
     }
 
     private function getBySupplierData()
@@ -527,6 +590,7 @@ class CreditsReport extends Component
         $this->paymentStatus = '';
         $this->search = '';
         $this->viewMode = 'summary';
+        $this->expandedCustomerId = null;
         if (auth()->user()->isSuperAdmin()) {
             $this->selectedBranchId = null;
         }

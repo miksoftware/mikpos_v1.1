@@ -5,6 +5,23 @@
             <h1 class="text-2xl font-bold text-slate-800">Libro de Ventas</h1>
             <p class="text-slate-500 mt-1">Reporte completo de ventas con análisis detallado</p>
         </div>
+        @if(auth()->user()->hasPermission('reports.export'))
+        <a href="{{ route('reports.sales-book.excel', [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'branch_id' => $selectedBranchId,
+            'user_id' => $selectedUserId,
+            'payment_method_id' => $selectedPaymentMethodId,
+            'cash_register_id' => $selectedCashRegisterId,
+            'status' => $statusFilter,
+            'search' => $search,
+        ]) }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition">
+            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            Exportar Excel
+        </a>
+        @endif
     </div>
 
     {{-- Summary Cards --}}
@@ -341,7 +358,7 @@
                             <p class="text-xs text-slate-400">{{ $sale->created_at->format('H:i') }}</p>
                         </td>
                         <td class="px-6 py-4">
-                            <p class="text-slate-800">{{ $sale->customer?->name ?? $sale->customer?->business_name ?? 'Consumidor Final' }}</p>
+                            <p class="text-slate-800">{{ $sale->customer?->full_name ?? 'Consumidor Final' }}</p>
                             @if($sale->customer?->document_number)
                             <p class="text-xs text-slate-500">{{ $sale->customer->document_number }}</p>
                             @endif
@@ -349,11 +366,19 @@
                         <td class="px-6 py-4 text-slate-600">{{ $sale->user?->name ?? '-' }}</td>
                         <td class="px-6 py-4">
                             <div class="flex flex-wrap gap-1">
-                                @foreach($sale->payments as $payment)
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
-                                    {{ $payment->paymentMethod?->name ?? 'N/A' }}
-                                </span>
-                                @endforeach
+                                @if($sale->payments->isNotEmpty())
+                                    @foreach($sale->payments as $payment)
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                                        {{ $payment->paymentMethod?->name ?? 'N/A' }}
+                                    </span>
+                                    @endforeach
+                                @elseif($sale->payment_type === 'credit')
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                        Crédito
+                                    </span>
+                                @else
+                                    <span class="text-xs text-slate-400">-</span>
+                                @endif
                             </div>
                         </td>
                         <td class="px-6 py-4 text-right font-bold text-green-600">${{ number_format($sale->total, 0) }}</td>
@@ -430,7 +455,7 @@
                             </div>
                             <div class="p-3 bg-slate-50 rounded-xl">
                                 <p class="text-xs text-slate-500">Cliente</p>
-                                <p class="font-medium text-slate-800">{{ $selectedSale->customer?->name ?? $selectedSale->customer?->business_name ?? 'Consumidor Final' }}</p>
+                                <p class="font-medium text-slate-800">{{ $selectedSale->customer?->full_name ?? 'Consumidor Final' }}</p>
                             </div>
                             <div class="p-3 bg-slate-50 rounded-xl">
                                 <p class="text-xs text-slate-500">Vendedor</p>

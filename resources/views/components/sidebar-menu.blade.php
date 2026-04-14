@@ -502,6 +502,14 @@
         <span>Medios de Pago</span>
     </a>
     @endif
+    @if (auth()->user()->hasPermission('reports.customer_sales'))
+    <a href="{{ route('reports.customer-sales') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('reports.customer-sales') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        <span>Ventas por Cliente</span>
+    </a>
+    @endif
     @if (auth()->user()->hasPermission('reports.kardex'))
     <a href="{{ route('reports.kardex') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('reports.kardex') ? $activeClass : $inactiveClass }}">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -527,7 +535,7 @@
     </button>
     <div x-show="reportesOpen && sidebarOpen" x-collapse class="{{ $sectionClass }}">
         <!-- Ventas Submenu -->
-        <div x-data="{ ventasReportOpen: {{ request()->routeIs('reports.products-sold') || request()->routeIs('reports.commissions') || request()->routeIs('reports.sales-book') || request()->routeIs('reports.profit-loss') || request()->routeIs('reports.credits') || request()->routeIs('reports.purchases') || request()->routeIs('reports.cash') || request()->routeIs('reports.payment-methods') ? 'true' : 'false' }} }">
+        <div x-data="{ ventasReportOpen: {{ request()->routeIs('reports.products-sold') || request()->routeIs('reports.commissions') || request()->routeIs('reports.sales-book') || request()->routeIs('reports.profit-loss') || request()->routeIs('reports.credits') || request()->routeIs('reports.purchases') || request()->routeIs('reports.cash') || request()->routeIs('reports.payment-methods') || request()->routeIs('reports.customer-sales') ? 'true' : 'false' }} }">
             <button @click="ventasReportOpen = !ventasReportOpen"
                 class="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-slate-400 hover:bg-white/5 hover:text-white">
                 <div class="flex items-center gap-3">
@@ -603,6 +611,14 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
                     </svg>
                     <span class="text-xs">Medios de Pago</span>
+                </a>
+                @endif
+                @if (auth()->user()->hasPermission('reports.customer_sales'))
+                <a href="{{ route('reports.customer-sales') }}" class="flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all duration-200 {{ request()->routeIs('reports.customer-sales') ? $activeClass : $inactiveClass }}">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    <span class="text-xs">Ventas por Cliente</span>
                 </a>
                 @endif
             </div>

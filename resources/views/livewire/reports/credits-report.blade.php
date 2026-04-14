@@ -7,6 +7,19 @@
             <h1 class="text-2xl font-bold text-slate-800">Reporte de Créditos</h1>
             <p class="text-slate-500 mt-1">Análisis de cuentas por pagar y por cobrar</p>
         </div>
+        @if($viewMode === 'by_customer_grouped')
+        <a href="{{ route('reports.credits.excel', [
+            'date_range' => $dateRange,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'branch_id' => $selectedBranchId,
+            'payment_status' => $paymentStatus,
+            'search' => $search,
+        ]) }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            Exportar Excel
+        </a>
+        @endif
     </div>
 
     {{-- Filters --}}
@@ -74,6 +87,7 @@
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-1.5 flex flex-wrap gap-1">
         @foreach([
             'summary' => 'Resumen',
+            'by_customer_grouped' => 'Créditos por Cliente',
             'by_customer' => 'Por Cliente',
             'by_supplier' => 'Por Proveedor',
             'by_date' => 'Por Fecha',
@@ -428,8 +442,151 @@
 
     @endif {{-- end summary --}}
 
-    {{-- Detail Views --}}
-    @if($viewMode !== 'summary')
+    @if($viewMode === 'by_customer_grouped')
+    {{-- Grouped by Customer View --}}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-4">
+        <input wire:model.live.debounce.300ms="search" type="text" placeholder="Buscar cliente por nombre o documento..."
+            class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+    </div>
+
+    @php $grouped = $detailData; $customersList = $grouped['customers']; $expandedInvoices = $grouped['expandedInvoices']; @endphp
+
+    {{-- Summary cards --}}
+    @php
+        $groupedTotalCredit = $customersList->sum('total_credit');
+        $groupedTotalPaid = $customersList->sum('total_paid');
+        $groupedTotalRemaining = $customersList->sum('total_remaining');
+        $groupedTotalInvoices = $customersList->sum('total_invoices');
+    @endphp
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <p class="text-xs text-slate-500 uppercase font-semibold">Clientes</p>
+            <p class="text-xl font-bold text-slate-800">{{ $customersList->total() }}</p>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <p class="text-xs text-slate-500 uppercase font-semibold">Total Créditos</p>
+            <p class="text-xl font-bold text-blue-600">${{ number_format($receivableSummary['total_credit'], 2) }}</p>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <p class="text-xs text-slate-500 uppercase font-semibold">Total Pagado</p>
+            <p class="text-xl font-bold text-green-600">${{ number_format($receivableSummary['total_paid'], 2) }}</p>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <p class="text-xs text-slate-500 uppercase font-semibold">Total Pendiente</p>
+            <p class="text-xl font-bold text-red-600">${{ number_format($receivableSummary['total_remaining'], 2) }}</p>
+        </div>
+    </div>
+
+    <div class="space-y-3">
+        @forelse($customersList as $customer)
+        @php $isExpanded = $expandedCustomerId == $customer->id; @endphp
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            {{-- Customer header row --}}
+            <button wire:click="toggleCustomer({{ $customer->id }})" class="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-r from-[#ff7261] to-[#a855f7] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                        {{ strtoupper(substr($customer->customer_name, 0, 1)) }}
+                    </div>
+                    <div class="text-left">
+                        <p class="font-semibold text-slate-800">{{ $customer->customer_name }}</p>
+                        <p class="text-xs text-slate-400">{{ $customer->document_number }} @if($customer->phone) · {{ $customer->phone }} @endif</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-6">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-xs text-slate-400">Facturas</p>
+                        <p class="text-sm font-bold text-slate-700">{{ $customer->total_invoices }}</p>
+                    </div>
+                    <div class="text-right hidden sm:block">
+                        <p class="text-xs text-slate-400">Total</p>
+                        <p class="text-sm font-bold text-slate-700">${{ number_format($customer->total_credit, 2) }}</p>
+                    </div>
+                    <div class="text-right hidden sm:block">
+                        <p class="text-xs text-slate-400">Pagado</p>
+                        <p class="text-sm font-bold text-green-600">${{ number_format($customer->total_paid, 2) }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-slate-400">Pendiente</p>
+                        <p class="text-sm font-bold text-red-600">${{ number_format($customer->total_remaining, 2) }}</p>
+                    </div>
+                    <svg class="w-5 h-5 text-slate-400 transition-transform {{ $isExpanded ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+            </button>
+
+            {{-- Progress bar --}}
+            @if($customer->total_credit > 0)
+            <div class="px-5 pb-2">
+                <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="bg-gradient-to-r from-green-400 to-green-500 h-full rounded-full" style="width: {{ min(($customer->total_paid / $customer->total_credit) * 100, 100) }}%"></div>
+                </div>
+                <p class="text-xs text-slate-400 text-right mt-0.5">{{ number_format(($customer->total_paid / $customer->total_credit) * 100, 1) }}% pagado</p>
+            </div>
+            @endif
+
+            {{-- Expanded invoices --}}
+            @if($isExpanded && $expandedInvoices->count() > 0)
+            <div class="border-t border-slate-200 bg-slate-50/50">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="bg-slate-100">
+                                <th class="px-5 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Factura</th>
+                                <th class="px-5 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Fecha</th>
+                                <th class="px-5 py-2 text-right text-xs font-semibold text-slate-500 uppercase">Total Crédito</th>
+                                <th class="px-5 py-2 text-right text-xs font-semibold text-slate-500 uppercase">Pagado</th>
+                                <th class="px-5 py-2 text-right text-xs font-semibold text-slate-500 uppercase">Pendiente</th>
+                                <th class="px-5 py-2 text-center text-xs font-semibold text-slate-500 uppercase">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            @foreach($expandedInvoices as $invoice)
+                            @php $invRemaining = (float)$invoice->credit_amount - (float)$invoice->paid_amount; @endphp
+                            <tr class="hover:bg-white transition-colors">
+                                <td class="px-5 py-2.5 text-sm font-semibold text-slate-800">{{ $invoice->invoice_number }}</td>
+                                <td class="px-5 py-2.5 text-sm text-slate-600">{{ $invoice->created_at->format('d/m/Y') }}</td>
+                                <td class="px-5 py-2.5 text-right text-sm font-semibold">${{ number_format($invoice->credit_amount, 2) }}</td>
+                                <td class="px-5 py-2.5 text-right text-sm text-green-600">${{ number_format($invoice->paid_amount, 2) }}</td>
+                                <td class="px-5 py-2.5 text-right text-sm font-bold text-red-600">${{ number_format($invRemaining, 2) }}</td>
+                                <td class="px-5 py-2.5 text-center">
+                                    @if($invoice->payment_status === 'paid')
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Pagado</span>
+                                    @elseif($invoice->payment_status === 'partial')
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Parcial</span>
+                                    @else
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Pendiente</span>
+                                    @endif
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot class="bg-slate-100">
+                            <tr>
+                                <td colspan="2" class="px-5 py-2.5 text-sm font-bold text-slate-700">Totales</td>
+                                <td class="px-5 py-2.5 text-right text-sm font-bold text-slate-700">${{ number_format($expandedInvoices->sum('credit_amount'), 2) }}</td>
+                                <td class="px-5 py-2.5 text-right text-sm font-bold text-green-600">${{ number_format($expandedInvoices->sum('paid_amount'), 2) }}</td>
+                                <td class="px-5 py-2.5 text-right text-sm font-bold text-red-600">${{ number_format($expandedInvoices->sum('credit_amount') - $expandedInvoices->sum('paid_amount'), 2) }}</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            @endif
+        </div>
+        @empty
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center text-slate-400">
+            No hay créditos de clientes para mostrar
+        </div>
+        @endforelse
+    </div>
+
+    @if(method_exists($customersList, 'links'))
+    <div class="mt-4">{{ $customersList->links() }}</div>
+    @endif
+    @endif
+
+    {{-- Other Detail Views --}}
+    @if(!in_array($viewMode, ['summary', 'by_customer_grouped']))
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-4">
         <input wire:model.live.debounce.300ms="search" type="text" placeholder="Buscar..."
             class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">

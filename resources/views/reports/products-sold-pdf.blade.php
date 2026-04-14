@@ -295,7 +295,7 @@
                         <strong>{{ Str::limit($item->product_name, 30) }}</strong><br>
                         <span style="color: #64748b; font-size: 8px;">{{ $item->product_sku }}</span>
                     </td>
-                    <td>{{ Str::limit($item->sale->customer?->name ?? 'Consumidor Final', 20) }}</td>
+                    <td>{{ Str::limit($item->sale->customer?->full_name ?? 'Consumidor Final', 20) }}</td>
                     <td class="text-center">
                         <span class="badge">{{ $item->quantity }}</span>
                     </td>

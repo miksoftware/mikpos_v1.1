@@ -347,8 +347,11 @@ class Sales extends Component
                 }
             }
 
-            // Register cash movement for the credit note (expense)
-            $this->registerCashMovement($sale->branch_id, $creditNote->total, 'expense', "Nota Crédito {$creditNote->number}");
+            // Register cash movement only for the cash portion of the credit note
+            $cashCreditNoteAmount = $this->calculateCashPortionOfReturn($sale, $creditNote->total);
+            if ($cashCreditNoteAmount > 0) {
+                $this->registerCashMovement($sale->branch_id, $cashCreditNoteAmount, 'expense', "Nota Crédito {$creditNote->number}");
+            }
 
             // Return inventory for credit note items
             foreach ($this->creditNoteItems as $item) {
@@ -617,8 +620,11 @@ class Sales extends Component
                 }
             }
 
-            // Register cash movement for the refund (expense)
-            $this->registerCashMovement($sale->branch_id, $refund->total, 'expense', "Devolución {$refund->number}");
+            // Register cash movement only for the cash portion of the refund
+            $cashRefundAmount = $this->calculateCashPortionOfReturn($sale, $refund->total);
+            if ($cashRefundAmount > 0) {
+                $this->registerCashMovement($sale->branch_id, $cashRefundAmount, 'expense', "Devolución {$refund->number}");
+            }
 
             // Return inventory for refunded products
             foreach ($this->refundItems as $item) {
@@ -1051,6 +1057,46 @@ class Sales extends Component
         return CashReconciliation::where('opened_by', $user->id)
             ->where('status', 'open')
             ->first();
+    }
+
+    /**
+     * Calculate the cash portion of a return (refund/credit note).
+     * Only the amount originally paid in cash should affect the cash register.
+     * For partial returns, the cash portion is proportional to the return amount.
+     */
+    protected function calculateCashPortionOfReturn(Sale $sale, float $returnTotal): float
+    {
+        $sale->load('payments.paymentMethod');
+
+        $saleTotal = (float) $sale->total;
+        if ($saleTotal <= 0) {
+            return 0;
+        }
+
+        // Sum only cash payments from the original sale
+        $cashPaymentTotal = 0;
+        $allPaymentsTotal = $sale->payments->sum('amount');
+
+        foreach ($sale->payments as $payment) {
+            if ($payment->isCash()) {
+                // Adjust for overpayment (change/vuelto) same as getTotalCashSalesAttribute
+                if ($allPaymentsTotal > $saleTotal && $allPaymentsTotal > 0) {
+                    $cashPaymentTotal += round(((float) $payment->amount / $allPaymentsTotal) * $saleTotal, 2);
+                } else {
+                    $cashPaymentTotal += (float) $payment->amount;
+                }
+            }
+        }
+
+        if ($cashPaymentTotal <= 0) {
+            return 0;
+        }
+
+        // Calculate the cash ratio of the original sale
+        $cashRatio = $cashPaymentTotal / $saleTotal;
+
+        // Apply the ratio to the return amount
+        return round($returnTotal * $cashRatio, 2);
     }
 
     /**

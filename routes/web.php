@@ -355,6 +355,10 @@ Route::middleware(['auth'])->group(function () {
             ->name('sales-book')
             ->middleware('permission:reports.sales_book');
 
+        Route::get('/sales-book/excel', [App\Http\Controllers\ReportExportController::class, 'salesBookExcel'])
+            ->name('sales-book.excel')
+            ->middleware('permission:reports.export');
+
         Route::get('/profit-loss', App\Livewire\Reports\ProfitLoss::class)
             ->name('profit-loss')
             ->middleware('permission:reports.profit_loss');
@@ -366,6 +370,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/credits', App\Livewire\Reports\CreditsReport::class)
             ->name('credits')
             ->middleware('permission:reports.credits');
+
+        Route::get('/credits/excel', [App\Http\Controllers\ReportExportController::class, 'creditsGroupedExcel'])
+            ->name('credits.excel')
+            ->middleware('permission:reports.export');
 
         Route::get('/purchases', App\Livewire\Reports\PurchasesReport::class)
             ->name('purchases')
@@ -382,5 +390,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/payment-methods/excel', [App\Http\Controllers\ReportExportController::class, 'paymentMethodsExcel'])
             ->name('payment-methods.excel')
             ->middleware('permission:reports.export');
+
+        Route::get('/customer-sales', App\Livewire\Reports\CustomerSales::class)
+            ->name('customer-sales')
+            ->middleware('permission:reports.customer_sales');
     });
 });
