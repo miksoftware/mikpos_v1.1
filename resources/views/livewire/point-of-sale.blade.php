@@ -144,16 +144,21 @@
                     const value = e.target.value.trim();
                     
                     // Auto-search after 300ms of no typing
-                    // Works for any barcode with 3+ characters
+                    // Works for any barcode length (including short 4-digit codes)
                     this.scannerTimeout = setTimeout(() => {
-                        if (value.length >= 3) {
-                            $wire.searchByBarcode();
+                        if (value.length >= 1) {
+                            $wire.set('barcodeSearch', value).then(() => {
+                                $wire.searchByBarcode();
+                            });
                         }
                     }, 300);
                 },
                 handleEnter(e) {
                     e.preventDefault();
-                    $wire.searchByBarcode();
+                    const value = e.target.value.trim();
+                    $wire.set('barcodeSearch', value).then(() => {
+                        $wire.searchByBarcode();
+                    });
                 }
             }" @focus-barcode-search.window="$refs.barcodeInput.focus()">
                 <div class="relative">
@@ -162,7 +167,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
                         </svg>
                     </div>
-                    <input wire:model.live="barcodeSearch" 
+                    <input wire:model="barcodeSearch" 
                         type="text" 
                         x-ref="barcodeInput"
                         x-on:input="handleInput($event)"

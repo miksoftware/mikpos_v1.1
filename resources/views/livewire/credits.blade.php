@@ -208,28 +208,54 @@
                             </div>
                         </label>
 
-                        @if(!$paymentMarkComplete)
+                        {{-- Payment Lines --}}
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Monto del abono *</label>
-                            <div class="relative">
-                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">$</span>
-                                <input wire:model="paymentAmount" type="number" step="0.01" min="0.01" max="{{ $paymentRemaining }}"
-                                    class="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]"
-                                    placeholder="0.00">
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-sm font-medium text-slate-700">Medios de pago *</label>
+                                <button wire:click="addPaymentLine" type="button" class="inline-flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                    Agregar método
+                                </button>
                             </div>
-                            @error('paymentAmount') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                        </div>
-                        @endif
-
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Método de pago *</label>
-                            <select wire:model="paymentMethodId" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
-                                <option value="">Seleccionar...</option>
-                                @foreach($paymentMethods as $method)
-                                <option value="{{ $method->id }}">{{ $method->name }}</option>
+                            <div class="space-y-2">
+                                @foreach($paymentLines as $index => $line)
+                                <div class="flex items-center gap-2">
+                                    <select wire:model="paymentLines.{{ $index }}.payment_method_id" class="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                        <option value="">Método...</option>
+                                        @foreach($paymentMethods as $method)
+                                        <option value="{{ $method->id }}">{{ $method->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @if(!$paymentMarkComplete || count($paymentLines) > 1)
+                                    <div class="relative w-32">
+                                        <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-slate-400 text-sm">$</span>
+                                        <input wire:model.live="paymentLines.{{ $index }}.amount" type="number" step="0.01" min="0.01"
+                                            class="w-full pl-6 pr-2 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]"
+                                            placeholder="0.00">
+                                    </div>
+                                    @endif
+                                    @if(count($paymentLines) > 1)
+                                    <button wire:click="removePaymentLine({{ $index }})" type="button" class="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                    @endif
+                                </div>
                                 @endforeach
-                            </select>
-                            @error('paymentMethodId') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                            </div>
+
+                            {{-- Total de líneas vs saldo --}}
+                            @if(!$paymentMarkComplete || count($paymentLines) > 1)
+                            @php
+                                $linesTotal = collect($paymentLines)->sum(fn($l) => (float) ($l['amount'] ?? 0));
+                            @endphp
+                            <div class="mt-2 flex justify-between text-sm px-1">
+                                <span class="text-slate-500">Total a pagar:</span>
+                                <span class="font-semibold {{ $linesTotal > $paymentRemaining ? 'text-red-600' : 'text-slate-800' }}">${{ number_format($linesTotal, 2) }}</span>
+                            </div>
+                            @if($linesTotal > $paymentRemaining)
+                            <p class="text-xs text-red-500 mt-1">El total excede el saldo pendiente</p>
+                            @endif
+                            @endif
                         </div>
 
                         <label class="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl cursor-pointer">

@@ -293,7 +293,7 @@ class PointOfSale extends Component
     {
         $barcode = trim($this->barcodeSearch);
         
-        if (strlen($barcode) < 3) {
+        if (empty($barcode)) {
             return;
         }
 
@@ -382,12 +382,10 @@ class PointOfSale extends Component
             return;
         }
 
-        // If barcode looks complete (3+ digits) but not found, show notification
-        if (strlen($barcode) >= 3) {
-            $this->dispatch('notify', message: 'Producto no encontrado: ' . $barcode, type: 'warning');
-            $this->barcodeSearch = '';
-            $this->dispatch('focus-barcode-search');
-        }
+        // Barcode not found, show notification
+        $this->dispatch('notify', message: 'Producto no encontrado: ' . $barcode, type: 'warning');
+        $this->barcodeSearch = '';
+        $this->dispatch('focus-barcode-search');
     }
 
     public function openVariantModal($product)

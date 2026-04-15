@@ -34,8 +34,7 @@ class Credits extends Component
     public float $paymentTotal = 0;
     public float $paymentPaid = 0;
     public float $paymentRemaining = 0;
-    public float $paymentAmount = 0;
-    public ?int $paymentMethodId = null;
+    public array $paymentLines = [];
     public bool $paymentAffectsCash = false;
     public string $paymentNotes = '';
     public bool $paymentMarkComplete = false;
@@ -263,12 +262,29 @@ class Credits extends Component
         }
 
         $this->paymentRemaining = $this->paymentTotal - $this->paymentPaid;
-        $this->paymentAmount = 0;
-        $this->paymentMethodId = null;
+        $this->paymentLines = [['payment_method_id' => '', 'amount' => 0]];
         $this->paymentAffectsCash = false;
         $this->paymentNotes = '';
         $this->paymentMarkComplete = false;
         $this->isPaymentModalOpen = true;
+    }
+
+    public function addPaymentLine()
+    {
+        $this->paymentLines[] = ['payment_method_id' => '', 'amount' => 0];
+    }
+
+    public function removePaymentLine(int $index)
+    {
+        if (count($this->paymentLines) > 1) {
+            unset($this->paymentLines[$index]);
+            $this->paymentLines = array_values($this->paymentLines);
+        }
+    }
+
+    public function getPaymentLinesTotalProperty(): float
+    {
+        return collect($this->paymentLines)->sum(fn($line) => (float) ($line['amount'] ?? 0));
     }
 
     public function storePayment()
@@ -278,21 +294,37 @@ class Credits extends Component
             return;
         }
 
-        $rules = ['paymentMethodId' => 'required|exists:payment_methods,id'];
-        $messages = [
-            'paymentMethodId.required' => 'Selecciona un método de pago',
-            'paymentAmount.required' => 'El monto es obligatorio',
-            'paymentAmount.min' => 'El monto debe ser mayor a 0',
-        ];
+        // Validate payment lines
         if (!$this->paymentMarkComplete) {
-            $rules['paymentAmount'] = 'required|numeric|min:0.01';
+            foreach ($this->paymentLines as $i => $line) {
+                if (empty($line['payment_method_id'])) {
+                    $this->dispatch('notify', message: 'Selecciona un método de pago en la línea ' . ($i + 1), type: 'error');
+                    return;
+                }
+                if ((float) ($line['amount'] ?? 0) <= 0) {
+                    $this->dispatch('notify', message: 'El monto debe ser mayor a 0 en la línea ' . ($i + 1), type: 'error');
+                    return;
+                }
+            }
+        } else {
+            // Mark complete: need at least one payment method
+            $hasMethod = false;
+            foreach ($this->paymentLines as $line) {
+                if (!empty($line['payment_method_id'])) {
+                    $hasMethod = true;
+                    break;
+                }
+            }
+            if (!$hasMethod) {
+                $this->dispatch('notify', message: 'Selecciona al menos un método de pago', type: 'error');
+                return;
+            }
         }
-        $this->validate($rules, $messages);
 
         $user = auth()->user();
 
         if ($this->paymentReferenceType === 'purchase') {
-            $record = Purchase::find($this->paymentReferenceId);
+            $record = Purchase::with('supplier')->find($this->paymentReferenceId);
             if (!$record) {
                 $this->dispatch('notify', message: 'Compra no encontrada', type: 'error');
                 $this->isPaymentModalOpen = false;
@@ -315,10 +347,22 @@ class Credits extends Component
             $branchId = $this->needsBranchSelection ? ($this->filterBranch ?? $record->branch_id) : $user->branch_id;
         }
 
-        $amount = $this->paymentMarkComplete ? $remaining : (float) $this->paymentAmount;
+        // Calculate total amount from lines
+        if ($this->paymentMarkComplete) {
+            // When marking complete with multiple methods, distribute remaining across lines with amounts
+            // If only one line, use the full remaining
+            $totalFromLines = collect($this->paymentLines)->sum(fn($l) => (float) ($l['amount'] ?? 0));
+            if ($totalFromLines > 0) {
+                $totalAmount = $totalFromLines;
+            } else {
+                $totalAmount = $remaining;
+            }
+        } else {
+            $totalAmount = collect($this->paymentLines)->sum(fn($l) => (float) ($l['amount'] ?? 0));
+        }
 
-        if ($amount > $remaining) {
-            $this->dispatch('notify', message: 'El monto excede el saldo pendiente ($' . number_format($remaining, 2) . ')', type: 'error');
+        if ($totalAmount > $remaining + 0.01) {
+            $this->dispatch('notify', message: 'El monto total ($' . number_format($totalAmount, 2) . ') excede el saldo pendiente ($' . number_format($remaining, 2) . ')', type: 'error');
             return;
         }
 
@@ -334,56 +378,78 @@ class Credits extends Component
         }
 
         $creditType = $this->paymentReferenceType === 'purchase' ? 'payable' : 'receivable';
+        $paymentNumber = CreditPayment::generatePaymentNumber();
+        $lastCreditPayment = null;
 
-        $creditPayment = CreditPayment::create([
-            'payment_number' => CreditPayment::generatePaymentNumber(),
-            'credit_type' => $creditType,
-            'purchase_id' => $this->paymentReferenceType === 'purchase' ? $record->id : null,
-            'sale_id' => $this->paymentReferenceType === 'sale' ? $record->id : null,
-            'customer_id' => $this->paymentReferenceType === 'sale' ? $record->customer_id : null,
-            'supplier_id' => $this->paymentReferenceType === 'purchase' ? $record->supplier_id : null,
-            'branch_id' => $branchId,
-            'user_id' => $user->id,
-            'payment_method_id' => $this->paymentMethodId,
-            'cash_reconciliation_id' => $cashReconciliationId,
-            'amount' => $amount,
-            'affects_cash' => $this->paymentAffectsCash,
-            'notes' => $this->paymentNotes ?: null,
-        ]);
+        // Create one CreditPayment per payment line
+        $linesToProcess = $this->paymentLines;
+
+        // If mark complete with single line and no amount, set the full remaining
+        if ($this->paymentMarkComplete && count($linesToProcess) === 1 && (float) ($linesToProcess[0]['amount'] ?? 0) <= 0) {
+            $linesToProcess[0]['amount'] = $remaining;
+        }
+
+        foreach ($linesToProcess as $i => $line) {
+            $lineAmount = (float) ($line['amount'] ?? 0);
+            if ($lineAmount <= 0) {
+                continue;
+            }
+
+            $linePaymentNumber = count($linesToProcess) > 1 && $i > 0
+                ? CreditPayment::generatePaymentNumber()
+                : $paymentNumber;
+
+            $lastCreditPayment = CreditPayment::create([
+                'payment_number' => $linePaymentNumber,
+                'credit_type' => $creditType,
+                'purchase_id' => $this->paymentReferenceType === 'purchase' ? $record->id : null,
+                'sale_id' => $this->paymentReferenceType === 'sale' ? $record->id : null,
+                'customer_id' => $this->paymentReferenceType === 'sale' ? $record->customer_id : null,
+                'supplier_id' => $this->paymentReferenceType === 'purchase' ? $record->supplier_id : null,
+                'branch_id' => $branchId,
+                'user_id' => $user->id,
+                'payment_method_id' => $line['payment_method_id'],
+                'cash_reconciliation_id' => $cashReconciliationId,
+                'amount' => $lineAmount,
+                'affects_cash' => $this->paymentAffectsCash,
+                'notes' => $this->paymentNotes ?: null,
+            ]);
+
+            // If affects cash, create cash movement per line
+            if ($this->paymentAffectsCash && $cashReconciliationId) {
+                $movementType = $creditType === 'payable' ? 'expense' : 'income';
+                $conceptPrefix = $creditType === 'payable'
+                    ? "Pago crédito proveedor: {$entityName}"
+                    : "Cobro crédito cliente: {$entityName}";
+
+                $methodName = PaymentMethod::find($line['payment_method_id'])?->name ?? '';
+
+                CashMovement::create([
+                    'cash_reconciliation_id' => $cashReconciliationId,
+                    'user_id' => $user->id,
+                    'type' => $movementType,
+                    'amount' => $lineAmount,
+                    'concept' => "{$conceptPrefix} - {$docNumber} ({$methodName})",
+                    'notes' => $this->paymentNotes ?: null,
+                ]);
+            }
+
+            $typeLabel = $creditType === 'payable' ? 'Proveedor' : 'Cliente';
+            ActivityLogService::logCreate(
+                'credit_payments',
+                $lastCreditPayment,
+                "Pago de crédito #{$linePaymentNumber} - {$typeLabel}: {$entityName} - $" . number_format($lineAmount, 2)
+            );
+        }
 
         // Update record paid_amount and status
-        $newPaidAmount = (float) $record->paid_amount + $amount;
-        $creditAmountField = $this->paymentReferenceType === 'purchase' ? 'credit_amount' : 'credit_amount';
-        $newStatus = $newPaidAmount >= (float) $record->$creditAmountField ? 'paid' : 'partial';
+        $newPaidAmount = (float) $record->paid_amount + $totalAmount;
+        $newStatus = $newPaidAmount >= (float) $record->credit_amount ? 'paid' : 'partial';
 
         $record->update([
             'paid_amount' => $newPaidAmount,
             'payment_status' => $newStatus,
         ]);
-
-        // If affects cash, create cash movement
-        if ($this->paymentAffectsCash && $cashReconciliationId) {
-            $movementType = $creditType === 'payable' ? 'expense' : 'income';
-            $conceptPrefix = $creditType === 'payable'
-                ? "Pago crédito proveedor: {$entityName}"
-                : "Cobro crédito cliente: {$entityName}";
-
-            CashMovement::create([
-                'cash_reconciliation_id' => $cashReconciliationId,
-                'user_id' => $user->id,
-                'type' => $movementType,
-                'amount' => $amount,
-                'concept' => "{$conceptPrefix} - {$docNumber}",
-                'notes' => $this->paymentNotes ?: null,
-            ]);
-        }
-
-        $typeLabel = $creditType === 'payable' ? 'Proveedor' : 'Cliente';
-        ActivityLogService::logCreate(
-            'credit_payments',
-            $creditPayment,
-            "Pago de crédito #{$creditPayment->payment_number} - {$typeLabel}: {$entityName} - $" . number_format($amount, 2)
-        );
 
         $this->isPaymentModalOpen = false;
         $statusLabel = $newStatus === 'paid' ? 'Crédito pagado completamente' : 'Abono registrado correctamente';
