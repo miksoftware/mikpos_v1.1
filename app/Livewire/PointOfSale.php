@@ -286,7 +286,7 @@ class PointOfSale extends Component
 
     public function updatedBarcodeSearch()
     {
-        $this->searchByBarcode();
+        // Search is triggered explicitly by Alpine.js debounce, not on model update
     }
 
     public function searchByBarcode()
