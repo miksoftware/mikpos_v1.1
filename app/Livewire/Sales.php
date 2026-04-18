@@ -1344,6 +1344,9 @@ class Sales extends Component
             ->when($this->dateFrom, fn($q) => $q->whereDate('created_at', '>=', $this->dateFrom))
             ->when($this->dateTo, fn($q) => $q->whereDate('created_at', '<=', $this->dateTo));
         
+        // Check if user should only see their own sales
+        $viewOwnOnly = !$isSuperAdmin && $user->hasPermission('sales.view_own');
+
         if ($isSuperAdmin) {
             if ($this->filterBranch) {
                 $query->where('branch_id', $this->filterBranch);
@@ -1351,16 +1354,22 @@ class Sales extends Component
         } else {
             $query->where('branch_id', $user->branch_id);
         }
+
+        if ($viewOwnOnly) {
+            $query->where('sales.user_id', $user->id);
+        }
         
         $sales = $query->latest()->paginate(15);
         $branches = $isSuperAdmin ? Branch::where('is_active', true)->get() : collect();
         
         $todaySales = Sale::whereDate('created_at', today())
             ->when(!$isSuperAdmin, fn($q) => $q->where('branch_id', $user->branch_id))
+            ->when($viewOwnOnly, fn($q) => $q->where('user_id', $user->id))
             ->sum('total');
         
         $todayCount = Sale::whereDate('created_at', today())
             ->when(!$isSuperAdmin, fn($q) => $q->where('branch_id', $user->branch_id))
+            ->when($viewOwnOnly, fn($q) => $q->where('user_id', $user->id))
             ->count();
 
         return view('livewire.sales', [

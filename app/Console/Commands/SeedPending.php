@@ -58,6 +58,7 @@ class SeedPending extends Command
         'EcommerceSystemDocumentSeeder',
         'EcommerceOrdersModuleSeeder',
         'CustomerSalesReportPermissionSeeder',
+        'SalesViewOwnPermissionSeeder',
         // Add new seeders here
     ];
 
