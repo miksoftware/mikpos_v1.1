@@ -120,6 +120,9 @@ class PointOfSale extends Component
     public $globalDiscountApplied = false;
     public $globalDiscountAmount = 0;
 
+    // Price override mode (F4)
+    public $showPriceOverride = false;
+
     public function mount()
     {
         $user = auth()->user();
@@ -525,6 +528,8 @@ class PointOfSale extends Component
                 'discount_type_value' => 0,
                 'discount_amount' => 0,
                 'discount_reason' => null,
+                // Price override
+                'price_overridden' => false,
             ];
 
             // Auto-apply active discount if available
@@ -668,6 +673,8 @@ class PointOfSale extends Component
                 'discount_type_value' => 0,
                 'discount_amount' => 0,
                 'discount_reason' => null,
+                // Price override
+                'price_overridden' => false,
             ];
         }
         
@@ -737,6 +744,8 @@ class PointOfSale extends Component
                 'discount_type_value' => 0,
                 'discount_amount' => 0,
                 'discount_reason' => null,
+                // Price override
+                'price_overridden' => false,
             ];
         }
         
@@ -1001,6 +1010,8 @@ class PointOfSale extends Component
                 'discount_type_value' => 0,
                 'discount_amount' => 0,
                 'discount_reason' => null,
+                // Price override
+                'price_overridden' => false,
             ];
 
             // Auto-apply active discount if available
@@ -1135,6 +1146,7 @@ class PointOfSale extends Component
         $this->globalDiscountAmount = 0;
         $this->globalDiscountValue = '';
         $this->globalDiscountReason = '';
+        $this->showPriceOverride = false;
     }
 
     // Discount methods
@@ -1304,6 +1316,67 @@ class PointOfSale extends Component
     public function closeGlobalDiscountModal()
     {
         $this->showGlobalDiscountModal = false;
+    }
+
+    // Price override methods (F4)
+    public function togglePriceOverride()
+    {
+        if (empty($this->cart)) {
+            $this->dispatch('notify', message: 'Agrega productos al carrito', type: 'warning');
+            return;
+        }
+        $this->showPriceOverride = !$this->showPriceOverride;
+    }
+
+    public function overrideItemPrice($cartKey, $newPrice)
+    {
+        if (!isset($this->cart[$cartKey])) return;
+
+        $newPrice = (float) str_replace(',', '.', $newPrice);
+
+        if ($newPrice <= 0) {
+            $this->dispatch('notify', message: 'El precio debe ser mayor a 0', type: 'error');
+            return;
+        }
+
+        $item = &$this->cart[$cartKey];
+        $taxRate = $item['tax_rate'];
+
+        // The entered price is the price WITH tax (what the customer sees)
+        if ($item['price_includes_tax']) {
+            $priceWithTax = $newPrice;
+            $basePrice = $taxRate > 0 ? $newPrice / (1 + ($taxRate / 100)) : $newPrice;
+        } else {
+            // If original price doesn't include tax, the override is still entered as final price
+            $basePrice = $newPrice;
+            $priceWithTax = $taxRate > 0 ? $newPrice * (1 + ($taxRate / 100)) : $newPrice;
+        }
+
+        // Track that this item has a price override
+        $item['price_overridden'] = true;
+        $item['price'] = round($priceWithTax, 2);
+        $item['base_price'] = round($basePrice, 2);
+
+        // Recalculate totals
+        $this->updateCartItemTotals($cartKey);
+
+        $this->dispatch('notify', message: 'Precio actualizado', type: 'success');
+    }
+
+    public function resetItemPrice($cartKey)
+    {
+        if (!isset($this->cart[$cartKey])) return;
+
+        $item = &$this->cart[$cartKey];
+
+        // Restore original price
+        $item['price'] = $item['original_price'];
+        $item['base_price'] = $item['original_base_price'];
+        $item['price_overridden'] = false;
+        $item['using_special_price'] = false;
+
+        $this->updateCartItemTotals($cartKey);
+        $this->dispatch('notify', message: 'Precio restaurado');
     }
 
     public function getSubtotalProperty()

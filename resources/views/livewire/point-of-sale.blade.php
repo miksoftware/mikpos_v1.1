@@ -2,6 +2,7 @@
     @keydown.f7.window.prevent="showCustomerSearch = true; $nextTick(() => $refs.customerSearchInput?.focus())"
     @keydown.f3.window.prevent="$wire.applyAllSpecialPrices()"
     @keydown.f4.window.prevent="$wire.openGlobalDiscountModal()"
+    @keydown.f6.window.prevent="$wire.togglePriceOverride()"
     @close-customer-modal.window="showCustomerSearch = false">
     <!-- Top Header Bar -->
     <header class="h-14 bg-gradient-to-r from-[#1a1225] to-[#2d1f3d] flex items-center justify-between px-4 flex-shrink-0">
@@ -182,7 +183,7 @@
                 @if(count($cart) > 0)
                 <div class="space-y-1">
                     @foreach($cart as $key => $item)
-                    <div class="bg-slate-50 rounded-lg p-2 border {{ ($item['discount_amount'] ?? 0) > 0 ? 'border-amber-300 bg-amber-50/50' : (($item['using_special_price'] ?? false) ? 'border-green-300 bg-green-50/50' : 'border-slate-100') }} hover:border-slate-200 transition">
+                    <div class="bg-slate-50 rounded-lg p-2 border {{ ($item['price_overridden'] ?? false) ? 'border-blue-300 bg-blue-50/50' : (($item['discount_amount'] ?? 0) > 0 ? 'border-amber-300 bg-amber-50/50' : (($item['using_special_price'] ?? false) ? 'border-green-300 bg-green-50/50' : 'border-slate-100')) }} hover:border-slate-200 transition">
                         <div class="flex items-center gap-2">
                             <div class="w-10 h-10 rounded-md bg-white border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                                 @if($item['image'])
@@ -260,8 +261,37 @@
                                     </svg>
                                 </button>
                             </div>
-                            <span class="text-sm font-bold {{ ($item['discount_amount'] ?? 0) > 0 ? 'text-amber-600' : (($item['using_special_price'] ?? false) ? 'text-green-600' : 'text-[#ff7261]') }} min-w-[70px] text-right">${{ number_format($item['subtotal'] - ($item['discount_amount'] ?? 0) + $item['tax_amount'], 0) }}</span>
+                            <span class="text-sm font-bold {{ ($item['price_overridden'] ?? false) ? 'text-blue-600' : (($item['discount_amount'] ?? 0) > 0 ? 'text-amber-600' : (($item['using_special_price'] ?? false) ? 'text-green-600' : 'text-[#ff7261]')) }} min-w-[70px] text-right">${{ number_format($item['subtotal'] - ($item['discount_amount'] ?? 0) + $item['tax_amount'], 0) }}</span>
                         </div>
+                        {{-- Price Override Row (visible only when F4 is pressed) --}}
+                        @if($showPriceOverride)
+                        <div class="mt-1.5 flex items-center gap-2 pl-12" x-data="{ editPrice: '{{ $item['price'] }}' }">
+                            <div class="flex items-center gap-1 flex-1">
+                                <span class="text-[10px] text-blue-600 font-medium whitespace-nowrap">Precio venta:</span>
+                                <div class="relative flex-1">
+                                    <span class="absolute left-2 top-1/2 -translate-y-1/2 text-blue-400 text-xs">$</span>
+                                    <input type="number" 
+                                        x-model="editPrice"
+                                        step="1" 
+                                        min="1"
+                                        @keydown.enter="$wire.overrideItemPrice('{{ $key }}', editPrice)"
+                                        class="w-full pl-5 pr-2 py-1 text-xs border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white"
+                                        placeholder="0">
+                                </div>
+                                <button @click="$wire.overrideItemPrice('{{ $key }}', editPrice)" class="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition" title="Aplicar precio">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                </button>
+                                @if($item['price_overridden'] ?? false)
+                                <button wire:click="resetItemPrice('{{ $key }}')" class="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition" title="Restaurar precio original (${{ number_format($item['original_price'], 0) }})">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                </button>
+                                @endif
+                            </div>
+                            @if($item['price_overridden'] ?? false)
+                            <span class="text-[9px] text-blue-500 font-medium">Original: ${{ number_format($item['original_price'], 0) }}</span>
+                            @endif
+                        </div>
+                        @endif
                     </div>
                     @endforeach
                 </div>
@@ -312,9 +342,9 @@
                     </div>
                 </div>
                 
-                {{-- Special Price Button --}}
+                {{-- Special Price, Price Override & Discount Buttons --}}
                 @if(count($cart) > 0)
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-3 gap-2">
                     <button wire:click="applyAllSpecialPrices" class="px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl transition flex items-center justify-center gap-1">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -322,11 +352,18 @@
                         P. Especial
                         <span class="text-xs px-1 py-0.5 rounded bg-green-200 text-green-800">F3</span>
                     </button>
+                    <button wire:click="togglePriceOverride" class="px-3 py-2 text-sm font-medium rounded-xl transition flex items-center justify-center gap-1 {{ $showPriceOverride ? 'text-white bg-blue-600 border border-blue-600 ring-2 ring-blue-400' : 'text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200' }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                        Precio
+                        <span class="text-xs px-1 py-0.5 rounded {{ $showPriceOverride ? 'bg-blue-500 text-white' : 'bg-blue-200 text-blue-800' }}">F6</span>
+                    </button>
                     <button wire:click="openGlobalDiscountModal" class="px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl transition flex items-center justify-center gap-1 {{ $globalDiscountApplied ? 'ring-2 ring-purple-400' : '' }}">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
                         </svg>
-                        Desc. Factura
+                        Desc.
                         <span class="text-xs px-1 py-0.5 rounded bg-purple-200 text-purple-800">F4</span>
                     </button>
                 </div>
