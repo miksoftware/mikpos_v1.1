@@ -178,8 +178,11 @@
                                 Tel. envío: {{ $sale->ecommerceOrder->shipping_phone }}<br>
                             @endif
                         @else
+                            @if($sale->customer->department || $sale->customer->municipality)
+                                {{ $sale->customer->municipality?->name }}@if($sale->customer->department && $sale->customer->municipality), @endif{{ $sale->customer->department?->name }}<br>
+                            @endif
                             @if($sale->customer->address)
-                                {{ $sale->customer->address }}@if($sale->customer->municipality), {{ $sale->customer->municipality->name }}@endif<br>
+                                <strong>Dir:</strong> {{ $sale->customer->address }}<br>
                             @endif
                         @endif
                         @if($sale->customer->email)

@@ -398,6 +398,12 @@
             @if($sale->customer->document_number)
             <div class="customer-doc">{{ $sale->customer->taxDocument->abbreviation ?? 'Doc' }}: {{ $sale->customer->document_number }}</div>
             @endif
+            @if($sale->customer->department || $sale->customer->municipality)
+            <div class="customer-doc">{{ $sale->customer->municipality?->name }}@if($sale->customer->department && $sale->customer->municipality), @endif{{ $sale->customer->department?->name }}</div>
+            @endif
+            @if($sale->customer->address)
+            <div class="customer-doc"><strong>Dir:</strong> {{ $sale->customer->address }}</div>
+            @endif
             @if($sale->source === 'ecommerce' && $sale->ecommerceOrder)
             @if($sale->ecommerceOrder->shipping_address)
             <div class="customer-doc" style="margin-top: 3px;"><strong>Dir:</strong> {{ $sale->ecommerceOrder->shipping_address }}</div>
