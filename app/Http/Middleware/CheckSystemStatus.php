@@ -24,11 +24,6 @@ class CheckSystemStatus
                 return $next($request);
             }
 
-            // Allow Livewire internal requests so the maintenance page itself can work
-            if ($request->is('livewire/*')) {
-                return $next($request);
-            }
-
             return response()->view('maintenance', [], 503);
         }
 

@@ -1,85 +1,100 @@
 #!/bin/bash
-set -e  # Detener en caso de error
+PROJECT_NAME="distribuidoramyr"
 
-SERVICE_NAME="php"
-COMPOSE_PATH="/root/proyectos/drogueriajorge"
-START_TIME=$(date +%s)
+# ============================================
+# Script de Deploy Automático para Laravel
+# ============================================
 
-# Función para ejecutar comandos en el contenedor
-run() {
-    docker compose exec -T $SERVICE_NAME "$@"
-}
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
 
-# Función para manejar errores
-cleanup() {
-    if [ $? -ne 0 ]; then
-        echo ""
-        echo "❌ Error durante el deploy. Reactivando aplicación..."
-        run php artisan up 2>/dev/null || true
-    fi
-}
-trap cleanup EXIT
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+PROJECT_DIR="$SCRIPT_DIR"
+SRC_DIR="$PROJECT_DIR/src"
 
-cd $COMPOSE_PATH
-
-echo "🚀 Iniciando deploy de Droguería Jorge..."
-echo "   $(date '+%Y-%m-%d %H:%M:%S')"
+echo -e "${BLUE}=========================================="
+echo "  🚀 Deploy Laravel: $PROJECT_NAME"
+echo "==========================================${NC}"
 echo ""
 
-# Activar modo mantenimiento
-echo "� Activando modo mantenimiento..."
-run php artisan down --retry=60 --refresh=5 2>/dev/null || true
+cd "$SRC_DIR"
 
-# Obtener últimos cambios
-echo "� Descargando últimos cambios desde Git..."
-cd public
-git config core.autocrlf false
-git fetch origin main
-git reset --hard origin/main
-cd ..
+echo -e "${YELLOW}[1/7] ⬇️  Descargando cambios desde Git...${NC}"
+git stash --quiet 2>/dev/null || true
 
-# Instalar dependencias (en paralelo si es posible)
-echo "� Instalando dependencias..."
-run composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if git pull origin "$BRANCH" 2>&1; then
+    echo -e "${GREEN}✓ Cambios descargados desde rama '$BRANCH'${NC}"
+else
+    echo -e "${RED}✗ Error al descargar cambios${NC}"
+    exit 1
+fi
 
-# Solo instalar npm si package.json cambió
-echo "📦 Verificando dependencias de Node.js..."
-run npm ci --production=false 2>/dev/null || run npm install --production=false
-
-# Compilar assets
-echo "🔨 Compilando assets con Vite..."
-run npm run build
-
-# Publicar assets de Livewire (respaldo)
-echo "📄 Publicando assets de Livewire..."
-run php artisan livewire:publish --assets 2>/dev/null || true
-
-# Ejecutar migraciones
-echo "🗄️  Ejecutando migraciones..."
-run php artisan migrate --force
-
-# Ejecutar seeders pendientes
-echo "🌱 Ejecutando seeders pendientes..."
-run php artisan db:seed-pending --force
-
-# Optimizar (un solo comando hace todo)
-echo "⚡ Optimizando aplicación..."
-run php artisan optimize:clear
-run php artisan optimize
-
-# Reiniciar queue workers si existen
-echo "🔄 Reiniciando workers..."
-run php artisan queue:restart 2>/dev/null || true
-
-# Desactivar modo mantenimiento
-echo "🔓 Desactivando modo mantenimiento..."
-run php artisan up
-
-# Calcular tiempo total
-END_TIME=$(date +%s)
-DURATION=$((END_TIME - START_TIME))
+LAST_COMMIT=$(git log -1 --pretty=format:'%h - %s (%ar) por %an')
+echo -e "${BLUE}    📝 Último commit: $LAST_COMMIT${NC}"
 
 echo ""
-echo "✅ Deploy completado exitosamente!"
-echo "⏱️  Tiempo total: ${DURATION}s"
-echo "🌐 https://drogueriajorge.com"
+echo -e "${YELLOW}[2/7] 📦 Composer install...${NC}"
+docker exec -w /var/www/html ${PROJECT_NAME}_php composer install --no-dev --optimize-autoloader --no-interaction 2>&1 | tail -5
+echo -e "${GREEN}✓ Dependencias actualizadas${NC}"
+
+echo ""
+echo -e "${YELLOW}[3/7] 🗄️  Migraciones...${NC}"
+docker exec -w /var/www/html ${PROJECT_NAME}_php php artisan migrate --force 2>&1
+echo -e "${GREEN}✓ Migraciones ejecutadas${NC}"
+
+echo ""
+echo -e "${YELLOW}[4/7] 📦 Compilando assets...${NC}"
+if [ -f "$SRC_DIR/package.json" ]; then
+    docker exec -w /var/www/html ${PROJECT_NAME}_php npm install 2>&1 | tail -3
+    docker exec -w /var/www/html ${PROJECT_NAME}_php npm run build 2>&1 | tail -5
+    echo -e "${GREEN}✓ Assets compilados${NC}"
+else
+    echo -e "${BLUE}⏭️  Sin package.json, saltando${NC}"
+fi
+
+echo ""
+echo -e "${YELLOW}[5/7] 🔐 Ajustando permisos...${NC}"
+docker exec ${PROJECT_NAME}_php chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+docker exec ${PROJECT_NAME}_php chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+docker exec ${PROJECT_NAME}_php chmod 666 /var/www/html/.env 2>/dev/null || true
+echo -e "${GREEN}✓ Permisos ajustados${NC}"
+
+echo ""
+echo -e "${YELLOW}[5.5/7] 📦 Publicando assets (Livewire, etc.)...${NC}"
+docker exec -w /var/www/html ${PROJECT_NAME}_php php artisan vendor:publish --force --tag=livewire:assets 2>/dev/null || true
+docker exec -w /var/www/html ${PROJECT_NAME}_php php artisan livewire:publish --assets 2>/dev/null || true
+echo -e "${GREEN}✓ Assets publicados${NC}"
+
+echo ""
+echo -e "${YELLOW}[6/7] ⚡ Limpiando y recacheando...${NC}"
+docker exec -w /var/www/html ${PROJECT_NAME}_php php artisan config:cache
+docker exec -w /var/www/html ${PROJECT_NAME}_php php artisan route:cache
+docker exec -w /var/www/html ${PROJECT_NAME}_php php artisan view:cache
+docker exec -w /var/www/html ${PROJECT_NAME}_php php artisan event:cache 2>/dev/null || true
+echo -e "${GREEN}✓ Cache reconstruida${NC}"
+
+echo ""
+echo -e "${YELLOW}[6.5/7] ✅ Habilitando sistema...${NC}"
+docker exec -w /var/www/html ${PROJECT_NAME}_php php -r "\$f='storage/system.disabled'; if(is_file(\$f)) unlink(\$f);"
+echo -e "${GREEN}✓ Sistema habilitado${NC}"
+
+echo ""
+echo -e "${YELLOW}[7/7] 🔄 Reiniciando servicios...${NC}"
+cd "$PROJECT_DIR"
+docker compose restart php nginx
+sleep 3
+echo -e "${GREEN}✓ Servicios reiniciados${NC}"
+
+echo ""
+echo -e "${GREEN}=========================================="
+echo "  ✅ Deploy completado exitosamente"
+echo "==========================================${NC}"
+echo ""
+echo -e "${BLUE}📅 Fecha: $(date '+%Y-%m-%d %H:%M:%S')${NC}"
+echo -e "${BLUE}🔀 Rama: $BRANCH${NC}"
+echo -e "${BLUE}📝 Commit: $LAST_COMMIT${NC}"
+echo ""
