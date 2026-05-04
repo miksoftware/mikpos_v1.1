@@ -20,7 +20,7 @@ class SystemToggleController extends Controller
      */
     public function toggle(Request $request)
     {
-        $token = env('SYSTEM_ADMIN_TOKEN');
+        $token = config('app.system_admin_token');
 
         if (empty($token) || $request->input('token') !== $token) {
             return response()->json([
@@ -56,7 +56,7 @@ class SystemToggleController extends Controller
      */
     public function status(Request $request)
     {
-        $token = env('SYSTEM_ADMIN_TOKEN');
+        $token = config('app.system_admin_token');
 
         if (empty($token) || $request->input('token') !== $token) {
             return response()->json([
