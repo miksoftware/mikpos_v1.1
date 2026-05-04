@@ -3,6 +3,13 @@
 use Illuminate\Support\Facades\Route;
 use App\Livewire\Auth\Login;
 use App\Livewire\Install;
+use App\Http\Controllers\SystemToggleController;
+
+// ── System Toggle API (no auth, protected by SYSTEM_ADMIN_TOKEN) ──────────────
+Route::prefix('api/system')->withoutMiddleware(\App\Http\Middleware\CheckSystemStatus::class)->group(function () {
+    Route::post('/toggle', [SystemToggleController::class, 'toggle'])->name('system.toggle');
+    Route::get('/status', [SystemToggleController::class, 'status'])->name('system.status');
+});
 
 // Installation route (no middleware)
 Route::get('/install', Install::class)->name('install');
