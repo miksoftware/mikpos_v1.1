@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sistema en Mantenimiento — MikPOS</title>
+    <title>Sistema Suspendido — MikPOS</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800" rel="stylesheet" />
     <style>
@@ -30,19 +30,19 @@
         }
         .orb-1 {
             width: 600px; height: 600px;
-            background: radial-gradient(circle, rgba(255,114,97,0.18) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(239,68,68,0.16) 0%, transparent 70%);
             top: -15%; right: -10%;
             animation-delay: 0s;
         }
         .orb-2 {
             width: 500px; height: 500px;
-            background: radial-gradient(circle, rgba(168,85,247,0.18) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(251,146,60,0.14) 0%, transparent 70%);
             bottom: -15%; left: -10%;
             animation-delay: 3s;
         }
         .orb-3 {
             width: 300px; height: 300px;
-            background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(239,68,68,0.08) 0%, transparent 70%);
             top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             animation-delay: 6s;
@@ -96,9 +96,9 @@
             justify-content: center;
             width: 80px; height: 80px;
             border-radius: 22px;
-            background: linear-gradient(135deg, #ff7261, #a855f7);
+            background: linear-gradient(135deg, #ef4444, #f97316);
             margin-bottom: 28px;
-            box-shadow: 0 16px 40px rgba(168,85,247,0.35);
+            box-shadow: 0 16px 40px rgba(239,68,68,0.35);
             animation: iconBounce 2.5s ease-in-out infinite;
         }
 
@@ -118,13 +118,13 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: rgba(255,114,97,0.12);
-            border: 1px solid rgba(255,114,97,0.25);
+            background: rgba(239,68,68,0.12);
+            border: 1px solid rgba(239,68,68,0.3);
             border-radius: 999px;
             padding: 5px 14px;
             font-size: 12px;
             font-weight: 600;
-            color: #ff9285;
+            color: #fca5a5;
             letter-spacing: 0.06em;
             text-transform: uppercase;
             margin-bottom: 24px;
@@ -133,7 +133,7 @@
         .badge-dot {
             width: 6px; height: 6px;
             border-radius: 50%;
-            background: #ff7261;
+            background: #ef4444;
             animation: blink 1.4s ease-in-out infinite;
         }
 
@@ -171,8 +171,8 @@
             display: flex;
             align-items: flex-start;
             gap: 14px;
-            background: rgba(168,85,247,0.06);
-            border: 1px solid rgba(168,85,247,0.15);
+            background: rgba(239,68,68,0.06);
+            border: 1px solid rgba(239,68,68,0.15);
             border-radius: 14px;
             padding: 18px 20px;
             text-align: left;
@@ -182,7 +182,7 @@
             flex-shrink: 0;
             width: 36px; height: 36px;
             border-radius: 10px;
-            background: linear-gradient(135deg, rgba(168,85,247,0.3), rgba(99,102,241,0.3));
+            background: linear-gradient(135deg, rgba(239,68,68,0.25), rgba(249,115,22,0.25));
             display: flex;
             align-items: center;
             justify-content: center;
@@ -190,7 +190,7 @@
 
         .support-icon svg {
             width: 18px; height: 18px;
-            stroke: #c084fc;
+            stroke: #fca5a5;
         }
 
         .support-text {
@@ -235,21 +235,21 @@
 
         <div class="badge">
             <span class="badge-dot"></span>
-            En mantenimiento
+            Sistema suspendido
         </div>
 
         <div class="icon-wrap">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.6">
                 <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l5.653-4.655m5.714-3.032A3 3 0 0 0 15 6a3 3 0 0 0-3 3c0 .394.075.77.213 1.113M8.868 8.868a3 3 0 1 1 4.243 4.243"/>
+                    d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"/>
             </svg>
         </div>
 
-        <h1>Lo sentimos, estamos<br>trabajando para mejorar</h1>
+        <h1>Este sistema ha sido<br>suspendido</h1>
 
         <p class="subtitle">
-            Nuestro sistema se encuentra temporalmente fuera de servicio
-            para realizarle mejoras. Estaremos de vuelta muy pronto.
+            El acceso a esta plataforma se encuentra suspendido.<br>
+            Para mayor información, comuníquese con soporte.
         </p>
 
         <div class="divider"></div>
