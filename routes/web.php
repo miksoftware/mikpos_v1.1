@@ -272,8 +272,9 @@ Route::middleware(['auth'])->group(function () {
 
         $format = App\Models\PrintFormatSetting::getFormat('pos');
         $view = $format === 'letter' ? 'receipts.pos-receipt-letter' : 'receipts.pos-receipt';
-        
-        return view($view, compact('sale'));
+        $showLogo = $format === '80mm' && App\Models\PrintFormatSetting::shouldShowLogo80mm('pos');
+
+        return view($view, compact('sale', 'showLogo'));
     })->name('receipt.show');
 
     // Refund Receipt

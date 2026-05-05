@@ -12,6 +12,7 @@ class PrintFormatSetting extends Model
         'format',
         'letter_options',
         'open_cash_drawer_on_skip',
+        'show_logo_80mm',
     ];
 
     protected function casts(): array
@@ -19,6 +20,7 @@ class PrintFormatSetting extends Model
         return [
             'letter_options' => 'array',
             'open_cash_drawer_on_skip' => 'boolean',
+            'show_logo_80mm' => 'boolean',
         ];
     }
 
@@ -47,5 +49,11 @@ class PrintFormatSetting extends Model
     {
         $setting = static::where('document_type', $documentType)->first();
         return (bool) ($setting?->open_cash_drawer_on_skip ?? false);
+    }
+
+    public static function shouldShowLogo80mm(string $documentType): bool
+    {
+        $setting = static::where('document_type', $documentType)->first();
+        return (bool) ($setting?->show_logo_80mm ?? false);
     }
 }

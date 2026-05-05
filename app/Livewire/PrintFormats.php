@@ -13,6 +13,7 @@ class PrintFormats extends Component
     public array $formats = [];
     public array $letterOptions = [];
     public array $cashDrawerOptions = [];
+    public array $logo80mmOptions = [];
     public ?string $previewFormat = null;
     public ?string $previewDocumentType = null;
 
@@ -34,6 +35,7 @@ class PrintFormats extends Component
                 $setting->letter_options ?? []
             );
             $this->cashDrawerOptions[$setting->document_type] = (bool) $setting->open_cash_drawer_on_skip;
+            $this->logo80mmOptions[$setting->document_type] = (bool) $setting->show_logo_80mm;
         }
     }
 
@@ -105,6 +107,26 @@ class PrintFormats extends Component
         $state = $newValue ? 'activada' : 'desactivada';
         ActivityLogService::logUpdate('print_formats', $setting, $oldValues, "Apertura de cajón monedero al no imprimir {$state} en '{$setting->display_name}'");
         $this->dispatch('notify', message: "Apertura de cajón monedero {$state}", type: 'success');
+    }
+
+    public function toggleLogo80mm(string $documentType)
+    {
+        if (!auth()->user()->hasPermission('print_formats.edit')) {
+            $this->dispatch('notify', message: 'No tienes permiso para editar', type: 'error');
+            return;
+        }
+
+        $setting = PrintFormatSetting::where('document_type', $documentType)->first();
+        if (!$setting) return;
+
+        $oldValues = $setting->toArray();
+        $newValue = !$setting->show_logo_80mm;
+        $setting->update(['show_logo_80mm' => $newValue]);
+        $this->logo80mmOptions[$documentType] = $newValue;
+
+        $state = $newValue ? 'activado' : 'desactivado';
+        ActivityLogService::logUpdate('print_formats', $setting, $oldValues, "Logo en tirilla 80mm {$state} en '{$setting->display_name}'");
+        $this->dispatch('notify', message: "Logo en tirilla {$state}", type: 'success');
     }
 
     public function showPreview(string $documentType, string $format)

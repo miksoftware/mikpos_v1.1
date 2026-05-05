@@ -156,6 +156,30 @@
             </div>
             @endif
 
+            <!-- 80mm Logo Option (only when 80mm is selected) -->
+            @if(($formats[$setting->document_type] ?? '80mm') === '80mm')
+            <div class="mt-6 pt-6 border-t border-slate-200">
+                <button
+                    wire:click="toggleLogo80mm('{{ $setting->document_type }}')"
+                    class="flex items-center gap-4 w-full p-4 rounded-xl border transition-all duration-200 text-left {{ ($logo80mmOptions[$setting->document_type] ?? false) ? 'border-indigo-300 bg-indigo-50' : 'border-slate-200 bg-slate-50' }}">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center {{ ($logo80mmOptions[$setting->document_type] ?? false) ? 'bg-indigo-100' : 'bg-slate-200' }}">
+                        <svg class="w-5 h-5 {{ ($logo80mmOptions[$setting->document_type] ?? false) ? 'text-indigo-600' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="text-sm font-bold {{ ($logo80mmOptions[$setting->document_type] ?? false) ? 'text-indigo-800' : 'text-slate-600' }}">Mostrar logo de la sucursal en la tirilla</span>
+                        <p class="text-xs {{ ($logo80mmOptions[$setting->document_type] ?? false) ? 'text-indigo-600' : 'text-slate-400' }} mt-0.5">Muestra el logo de la sucursal al inicio del ticket POS 80mm (requiere que la sucursal tenga logo configurado)</p>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors {{ ($logo80mmOptions[$setting->document_type] ?? false) ? 'bg-indigo-500' : 'bg-slate-300' }}">
+                            <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow {{ ($logo80mmOptions[$setting->document_type] ?? false) ? 'translate-x-6' : 'translate-x-1' }}"></span>
+                        </div>
+                    </div>
+                </button>
+            </div>
+            @endif
+
             <!-- Cash Drawer Option (only for POS) -->
             @if($setting->document_type === 'pos')
             <div class="mt-6 pt-6 border-t border-slate-200">
