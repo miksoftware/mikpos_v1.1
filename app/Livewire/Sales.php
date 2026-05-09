@@ -213,6 +213,7 @@ class Sales extends Component
                 $this->creditNoteItems[] = [
                     'sale_item_id' => $item->id,
                     'product_id' => $item->product_id,
+                    'combo_id' => $item->combo_id,
                     'product_name' => $item->product_name,
                     'product_sku' => $item->product_sku,
                     'unit_price' => (float) $item->unit_price,
@@ -333,7 +334,8 @@ class Sales extends Component
                     CreditNoteItem::create([
                         'credit_note_id' => $creditNote->id,
                         'sale_item_id' => $item['sale_item_id'],
-                        'product_id' => $item['product_id'],
+                        'combo_id' => $item['combo_id'] ?? null,
+                        'product_id' => $item['product_id'] ?? null,
                         'product_name' => $item['product_name'],
                         'product_sku' => $item['product_sku'],
                         'unit_price' => $item['unit_price'],
@@ -355,21 +357,44 @@ class Sales extends Component
 
             // Return inventory for credit note items
             foreach ($this->creditNoteItems as $item) {
-                if (!empty($item['selected']) && $item['quantity'] > 0 && !empty($item['product_id'])) {
-                    $product = Product::find($item['product_id']);
-                    if ($product) {
-                        InventoryMovement::createMovement(
-                            'refund',
-                            $product,
-                            'in',
-                            (float) $item['quantity'],
-                            (float) $item['unit_price'],
-                            "Nota Crédito {$creditNote->number} - Venta {$sale->invoice_number}",
-                            $creditNote,
-                            $sale->branch_id
-                        );
+                if (!empty($item['selected']) && $item['quantity'] > 0) {
+                    if (!empty($item['product_id'])) {
+                        $product = Product::find($item['product_id']);
+                        if ($product) {
+                            InventoryMovement::createMovement(
+                                'refund',
+                                $product,
+                                'in',
+                                (float) $item['quantity'],
+                                (float) $item['unit_price'],
+                                "Nota Crédito {$creditNote->number} - Venta {$sale->invoice_number}",
+                                $creditNote,
+                                $sale->branch_id
+                            );
 
-                        $product->increment('current_stock', (float) $item['quantity']);
+                            $product->increment('current_stock', (float) $item['quantity']);
+                        }
+                    } elseif (!empty($item['combo_id'])) {
+                        $combo = \App\Models\Combo::with('items.product')->find($item['combo_id']);
+                        if ($combo) {
+                            foreach ($combo->items as $comboItem) {
+                                if ($comboItem->product) {
+                                    $returnQty = $comboItem->quantity * (float) $item['quantity'];
+                                    InventoryMovement::createMovement(
+                                        'refund',
+                                        $comboItem->product,
+                                        'in',
+                                        $returnQty,
+                                        0,
+                                        "Nota Crédito {$creditNote->number} - Combo {$combo->name} - Venta {$sale->invoice_number}",
+                                        $creditNote,
+                                        $sale->branch_id
+                                    );
+
+                                    $comboItem->product->increment('current_stock', $returnQty);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -484,6 +509,7 @@ class Sales extends Component
                 $this->refundItems[] = [
                     'sale_item_id' => $item->id,
                     'product_id' => $item->product_id,
+                    'combo_id' => $item->combo_id,
                     'product_name' => $item->product_name,
                     'product_sku' => $item->product_sku,
                     'unit_price' => (float) $item->unit_price,
@@ -606,7 +632,8 @@ class Sales extends Component
                     RefundItem::create([
                         'refund_id' => $refund->id,
                         'sale_item_id' => $item['sale_item_id'],
-                        'product_id' => $item['product_id'],
+                        'combo_id' => $item['combo_id'] ?? null,
+                        'product_id' => $item['product_id'] ?? null,
                         'product_name' => $item['product_name'],
                         'product_sku' => $item['product_sku'],
                         'unit_price' => $item['unit_price'],
@@ -626,23 +653,48 @@ class Sales extends Component
                 $this->registerCashMovement($sale->branch_id, $cashRefundAmount, 'expense', "Devolución {$refund->number}");
             }
 
-            // Return inventory for refunded products
+            // Return inventory for refunded products/combos
             foreach ($this->refundItems as $item) {
-                if (!empty($item['selected']) && $item['quantity'] > 0 && !empty($item['product_id'])) {
-                    $product = Product::find($item['product_id']);
-                    if ($product) {
-                        InventoryMovement::createMovement(
-                            'refund',
-                            $product,
-                            'in',
-                            (float) $item['quantity'],
-                            (float) $item['unit_price'],
-                            "Devolución {$refund->number} - Venta {$sale->invoice_number}",
-                            $refund,
-                            $sale->branch_id
-                        );
+                if (!empty($item['selected']) && $item['quantity'] > 0) {
+                    if (!empty($item['product_id'])) {
+                        // Regular product
+                        $product = Product::find($item['product_id']);
+                        if ($product) {
+                            InventoryMovement::createMovement(
+                                'refund',
+                                $product,
+                                'in',
+                                (float) $item['quantity'],
+                                (float) $item['unit_price'],
+                                "Devolución {$refund->number} - Venta {$sale->invoice_number}",
+                                $refund,
+                                $sale->branch_id
+                            );
 
-                        $product->increment('current_stock', (float) $item['quantity']);
+                            $product->increment('current_stock', (float) $item['quantity']);
+                        }
+                    } elseif (!empty($item['combo_id'])) {
+                        // Combo: return stock for each component product
+                        $combo = \App\Models\Combo::with('items.product')->find($item['combo_id']);
+                        if ($combo) {
+                            foreach ($combo->items as $comboItem) {
+                                if ($comboItem->product) {
+                                    $returnQty = $comboItem->quantity * (float) $item['quantity'];
+                                    InventoryMovement::createMovement(
+                                        'refund',
+                                        $comboItem->product,
+                                        'in',
+                                        $returnQty,
+                                        0,
+                                        "Devolución {$refund->number} - Combo {$combo->name} - Venta {$sale->invoice_number}",
+                                        $refund,
+                                        $sale->branch_id
+                                    );
+
+                                    $comboItem->product->increment('current_stock', $returnQty);
+                                }
+                            }
+                        }
                     }
                 }
             }

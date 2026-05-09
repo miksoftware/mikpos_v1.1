@@ -13,6 +13,7 @@ class RefundItem extends Model
     protected $fillable = [
         'refund_id',
         'sale_item_id',
+        'combo_id',
         'product_id',
         'product_name',
         'product_sku',
@@ -51,5 +52,10 @@ class RefundItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function combo(): BelongsTo
+    {
+        return $this->belongsTo(Combo::class);
     }
 }
