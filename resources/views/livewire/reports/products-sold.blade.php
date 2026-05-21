@@ -170,6 +170,90 @@
         </div>
     </div>
 
+    <!-- Product Lookup -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6">
+        <div class="flex items-center gap-2 mb-4">
+            <div class="w-8 h-8 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-lg flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-slate-800">Consulta por Producto</h3>
+            <span class="text-xs text-slate-400 ml-1">— con los filtros aplicados</span>
+        </div>
+        <div class="flex gap-3 mb-4">
+            <div class="flex-1 relative">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <input wire:model.live.debounce.400ms="productSearch" type="text" placeholder="Buscar producto por nombre o SKU..." class="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+            </div>
+            @if($productSearch)
+            <button wire:click="$set('productSearch', '')" class="px-3 py-2 text-slate-400 hover:text-slate-600 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            @endif
+        </div>
+        @if($productSearch && count($productSearchResults) > 0)
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-slate-50 border-y border-slate-200">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Producto</th>
+                        <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Unidades Vendidas</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Precio Prom.</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Ingresos</th>
+                        <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Transacciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @foreach($productSearchResults as $result)
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td class="px-4 py-3">
+                            <p class="font-medium text-slate-800 text-sm">{{ $result['product_name'] }}</p>
+                            <p class="text-xs text-slate-500">{{ $result['product_sku'] }}</p>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-[#a855f7]/10 text-[#a855f7]">
+                                {{ number_format($result['total_quantity'], 0, ',', '.') }} uds
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <span class="text-sm text-slate-600">${{ number_format($result['avg_price'], 0, ',', '.') }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <span class="text-sm font-semibold text-slate-800">${{ number_format($result['total_revenue'], 0, ',', '.') }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="text-sm text-slate-600">{{ number_format($result['transactions'], 0, ',', '.') }}</span>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @elseif($productSearch && count($productSearchResults) === 0)
+        <div class="flex items-center justify-center py-8 text-slate-400">
+            <div class="text-center">
+                <svg class="w-10 h-10 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <p class="font-medium text-sm">No se encontraron resultados</p>
+                <p class="text-xs mt-1">No hay ventas del producto "{{ $productSearch }}" con los filtros aplicados</p>
+            </div>
+        </div>
+        @else
+        <div class="flex items-center justify-center py-6 text-slate-400">
+            <div class="text-center">
+                <svg class="w-8 h-8 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <p class="text-sm">Escribe el nombre o SKU del producto para consultar sus ventas</p>
+            </div>
+        </div>
+        @endif
+    </div>
+
     <!-- Charts Row 1: Trend & Top Products -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
@@ -434,252 +518,196 @@
 
     <!-- Charts JavaScript -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        window.mikposCharts = window.mikposCharts || {};
+
+        function destroyMikposCharts() {
+            Object.keys(window.mikposCharts).forEach(function(key) {
+                if (window.mikposCharts[key]) {
+                    try { window.mikposCharts[key].destroy(); } catch(e) {}
+                    delete window.mikposCharts[key];
+                }
+            });
+        }
+
+        function initMikposCharts(d) {
+            destroyMikposCharts();
+
             const chartColors = [
-                'rgba(255,114,97,0.8)',
-                'rgba(168,85,247,0.8)',
-                'rgba(59,130,246,0.8)',
-                'rgba(16,185,129,0.8)',
-                'rgba(245,158,11,0.8)',
-                'rgba(239,68,68,0.8)',
-                'rgba(99,102,241,0.8)',
-                'rgba(236,72,153,0.8)',
-                'rgba(20,184,166,0.8)',
+                'rgba(255,114,97,0.8)', 'rgba(168,85,247,0.8)', 'rgba(59,130,246,0.8)',
+                'rgba(16,185,129,0.8)', 'rgba(245,158,11,0.8)', 'rgba(239,68,68,0.8)',
+                'rgba(99,102,241,0.8)', 'rgba(236,72,153,0.8)', 'rgba(20,184,166,0.8)',
                 'rgba(132,204,22,0.8)'
             ];
 
             // Sales Trend Chart
-            @if(count($salesByDay) > 0)
-            const trendCtx = document.getElementById('salesTrendChart');
-            if (trendCtx) {
-                new Chart(trendCtx, {
-                    type: 'line',
-                    data: {
-                        labels: @json(collect($salesByDay)->pluck('label')),
-                        datasets: [{
-                            label: 'Ingresos',
-                            data: @json(collect($salesByDay)->pluck('revenue')),
-                            borderColor: 'rgba(255, 114, 97, 1)',
-                            backgroundColor: 'rgba(255, 114, 97, 0.1)',
-                            fill: true,
-                            tension: 0.4,
-                            pointBackgroundColor: 'rgba(255, 114, 97, 1)',
-                            pointBorderColor: '#fff',
-                            pointBorderWidth: 2,
-                            pointRadius: 4,
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
-                            x: { grid: { display: false } }
-                        }
-                    }
-                });
-            }
-            @endif
-
-            // Top Products Chart
-            @if(count($topProducts) > 0)
-            const topCtx = document.getElementById('topProductsChart');
-            if (topCtx) {
-                new Chart(topCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: @json(collect($topProducts)->pluck('product_name')->map(fn($n) => strlen($n) > 20 ? substr($n, 0, 20) . '...' : $n)),
-                        datasets: [{
-                            label: 'Cantidad',
-                            data: @json(collect($topProducts)->pluck('total_quantity')),
-                            backgroundColor: 'rgba(168, 85, 247, 0.8)',
-                            borderRadius: 6,
-                        }]
-                    },
-                    options: {
-                        indexAxis: 'y',
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            x: { beginAtZero: true, grid: { display: false } },
-                            y: { grid: { display: false } }
-                        }
-                    }
-                });
-            }
-            @endif
-
-            // Category Chart (Doughnut)
-            @if(count($salesByCategory) > 0)
-            const catCtx = document.getElementById('categoryChart');
-            if (catCtx) {
-                new Chart(catCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: @json(collect($salesByCategory)->pluck('category_name')),
-                        datasets: [{
-                            data: @json(collect($salesByCategory)->pluck('revenue')),
-                            backgroundColor: chartColors,
-                            borderWidth: 0,
-                            hoverOffset: 10
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '60%',
-                        plugins: {
-                            legend: { position: 'right', labels: { usePointStyle: true, padding: 10, font: { size: 10 } } }
-                        }
-                    }
-                });
-            }
-            @endif
-
-            // Brand Chart (Pie)
-            @if(count($salesByBrand) > 0)
-            const brandCtx = document.getElementById('brandChart');
-            if (brandCtx) {
-                new Chart(brandCtx, {
-                    type: 'pie',
-                    data: {
-                        labels: @json(collect($salesByBrand)->pluck('brand_name')),
-                        datasets: [{
-                            data: @json(collect($salesByBrand)->pluck('revenue')),
-                            backgroundColor: chartColors,
-                            borderWidth: 0,
-                            hoverOffset: 10
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'right', labels: { usePointStyle: true, padding: 10, font: { size: 10 } } }
-                        }
-                    }
-                });
-            }
-            @endif
-
-            // Subcategory Chart (Polar Area)
-            @if(count($salesBySubcategory) > 0)
-            const subCtx = document.getElementById('subcategoryChart');
-            if (subCtx) {
-                new Chart(subCtx, {
-                    type: 'polarArea',
-                    data: {
-                        labels: @json(collect($salesBySubcategory)->pluck('subcategory_name')),
-                        datasets: [{
-                            data: @json(collect($salesBySubcategory)->pluck('revenue')),
-                            backgroundColor: chartColors.map(c => c.replace('0.8', '0.6')),
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'right', labels: { usePointStyle: true, padding: 8, font: { size: 9 } } }
-                        }
-                    }
-                });
-            }
-            @endif
-
-            // Payment Methods Chart (Horizontal Bar)
-            @if(count($salesByPaymentMethod) > 0)
-            const payCtx = document.getElementById('paymentChart');
-            if (payCtx) {
-                new Chart(payCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: @json(collect($salesByPaymentMethod)->pluck('method_name')),
-                        datasets: [{
-                            label: 'Monto',
-                            data: @json(collect($salesByPaymentMethod)->pluck('total_amount')),
-                            backgroundColor: chartColors,
-                            borderRadius: 6,
-                        }]
-                    },
-                    options: {
-                        indexAxis: 'y',
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            x: { beginAtZero: true, grid: { display: false } },
-                            y: { grid: { display: false } }
-                        }
-                    }
-                });
-            }
-            @endif
-
-            // Sales by Hour Chart (Bar)
-            @if(count($salesByHour) > 0)
-            const hourCtx = document.getElementById('hourChart');
-            if (hourCtx) {
-                new Chart(hourCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: @json(collect($salesByHour)->pluck('hour')),
-                        datasets: [{
-                            label: 'Ingresos',
-                            data: @json(collect($salesByHour)->pluck('revenue')),
-                            backgroundColor: 'rgba(59, 130, 246, 0.7)',
-                            borderRadius: 4,
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
-                            x: { grid: { display: false } }
-                        }
-                    }
-                });
-            }
-            @endif
-
-            // Sales by Day of Week Chart (Radar)
-            @if(count($salesByDayOfWeek) > 0)
-            const dayCtx = document.getElementById('dayChart');
-            if (dayCtx) {
-                new Chart(dayCtx, {
-                    type: 'radar',
-                    data: {
-                        labels: @json(collect($salesByDayOfWeek)->pluck('day')),
-                        datasets: [{
-                            label: 'Ingresos',
-                            data: @json(collect($salesByDayOfWeek)->pluck('revenue')),
-                            backgroundColor: 'rgba(168, 85, 247, 0.2)',
-                            borderColor: 'rgba(168, 85, 247, 1)',
-                            borderWidth: 2,
-                            pointBackgroundColor: 'rgba(168, 85, 247, 1)',
-                            pointBorderColor: '#fff',
-                            pointBorderWidth: 2,
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            r: {
-                                beginAtZero: true,
-                                grid: { color: 'rgba(0,0,0,0.05)' },
-                                angleLines: { color: 'rgba(0,0,0,0.05)' }
+            if (d.salesByDay && d.salesByDay.length > 0) {
+                const trendCtx = document.getElementById('salesTrendChart');
+                if (trendCtx) {
+                    window.mikposCharts.trend = new Chart(trendCtx, {
+                        type: 'line',
+                        data: {
+                            labels: d.salesByDay.map(function(i) { return i.label; }),
+                            datasets: [{
+                                label: 'Ingresos',
+                                data: d.salesByDay.map(function(i) { return i.revenue; }),
+                                borderColor: 'rgba(255, 114, 97, 1)',
+                                backgroundColor: 'rgba(255, 114, 97, 0.1)',
+                                fill: true, tension: 0.4,
+                                pointBackgroundColor: 'rgba(255, 114, 97, 1)',
+                                pointBorderColor: '#fff', pointBorderWidth: 2, pointRadius: 4,
+                            }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                                x: { grid: { display: false } }
                             }
                         }
-                    }
-                });
+                    });
+                }
             }
-            @endif
+
+            // Top Products Chart
+            if (d.topProducts && d.topProducts.length > 0) {
+                const topCtx = document.getElementById('topProductsChart');
+                if (topCtx) {
+                    window.mikposCharts.top = new Chart(topCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: d.topProducts.map(function(p) { return p.product_name.length > 20 ? p.product_name.substring(0, 20) + '...' : p.product_name; }),
+                            datasets: [{ label: 'Cantidad', data: d.topProducts.map(function(p) { return p.total_quantity; }), backgroundColor: 'rgba(168, 85, 247, 0.8)', borderRadius: 6 }]
+                        },
+                        options: {
+                            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { x: { beginAtZero: true, grid: { display: false } }, y: { grid: { display: false } } }
+                        }
+                    });
+                }
+            }
+
+            // Category Chart (Doughnut)
+            if (d.salesByCategory && d.salesByCategory.length > 0) {
+                const catCtx = document.getElementById('categoryChart');
+                if (catCtx) {
+                    window.mikposCharts.category = new Chart(catCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: d.salesByCategory.map(function(c) { return c.category_name; }),
+                            datasets: [{ data: d.salesByCategory.map(function(c) { return c.revenue; }), backgroundColor: chartColors, borderWidth: 0, hoverOffset: 10 }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false, cutout: '60%',
+                            plugins: { legend: { position: 'right', labels: { usePointStyle: true, padding: 10, font: { size: 10 } } } }
+                        }
+                    });
+                }
+            }
+
+            // Brand Chart (Pie)
+            if (d.salesByBrand && d.salesByBrand.length > 0) {
+                const brandCtx = document.getElementById('brandChart');
+                if (brandCtx) {
+                    window.mikposCharts.brand = new Chart(brandCtx, {
+                        type: 'pie',
+                        data: {
+                            labels: d.salesByBrand.map(function(b) { return b.brand_name; }),
+                            datasets: [{ data: d.salesByBrand.map(function(b) { return b.revenue; }), backgroundColor: chartColors, borderWidth: 0, hoverOffset: 10 }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { position: 'right', labels: { usePointStyle: true, padding: 10, font: { size: 10 } } } }
+                        }
+                    });
+                }
+            }
+
+            // Subcategory Chart (Polar Area)
+            if (d.salesBySubcategory && d.salesBySubcategory.length > 0) {
+                const subCtx = document.getElementById('subcategoryChart');
+                if (subCtx) {
+                    window.mikposCharts.subcategory = new Chart(subCtx, {
+                        type: 'polarArea',
+                        data: {
+                            labels: d.salesBySubcategory.map(function(s) { return s.subcategory_name; }),
+                            datasets: [{ data: d.salesBySubcategory.map(function(s) { return s.revenue; }), backgroundColor: chartColors.map(function(c) { return c.replace('0.8', '0.6'); }), borderWidth: 0 }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { position: 'right', labels: { usePointStyle: true, padding: 8, font: { size: 9 } } } }
+                        }
+                    });
+                }
+            }
+
+            // Payment Methods Chart (Horizontal Bar)
+            if (d.salesByPaymentMethod && d.salesByPaymentMethod.length > 0) {
+                const payCtx = document.getElementById('paymentChart');
+                if (payCtx) {
+                    window.mikposCharts.payment = new Chart(payCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: d.salesByPaymentMethod.map(function(p) { return p.method_name; }),
+                            datasets: [{ label: 'Monto', data: d.salesByPaymentMethod.map(function(p) { return p.total_amount; }), backgroundColor: chartColors, borderRadius: 6 }]
+                        },
+                        options: {
+                            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { x: { beginAtZero: true, grid: { display: false } }, y: { grid: { display: false } } }
+                        }
+                    });
+                }
+            }
+
+            // Sales by Hour Chart (Bar)
+            if (d.salesByHour && d.salesByHour.length > 0) {
+                const hourCtx = document.getElementById('hourChart');
+                if (hourCtx) {
+                    window.mikposCharts.hour = new Chart(hourCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: d.salesByHour.map(function(h) { return h.hour; }),
+                            datasets: [{ label: 'Ingresos', data: d.salesByHour.map(function(h) { return h.revenue; }), backgroundColor: 'rgba(59, 130, 246, 0.7)', borderRadius: 4 }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } }
+                        }
+                    });
+                }
+            }
+
+            // Sales by Day of Week Chart (Radar)
+            if (d.salesByDayOfWeek && d.salesByDayOfWeek.length > 0) {
+                const dayCtx = document.getElementById('dayChart');
+                if (dayCtx) {
+                    window.mikposCharts.day = new Chart(dayCtx, {
+                        type: 'radar',
+                        data: {
+                            labels: d.salesByDayOfWeek.map(function(item) { return item.day; }),
+                            datasets: [{
+                                label: 'Ingresos',
+                                data: d.salesByDayOfWeek.map(function(item) { return item.revenue; }),
+                                backgroundColor: 'rgba(168, 85, 247, 0.2)', borderColor: 'rgba(168, 85, 247, 1)',
+                                borderWidth: 2, pointBackgroundColor: 'rgba(168, 85, 247, 1)',
+                                pointBorderColor: '#fff', pointBorderWidth: 2,
+                            }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { r: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, angleLines: { color: 'rgba(0,0,0,0.05)' } } }
+                        }
+                    });
+                }
+            }
+        }
+
+        window.addEventListener('charts-ready', function(event) {
+            initMikposCharts(event.detail);
         });
     </script>
 </div>

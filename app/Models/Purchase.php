@@ -211,7 +211,7 @@ class Purchase extends Model
             $product = $item->product;
             if ($product) {
                 // Create inventory movement
-                InventoryMovement::createMovement(
+                $movement = InventoryMovement::createMovement(
                     'purchase',
                     $product,
                     'in',
@@ -221,6 +221,9 @@ class Purchase extends Model
                     $this,
                     $this->branch_id
                 );
+
+                // Store the actual purchase date (not creation date) for Kardex accuracy
+                $movement->update(['movement_date' => $this->purchase_date]);
 
                 // Update stock
                 $product->increment('current_stock', $item->quantity);

@@ -31,6 +31,10 @@ class ProductsSold extends Component
     public string $sortBy = 'quantity';
     public string $sortDirection = 'desc';
 
+    // Product lookup
+    public string $productSearch = '';
+    public array $productSearchResults = [];
+
     // View mode
     public string $viewMode = 'table'; // table, cards
 
@@ -391,6 +395,31 @@ class ProductsSold extends Component
             ->toArray();
     }
 
+    private function getProductSearchResults(): array
+    {
+        if (empty($this->productSearch)) {
+            return [];
+        }
+
+        return $this->getBaseQuery()
+            ->where(function ($q) {
+                $q->where('sale_items.product_name', 'like', "%{$this->productSearch}%")
+                  ->orWhere('sale_items.product_sku', 'like', "%{$this->productSearch}%");
+            })
+            ->select(
+                'sale_items.product_name',
+                'sale_items.product_sku',
+                DB::raw('SUM(sale_items.quantity) as total_quantity'),
+                DB::raw('SUM(sale_items.total) as total_revenue'),
+                DB::raw('COUNT(DISTINCT sale_items.sale_id) as transactions'),
+                DB::raw('AVG(sale_items.unit_price) as avg_price')
+            )
+            ->groupBy('sale_items.product_name', 'sale_items.product_sku')
+            ->orderByDesc('total_quantity')
+            ->get()
+            ->toArray();
+    }
+
     public function render()
     {
         $user = auth()->user();
@@ -453,12 +482,28 @@ class ProductsSold extends Component
         $categories = Category::where('is_active', true)->orderBy('name')->get();
         $brands = Brand::where('is_active', true)->orderBy('name')->get();
 
+        // Product search results
+        $productSearchResults = $this->getProductSearchResults();
+
+        // Dispatch chart data to the browser after every render
+        $this->dispatch('charts-ready',
+            salesByDay: $this->salesByDay,
+            topProducts: $this->topProducts,
+            salesByCategory: $this->salesByCategory,
+            salesByBrand: $this->salesByBrand,
+            salesBySubcategory: $this->salesBySubcategory,
+            salesByPaymentMethod: $this->salesByPaymentMethod,
+            salesByHour: $this->salesByHour,
+            salesByDayOfWeek: $this->salesByDayOfWeek,
+        );
+
         return view('livewire.reports.products-sold', [
             'items' => $items,
             'branches' => $branches,
             'categories' => $categories,
             'brands' => $brands,
             'isSuperAdmin' => $isSuperAdmin,
+            'productSearchResults' => $productSearchResults,
         ]);
     }
 }

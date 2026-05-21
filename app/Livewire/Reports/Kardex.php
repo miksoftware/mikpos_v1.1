@@ -271,45 +271,51 @@ class Kardex extends Component
         $query = InventoryMovement::where('product_id', $this->selectedProductId)
             ->with(['systemDocument', 'user', 'branch']);
 
-        // Apply date filters
+        // Apply date filters using movement_date (stores the actual transaction date)
         if ($this->dateFrom) {
-            $query->whereDate('created_at', '>=', $this->dateFrom);
+            $query->whereDate('movement_date', '>=', $this->dateFrom);
         }
         if ($this->dateTo) {
-            $query->whereDate('created_at', '<=', $this->dateTo);
+            $query->whereDate('movement_date', '<=', $this->dateTo);
         }
 
         $this->productMovements = $query
+            ->orderByDesc('movement_date')
             ->orderByDesc('created_at')
             ->limit(100)
             ->get()
             ->map(function ($movement) {
-                // Resolve invoice number from reference
                 $invoiceNumber = null;
                 $receiptUrl = null;
+                // Default: use movement_date (actual transaction date), fallback to created_at
+                $date = ($movement->movement_date ?? $movement->created_at)->format('d/m/Y');
+
                 if ($movement->reference_type === 'App\\Models\\Sale' && $movement->reference_id) {
                     $sale = \App\Models\Sale::find($movement->reference_id);
                     if ($sale) {
                         $invoiceNumber = $sale->invoice_number;
                         $receiptUrl = route('receipt.show', $sale->id);
+                        $date = $sale->created_at->format('d/m/Y H:i');
                     }
                 } elseif ($movement->reference_type === 'App\\Models\\Refund' && $movement->reference_id) {
                     $refund = \App\Models\Refund::find($movement->reference_id);
                     if ($refund) {
                         $invoiceNumber = $refund->number;
                         $receiptUrl = route('refund-receipt.show', $refund->id);
+                        $date = $refund->created_at->format('d/m/Y H:i');
                     }
                 } elseif ($movement->reference_type === 'App\\Models\\Purchase' && $movement->reference_id) {
                     $purchase = \App\Models\Purchase::find($movement->reference_id);
                     if ($purchase) {
                         $invoiceNumber = $purchase->purchase_number ?? $movement->document_number;
                         $receiptUrl = route('purchase-receipt.show', $purchase->id);
+                        $date = $purchase->purchase_date->format('d/m/Y');
                     }
                 }
 
                 return [
                     'id' => $movement->id,
-                    'date' => $movement->created_at->format('d/m/Y H:i'),
+                    'date' => $date,
                     'document' => $movement->systemDocument?->name ?? 'N/A',
                     'document_number' => $movement->document_number,
                     'invoice_number' => $invoiceNumber,
