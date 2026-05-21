@@ -69,8 +69,8 @@
         <!-- Header -->
         <div class="header">
             @if($showLogo && $quote->branch->logo)
-            <div style="text-align:center; margin-bottom:6px;">
-                <img src="{{ Storage::url($quote->branch->logo) }}" alt="{{ $quote->branch->name }}" style="max-width:120px; max-height:60px; object-fit:contain; display:inline-block;">
+            <div style="text-align:center; margin-bottom:8px;">
+                <img src="{{ Storage::url($quote->branch->logo) }}" alt="{{ $quote->branch->name }}" style="max-width:220px; max-height:110px; width:90%; object-fit:contain; display:inline-block;">
             </div>
             @endif
             <div class="business-name">{{ $quote->branch->name }}</div>
