@@ -596,6 +596,45 @@ class ReportExportController extends Controller
             }
         }
 
+        // Returns (refunds + credit notes) — captures partial returns too
+        $refundsQuery = \App\Models\Refund::query()
+            ->where('refunds.status', 'completed')
+            ->whereDate('refunds.created_at', '>=', $startDate)
+            ->whereDate('refunds.created_at', '<=', $endDate)
+            ->whereHas('sale', fn($q) => $q->where('sales.status', 'completed'));
+        if ($branchId) $refundsQuery->where('refunds.branch_id', $branchId);
+        $totalRefundAmount = (float) (clone $refundsQuery)->sum('refunds.total');
+        $totalRefundCount = (int) (clone $refundsQuery)->count();
+        $refundIds = (clone $refundsQuery)->pluck('refunds.id');
+        $refundCost = 0;
+        if ($refundIds->isNotEmpty()) {
+            $refundCost = (float) \App\Models\RefundItem::join('products', 'refund_items.product_id', '=', 'products.id')
+                ->whereIn('refund_items.refund_id', $refundIds)
+                ->sum(DB::raw('refund_items.quantity * products.purchase_price'));
+        }
+
+        $creditNotesQuery = \App\Models\CreditNote::query()
+            ->whereIn('credit_notes.status', ['pending', 'validated'])
+            ->whereDate('credit_notes.created_at', '>=', $startDate)
+            ->whereDate('credit_notes.created_at', '<=', $endDate)
+            ->whereHas('sale', fn($q) => $q->where('sales.status', 'completed'));
+        if ($branchId) $creditNotesQuery->where('credit_notes.branch_id', $branchId);
+        $totalCreditNoteAmount = (float) (clone $creditNotesQuery)->sum('credit_notes.total');
+        $totalCreditNoteCount = (int) (clone $creditNotesQuery)->count();
+        $creditNoteIds = (clone $creditNotesQuery)->pluck('credit_notes.id');
+        $creditNoteCost = 0;
+        if ($creditNoteIds->isNotEmpty()) {
+            $creditNoteCost = (float) \App\Models\CreditNoteItem::join('products', 'credit_note_items.product_id', '=', 'products.id')
+                ->whereIn('credit_note_items.credit_note_id', $creditNoteIds)
+                ->sum(DB::raw('credit_note_items.quantity * products.purchase_price'));
+        }
+
+        $totalRefunds = round($totalRefundAmount + $totalCreditNoteAmount, 2);
+        $totalRefundsCost = round($refundCost + $creditNoteCost, 2);
+
+        $totalRevenue = max(0, $totalRevenue - $totalRefunds);
+        $totalCost = max(0, $totalCost - $totalRefundsCost);
+
         // Purchases
         $purchasesQuery = Purchase::whereDate('purchases.created_at', '>=', $startDate)
             ->whereDate('purchases.created_at', '<=', $endDate);
@@ -628,12 +667,23 @@ class ReportExportController extends Controller
         }
         $totalModuleExpenses = (float) $moduleExpQuery->sum('amount');
 
+        // Payroll expenses (paid payrolls in period)
+        $payrollExpQuery = \App\Models\PayrollDetail::join('payrolls', 'payroll_details.payroll_id', '=', 'payrolls.id')
+            ->where('payrolls.status', 'pagada')
+            ->whereDate('payrolls.payment_date', '>=', $startDate)
+            ->whereDate('payrolls.payment_date', '<=', $endDate);
+        if ($branchId) {
+            $payrollExpQuery->where('payrolls.branch_id', $branchId);
+        }
+        $totalPayrollExpenses = (float) $payrollExpQuery->sum('payroll_details.net_pay');
+
+        // Operating expenses do NOT include payroll. Payroll is shown separately.
         $totalExpenses = $totalCashExpenses + $totalModuleExpenses;
 
         $grossProfit = $totalRevenue + $totalCashIncome - $totalCost;
         $totalIncome = $totalRevenue + $totalCashIncome;
         $grossMargin = $totalIncome > 0 ? ($grossProfit / $totalIncome) * 100 : 0;
-        $netProfit = $grossProfit - $totalExpenses;
+        $netProfit = $grossProfit - $totalExpenses - $totalPayrollExpenses;
         $netMargin = $totalIncome > 0 ? ($netProfit / $totalIncome) * 100 : 0;
 
         // Category breakdown
@@ -730,6 +780,7 @@ class ReportExportController extends Controller
         $stmtItems = [
             ['Ingresos por Ventas', $totalRevenue, '4472C4'],
             ['(+) Otros Ingresos (Mov. Caja)', $totalCashIncome, '70AD47'],
+            ['(-) Devoluciones y Notas Crédito', $totalRefunds, 'F59E0B'],
             ['(-) Descuentos', $totalDiscount, 'E2E8F0'],
             ['Impuestos Recaudados', $totalTax, 'E2E8F0'],
             ['(-) Costo de Ventas', $totalCost, 'ED7D31'],
@@ -737,6 +788,7 @@ class ReportExportController extends Controller
             ['(-) Gastos Operativos', $totalExpenses, 'FF6B6B'],
             ['    Egresos de Caja', $totalCashExpenses, 'E2E8F0'],
             ['    Gastos Registrados', $totalModuleExpenses, 'E2E8F0'],
+            ['(-) Nómina', $totalPayrollExpenses, 'A855F7'],
             ['= UTILIDAD NETA', $netProfit, $netProfit >= 0 ? '00B050' : 'FF0000'],
         ];
 
@@ -1807,6 +1859,402 @@ class ReportExportController extends Controller
         $filename = 'libro-ventas-' . now()->format('Y-m-d') . '.xlsx';
 
         $tempFile = tempnam(sys_get_temp_dir(), 'excel');
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Export Kardex (inventory) report as a multi-sheet Excel workbook.
+     *
+     * Sheets:
+     *  1. Resumen        — KPIs, distribución por estado de stock, agrupado por categoría
+     *  2. Inventario     — Lista completa de productos con todas las columnas
+     *  3. Mov. Inventario — Movimientos de inventario en el período (entrada/salida)
+     */
+    public function kardexExcel(Request $request)
+    {
+        $user = auth()->user();
+        $branchId = $request->get('branch_id');
+        $categoryId = $request->get('category_id');
+        $brandId = $request->get('brand_id');
+        $stockFilter = $request->get('stock_filter', 'all');
+        $search = $request->get('search', '');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+
+        // Force branch for non-super admin
+        if (!$user->isSuperAdmin()) {
+            $branchId = $user->branch_id;
+        }
+
+        // Resolve display labels
+        $branchName = 'Todas las sucursales';
+        if ($branchId) {
+            $branchName = Branch::find($branchId)?->name ?? '—';
+        }
+        $categoryName = $categoryId ? (Category::find($categoryId)?->name ?? '—') : 'Todas las categorías';
+        $brandName = $brandId ? (Brand::find($brandId)?->name ?? '—') : 'Todas las marcas';
+        $stockLabel = match ($stockFilter) {
+            'positive' => 'Solo con stock',
+            'zero' => 'Solo sin stock',
+            'negative' => 'Solo stock negativo',
+            default => 'Todos',
+        };
+
+        // ============= Build product query =============
+        $productsQuery = Product::query()
+            ->with(['category', 'brand', 'unit', 'branch'])
+            ->where('is_active', true);
+
+        if ($branchId) {
+            $productsQuery->where('branch_id', $branchId);
+        }
+        if ($categoryId) {
+            $productsQuery->where('category_id', $categoryId);
+        }
+        if ($brandId) {
+            $productsQuery->where('brand_id', $brandId);
+        }
+        if ($search) {
+            $productsQuery->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('sku', 'like', "%{$search}%")
+                  ->orWhere('barcode', 'like', "%{$search}%");
+            });
+        }
+        switch ($stockFilter) {
+            case 'positive':
+                $productsQuery->where('current_stock', '>', 0);
+                break;
+            case 'zero':
+                $productsQuery->where('current_stock', 0);
+                break;
+            case 'negative':
+                $productsQuery->where('current_stock', '<', 0);
+                break;
+        }
+
+        $products = $productsQuery->orderBy('name')->get();
+
+        // ============= Aggregate stats =============
+        $totalProducts = $products->count();
+        $productsWithStock = $products->where('current_stock', '>', 0)->count();
+        $productsZeroStock = $products->where('current_stock', 0)->count();
+        $productsNegativeStock = $products->where('current_stock', '<', 0)->count();
+
+        $totalInventoryValue = (float) $products->where('current_stock', '>', 0)
+            ->sum(fn($p) => (float) $p->current_stock * (float) $p->sale_price);
+        $totalInventoryCost = (float) $products->where('current_stock', '>', 0)
+            ->sum(fn($p) => (float) $p->current_stock * (float) $p->purchase_price);
+        $totalPotentialProfit = $totalInventoryValue - $totalInventoryCost;
+
+        // Group by category
+        $byCategory = $products->groupBy(fn($p) => $p->category?->name ?? 'Sin categoría')
+            ->map(function ($group) {
+                $totalStock = (float) $group->sum('current_stock');
+                $totalValue = (float) $group->sum(fn($p) => (float) $p->current_stock * (float) $p->sale_price);
+                $totalCost = (float) $group->sum(fn($p) => (float) $p->current_stock * (float) $p->purchase_price);
+                return [
+                    'count' => $group->count(),
+                    'stock' => $totalStock,
+                    'value' => $totalValue,
+                    'cost' => $totalCost,
+                    'profit' => $totalValue - $totalCost,
+                ];
+            });
+
+        // ============= Inventory movements =============
+        $productIds = $products->pluck('id');
+
+        $movementsQuery = \App\Models\InventoryMovement::query()
+            ->whereIn('product_id', $productIds)
+            ->with(['product', 'systemDocument', 'user', 'branch']);
+
+        if ($dateFrom) {
+            $movementsQuery->whereDate('created_at', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $movementsQuery->whereDate('created_at', '<=', $dateTo);
+        }
+
+        $movements = $movementsQuery->orderBy('created_at')->get();
+
+        // ============= Build spreadsheet =============
+        $spreadsheet = new Spreadsheet();
+
+        // ---- Common styles ----
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 16, 'color' => ['rgb' => '1E293B']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+        ];
+        $subtitleStyle = ['font' => ['bold' => true, 'size' => 12, 'color' => ['rgb' => 'A855F7']]];
+        $tableHeaderStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'A855F7']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '9333EA']]],
+        ];
+        $cellBorderStyle = [
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E2E8F0']]],
+        ];
+
+        // ============================================================
+        // SHEET 1 — Resumen
+        // ============================================================
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Resumen');
+
+        $row = 1;
+        $sheet->setCellValue('A' . $row, 'REPORTE KARDEX — RESUMEN');
+        $sheet->mergeCells('A' . $row . ':F' . $row);
+        $sheet->getStyle('A' . $row)->applyFromArray($titleStyle);
+        $sheet->getRowDimension($row)->setRowHeight(28);
+        $row += 2;
+
+        // Filters info
+        $filterInfo = [
+            ['Sucursal:', $branchName],
+            ['Categoría:', $categoryName],
+            ['Marca:', $brandName],
+            ['Filtro stock:', $stockLabel],
+            ['Búsqueda:', $search ?: '—'],
+            ['Período movimientos:', ($dateFrom ?: '—') . ' a ' . ($dateTo ?: '—')],
+            ['Generado:', now()->format('d/m/Y H:i')],
+        ];
+        foreach ($filterInfo as $info) {
+            $sheet->setCellValue('A' . $row, $info[0]);
+            $sheet->setCellValue('B' . $row, $info[1]);
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row++;
+        }
+        $row++;
+
+        // KPIs
+        $sheet->setCellValue('A' . $row, 'INDICADORES');
+        $sheet->getStyle('A' . $row)->applyFromArray($subtitleStyle);
+        $row++;
+
+        $kpis = [
+            ['Total productos', $totalProducts, '0', '4472C4'],
+            ['Con existencias', $productsWithStock, '0', '22C55E'],
+            ['Sin existencias', $productsZeroStock, '0', 'F59E0B'],
+            ['Stock negativo', $productsNegativeStock, '0', 'EF4444'],
+            ['Valor inventario (precio venta)', $totalInventoryValue, '$#,##0.00', '70AD47'],
+            ['Costo inventario (precio compra)', $totalInventoryCost, '$#,##0.00', 'ED7D31'],
+            ['Utilidad potencial', $totalPotentialProfit, '$#,##0.00', $totalPotentialProfit >= 0 ? '22C55E' : 'EF4444'],
+        ];
+        foreach ($kpis as $kpi) {
+            $sheet->setCellValue('A' . $row, $kpi[0]);
+            $sheet->setCellValue('B' . $row, $kpi[1]);
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode($kpi[2]);
+            $sheet->getStyle('B' . $row)->getFont()->setColor(new Color($kpi[3]))->setBold(true);
+            $row++;
+        }
+        $row += 2;
+
+        // By category
+        if ($byCategory->isNotEmpty()) {
+            $sheet->setCellValue('A' . $row, 'INVENTARIO POR CATEGORÍA');
+            $sheet->getStyle('A' . $row)->applyFromArray($subtitleStyle);
+            $row++;
+
+            $catHeaders = ['Categoría', 'Productos', 'Stock total', 'Valor (venta)', 'Costo (compra)', 'Utilidad pot.'];
+            $col = 'A';
+            foreach ($catHeaders as $h) {
+                $sheet->setCellValue($col . $row, $h);
+                $col++;
+            }
+            $sheet->getStyle('A' . $row . ':F' . $row)->applyFromArray($tableHeaderStyle);
+            $row++;
+
+            foreach ($byCategory as $catName => $data) {
+                $sheet->setCellValue('A' . $row, $catName);
+                $sheet->setCellValue('B' . $row, $data['count']);
+                $sheet->setCellValue('C' . $row, $data['stock']);
+                $sheet->setCellValue('D' . $row, $data['value']);
+                $sheet->setCellValue('E' . $row, $data['cost']);
+                $sheet->setCellValue('F' . $row, $data['profit']);
+                $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('#,##0');
+                $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('#,##0.000');
+                $sheet->getStyle('D' . $row . ':F' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+                $sheet->getStyle('A' . $row . ':F' . $row)->applyFromArray($cellBorderStyle);
+                $row++;
+            }
+            $row += 2;
+        }
+
+        // Set column widths for sheet 1
+        foreach (['A', 'B', 'C', 'D', 'E', 'F'] as $colLetter) {
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        // ============================================================
+        // SHEET 2 — Inventario (lista de productos)
+        // ============================================================
+        $invSheet = $spreadsheet->createSheet();
+        $invSheet->setTitle('Inventario');
+
+        $row = 1;
+        $invSheet->setCellValue('A' . $row, 'INVENTARIO DETALLADO');
+        $invSheet->mergeCells('A' . $row . ':L' . $row);
+        $invSheet->getStyle('A' . $row)->applyFromArray($titleStyle);
+        $invSheet->getRowDimension($row)->setRowHeight(28);
+        $row += 2;
+
+        $invHeaders = [
+            'SKU', 'Producto', 'Categoría', 'Marca', 'Sucursal', 'Unidad',
+            'Stock actual', 'Stock mín.', 'Precio compra', 'Precio venta',
+            'Valor inv.', 'Costo inv.',
+        ];
+        $col = 'A';
+        foreach ($invHeaders as $h) {
+            $invSheet->setCellValue($col . $row, $h);
+            $col++;
+        }
+        $invSheet->getStyle('A' . $row . ':L' . $row)->applyFromArray($tableHeaderStyle);
+        $invSheet->getRowDimension($row)->setRowHeight(22);
+        $row++;
+
+        foreach ($products as $p) {
+            $stock = (float) $p->current_stock;
+            $value = $stock > 0 ? $stock * (float) $p->sale_price : 0;
+            $cost = $stock > 0 ? $stock * (float) $p->purchase_price : 0;
+
+            $invSheet->setCellValue('A' . $row, $p->sku);
+            $invSheet->setCellValue('B' . $row, $p->name);
+            $invSheet->setCellValue('C' . $row, $p->category?->name ?? '—');
+            $invSheet->setCellValue('D' . $row, $p->brand?->name ?? '—');
+            $invSheet->setCellValue('E' . $row, $p->branch?->name ?? '—');
+            $invSheet->setCellValue('F' . $row, $p->unit?->abbreviation ?? '—');
+            $invSheet->setCellValue('G' . $row, $stock);
+            $invSheet->setCellValue('H' . $row, (float) $p->min_stock);
+            $invSheet->setCellValue('I' . $row, (float) $p->purchase_price);
+            $invSheet->setCellValue('J' . $row, (float) $p->sale_price);
+            $invSheet->setCellValue('K' . $row, $value);
+            $invSheet->setCellValue('L' . $row, $cost);
+
+            // Number formats
+            $invSheet->getStyle('G' . $row . ':H' . $row)->getNumberFormat()->setFormatCode('#,##0.000');
+            $invSheet->getStyle('I' . $row . ':L' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+
+            // Highlight rows with stock issues
+            if ($stock < 0) {
+                $invSheet->getStyle('A' . $row . ':L' . $row)->getFill()
+                    ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FEE2E2');
+            } elseif ($stock == 0) {
+                $invSheet->getStyle('A' . $row . ':L' . $row)->getFill()
+                    ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FEF3C7');
+            } elseif ($p->min_stock > 0 && $stock <= $p->min_stock) {
+                $invSheet->getStyle('A' . $row . ':L' . $row)->getFill()
+                    ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FFEDD5');
+            }
+
+            $invSheet->getStyle('A' . $row . ':L' . $row)->applyFromArray($cellBorderStyle);
+            $row++;
+        }
+
+        // Totals row
+        if ($products->count() > 0) {
+            $invSheet->setCellValue('A' . $row, 'TOTALES');
+            $invSheet->mergeCells('A' . $row . ':J' . $row);
+            $invSheet->setCellValue('K' . $row, $totalInventoryValue);
+            $invSheet->setCellValue('L' . $row, $totalInventoryCost);
+            $invSheet->getStyle('A' . $row . ':L' . $row)->getFont()->setBold(true);
+            $invSheet->getStyle('A' . $row . ':L' . $row)->getFill()
+                ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F1F5F9');
+            $invSheet->getStyle('K' . $row . ':L' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $invSheet->getStyle('A' . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        }
+
+        foreach (['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as $colLetter) {
+            $invSheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+        $invSheet->freezePane('A4');
+
+        // ============================================================
+        // SHEET 3 — Movimientos
+        // ============================================================
+        $movSheet = $spreadsheet->createSheet();
+        $movSheet->setTitle('Movimientos');
+
+        $row = 1;
+        $movSheet->setCellValue('A' . $row, 'MOVIMIENTOS DE INVENTARIO');
+        $movSheet->mergeCells('A' . $row . ':L' . $row);
+        $movSheet->getStyle('A' . $row)->applyFromArray($titleStyle);
+        $movSheet->getRowDimension($row)->setRowHeight(28);
+        $row++;
+        if ($dateFrom || $dateTo) {
+            $movSheet->setCellValue('A' . $row, 'Período: ' . ($dateFrom ?: '—') . ' a ' . ($dateTo ?: '—'));
+            $movSheet->mergeCells('A' . $row . ':L' . $row);
+            $movSheet->getStyle('A' . $row)->getFont()->setItalic(true)->setSize(10);
+            $movSheet->getStyle('A' . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $row++;
+        }
+        $row++;
+
+        $movHeaders = [
+            'Fecha', 'SKU', 'Producto', 'Sucursal', 'Documento', 'N° doc.',
+            'Tipo', 'Cantidad', 'Stock antes', 'Stock después',
+            'Costo unit.', 'Costo total',
+        ];
+        $col = 'A';
+        foreach ($movHeaders as $h) {
+            $movSheet->setCellValue($col . $row, $h);
+            $col++;
+        }
+        $movSheet->getStyle('A' . $row . ':L' . $row)->applyFromArray($tableHeaderStyle);
+        $movSheet->getRowDimension($row)->setRowHeight(22);
+        $row++;
+
+        if ($movements->isEmpty()) {
+            $movSheet->setCellValue('A' . $row, 'No hay movimientos en el período seleccionado.');
+            $movSheet->mergeCells('A' . $row . ':L' . $row);
+            $movSheet->getStyle('A' . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $movSheet->getStyle('A' . $row)->getFont()->setItalic(true);
+        } else {
+            foreach ($movements as $m) {
+                $movSheet->setCellValue('A' . $row, $m->created_at->format('d/m/Y H:i'));
+                $movSheet->setCellValue('B' . $row, $m->product?->sku ?? '—');
+                $movSheet->setCellValue('C' . $row, $m->product?->name ?? '—');
+                $movSheet->setCellValue('D' . $row, $m->branch?->name ?? '—');
+                $movSheet->setCellValue('E' . $row, $m->systemDocument?->name ?? 'N/A');
+                $movSheet->setCellValue('F' . $row, $m->document_number ?? '—');
+                $movSheet->setCellValue('G' . $row, $m->movement_type === 'in' ? 'Entrada' : 'Salida');
+                $movSheet->setCellValue('H' . $row, (float) $m->quantity);
+                $movSheet->setCellValue('I' . $row, (float) $m->stock_before);
+                $movSheet->setCellValue('J' . $row, (float) $m->stock_after);
+                $movSheet->setCellValue('K' . $row, (float) $m->unit_cost);
+                $movSheet->setCellValue('L' . $row, (float) $m->total_cost);
+
+                $movSheet->getStyle('H' . $row . ':J' . $row)->getNumberFormat()->setFormatCode('#,##0.000');
+                $movSheet->getStyle('K' . $row . ':L' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+
+                if ($m->movement_type === 'in') {
+                    $movSheet->getStyle('G' . $row)->getFont()->setColor(new Color('22C55E'))->setBold(true);
+                } else {
+                    $movSheet->getStyle('G' . $row)->getFont()->setColor(new Color('EF4444'))->setBold(true);
+                }
+
+                $movSheet->getStyle('A' . $row . ':L' . $row)->applyFromArray($cellBorderStyle);
+                $row++;
+            }
+        }
+
+        foreach (['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as $colLetter) {
+            $movSheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+        $movSheet->freezePane('A4');
+
+        // Reset active sheet to first one
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'kardex-' . now()->format('Y-m-d-His') . '.xlsx';
+        $tempFile = tempnam(sys_get_temp_dir(), 'kardex');
         $writer->save($tempFile);
 
         return response()->download($tempFile, $filename, [

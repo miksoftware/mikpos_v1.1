@@ -23,6 +23,7 @@ use App\Models\SaleItem;
 use App\Models\SalePayment;
 use App\Models\InventoryMovement;
 use App\Models\PrintFormatSetting;
+use App\Models\Quote;
 use App\Services\ActivityLogService;
 use App\Services\FactusService;
 use Illuminate\Support\Facades\DB;
@@ -123,6 +124,11 @@ class PointOfSale extends Component
     // Price override mode (F4)
     public $showPriceOverride = false;
 
+    // Quote conversion: when POS is opened with ?from_quote=N, this holds the quote ID
+    // and the sale processed will mark the quote as converted.
+    public $fromQuoteId = null;
+    public $fromQuoteNumber = null;
+
     public function mount()
     {
         $user = auth()->user();
@@ -146,6 +152,115 @@ class PointOfSale extends Component
         
         // Load default customer
         $this->loadDefaultCustomer();
+
+        // Check if POS was opened from a quote conversion
+        $quoteId = request()->query('from_quote');
+        if ($quoteId) {
+            $this->loadFromQuote((int) $quoteId);
+        }
+    }
+
+    /**
+     * Load a quote's items, customer and discounts into the POS cart.
+     * Called when POS is opened with ?from_quote=N to convert a quote into a sale.
+     */
+    protected function loadFromQuote(int $quoteId): void
+    {
+        $quote = Quote::with(['items', 'customer'])->find($quoteId);
+        if (!$quote) {
+            $this->dispatch('notify', message: 'Cotización no encontrada', type: 'error');
+            return;
+        }
+
+        if ($quote->status !== 'draft') {
+            $this->dispatch('notify', message: 'Esta cotización ya fue convertida o cancelada', type: 'warning');
+            return;
+        }
+
+        // Verify branch matches (or super_admin context)
+        $user = auth()->user();
+        if (!$user->isSuperAdmin() && $quote->branch_id !== $user->branch_id) {
+            $this->dispatch('notify', message: 'La cotización pertenece a otra sucursal', type: 'error');
+            return;
+        }
+
+        // Set customer from quote
+        if ($quote->customer_id) {
+            $this->customerId = $quote->customer_id;
+            $this->selectedCustomer = $quote->customer;
+        }
+
+        // Build cart from quote items
+        $this->cart = [];
+        foreach ($quote->items as $qItem) {
+            // Determine cart key by item type
+            if ($qItem->service_id) {
+                $cartKey = 'service-' . $qItem->service_id;
+            } elseif ($qItem->combo_id) {
+                $cartKey = 'combo-' . $qItem->combo_id;
+            } elseif ($qItem->product_id) {
+                $cartKey = $qItem->product_id . '-' . ($qItem->product_child_id ?? 'parent');
+            } else {
+                continue;
+            }
+
+            $basePrice = (float) $qItem->unit_price;
+            $taxRate = (float) $qItem->tax_rate;
+            $priceWithTax = $taxRate > 0 ? $basePrice * (1 + $taxRate / 100) : $basePrice;
+
+            // Look up max_stock for products (services/combos use PHP_INT_MAX)
+            $maxStock = PHP_INT_MAX;
+            if ($qItem->product_id && !$qItem->service_id && !$qItem->combo_id) {
+                $product = Product::find($qItem->product_id);
+                if ($product) {
+                    $maxStock = (float) $product->current_stock;
+                }
+            }
+
+            $this->cart[$cartKey] = [
+                'product_id' => $qItem->product_id,
+                'child_id' => $qItem->product_child_id,
+                'service_id' => $qItem->service_id,
+                'combo_id' => $qItem->combo_id,
+                'is_service' => $qItem->service_id !== null,
+                'is_combo' => $qItem->combo_id !== null,
+                'name' => $qItem->product_name,
+                'sku' => $qItem->product_sku,
+                'price' => round($priceWithTax, 2),
+                'base_price' => round($basePrice, 2),
+                'original_price' => round($priceWithTax, 2),
+                'original_base_price' => round($basePrice, 2),
+                'special_price' => null,
+                'using_special_price' => false,
+                'quantity' => (float) $qItem->quantity,
+                'subtotal' => (float) $qItem->subtotal,
+                'tax_id' => null,
+                'tax_rate' => $taxRate,
+                'tax_amount' => (float) $qItem->tax_amount,
+                'price_includes_tax' => false, // unit_price is base price (without tax)
+                'image' => null,
+                'max_stock' => $maxStock,
+                'discount_type' => $qItem->discount_type,
+                'discount_type_value' => (float) $qItem->discount_type_value,
+                'discount_amount' => (float) $qItem->discount_amount,
+                'discount_reason' => $qItem->discount_reason,
+                'price_overridden' => true, // mark as overridden so prices stick
+            ];
+        }
+
+        // Restore global discount if quote had one
+        if ($quote->global_discount_amount > 0) {
+            $this->globalDiscountApplied = true;
+            $this->globalDiscountType = $quote->global_discount_type ?? 'percentage';
+            $this->globalDiscountValue = (string) $quote->global_discount_value;
+            $this->globalDiscountAmount = (float) $quote->global_discount_amount;
+            $this->globalDiscountReason = $quote->global_discount_reason ?? '';
+        }
+
+        $this->fromQuoteId = $quote->id;
+        $this->fromQuoteNumber = $quote->quote_number;
+
+        $this->dispatch('notify', message: "Cotización {$quote->quote_number} cargada. Procesa el pago para completar la venta.", type: 'info');
     }
 
     public function loadDefaultCustomer()
@@ -1698,6 +1813,26 @@ class PointOfSale extends Component
                 $sale,
                 "Venta {$sale->invoice_number}{$creditLabel} por $" . number_format($sale->total, 2)
             );
+
+            // If POS was opened from a quote, mark the quote as converted
+            if ($this->fromQuoteId) {
+                $quote = Quote::find($this->fromQuoteId);
+                if ($quote && $quote->status === 'draft') {
+                    $quote->update([
+                        'status' => 'converted',
+                        'converted_to_sale_id' => $sale->id,
+                        'converted_at' => now(),
+                    ]);
+                    ActivityLogService::logUpdate(
+                        'quotes',
+                        $quote,
+                        ['status' => 'draft'],
+                        "Cotización {$quote->quote_number} convertida en venta {$sale->invoice_number}"
+                    );
+                }
+                $this->fromQuoteId = null;
+                $this->fromQuoteNumber = null;
+            }
             
             // Process electronic invoice if enabled
             $electronicInvoiceResult = $this->processElectronicInvoice($sale);

@@ -51,6 +51,20 @@
     <div class="flex-1 flex overflow-hidden">
         <!-- Left Panel - Cart (50%) -->
         <div class="w-1/2 bg-white flex flex-col border-r border-slate-200">
+            @if($fromQuoteId)
+            <div class="p-3 bg-gradient-to-r from-orange-50 to-purple-50 border-b border-orange-200">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-gradient-to-br from-[#ff7261] to-[#a855f7] flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-semibold text-slate-800">Convirtiendo cotización <span class="text-[#a855f7]">{{ $fromQuoteNumber }}</span></p>
+                        <p class="text-xs text-slate-600">Items y precios cargados desde la cotización. Procesa el pago para completar la venta.</p>
+                    </div>
+                </div>
+            </div>
+            @endif
+
             @if($needsReconciliation)
             <div class="p-4 bg-amber-50 border-b border-amber-200">
                 <div class="flex items-center justify-between">

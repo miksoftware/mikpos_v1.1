@@ -165,27 +165,28 @@ class EcommerceCheckoutService
 
     /**
      * Generate invoice number for e-commerce sales.
+     * Uses a global continuous sequence (never resets), similar to the main POS sequence
+     * but with the ECM prefix to differentiate e-commerce orders from POS sales.
      */
     private function generateInvoiceNumber(int $branchId): string
     {
         $prefix = 'ECM';
-        $date = now()->format('Ymd');
-        $pattern = "{$prefix}-{$date}-";
 
-        $lastSale = Sale::where('branch_id', $branchId)
-            ->where('invoice_number', 'like', "{$pattern}%")
+        // Find the highest sequence across ALL e-commerce invoices (no per-day reset).
+        // Works with both old (ECM-YYYYMMDD-XXXX) and new (ECM-XXXX) formats by extracting
+        // the last hyphen-separated segment as the numeric sequence.
+        $lastSale = Sale::where('invoice_number', 'like', "{$prefix}-%")
             ->orderByRaw("CAST(SUBSTRING_INDEX(invoice_number, '-', -1) AS UNSIGNED) DESC")
             ->first();
 
         $sequence = 1;
         if ($lastSale) {
             $parts = explode('-', $lastSale->invoice_number);
-            if (count($parts) === 3) {
-                $sequence = (int) $parts[2] + 1;
-            }
+            $lastSeq = (int) end($parts);
+            $sequence = $lastSeq + 1;
         }
 
-        return sprintf('%s-%s-%04d', $prefix, $date, $sequence);
+        return sprintf('%s-%s', $prefix, str_pad((string) $sequence, 4, '0', STR_PAD_LEFT));
     }
 
     /**

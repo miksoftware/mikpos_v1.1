@@ -33,6 +33,52 @@
 </a>
 @endif
 
+<!-- Cotizaciones Section -->
+@if (auth()->user()->hasPermission('quotes.view'))
+@if($mobile)
+<div class="{{ $sectionClass }}">
+    <p class="{{ $labelClass }}">Cotizaciones</p>
+    @if (auth()->user()->hasPermission('quotes.create'))
+    <a href="{{ route('quotes.create') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('quotes.create') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+        <span>Nueva Cotización</span>
+    </a>
+    @endif
+    <a href="{{ route('quotes') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('quotes') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        <span>Listado</span>
+    </a>
+</div>
+@else
+<div x-data="{ quotesOpen: {{ request()->routeIs('quotes') || request()->routeIs('quotes.create') ? 'true' : 'false' }} }">
+    <button @click="quotesOpen = !quotesOpen"
+        class="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-slate-400 hover:bg-white/5 hover:text-white">
+        <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 flex-shrink-0 group-hover:text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <span x-show="sidebarOpen" class="font-medium">Cotizaciones</span>
+        </div>
+        <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform duration-200" :class="quotesOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+        </svg>
+    </button>
+    <div x-show="quotesOpen && sidebarOpen" x-collapse class="{{ $sectionClass }}">
+        @if (auth()->user()->hasPermission('quotes.create'))
+        <a href="{{ route('quotes.create') }}" class="{{ $linkClass }} {{ request()->routeIs('quotes.create') ? $activeClass : $inactiveClass }}">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+            <span class="text-sm">Nueva Cotización</span>
+        </a>
+        @endif
+        <a href="{{ route('quotes') }}" class="{{ $linkClass }} {{ request()->routeIs('quotes') ? $activeClass : $inactiveClass }}">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <span class="text-sm">Listado</span>
+        </a>
+    </div>
+</div>
+@endif
+@endif
+
 <!-- Cajas Section -->
 @if (auth()->user()->hasPermission('cash_registers.view') || auth()->user()->hasPermission('cash_reconciliations.view'))
 @if($mobile)

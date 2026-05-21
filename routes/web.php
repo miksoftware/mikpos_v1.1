@@ -253,6 +253,34 @@ Route::middleware(['auth'])->group(function () {
         ->name('pos')
         ->middleware('permission:pos.access');
 
+    // Quotes (Cotizaciones)
+    Route::get('/quotes', App\Livewire\Quotes::class)
+        ->name('quotes')
+        ->middleware('permission:quotes.view');
+
+    Route::get('/quotes/crear', App\Livewire\QuoteCreate::class)
+        ->name('quotes.create')
+        ->middleware('permission:quotes.create');
+
+    // Quote Receipt
+    Route::get('/quote-receipt/{quote}', function (App\Models\Quote $quote) {
+        $quote->load([
+            'branch.department',
+            'branch.municipality',
+            'customer.taxDocument',
+            'customer.municipality',
+            'customer.department',
+            'user',
+            'items',
+        ]);
+
+        $format = App\Models\PrintFormatSetting::getFormat('quote');
+        $view = $format === 'letter' ? 'receipts.quote-receipt-letter' : 'receipts.quote-receipt';
+        $showLogo = $format === '80mm' && App\Models\PrintFormatSetting::shouldShowLogo80mm('quote');
+
+        return view($view, compact('quote', 'showLogo'));
+    })->name('quote-receipt.show');
+
     // POS Receipt
     Route::get('/receipt/{sale}', function (App\Models\Sale $sale) {
         // Load relationships needed for the receipt
@@ -358,6 +386,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/kardex', App\Livewire\Reports\Kardex::class)
             ->name('kardex')
             ->middleware('permission:reports.kardex');
+
+        Route::get('/kardex/excel', [App\Http\Controllers\ReportExportController::class, 'kardexExcel'])
+            ->name('kardex.excel')
+            ->middleware('permission:reports.export');
 
         Route::get('/sales-book', App\Livewire\Reports\SalesBook::class)
             ->name('sales-book')

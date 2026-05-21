@@ -5,6 +5,20 @@
             <h1 class="text-2xl font-bold text-slate-800">Créditos y Pagos</h1>
             <p class="text-slate-500 mt-1">Gestiona cuentas por pagar y por cobrar</p>
         </div>
+        @if(auth()->user()->hasPermission('credits.pay'))
+        <div class="flex flex-wrap items-center gap-2">
+            <button wire:click="openBulkPaymentModal('receivable')"
+                class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                Cobrar a varias facturas
+            </button>
+            <button wire:click="openBulkPaymentModal('payable')"
+                class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                Pagar a varias facturas
+            </button>
+        </div>
+        @endif
     </div>
 
     {{-- Summary Cards --}}
@@ -277,6 +291,223 @@
                             <span wire:loading.remove wire:target="storePayment">Registrar Pago</span>
                             <span wire:loading wire:target="storePayment">Procesando...</span>
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Bulk Payment Modal --}}
+    @if($isBulkModalOpen)
+    <div class="relative z-[100]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="closeBulkPaymentModal"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-4xl bg-white rounded-2xl shadow-xl">
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">
+                                {{ $bulkType === 'receivable' ? 'Cobrar a varias facturas' : 'Pagar a varias facturas' }}
+                            </h3>
+                            <p class="text-sm text-slate-500">Distribuye un pago entre varias facturas con sus métodos de pago</p>
+                        </div>
+                        <button wire:click="closeBulkPaymentModal" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <div class="px-6 py-4 max-h-[75vh] overflow-y-auto">
+                        {{-- Type toggle --}}
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <button wire:click="setBulkType('receivable')" type="button"
+                                class="p-3 rounded-xl border-2 transition-all {{ $bulkType === 'receivable' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-300' }}">
+                                <div class="flex items-center gap-2 justify-center">
+                                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                                    <span class="font-medium text-sm {{ $bulkType === 'receivable' ? 'text-blue-700' : 'text-slate-600' }}">Cobrar a Cliente</span>
+                                </div>
+                            </button>
+                            <button wire:click="setBulkType('payable')" type="button"
+                                class="p-3 rounded-xl border-2 transition-all {{ $bulkType === 'payable' ? 'border-red-500 bg-red-50' : 'border-slate-200 hover:border-red-300' }}">
+                                <div class="flex items-center gap-2 justify-center">
+                                    <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path></svg>
+                                    <span class="font-medium text-sm {{ $bulkType === 'payable' ? 'text-red-700' : 'text-slate-600' }}">Pagar a Proveedor</span>
+                                </div>
+                            </button>
+                        </div>
+
+                        {{-- Entity search --}}
+                        @if(!$bulkSelectedEntity)
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-slate-700 mb-1">
+                                {{ $bulkType === 'receivable' ? 'Buscar cliente' : 'Buscar proveedor' }} *
+                            </label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </div>
+                                <input wire:model.live.debounce.300ms="bulkEntitySearch" type="text"
+                                    class="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]"
+                                    placeholder="{{ $bulkType === 'receivable' ? 'Nombre, documento, razón social...' : 'Nombre del proveedor...' }}">
+                            </div>
+
+                            @if(strlen(trim($bulkEntitySearch)) >= 2)
+                            <div class="mt-2 border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                                @forelse($bulkEntityResults as $ent)
+                                <button wire:click="selectBulkEntity({{ $ent['id'] }})" type="button"
+                                    class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-[#ff7261] to-[#a855f7] flex items-center justify-center text-white font-bold flex-shrink-0">
+                                        {{ strtoupper(substr($ent['name'], 0, 1)) }}
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="font-semibold text-sm text-slate-800 truncate">{{ $ent['name'] }}</p>
+                                        @if($ent['doc'])
+                                        <p class="text-xs text-slate-500">{{ $ent['doc'] }}</p>
+                                        @endif
+                                    </div>
+                                </button>
+                                @empty
+                                <p class="text-sm text-slate-400 text-center py-4">Sin resultados con créditos pendientes</p>
+                                @endforelse
+                            </div>
+                            @else
+                            <p class="text-xs text-slate-400 mt-1">Escribe al menos 2 caracteres</p>
+                            @endif
+                        </div>
+                        @else
+                        {{-- Selected entity --}}
+                        <div class="mb-4 flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#ff7261] to-[#a855f7] flex items-center justify-center text-white font-bold">
+                                {{ strtoupper(substr($bulkSelectedEntity['name'], 0, 1)) }}
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-semibold text-slate-800">{{ $bulkSelectedEntity['name'] }}</p>
+                                <p class="text-xs text-slate-500">{{ count($bulkInvoices) }} factura(s) pendiente(s)</p>
+                            </div>
+                            <button wire:click="clearBulkEntity" type="button" class="px-3 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">
+                                Cambiar
+                            </button>
+                        </div>
+
+                        {{-- Invoices list --}}
+                        @if(count($bulkInvoices) > 0)
+                        <div class="space-y-3">
+                            @foreach($bulkInvoices as $idx => $inv)
+                            @php
+                                $allocated = (float) ($inv['allocated'] ?? 0);
+                                $exceeds = $allocated > $inv['remaining'] + 0.01;
+                                $fullyAllocated = $allocated > 0 && abs($allocated - $inv['remaining']) < 0.01;
+                            @endphp
+                            <div class="border-2 rounded-xl p-3 transition-colors {{ $exceeds ? 'border-red-300 bg-red-50' : ($fullyAllocated ? 'border-emerald-300 bg-emerald-50/30' : ($allocated > 0 ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200')) }}">
+                                <div class="flex items-start justify-between gap-3 mb-2">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <span class="font-semibold text-slate-800">{{ $inv['document_number'] }}</span>
+                                            <span class="text-xs text-slate-500">{{ $inv['date'] }}</span>
+                                            @if($inv['branch_name'])
+                                            <span class="text-xs px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded">{{ $inv['branch_name'] }}</span>
+                                            @endif
+                                        </div>
+                                        <div class="flex gap-3 text-xs text-slate-500 mt-1">
+                                            <span>Total: <strong class="text-slate-700">${{ number_format($inv['total'], 2) }}</strong></span>
+                                            <span>Pagado: <strong class="text-green-600">${{ number_format($inv['paid'], 2) }}</strong></span>
+                                            <span>Saldo: <strong class="{{ $bulkType === 'payable' ? 'text-red-600' : 'text-blue-600' }}">${{ number_format($inv['remaining'], 2) }}</strong></span>
+                                        </div>
+                                    </div>
+                                    <div class="text-right flex-shrink-0">
+                                        <p class="text-[10px] uppercase font-bold text-slate-400">Asignado</p>
+                                        <p class="text-lg font-bold {{ $exceeds ? 'text-red-600' : ($fullyAllocated ? 'text-emerald-600' : 'text-slate-800') }}">
+                                            ${{ number_format($allocated, 2) }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {{-- Payment methods for this invoice --}}
+                                <div class="space-y-2 pt-2 border-t border-slate-200">
+                                    @foreach($inv['lines'] as $li => $line)
+                                    <div class="flex items-center gap-2">
+                                        <select wire:model="bulkInvoices.{{ $idx }}.lines.{{ $li }}.payment_method_id"
+                                            class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                            <option value="">Método de pago...</option>
+                                            @foreach($paymentMethods as $method)
+                                            <option value="{{ $method->id }}">{{ $method->name }}</option>
+                                            @endforeach
+                                        </select>
+                                        <div class="relative w-36">
+                                            <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-slate-400 text-sm">$</span>
+                                            <input wire:model.live.debounce.400ms="bulkInvoices.{{ $idx }}.lines.{{ $li }}.amount"
+                                                type="number" step="0.01" min="0"
+                                                class="w-full pl-6 pr-2 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]"
+                                                placeholder="0.00">
+                                        </div>
+                                        @if(count($inv['lines']) > 1)
+                                        <button wire:click="removeBulkPaymentLine({{ $idx }}, {{ $li }})" type="button" class="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"></path></svg>
+                                        </button>
+                                        @endif
+                                    </div>
+                                    @endforeach
+                                    <button wire:click="addBulkPaymentLine({{ $idx }})" type="button"
+                                        class="text-xs font-medium text-purple-600 hover:text-purple-800 inline-flex items-center gap-1">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                        Agregar otro método para esta factura
+                                    </button>
+                                </div>
+
+                                @if($exceeds)
+                                <p class="text-xs text-red-600 font-medium mt-2">⚠ El monto asignado excede el saldo pendiente</p>
+                                @endif
+                            </div>
+                            @endforeach
+                        </div>
+
+                        {{-- Total pago --}}
+                        <div class="mt-4 p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-slate-500 uppercase font-bold">Total del pago</p>
+                                <p class="text-xs text-slate-400">Suma de todas las asignaciones</p>
+                            </div>
+                            <p class="text-2xl font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] bg-clip-text text-transparent">
+                                ${{ number_format($this->bulkGrandTotal, 2) }}
+                            </p>
+                        </div>
+
+                        {{-- Affects cash + notes --}}
+                        <div class="mt-4 space-y-3">
+                            <label class="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl cursor-pointer">
+                                <input wire:model="bulkAffectsCash" type="checkbox" class="w-4 h-4 text-amber-600 border-slate-300 rounded focus:ring-amber-500">
+                                <div>
+                                    <span class="text-sm font-medium text-amber-700">¿Afecta caja?</span>
+                                    <p class="text-xs text-amber-600">Si se marca, se registrará un movimiento por cada línea en el arqueo de caja actual</p>
+                                </div>
+                            </label>
+
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Notas (aplican a todos los pagos)</label>
+                                <textarea wire:model="bulkNotes" rows="2"
+                                    class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]"
+                                    placeholder="Observaciones..."></textarea>
+                            </div>
+                        </div>
+                        @else
+                        <p class="text-center text-slate-500 py-8 text-sm">
+                            Este {{ $bulkType === 'receivable' ? 'cliente' : 'proveedor' }} no tiene facturas pendientes en la sucursal seleccionada
+                        </p>
+                        @endif
+                        @endif
+                    </div>
+
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 rounded-b-2xl">
+                        <button wire:click="closeBulkPaymentModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
+                            Cancelar
+                        </button>
+                        @if($bulkSelectedEntity && count($bulkInvoices) > 0)
+                        <button wire:click="storeBulkPayment"
+                            class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] disabled:opacity-50">
+                            <span wire:loading.remove wire:target="storeBulkPayment">Registrar Pago Múltiple</span>
+                            <span wire:loading wire:target="storeBulkPayment">Procesando...</span>
+                        </button>
+                        @endif
                     </div>
                 </div>
             </div>

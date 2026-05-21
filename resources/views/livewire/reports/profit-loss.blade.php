@@ -62,17 +62,29 @@
     </div>
 
     {{-- KPI Cards --}}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
         {{-- Revenue --}}
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
             <div class="flex items-center gap-3 mb-3">
                 <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
                     <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
                 </div>
-                <span class="text-sm text-slate-500">Ingresos</span>
+                <span class="text-sm text-slate-500">Ingresos Netos</span>
             </div>
             <p class="text-2xl font-bold text-slate-800">${{ number_format($totalRevenue + $totalCashIncome, 0, ',', '.') }}</p>
-            <p class="text-xs text-slate-400 mt-1">{{ $totalTransactions }} ventas{{ $totalCashIncome > 0 ? ' + mov. caja' : '' }}</p>
+            <p class="text-xs text-slate-400 mt-1">{{ $totalTransactions }} ventas{{ $totalCashIncome > 0 ? ' + mov.' : '' }}{{ $totalRefunds > 0 ? ' (sin devoluc.)' : '' }}</p>
+        </div>
+
+        {{-- Returns --}}
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>
+                </div>
+                <span class="text-sm text-slate-500">Devoluciones</span>
+            </div>
+            <p class="text-2xl font-bold text-orange-600">${{ number_format($totalRefunds, 0, ',', '.') }}</p>
+            <p class="text-xs text-slate-400 mt-1">{{ $totalRefundsCount }} dev. + N. crédito</p>
         </div>
 
         {{-- Cost --}}
@@ -84,19 +96,19 @@
                 <span class="text-sm text-slate-500">Costo de Ventas</span>
             </div>
             <p class="text-2xl font-bold text-slate-800">${{ number_format($totalCost, 0, ',', '.') }}</p>
-            <p class="text-xs text-slate-400 mt-1">Costo de productos vendidos</p>
+            <p class="text-xs text-slate-400 mt-1">Costo neto (sin devoluc.)</p>
         </div>
 
-        {{-- Total Expenses --}}
+        {{-- Total Expenses (Operating, without payroll) --}}
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
             <div class="flex items-center gap-3 mb-3">
                 <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
                     <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                 </div>
-                <span class="text-sm text-slate-500">Gastos Totales</span>
+                <span class="text-sm text-slate-500">Gastos Operativos</span>
             </div>
             <p class="text-2xl font-bold text-red-600">${{ number_format($totalExpenses, 0, ',', '.') }}</p>
-            <p class="text-xs text-slate-400 mt-1">Operativos + caja + nómina</p>
+            <p class="text-xs text-slate-400 mt-1">Caja + gastos registrados</p>
         </div>
 
         {{-- Payroll --}}
@@ -141,6 +153,13 @@
                 <span class="font-bold text-green-800">${{ number_format($totalCashIncome, 2) }}</span>
             </div>
             @endif
+            @if($totalRefunds > 0)
+            <div class="flex justify-between py-2 px-3 bg-orange-50 rounded-lg">
+                <span class="font-medium text-orange-800">(-) Devoluciones y Notas Crédito</span>
+                <span class="font-bold text-orange-800">-${{ number_format($totalRefunds, 2) }}</span>
+            </div>
+            <p class="text-xs text-slate-400 px-3">Incluye devoluciones POS y notas crédito (totales y parciales) procesadas en el período</p>
+            @endif
             @if($totalDiscount > 0)
             <div class="flex justify-between py-2 px-3">
                 <span class="text-slate-600 pl-4">(-) Descuentos</span>
@@ -178,12 +197,12 @@
                 <span class="text-red-600">${{ number_format($totalModuleExpenses, 2) }}</span>
             </div>
             @endif
-            @if($totalPayrollExpenses > 0)
-            <div class="flex justify-between py-2 px-3">
-                <span class="text-slate-600 pl-4">Nómina</span>
-                <span class="text-red-600">${{ number_format($totalPayrollExpenses, 2) }}</span>
-            </div>
             @endif
+            @if($totalPayrollExpenses > 0)
+            <div class="flex justify-between py-2 px-3 bg-purple-50 rounded-lg mt-2">
+                <span class="font-medium text-purple-800">(-) Nómina</span>
+                <span class="font-bold text-purple-800">${{ number_format($totalPayrollExpenses, 2) }}</span>
+            </div>
             @endif
             <div class="flex justify-between py-3 px-3 {{ $netProfit >= 0 ? 'bg-emerald-100' : 'bg-red-100' }} rounded-lg border-2 {{ $netProfit >= 0 ? 'border-emerald-300' : 'border-red-300' }}">
                 <span class="font-bold text-lg {{ $netProfit >= 0 ? 'text-emerald-900' : 'text-red-900' }}">= UTILIDAD NETA</span>
@@ -303,8 +322,9 @@
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
             <h3 class="font-semibold text-slate-800 mb-4 flex items-center gap-2">
                 <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                Desglose de Gastos
+                Desglose de Gastos Operativos
             </h3>
+            <p class="text-xs text-slate-400 mb-3">No incluye nómina (mostrada aparte)</p>
             <div class="space-y-2">
                 @php $maxExp = collect($expenseBreakdown)->max('total') ?: 1; @endphp
                 @forelse($expenseBreakdown as $expense)
@@ -322,8 +342,18 @@
                 @endforelse
                 @if($totalExpenses > 0)
                 <div class="flex justify-between pt-2 border-t border-slate-200 text-sm">
-                    <span class="font-medium text-slate-700">Total Gastos:</span>
+                    <span class="font-medium text-slate-700">Total Gastos Operativos:</span>
                     <span class="font-bold text-red-600">${{ number_format($totalExpenses, 0) }}</span>
+                </div>
+                @endif
+                @if($totalPayrollExpenses > 0)
+                <div class="flex justify-between text-sm">
+                    <span class="font-medium text-slate-700">(+) Nómina:</span>
+                    <span class="font-bold text-purple-600">${{ number_format($totalPayrollExpenses, 0) }}</span>
+                </div>
+                <div class="flex justify-between pt-2 border-t border-slate-300 text-sm">
+                    <span class="font-bold text-slate-800">Total Egresos:</span>
+                    <span class="font-bold text-slate-900">${{ number_format($totalExpenses + $totalPayrollExpenses, 0) }}</span>
                 </div>
                 @endif
             </div>

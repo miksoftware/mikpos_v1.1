@@ -187,31 +187,34 @@ class Sale extends Model
     }
 
     /**
-     * Generate next invoice number.
-     * Uses the invoice_number prefix+date pattern to find the last sequence,
-     * avoiding issues with timezone changes or race conditions on created_at.
+     * Generate next invoice number with global continuous sequence.
+     * Format: FAC-XXXX (no date, never resets, padded to 4 digits but expands as needed).
+     *
+     * The sequence is global across all branches and all dates. It works with both
+     * the old format (FAC-YYYYMMDD-XXXX) and the new format (FAC-XXXX) by always
+     * taking the LAST hyphen-separated segment as the numeric sequence.
+     *
+     * @param  int  $branchId  Kept for backwards compatibility; not used in the new format.
      */
     public static function generateInvoiceNumber(int $branchId): string
     {
         $prefix = 'FAC';
-        $date = now()->format('Ymd');
-        $pattern = "{$prefix}-{$date}-";
 
-        // Find the highest sequence for this branch and date pattern
-        $lastSale = static::where('branch_id', $branchId)
-            ->where('invoice_number', 'like', "{$pattern}%")
+        // Find the highest sequence across ALL invoices (continuous numbering, no per-day reset).
+        // Works with both old (FAC-YYYYMMDD-XXXX) and new (FAC-XXXX) formats by extracting
+        // the last hyphen-separated segment as the numeric sequence.
+        $lastSale = static::where('invoice_number', 'like', "{$prefix}-%")
             ->orderByRaw("CAST(SUBSTRING_INDEX(invoice_number, '-', -1) AS UNSIGNED) DESC")
             ->first();
 
         $sequence = 1;
         if ($lastSale) {
             $parts = explode('-', $lastSale->invoice_number);
-            if (count($parts) === 3) {
-                $sequence = (int) $parts[2] + 1;
-            }
+            $lastSeq = (int) end($parts);
+            $sequence = $lastSeq + 1;
         }
 
-        return sprintf('%s-%s-%04d', $prefix, $date, $sequence);
+        return sprintf('%s-%s', $prefix, str_pad((string) $sequence, 4, '0', STR_PAD_LEFT));
     }
 
 }

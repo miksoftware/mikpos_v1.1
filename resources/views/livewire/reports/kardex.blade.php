@@ -5,6 +5,14 @@
             <h1 class="text-2xl font-bold text-slate-800">Kardex de Inventario</h1>
             <p class="text-slate-500 mt-1">Control y seguimiento del inventario de productos</p>
         </div>
+        @if(auth()->user()->hasPermission('reports.export'))
+        <button wire:click="exportExcel" wire:loading.attr="disabled" wire:target="exportExcel"
+            class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200 disabled:opacity-50">
+            <svg class="w-5 h-5 mr-2 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            <span wire:loading.remove wire:target="exportExcel">Exportar Excel</span>
+            <span wire:loading wire:target="exportExcel">Generando...</span>
+        </button>
+        @endif
     </div>
 
     {{-- Summary Cards --}}

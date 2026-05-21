@@ -341,6 +341,24 @@ class Kardex extends Component
         $this->resetPage();
     }
 
+    public function exportExcel()
+    {
+        if (!auth()->user()->hasPermission('reports.export')) {
+            $this->dispatch('notify', message: 'No tienes permiso para exportar', type: 'error');
+            return;
+        }
+
+        return redirect()->route('reports.kardex.excel', [
+            'branch_id' => $this->selectedBranchId,
+            'category_id' => $this->selectedCategoryId,
+            'brand_id' => $this->selectedBrandId,
+            'stock_filter' => $this->stockFilter,
+            'search' => $this->search,
+            'date_from' => $this->dateFrom,
+            'date_to' => $this->dateTo,
+        ]);
+    }
+
     public function render()
     {
         $user = auth()->user();

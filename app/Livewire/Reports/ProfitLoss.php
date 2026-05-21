@@ -10,6 +10,10 @@ use App\Models\Purchase;
 use App\Models\CashMovement;
 use App\Models\Expense;
 use App\Models\Category;
+use App\Models\Refund;
+use App\Models\RefundItem;
+use App\Models\CreditNote;
+use App\Models\CreditNoteItem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
@@ -29,10 +33,10 @@ class ProfitLoss extends Component
     public float $totalCost = 0;
     public float $grossProfit = 0;
     public float $grossMargin = 0;
-    public float $totalExpenses = 0;
+    public float $totalExpenses = 0;            // operating expenses (cash + module), WITHOUT payroll
     public float $totalCashExpenses = 0;
     public float $totalModuleExpenses = 0;
-    public float $totalPayrollExpenses = 0;
+    public float $totalPayrollExpenses = 0;     // shown separately on P&L
     public float $totalCashIncome = 0;
     public float $netProfit = 0;
     public float $netMargin = 0;
@@ -40,6 +44,13 @@ class ProfitLoss extends Component
     public float $totalTax = 0;
     public float $totalDiscount = 0;
     public float $totalPurchases = 0;
+
+    // Returns (refunds + credit notes) — partial returns specifically were
+    // missing from previous reports. Total refunds change sale.status, but
+    // partial ones don't, so we must read the refunds/credit_notes tables directly.
+    public float $totalRefunds = 0;        // money returned (refund total + credit_note total)
+    public float $totalRefundsCost = 0;    // cost of products returned (to reduce COGS)
+    public int $totalRefundsCount = 0;
 
     // Chart data
     public array $profitByDay = [];
@@ -140,6 +151,90 @@ class ProfitLoss extends Component
             }
         }
 
+        // ====================================================================
+        // RETURNS (Refunds + Credit Notes)
+        // Refunds (POS) and credit notes (electronic invoices) — both reduce
+        // the actual revenue and the cost of goods sold for the period. Total
+        // refunds also flip sale.status to 'refunded'/'cancelled', so to avoid
+        // double-counting we only consider sales that are still 'completed'
+        // for refund/credit_note totals tied to those sales (i.e. partial
+        // returns where the sale is still active).
+        //
+        // We measure them by THEIR OWN created_at, so a return processed in
+        // the current period is reflected in the current period's P&L,
+        // regardless of when the original sale was made.
+        // ====================================================================
+
+        // Refunds (status=completed)
+        $refundsQuery = Refund::query()
+            ->where('refunds.status', 'completed')
+            ->whereDate('refunds.created_at', '>=', $this->startDate)
+            ->whereDate('refunds.created_at', '<=', $this->endDate)
+            // Only include refunds whose parent sale is still 'completed' to avoid
+            // double-counting. When a sale is fully refunded its status becomes
+            // 'refunded' and it's already excluded from $totalRevenue above.
+            ->whereHas('sale', fn($q) => $q->where('sales.status', 'completed'));
+
+        if ($this->selectedBranchId) {
+            $refundsQuery->where('refunds.branch_id', $this->selectedBranchId);
+        } elseif (!auth()->user()->isSuperAdmin()) {
+            $refundsQuery->where('refunds.branch_id', auth()->user()->branch_id);
+        }
+
+        $refundsAggregate = (clone $refundsQuery)->selectRaw('
+            COUNT(*) as count,
+            COALESCE(SUM(refunds.total), 0) as total
+        ')->first();
+
+        $totalRefundAmount = (float) ($refundsAggregate->total ?? 0);
+        $totalRefundCount = (int) ($refundsAggregate->count ?? 0);
+
+        // Refund cost (cost of products returned via POS refunds)
+        $refundCost = 0;
+        $refundIds = (clone $refundsQuery)->pluck('refunds.id');
+        if ($refundIds->isNotEmpty()) {
+            $refundCost = (float) RefundItem::join('products', 'refund_items.product_id', '=', 'products.id')
+                ->whereIn('refund_items.refund_id', $refundIds)
+                ->sum(DB::raw('refund_items.quantity * products.purchase_price'));
+        }
+
+        // Credit notes (status pending/validated) tied to sales still in 'completed'
+        $creditNotesQuery = CreditNote::query()
+            ->whereIn('credit_notes.status', ['pending', 'validated'])
+            ->whereDate('credit_notes.created_at', '>=', $this->startDate)
+            ->whereDate('credit_notes.created_at', '<=', $this->endDate)
+            ->whereHas('sale', fn($q) => $q->where('sales.status', 'completed'));
+
+        if ($this->selectedBranchId) {
+            $creditNotesQuery->where('credit_notes.branch_id', $this->selectedBranchId);
+        } elseif (!auth()->user()->isSuperAdmin()) {
+            $creditNotesQuery->where('credit_notes.branch_id', auth()->user()->branch_id);
+        }
+
+        $creditNotesAggregate = (clone $creditNotesQuery)->selectRaw('
+            COUNT(*) as count,
+            COALESCE(SUM(credit_notes.total), 0) as total
+        ')->first();
+
+        $totalCreditNoteAmount = (float) ($creditNotesAggregate->total ?? 0);
+        $totalCreditNoteCount = (int) ($creditNotesAggregate->count ?? 0);
+
+        $creditNoteCost = 0;
+        $creditNoteIds = (clone $creditNotesQuery)->pluck('credit_notes.id');
+        if ($creditNoteIds->isNotEmpty()) {
+            $creditNoteCost = (float) CreditNoteItem::join('products', 'credit_note_items.product_id', '=', 'products.id')
+                ->whereIn('credit_note_items.credit_note_id', $creditNoteIds)
+                ->sum(DB::raw('credit_note_items.quantity * products.purchase_price'));
+        }
+
+        $this->totalRefunds = round($totalRefundAmount + $totalCreditNoteAmount, 2);
+        $this->totalRefundsCost = round($refundCost + $creditNoteCost, 2);
+        $this->totalRefundsCount = $totalRefundCount + $totalCreditNoteCount;
+
+        // Adjust revenue and cost for returns
+        $this->totalRevenue = max(0, $this->totalRevenue - $this->totalRefunds);
+        $this->totalCost = max(0, $this->totalCost - $this->totalRefundsCost);
+
         // Purchases total
         $purchasesQuery = Purchase::whereDate('purchases.created_at', '>=', $this->startDate)
             ->whereDate('purchases.created_at', '<=', $this->endDate);
@@ -190,16 +285,18 @@ class ProfitLoss extends Component
         }
         $this->totalPayrollExpenses = (float) $payrollExpQuery->sum('payroll_details.net_pay');
 
-        // Total expenses = cash egresos + module expenses + payroll
-        $this->totalExpenses = $this->totalCashExpenses + $this->totalModuleExpenses + $this->totalPayrollExpenses;
+        // Total operating expenses = cash egresos + module expenses (WITHOUT payroll).
+        // Payroll is tracked separately ($totalPayrollExpenses) and subtracted on its own
+        // line in the P&L statement so the user can see it apart from operating expenses.
+        $this->totalExpenses = $this->totalCashExpenses + $this->totalModuleExpenses;
 
         // Gross profit = Revenue + Cash Income - Cost of goods sold
         $this->grossProfit = $this->totalRevenue + $this->totalCashIncome - $this->totalCost;
         $totalIncome = $this->totalRevenue + $this->totalCashIncome;
         $this->grossMargin = $totalIncome > 0 ? ($this->grossProfit / $totalIncome) * 100 : 0;
 
-        // Net profit = Gross profit - Expenses
-        $this->netProfit = $this->grossProfit - $this->totalExpenses;
+        // Net profit = Gross profit - Operating expenses - Payroll
+        $this->netProfit = $this->grossProfit - $this->totalExpenses - $this->totalPayrollExpenses;
         $this->netMargin = $totalIncome > 0 ? ($this->netProfit / $totalIncome) * 100 : 0;
     }
 
@@ -231,14 +328,74 @@ class ProfitLoss extends Component
             }
         }
 
+        // Daily refunds (subtract from revenue and cost on the day they were processed)
+        $dailyRefundRevenue = [];
+        $dailyRefundCost = [];
+
+        $refundsForChart = Refund::query()
+            ->where('refunds.status', 'completed')
+            ->whereDate('refunds.created_at', '>=', $this->startDate)
+            ->whereDate('refunds.created_at', '<=', $this->endDate)
+            ->whereHas('sale', fn($q) => $q->where('sales.status', 'completed'));
+        if ($this->selectedBranchId) {
+            $refundsForChart->where('refunds.branch_id', $this->selectedBranchId);
+        } elseif (!auth()->user()->isSuperAdmin()) {
+            $refundsForChart->where('refunds.branch_id', auth()->user()->branch_id);
+        }
+        foreach ($refundsForChart->with('items.product')->get() as $refund) {
+            $date = $refund->created_at->format('Y-m-d');
+            $dailyRefundRevenue[$date] = ($dailyRefundRevenue[$date] ?? 0) + (float) $refund->total;
+            foreach ($refund->items as $item) {
+                if ($item->product) {
+                    $dailyRefundCost[$date] = ($dailyRefundCost[$date] ?? 0)
+                        + (float) $item->quantity * (float) $item->product->purchase_price;
+                }
+            }
+        }
+
+        $creditNotesForChart = CreditNote::query()
+            ->whereIn('credit_notes.status', ['pending', 'validated'])
+            ->whereDate('credit_notes.created_at', '>=', $this->startDate)
+            ->whereDate('credit_notes.created_at', '<=', $this->endDate)
+            ->whereHas('sale', fn($q) => $q->where('sales.status', 'completed'));
+        if ($this->selectedBranchId) {
+            $creditNotesForChart->where('credit_notes.branch_id', $this->selectedBranchId);
+        } elseif (!auth()->user()->isSuperAdmin()) {
+            $creditNotesForChart->where('credit_notes.branch_id', auth()->user()->branch_id);
+        }
+        foreach ($creditNotesForChart->with('items.product')->get() as $cn) {
+            $date = $cn->created_at->format('Y-m-d');
+            $dailyRefundRevenue[$date] = ($dailyRefundRevenue[$date] ?? 0) + (float) $cn->total;
+            foreach ($cn->items as $item) {
+                if ($item->product) {
+                    $dailyRefundCost[$date] = ($dailyRefundCost[$date] ?? 0)
+                        + (float) $item->quantity * (float) $item->product->purchase_price;
+                }
+            }
+        }
+
+        // Build profit by day, including days with returns even if there were no sales
+        $allDays = collect($dailySales->keys()->all())
+            ->merge(array_keys($dailyRefundRevenue))
+            ->unique()
+            ->sort()
+            ->values();
+
         $this->profitByDay = [];
-        foreach ($dailySales as $date => $day) {
+        foreach ($allDays as $date) {
+            $revenue = isset($dailySales[$date]) ? (float) $dailySales[$date]->revenue : 0;
             $cost = $dailyCost[$date] ?? 0;
+            $refRev = $dailyRefundRevenue[$date] ?? 0;
+            $refCost = $dailyRefundCost[$date] ?? 0;
+
+            $netRevenue = max(0, $revenue - $refRev);
+            $netCost = max(0, $cost - $refCost);
+
             $this->profitByDay[] = [
                 'label' => Carbon::parse($date)->format('d M'),
-                'revenue' => round($day->revenue, 2),
-                'cost' => round($cost, 2),
-                'profit' => round($day->revenue - $cost, 2),
+                'revenue' => round($netRevenue, 2),
+                'cost' => round($netCost, 2),
+                'profit' => round($netRevenue - $netCost, 2),
             ];
         }
 
@@ -345,14 +502,9 @@ class ProfitLoss extends Component
 
         $allExpenses = $cashExpenseData->concat($moduleExpenseData);
 
-        // Add payroll to expense breakdown if there are payroll expenses
-        if ($this->totalPayrollExpenses > 0) {
-            $allExpenses = $allExpenses->push([
-                'concept' => 'Nómina',
-                'total' => round($this->totalPayrollExpenses, 2),
-                'count' => 1,
-            ]);
-        }
+        // NOTE: Payroll is intentionally NOT included in the expense breakdown.
+        // It is shown separately on its own KPI card and as a dedicated line on the
+        // P&L statement, so adding it here would make it look duplicated.
 
         $this->expenseBreakdown = $allExpenses
             ->sortByDesc('total')

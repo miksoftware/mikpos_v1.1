@@ -6,10 +6,13 @@ use App\Models\Branch;
 use App\Models\CashMovement;
 use App\Models\CashReconciliation;
 use App\Models\CreditPayment;
+use App\Models\Customer;
 use App\Models\PaymentMethod;
 use App\Models\Purchase;
 use App\Models\Sale;
+use App\Models\Supplier;
 use App\Services\ActivityLogService;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -45,6 +48,17 @@ class Credits extends Component
     public ?string $historyReferenceType = null;
     public $historyPayments = [];
     public ?string $historyEntityName = null;
+
+    // Bulk payment modal (one payment, multiple invoices)
+    public bool $isBulkModalOpen = false;
+    public string $bulkType = 'receivable'; // 'receivable' (customer) or 'payable' (supplier)
+    public ?int $bulkEntityId = null;       // customer_id or supplier_id
+    public string $bulkEntitySearch = '';
+    public array $bulkEntityResults = [];
+    public ?array $bulkSelectedEntity = null; // ['id', 'name']
+    public array $bulkInvoices = [];          // each: ['id','document_number','date','total','paid','remaining','allocated','lines'=>[...]]
+    public bool $bulkAffectsCash = false;
+    public string $bulkNotes = '';
 
     // Branch control
     public bool $needsBranchSelection = false;
@@ -479,6 +493,427 @@ class Credits extends Component
         }
 
         $this->isHistoryModalOpen = true;
+    }
+
+    // ========================================================================
+    // BULK PAYMENT METHODS
+    // One payment from a customer/supplier applied to multiple invoices.
+    // Each invoice can have its own breakdown of payment methods.
+    // ========================================================================
+
+    /**
+     * Open the bulk payment modal for a given type ('receivable' = customer, 'payable' = supplier).
+     */
+    public function openBulkPaymentModal(string $type = 'receivable'): void
+    {
+        if (!auth()->user()->hasPermission('credits.pay')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        $this->bulkType = in_array($type, ['receivable', 'payable']) ? $type : 'receivable';
+        $this->bulkEntityId = null;
+        $this->bulkEntitySearch = '';
+        $this->bulkEntityResults = [];
+        $this->bulkSelectedEntity = null;
+        $this->bulkInvoices = [];
+        $this->bulkAffectsCash = false;
+        $this->bulkNotes = '';
+        $this->isBulkModalOpen = true;
+    }
+
+    public function closeBulkPaymentModal(): void
+    {
+        $this->isBulkModalOpen = false;
+    }
+
+    public function setBulkType(string $type): void
+    {
+        if (!in_array($type, ['receivable', 'payable'])) {
+            return;
+        }
+        $this->bulkType = $type;
+        $this->bulkEntityId = null;
+        $this->bulkEntitySearch = '';
+        $this->bulkEntityResults = [];
+        $this->bulkSelectedEntity = null;
+        $this->bulkInvoices = [];
+    }
+
+    /**
+     * Triggered when bulkEntitySearch changes — fetch matching entities (customers or suppliers)
+     * limited to those that have at least one pending/partial credit invoice.
+     */
+    public function updatedBulkEntitySearch(): void
+    {
+        $term = trim($this->bulkEntitySearch);
+        if (strlen($term) < 2) {
+            $this->bulkEntityResults = [];
+            return;
+        }
+
+        $user = auth()->user();
+        $branchId = $this->needsBranchSelection ? $this->filterBranch : $user->branch_id;
+
+        if ($this->bulkType === 'receivable') {
+            $customers = Customer::query()
+                ->where('is_active', true)
+                ->where(function ($q) use ($term) {
+                    $q->where('first_name', 'like', "%{$term}%")
+                      ->orWhere('last_name', 'like', "%{$term}%")
+                      ->orWhere('business_name', 'like', "%{$term}%")
+                      ->orWhere('document_number', 'like', "%{$term}%")
+                      ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$term}%"]);
+                })
+                ->whereHas('sales', function ($q) use ($branchId, $user) {
+                    $q->where('payment_type', 'credit')
+                      ->where('status', 'completed')
+                      ->whereIn('payment_status', ['pending', 'partial']);
+                    if ($branchId) {
+                        $q->where('branch_id', $branchId);
+                    } elseif (!$user->isSuperAdmin()) {
+                        $q->where('branch_id', $user->branch_id);
+                    }
+                })
+                ->limit(10)
+                ->get();
+
+            $this->bulkEntityResults = $customers->map(fn($c) => [
+                'id' => $c->id,
+                'name' => $c->full_name,
+                'doc' => $c->document_number,
+            ])->toArray();
+        } else {
+            // For suppliers we use whereExists since Supplier model may not define a `purchases` relation.
+            $suppliers = Supplier::query()
+                ->where('name', 'like', "%{$term}%")
+                ->whereExists(function ($q) use ($branchId, $user) {
+                    $q->select(DB::raw(1))
+                      ->from('purchases')
+                      ->whereColumn('purchases.supplier_id', 'suppliers.id')
+                      ->where('purchases.payment_type', 'credit')
+                      ->where('purchases.status', 'completed')
+                      ->whereIn('purchases.payment_status', ['pending', 'partial']);
+                    if ($branchId) {
+                        $q->where('purchases.branch_id', $branchId);
+                    } elseif (!$user->isSuperAdmin()) {
+                        $q->where('purchases.branch_id', $user->branch_id);
+                    }
+                })
+                ->limit(10)
+                ->get();
+
+            $this->bulkEntityResults = $suppliers->map(fn($s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'doc' => $s->document_number ?? null,
+            ])->toArray();
+        }
+    }
+
+    /**
+     * Select an entity (customer or supplier) and load its pending invoices.
+     */
+    public function selectBulkEntity(int $entityId): void
+    {
+        $user = auth()->user();
+        $branchId = $this->needsBranchSelection ? $this->filterBranch : $user->branch_id;
+
+        if ($this->bulkType === 'receivable') {
+            $customer = Customer::find($entityId);
+            if (!$customer) return;
+
+            $this->bulkSelectedEntity = ['id' => $customer->id, 'name' => $customer->full_name];
+
+            $salesQuery = Sale::with('branch')
+                ->where('customer_id', $customer->id)
+                ->where('payment_type', 'credit')
+                ->where('status', 'completed')
+                ->whereIn('payment_status', ['pending', 'partial']);
+
+            if ($branchId) {
+                $salesQuery->where('branch_id', $branchId);
+            } elseif (!$user->isSuperAdmin()) {
+                $salesQuery->where('branch_id', $user->branch_id);
+            }
+
+            $sales = $salesQuery->orderBy('created_at')->get();
+
+            $this->bulkInvoices = $sales->map(function ($sale) {
+                $remaining = (float) $sale->credit_amount - (float) $sale->paid_amount;
+                return [
+                    'record_type' => 'sale',
+                    'id' => $sale->id,
+                    'document_number' => $sale->invoice_number,
+                    'date' => $sale->created_at->format('d/m/Y'),
+                    'branch_id' => $sale->branch_id,
+                    'branch_name' => $sale->branch->name ?? '',
+                    'total' => (float) $sale->credit_amount,
+                    'paid' => (float) $sale->paid_amount,
+                    'remaining' => $remaining,
+                    'allocated' => 0,
+                    'lines' => [['payment_method_id' => '', 'amount' => 0]],
+                ];
+            })->toArray();
+        } else {
+            $supplier = Supplier::find($entityId);
+            if (!$supplier) return;
+
+            $this->bulkSelectedEntity = ['id' => $supplier->id, 'name' => $supplier->name];
+
+            $purchasesQuery = Purchase::with('branch')
+                ->where('supplier_id', $supplier->id)
+                ->where('payment_type', 'credit')
+                ->where('status', 'completed')
+                ->whereIn('payment_status', ['pending', 'partial']);
+
+            if ($branchId) {
+                $purchasesQuery->where('branch_id', $branchId);
+            } elseif (!$user->isSuperAdmin()) {
+                $purchasesQuery->where('branch_id', $user->branch_id);
+            }
+
+            $purchases = $purchasesQuery->orderBy('created_at')->get();
+
+            $this->bulkInvoices = $purchases->map(function ($p) {
+                $remaining = (float) $p->credit_amount - (float) $p->paid_amount;
+                return [
+                    'record_type' => 'purchase',
+                    'id' => $p->id,
+                    'document_number' => $p->purchase_number,
+                    'date' => $p->purchase_date?->format('d/m/Y') ?? $p->created_at->format('d/m/Y'),
+                    'branch_id' => $p->branch_id,
+                    'branch_name' => $p->branch->name ?? '',
+                    'total' => (float) $p->credit_amount,
+                    'paid' => (float) $p->paid_amount,
+                    'remaining' => $remaining,
+                    'allocated' => 0,
+                    'lines' => [['payment_method_id' => '', 'amount' => 0]],
+                ];
+            })->toArray();
+        }
+
+        $this->bulkEntityId = $entityId;
+        $this->bulkEntitySearch = '';
+        $this->bulkEntityResults = [];
+    }
+
+    public function clearBulkEntity(): void
+    {
+        $this->bulkEntityId = null;
+        $this->bulkSelectedEntity = null;
+        $this->bulkInvoices = [];
+    }
+
+    public function addBulkPaymentLine(int $invoiceIndex): void
+    {
+        if (!isset($this->bulkInvoices[$invoiceIndex])) return;
+        $this->bulkInvoices[$invoiceIndex]['lines'][] = ['payment_method_id' => '', 'amount' => 0];
+    }
+
+    public function removeBulkPaymentLine(int $invoiceIndex, int $lineIndex): void
+    {
+        if (!isset($this->bulkInvoices[$invoiceIndex]['lines'][$lineIndex])) return;
+        if (count($this->bulkInvoices[$invoiceIndex]['lines']) <= 1) return;
+
+        unset($this->bulkInvoices[$invoiceIndex]['lines'][$lineIndex]);
+        $this->bulkInvoices[$invoiceIndex]['lines'] = array_values($this->bulkInvoices[$invoiceIndex]['lines']);
+        $this->recalcBulkAllocated($invoiceIndex);
+    }
+
+    /**
+     * Recalculate the allocated amount for an invoice when its line amounts change.
+     * Livewire calls updatedBulkInvoices on every nested update; we extract the
+     * invoice index from the dotted key (e.g. "0.lines.1.amount").
+     */
+    public function updatedBulkInvoices($value, $key): void
+    {
+        if (preg_match('/^(\d+)\.lines\./', $key, $m)) {
+            $this->recalcBulkAllocated((int) $m[1]);
+        }
+    }
+
+    protected function recalcBulkAllocated(int $invoiceIndex): void
+    {
+        if (!isset($this->bulkInvoices[$invoiceIndex])) return;
+
+        $allocated = collect($this->bulkInvoices[$invoiceIndex]['lines'])
+            ->sum(fn($l) => (float) ($l['amount'] ?? 0));
+
+        $this->bulkInvoices[$invoiceIndex]['allocated'] = round($allocated, 2);
+    }
+
+    public function getBulkGrandTotalProperty(): float
+    {
+        return collect($this->bulkInvoices)->sum(fn($i) => (float) ($i['allocated'] ?? 0));
+    }
+
+    /**
+     * Process the bulk payment: create one CreditPayment per invoice/method line,
+     * update each invoice, and create cash movements if affects_cash is true.
+     */
+    public function storeBulkPayment(): void
+    {
+        if (!auth()->user()->hasPermission('credits.pay')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        if (!$this->bulkSelectedEntity) {
+            $this->dispatch('notify', message: 'Selecciona un cliente o proveedor', type: 'error');
+            return;
+        }
+
+        if (empty($this->bulkInvoices)) {
+            $this->dispatch('notify', message: 'No hay facturas para pagar', type: 'error');
+            return;
+        }
+
+        // Recalculate all allocated amounts to be safe
+        foreach (array_keys($this->bulkInvoices) as $idx) {
+            $this->recalcBulkAllocated($idx);
+        }
+
+        // Validate: at least one invoice must have an allocation > 0
+        $hasAllocation = collect($this->bulkInvoices)->contains(fn($i) => (float) $i['allocated'] > 0);
+        if (!$hasAllocation) {
+            $this->dispatch('notify', message: 'Asigna un monto a al menos una factura', type: 'error');
+            return;
+        }
+
+        // Validate each invoice that has allocation
+        foreach ($this->bulkInvoices as $inv) {
+            $allocated = (float) $inv['allocated'];
+            if ($allocated <= 0) continue;
+
+            if ($allocated > $inv['remaining'] + 0.01) {
+                $this->dispatch('notify',
+                    message: "El monto asignado a {$inv['document_number']} excede el saldo pendiente",
+                    type: 'error');
+                return;
+            }
+
+            foreach ($inv['lines'] as $line) {
+                $amt = (float) ($line['amount'] ?? 0);
+                if ($amt > 0 && empty($line['payment_method_id'])) {
+                    $this->dispatch('notify',
+                        message: "Selecciona un método de pago en la factura {$inv['document_number']}",
+                        type: 'error');
+                    return;
+                }
+            }
+        }
+
+        // Resolve cash reconciliation if affects cash
+        $cashReconciliationId = null;
+        if ($this->bulkAffectsCash) {
+            $reconciliation = $this->findOpenReconciliation(auth()->user());
+            if (!$reconciliation) {
+                $this->dispatch('notify', message: 'No hay una caja abierta para registrar el movimiento', type: 'error');
+                return;
+            }
+            $cashReconciliationId = $reconciliation->id;
+        }
+
+        $user = auth()->user();
+        $entityName = $this->bulkSelectedEntity['name'];
+        $totalProcessed = 0;
+        $invoicesAffected = 0;
+
+        try {
+            DB::beginTransaction();
+
+            foreach ($this->bulkInvoices as $inv) {
+                $allocated = (float) $inv['allocated'];
+                if ($allocated <= 0) continue;
+
+                $record = $inv['record_type'] === 'sale'
+                    ? Sale::find($inv['id'])
+                    : Purchase::find($inv['id']);
+
+                if (!$record) continue;
+
+                $currentRemaining = (float) $record->credit_amount - (float) $record->paid_amount;
+                if ($allocated > $currentRemaining + 0.01) {
+                    throw new \Exception("El saldo de {$inv['document_number']} cambió. Recarga e intenta de nuevo.");
+                }
+
+                $invoiceTotal = 0;
+
+                foreach ($inv['lines'] as $line) {
+                    $lineAmount = (float) ($line['amount'] ?? 0);
+                    if ($lineAmount <= 0) continue;
+
+                    $paymentNumber = CreditPayment::generatePaymentNumber();
+                    $creditType = $inv['record_type'] === 'sale' ? 'receivable' : 'payable';
+
+                    $cp = CreditPayment::create([
+                        'payment_number' => $paymentNumber,
+                        'credit_type' => $creditType,
+                        'purchase_id' => $inv['record_type'] === 'purchase' ? $record->id : null,
+                        'sale_id' => $inv['record_type'] === 'sale' ? $record->id : null,
+                        'customer_id' => $inv['record_type'] === 'sale' ? $record->customer_id : null,
+                        'supplier_id' => $inv['record_type'] === 'purchase' ? $record->supplier_id : null,
+                        'branch_id' => $record->branch_id,
+                        'user_id' => $user->id,
+                        'payment_method_id' => $line['payment_method_id'],
+                        'cash_reconciliation_id' => $cashReconciliationId,
+                        'amount' => $lineAmount,
+                        'affects_cash' => $this->bulkAffectsCash,
+                        'notes' => $this->bulkNotes ?: null,
+                    ]);
+
+                    if ($this->bulkAffectsCash && $cashReconciliationId) {
+                        $movementType = $creditType === 'payable' ? 'expense' : 'income';
+                        $conceptPrefix = $creditType === 'payable'
+                            ? "Pago crédito proveedor: {$entityName}"
+                            : "Cobro crédito cliente: {$entityName}";
+                        $methodName = PaymentMethod::find($line['payment_method_id'])?->name ?? '';
+
+                        CashMovement::create([
+                            'cash_reconciliation_id' => $cashReconciliationId,
+                            'user_id' => $user->id,
+                            'type' => $movementType,
+                            'amount' => $lineAmount,
+                            'concept' => "{$conceptPrefix} - {$inv['document_number']} ({$methodName})",
+                            'notes' => $this->bulkNotes ?: null,
+                        ]);
+                    }
+
+                    $typeLabel = $creditType === 'payable' ? 'Proveedor' : 'Cliente';
+                    ActivityLogService::logCreate(
+                        'credit_payments',
+                        $cp,
+                        "Pago múltiple #{$paymentNumber} - {$typeLabel}: {$entityName} - {$inv['document_number']} - $" . number_format($lineAmount, 2)
+                    );
+
+                    $invoiceTotal += $lineAmount;
+                }
+
+                if ($invoiceTotal > 0) {
+                    $newPaid = (float) $record->paid_amount + $invoiceTotal;
+                    $newStatus = $newPaid >= (float) $record->credit_amount - 0.01 ? 'paid' : 'partial';
+                    $record->update([
+                        'paid_amount' => $newPaid,
+                        'payment_status' => $newStatus,
+                    ]);
+
+                    $totalProcessed += $invoiceTotal;
+                    $invoicesAffected++;
+                }
+            }
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->dispatch('notify', message: 'Error: ' . $e->getMessage(), type: 'error');
+            return;
+        }
+
+        $this->isBulkModalOpen = false;
+        $this->dispatch('notify',
+            message: "Pago múltiple registrado: $" . number_format($totalProcessed, 2) . " a {$invoicesAffected} factura(s)",
+            type: 'success');
     }
 
     private function findOpenReconciliation($user): ?CashReconciliation
