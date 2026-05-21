@@ -60,6 +60,7 @@ class SeedPending extends Command
         'CustomerSalesReportPermissionSeeder',
         'SalesViewOwnPermissionSeeder',
         'QuotesModuleSeeder',
+        'RefundsReportPermissionSeeder',
         // Add new seeders here
     ];
 

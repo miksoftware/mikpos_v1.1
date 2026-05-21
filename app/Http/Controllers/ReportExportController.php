@@ -642,9 +642,15 @@ class ReportExportController extends Controller
         $totalPurchases = (float) $purchasesQuery->sum('total');
 
         // Expenses from cash movements
+        // Exclude movements auto-created by refunds/credit notes to avoid double-counting
+        // (those amounts are already subtracted from revenue via $totalRefunds).
         $expQuery = CashMovement::where('type', 'expense')
             ->whereDate('created_at', '>=', $startDate)
-            ->whereDate('created_at', '<=', $endDate);
+            ->whereDate('created_at', '<=', $endDate)
+            ->where(function ($q) {
+                $q->where('concept', 'not like', 'Devolución %')
+                  ->where('concept', 'not like', 'Nota Crédito %');
+            });
         if ($branchId) {
             $expQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', $branchId));
         }
@@ -726,10 +732,14 @@ class ReportExportController extends Controller
         $paymentMethods = $payments->select('payment_methods.name', DB::raw('SUM(sale_payments.amount) as total'), DB::raw('COUNT(DISTINCT sales.id) as count'))
             ->groupBy('payment_methods.id', 'payment_methods.name')->orderByDesc('total')->get();
 
-        // Expenses breakdown (cash + module)
+        // Expenses breakdown (cash + module) — exclude refund/credit-note auto-movements
         $expBreakdown = CashMovement::where('type', 'expense')
             ->whereDate('created_at', '>=', $startDate)
-            ->whereDate('created_at', '<=', $endDate);
+            ->whereDate('created_at', '<=', $endDate)
+            ->where(function ($q) {
+                $q->where('concept', 'not like', 'Devolución %')
+                  ->where('concept', 'not like', 'Nota Crédito %');
+            });
         if ($branchId) {
             $expBreakdown->whereHas('reconciliation', fn($q) => $q->where('branch_id', $branchId));
         }
@@ -1859,6 +1869,362 @@ class ReportExportController extends Controller
         $filename = 'libro-ventas-' . now()->format('Y-m-d') . '.xlsx';
 
         $tempFile = tempnam(sys_get_temp_dir(), 'excel');
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Export Refunds & Credit Notes report as Excel.
+     * Two sheets:
+     *   1. Resumen      — KPIs and totals by reason/branch
+     *   2. Detalle      — All refunds + credit notes merged in chronological order
+     */
+    public function refundsExcel(Request $request)
+    {
+        $user = auth()->user();
+        $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->get('end_date', now()->format('Y-m-d'));
+        $branchId = $request->get('branch_id');
+        $filterType = $request->get('filter_type', 'all');
+        $search = $request->get('search', '');
+
+        if (!$user->isSuperAdmin()) {
+            $branchId = $user->branch_id;
+        }
+
+        $branchName = 'Todas las sucursales';
+        if ($branchId) {
+            $branchName = Branch::find($branchId)?->name ?? '—';
+        }
+        $typeLabel = match ($filterType) {
+            'refund' => 'Solo Devoluciones POS',
+            'credit_note' => 'Solo Notas Crédito',
+            default => 'Devoluciones + Notas Crédito',
+        };
+
+        // Build merged collection
+        $rows = collect();
+
+        // Refunds
+        if ($filterType !== 'credit_note') {
+            $refundsQuery = \App\Models\Refund::with(['sale.customer', 'user', 'branch'])
+                ->where('refunds.status', 'completed')
+                ->whereDate('refunds.created_at', '>=', $startDate)
+                ->whereDate('refunds.created_at', '<=', $endDate);
+            if ($branchId) $refundsQuery->where('refunds.branch_id', $branchId);
+
+            if ($search) {
+                $refundsQuery->where(function ($q) use ($search) {
+                    $q->where('refunds.number', 'like', "%{$search}%")
+                      ->orWhereHas('sale', fn($sq) => $sq->where('invoice_number', 'like', "%{$search}%"));
+                });
+            }
+
+            foreach ($refundsQuery->get() as $r) {
+                $rows->push((object) [
+                    'kind' => 'refund',
+                    'kind_label' => 'Devolución',
+                    'number' => $r->number,
+                    'date' => $r->created_at,
+                    'sale_invoice' => $r->sale?->invoice_number,
+                    'customer_name' => $r->sale?->customer?->full_name,
+                    'customer_doc' => $r->sale?->customer?->document_number,
+                    'type' => $r->type,
+                    'reason' => $r->reason,
+                    'subtotal' => (float) $r->subtotal,
+                    'tax_total' => (float) $r->tax_total,
+                    'total' => (float) $r->total,
+                    'user' => $r->user?->name,
+                    'branch_name' => $r->branch?->name,
+                    'status' => $r->status,
+                ]);
+            }
+        }
+
+        // Credit Notes
+        if ($filterType !== 'refund') {
+            $cnQuery = \App\Models\CreditNote::with(['sale.customer', 'user', 'branch'])
+                ->whereIn('credit_notes.status', ['pending', 'validated'])
+                ->whereDate('credit_notes.created_at', '>=', $startDate)
+                ->whereDate('credit_notes.created_at', '<=', $endDate);
+            if ($branchId) $cnQuery->where('credit_notes.branch_id', $branchId);
+
+            if ($search) {
+                $cnQuery->where(function ($q) use ($search) {
+                    $q->where('credit_notes.number', 'like', "%{$search}%")
+                      ->orWhere('credit_notes.dian_number', 'like', "%{$search}%")
+                      ->orWhereHas('sale', fn($sq) => $sq->where('invoice_number', 'like', "%{$search}%"));
+                });
+            }
+
+            foreach ($cnQuery->get() as $c) {
+                $rows->push((object) [
+                    'kind' => 'credit_note',
+                    'kind_label' => 'Nota Crédito',
+                    'number' => $c->dian_number ?? $c->number,
+                    'date' => $c->created_at,
+                    'sale_invoice' => $c->sale?->invoice_number,
+                    'customer_name' => $c->sale?->customer?->full_name,
+                    'customer_doc' => $c->sale?->customer?->document_number,
+                    'type' => $c->type,
+                    'reason' => $c->reason,
+                    'subtotal' => (float) $c->subtotal,
+                    'tax_total' => (float) $c->tax_total,
+                    'total' => (float) $c->total,
+                    'user' => $c->user?->name,
+                    'branch_name' => $c->branch?->name,
+                    'status' => $c->status,
+                ]);
+            }
+        }
+
+        $rows = $rows->sortByDesc('date')->values();
+
+        // Aggregates
+        $refunds = $rows->where('kind', 'refund');
+        $creditNotes = $rows->where('kind', 'credit_note');
+        $totalRefundsAmount = (float) $refunds->sum('total');
+        $totalCreditNotesAmount = (float) $creditNotes->sum('total');
+        $grandTotal = $totalRefundsAmount + $totalCreditNotesAmount;
+        $partials = $rows->where('type', 'partial');
+        $totals = $rows->where('type', 'total');
+
+        // By reason
+        $byReason = [];
+        foreach ($rows as $row) {
+            $reason = trim((string) ($row->reason ?? '')) ?: 'Sin razón';
+            if (!isset($byReason[$reason])) $byReason[$reason] = ['amount' => 0, 'count' => 0];
+            $byReason[$reason]['amount'] += $row->total;
+            $byReason[$reason]['count']++;
+        }
+        uasort($byReason, fn($a, $b) => $b['amount'] <=> $a['amount']);
+
+        // By branch
+        $byBranch = [];
+        foreach ($rows as $row) {
+            $b = $row->branch_name ?: '—';
+            if (!isset($byBranch[$b])) $byBranch[$b] = ['amount' => 0, 'count' => 0];
+            $byBranch[$b]['amount'] += $row->total;
+            $byBranch[$b]['count']++;
+        }
+        uasort($byBranch, fn($a, $b) => $b['amount'] <=> $a['amount']);
+
+        // ============ Build spreadsheet ============
+        $spreadsheet = new Spreadsheet();
+
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 16, 'color' => ['rgb' => '1E293B']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+        ];
+        $subtitleStyle = ['font' => ['bold' => true, 'size' => 12, 'color' => ['rgb' => 'EA580C']]];
+        $tableHeaderStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EA580C']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'C2410C']]],
+        ];
+        $cellBorderStyle = [
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E2E8F0']]],
+        ];
+
+        // ---- Sheet 1: Resumen ----
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Resumen');
+
+        $row = 1;
+        $sheet->setCellValue('A' . $row, 'REPORTE DE DEVOLUCIONES Y NOTAS CRÉDITO');
+        $sheet->mergeCells('A' . $row . ':E' . $row);
+        $sheet->getStyle('A' . $row)->applyFromArray($titleStyle);
+        $sheet->getRowDimension($row)->setRowHeight(28);
+        $row += 2;
+
+        $info = [
+            ['Período:', $startDate . ' a ' . $endDate],
+            ['Sucursal:', $branchName],
+            ['Tipo:', $typeLabel],
+            ['Búsqueda:', $search ?: '—'],
+            ['Generado:', now()->format('d/m/Y H:i')],
+        ];
+        foreach ($info as $i) {
+            $sheet->setCellValue('A' . $row, $i[0]);
+            $sheet->setCellValue('B' . $row, $i[1]);
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row++;
+        }
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'TOTALES');
+        $sheet->getStyle('A' . $row)->applyFromArray($subtitleStyle);
+        $row++;
+
+        $kpis = [
+            ['Total devuelto', $grandTotal, 'EA580C'],
+            ['Devoluciones POS (cantidad)', $refunds->count(), null],
+            ['Devoluciones POS (monto)', $totalRefundsAmount, '2563EB'],
+            ['Notas Crédito (cantidad)', $creditNotes->count(), null],
+            ['Notas Crédito (monto)', $totalCreditNotesAmount, '7C3AED'],
+            ['Devoluciones totales (cantidad)', $totals->count(), null],
+            ['Devoluciones totales (monto)', (float) $totals->sum('total'), 'DC2626'],
+            ['Devoluciones parciales (cantidad)', $partials->count(), null],
+            ['Devoluciones parciales (monto)', (float) $partials->sum('total'), 'F59E0B'],
+        ];
+        foreach ($kpis as $kpi) {
+            $sheet->setCellValue('A' . $row, $kpi[0]);
+            $sheet->setCellValue('B' . $row, $kpi[1]);
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            if (str_contains($kpi[0], 'monto') || $kpi[0] === 'Total devuelto') {
+                $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+                if ($kpi[2]) {
+                    $sheet->getStyle('B' . $row)->getFont()->setColor(new Color($kpi[2]))->setBold(true);
+                }
+            } else {
+                $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('#,##0');
+            }
+            $row++;
+        }
+        $row += 2;
+
+        // By reason
+        if (!empty($byReason)) {
+            $sheet->setCellValue('A' . $row, 'POR RAZÓN');
+            $sheet->getStyle('A' . $row)->applyFromArray($subtitleStyle);
+            $row++;
+
+            $headers = ['Razón', 'Cantidad', 'Monto'];
+            $col = 'A';
+            foreach ($headers as $h) {
+                $sheet->setCellValue($col . $row, $h);
+                $col++;
+            }
+            $sheet->getStyle('A' . $row . ':C' . $row)->applyFromArray($tableHeaderStyle);
+            $row++;
+            foreach ($byReason as $reason => $data) {
+                $sheet->setCellValue('A' . $row, $reason);
+                $sheet->setCellValue('B' . $row, $data['count']);
+                $sheet->setCellValue('C' . $row, $data['amount']);
+                $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('#,##0');
+                $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+                $sheet->getStyle('A' . $row . ':C' . $row)->applyFromArray($cellBorderStyle);
+                $row++;
+            }
+            $row += 2;
+        }
+
+        // By branch (only if super admin or multi-branch data)
+        if (!empty($byBranch) && count($byBranch) > 1) {
+            $sheet->setCellValue('A' . $row, 'POR SUCURSAL');
+            $sheet->getStyle('A' . $row)->applyFromArray($subtitleStyle);
+            $row++;
+
+            $headers = ['Sucursal', 'Cantidad', 'Monto'];
+            $col = 'A';
+            foreach ($headers as $h) {
+                $sheet->setCellValue($col . $row, $h);
+                $col++;
+            }
+            $sheet->getStyle('A' . $row . ':C' . $row)->applyFromArray($tableHeaderStyle);
+            $row++;
+            foreach ($byBranch as $branch => $data) {
+                $sheet->setCellValue('A' . $row, $branch);
+                $sheet->setCellValue('B' . $row, $data['count']);
+                $sheet->setCellValue('C' . $row, $data['amount']);
+                $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('#,##0');
+                $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+                $sheet->getStyle('A' . $row . ':C' . $row)->applyFromArray($cellBorderStyle);
+                $row++;
+            }
+        }
+
+        foreach (['A', 'B', 'C', 'D', 'E'] as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        // ---- Sheet 2: Detalle ----
+        $detSheet = $spreadsheet->createSheet();
+        $detSheet->setTitle('Detalle');
+
+        $row = 1;
+        $detSheet->setCellValue('A' . $row, 'DETALLE DE DEVOLUCIONES Y NOTAS CRÉDITO');
+        $detSheet->mergeCells('A' . $row . ':L' . $row);
+        $detSheet->getStyle('A' . $row)->applyFromArray($titleStyle);
+        $detSheet->getRowDimension($row)->setRowHeight(28);
+        $row += 2;
+
+        $headers = [
+            'Fecha', 'Tipo', 'N° Doc.', 'Factura origen', 'Cliente', 'Documento',
+            'Alcance', 'Razón', 'Sucursal', 'Usuario', 'Subtotal', 'IVA', 'Total',
+        ];
+        $col = 'A';
+        foreach ($headers as $h) {
+            $detSheet->setCellValue($col . $row, $h);
+            $col++;
+        }
+        $detSheet->getStyle('A' . $row . ':M' . $row)->applyFromArray($tableHeaderStyle);
+        $detSheet->getRowDimension($row)->setRowHeight(22);
+        $row++;
+
+        if ($rows->isEmpty()) {
+            $detSheet->setCellValue('A' . $row, 'Sin devoluciones en el período seleccionado.');
+            $detSheet->mergeCells('A' . $row . ':M' . $row);
+            $detSheet->getStyle('A' . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $detSheet->getStyle('A' . $row)->getFont()->setItalic(true);
+        } else {
+            foreach ($rows as $r) {
+                $detSheet->setCellValue('A' . $row, $r->date->format('d/m/Y H:i'));
+                $detSheet->setCellValue('B' . $row, $r->kind_label);
+                $detSheet->setCellValue('C' . $row, $r->number);
+                $detSheet->setCellValue('D' . $row, $r->sale_invoice ?? '—');
+                $detSheet->setCellValue('E' . $row, $r->customer_name ?? '—');
+                $detSheet->setCellValue('F' . $row, $r->customer_doc ?? '—');
+                $detSheet->setCellValue('G' . $row, $r->type === 'total' ? 'Total' : 'Parcial');
+                $detSheet->setCellValue('H' . $row, $r->reason ?? '—');
+                $detSheet->setCellValue('I' . $row, $r->branch_name ?? '—');
+                $detSheet->setCellValue('J' . $row, $r->user ?? '—');
+                $detSheet->setCellValue('K' . $row, (float) $r->subtotal);
+                $detSheet->setCellValue('L' . $row, (float) $r->tax_total);
+                $detSheet->setCellValue('M' . $row, (float) $r->total);
+
+                $detSheet->getStyle('K' . $row . ':M' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+
+                if ($r->kind === 'refund') {
+                    $detSheet->getStyle('B' . $row)->getFont()->setColor(new Color('2563EB'))->setBold(true);
+                } else {
+                    $detSheet->getStyle('B' . $row)->getFont()->setColor(new Color('7C3AED'))->setBold(true);
+                }
+                if ($r->type === 'total') {
+                    $detSheet->getStyle('G' . $row)->getFont()->setColor(new Color('DC2626'))->setBold(true);
+                } else {
+                    $detSheet->getStyle('G' . $row)->getFont()->setColor(new Color('F59E0B'))->setBold(true);
+                }
+
+                $detSheet->getStyle('A' . $row . ':M' . $row)->applyFromArray($cellBorderStyle);
+                $row++;
+            }
+
+            // Totals row
+            $detSheet->setCellValue('A' . $row, 'TOTAL');
+            $detSheet->mergeCells('A' . $row . ':L' . $row);
+            $detSheet->setCellValue('M' . $row, $grandTotal);
+            $detSheet->getStyle('A' . $row . ':M' . $row)->getFont()->setBold(true);
+            $detSheet->getStyle('A' . $row . ':M' . $row)->getFill()
+                ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FED7AA');
+            $detSheet->getStyle('M' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $detSheet->getStyle('A' . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        }
+
+        foreach (['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'] as $col) {
+            $detSheet->getColumnDimension($col)->setAutoSize(true);
+        }
+        $detSheet->freezePane('A4');
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'devoluciones-' . now()->format('Y-m-d-His') . '.xlsx';
+        $tempFile = tempnam(sys_get_temp_dir(), 'refunds');
         $writer->save($tempFile);
 
         return response()->download($tempFile, $filename, [

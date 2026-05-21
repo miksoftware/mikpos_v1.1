@@ -431,6 +431,14 @@ Route::middleware(['auth'])->group(function () {
             ->name('payment-methods.excel')
             ->middleware('permission:reports.export');
 
+        Route::get('/refunds', App\Livewire\Reports\RefundsReport::class)
+            ->name('refunds')
+            ->middleware('permission:reports.refunds');
+
+        Route::get('/refunds/excel', [App\Http\Controllers\ReportExportController::class, 'refundsExcel'])
+            ->name('refunds.excel')
+            ->middleware('permission:reports.export');
+
         Route::get('/customer-sales', App\Livewire\Reports\CustomerSales::class)
             ->name('customer-sales')
             ->middleware('permission:reports.customer_sales');

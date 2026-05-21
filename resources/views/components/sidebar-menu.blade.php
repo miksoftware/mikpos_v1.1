@@ -548,6 +548,14 @@
         <span>Medios de Pago</span>
     </a>
     @endif
+    @if (auth()->user()->hasPermission('reports.refunds'))
+    <a href="{{ route('reports.refunds') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('reports.refunds') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
+        </svg>
+        <span>Devoluciones</span>
+    </a>
+    @endif
     @if (auth()->user()->hasPermission('reports.customer_sales'))
     <a href="{{ route('reports.customer-sales') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('reports.customer-sales') ? $activeClass : $inactiveClass }}">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -581,7 +589,7 @@
     </button>
     <div x-show="reportesOpen && sidebarOpen" x-collapse class="{{ $sectionClass }}">
         <!-- Ventas Submenu -->
-        <div x-data="{ ventasReportOpen: {{ request()->routeIs('reports.products-sold') || request()->routeIs('reports.commissions') || request()->routeIs('reports.sales-book') || request()->routeIs('reports.profit-loss') || request()->routeIs('reports.credits') || request()->routeIs('reports.purchases') || request()->routeIs('reports.cash') || request()->routeIs('reports.payment-methods') || request()->routeIs('reports.customer-sales') ? 'true' : 'false' }} }">
+        <div x-data="{ ventasReportOpen: {{ request()->routeIs('reports.products-sold') || request()->routeIs('reports.commissions') || request()->routeIs('reports.sales-book') || request()->routeIs('reports.profit-loss') || request()->routeIs('reports.credits') || request()->routeIs('reports.purchases') || request()->routeIs('reports.cash') || request()->routeIs('reports.payment-methods') || request()->routeIs('reports.customer-sales') || request()->routeIs('reports.refunds') ? 'true' : 'false' }} }">
             <button @click="ventasReportOpen = !ventasReportOpen"
                 class="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-slate-400 hover:bg-white/5 hover:text-white">
                 <div class="flex items-center gap-3">
@@ -657,6 +665,14 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
                     </svg>
                     <span class="text-xs">Medios de Pago</span>
+                </a>
+                @endif
+                @if (auth()->user()->hasPermission('reports.refunds'))
+                <a href="{{ route('reports.refunds') }}" class="flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all duration-200 {{ request()->routeIs('reports.refunds') ? $activeClass : $inactiveClass }}">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
+                    </svg>
+                    <span class="text-xs">Devoluciones</span>
                 </a>
                 @endif
                 @if (auth()->user()->hasPermission('reports.customer_sales'))

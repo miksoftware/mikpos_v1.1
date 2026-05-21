@@ -253,9 +253,17 @@ class ProfitLoss extends Component
         $this->totalCashIncome = (float) $cashIncomeQuery->sum('amount');
 
         // Cash expenses (egresos from cash movements)
+        // IMPORTANT: We exclude cash movements created automatically by refunds
+        // and credit notes (concept starting with "Devolución " or "Nota Crédito ").
+        // Those amounts are already subtracted from revenue via $totalRefunds, so
+        // counting them again as operating expenses would double-count.
         $expensesQuery = CashMovement::where('cash_movements.type', 'expense')
             ->whereDate('cash_movements.created_at', '>=', $this->startDate)
-            ->whereDate('cash_movements.created_at', '<=', $this->endDate);
+            ->whereDate('cash_movements.created_at', '<=', $this->endDate)
+            ->where(function ($q) {
+                $q->where('cash_movements.concept', 'not like', 'Devolución %')
+                  ->where('cash_movements.concept', 'not like', 'Nota Crédito %');
+            });
         if ($this->selectedBranchId) {
             $expensesQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', $this->selectedBranchId));
         } elseif (!auth()->user()->isSuperAdmin()) {
@@ -472,10 +480,17 @@ class ProfitLoss extends Component
         $this->topProfitableProducts = $allProducts->sortByDesc('profit')->take(10)->values()->toArray();
         $this->topLossProducts = $allProducts->filter(fn($p) => $p['profit'] < 0)->sortBy('profit')->take(10)->values()->toArray();
 
-        // Expense breakdown (cash movements + module expenses)
+        // Expense breakdown (cash movements + module expenses).
+        // Same exclusion as in calculateSummary: cash movements created by refunds
+        // and credit notes are NOT operating expenses; they're already counted as
+        // reductions in revenue.
         $cashExpenses = CashMovement::where('cash_movements.type', 'expense')
             ->whereDate('cash_movements.created_at', '>=', $this->startDate)
-            ->whereDate('cash_movements.created_at', '<=', $this->endDate);
+            ->whereDate('cash_movements.created_at', '<=', $this->endDate)
+            ->where(function ($q) {
+                $q->where('cash_movements.concept', 'not like', 'Devolución %')
+                  ->where('cash_movements.concept', 'not like', 'Nota Crédito %');
+            });
         if ($this->selectedBranchId) {
             $cashExpenses->whereHas('reconciliation', fn($q) => $q->where('branch_id', $this->selectedBranchId));
         } elseif (!auth()->user()->isSuperAdmin()) {
