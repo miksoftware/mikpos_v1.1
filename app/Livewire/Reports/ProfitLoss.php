@@ -122,6 +122,25 @@ class ProfitLoss extends Component
         return $query;
     }
 
+    /**
+     * For supervisors, restrict a sales-based query to their assigned cash registers.
+     * Call after applyBranchFilter() for queries that join the sales table.
+     */
+    private function applySupervisorSalesFilter($query, string $reconciliationColumn = 'sales.cash_reconciliation_id')
+    {
+        $user = auth()->user();
+        if (!$user->isSupervisor()) return $query;
+
+        $registerIds = $user->getSupervisorCashRegisterIds();
+        if (empty($registerIds)) {
+            $query->whereRaw('0 = 1');
+        } else {
+            $reconciliationIds = \App\Models\CashReconciliation::whereIn('cash_register_id', $registerIds)->pluck('id');
+            $query->whereIn($reconciliationColumn, $reconciliationIds);
+        }
+        return $query;
+    }
+
     private function calculateSummary()
     {
         // Revenue from completed sales
@@ -129,6 +148,7 @@ class ProfitLoss extends Component
             ->whereDate('sales.created_at', '>=', $this->startDate)
             ->whereDate('sales.created_at', '<=', $this->endDate);
         $this->applyBranchFilter($salesQuery);
+        $this->applySupervisorSalesFilter($salesQuery);
 
         $salesSummary = (clone $salesQuery)->selectRaw('
             COUNT(*) as transactions,
@@ -183,6 +203,15 @@ class ProfitLoss extends Component
         } elseif (!auth()->user()->isSuperAdmin()) {
             $refundsQuery->where('refunds.branch_id', auth()->user()->branch_id);
         }
+        if (auth()->user()->isSupervisor()) {
+            $supervisorRegisterIds = auth()->user()->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $refundsQuery->whereRaw('0 = 1');
+            } else {
+                $reconciliationIds = \App\Models\CashReconciliation::whereIn('cash_register_id', $supervisorRegisterIds)->pluck('id');
+                $refundsQuery->whereHas('sale', fn($q) => $q->whereIn('cash_reconciliation_id', $reconciliationIds));
+            }
+        }
 
         $refundsAggregate = (clone $refundsQuery)->selectRaw('
             COUNT(*) as count,
@@ -212,6 +241,15 @@ class ProfitLoss extends Component
             $creditNotesQuery->where('credit_notes.branch_id', $this->selectedBranchId);
         } elseif (!auth()->user()->isSuperAdmin()) {
             $creditNotesQuery->where('credit_notes.branch_id', auth()->user()->branch_id);
+        }
+        if (auth()->user()->isSupervisor()) {
+            $supervisorRegisterIds = auth()->user()->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $creditNotesQuery->whereRaw('0 = 1');
+            } else {
+                $reconciliationIds = \App\Models\CashReconciliation::whereIn('cash_register_id', $supervisorRegisterIds)->pluck('id');
+                $creditNotesQuery->whereHas('sale', fn($q) => $q->whereIn('cash_reconciliation_id', $reconciliationIds));
+            }
         }
 
         $creditNotesAggregate = (clone $creditNotesQuery)->selectRaw('
@@ -256,6 +294,14 @@ class ProfitLoss extends Component
         } elseif (!auth()->user()->isSuperAdmin()) {
             $cashIncomeQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', auth()->user()->branch_id));
         }
+        if (auth()->user()->isSupervisor()) {
+            $supervisorRegisterIds = auth()->user()->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $cashIncomeQuery->whereRaw('0 = 1');
+            } else {
+                $cashIncomeQuery->whereHas('reconciliation', fn($q) => $q->whereIn('cash_register_id', $supervisorRegisterIds));
+            }
+        }
         $this->totalCashIncome = (float) $cashIncomeQuery->sum('amount');
 
         // Cash expenses (egresos from cash movements)
@@ -274,6 +320,14 @@ class ProfitLoss extends Component
             $expensesQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', $this->selectedBranchId));
         } elseif (!auth()->user()->isSuperAdmin()) {
             $expensesQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', auth()->user()->branch_id));
+        }
+        if (auth()->user()->isSupervisor()) {
+            $supervisorRegisterIds = auth()->user()->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $expensesQuery->whereRaw('0 = 1');
+            } else {
+                $expensesQuery->whereHas('reconciliation', fn($q) => $q->whereIn('cash_register_id', $supervisorRegisterIds));
+            }
         }
         $this->totalCashExpenses = (float) $expensesQuery->sum('amount');
 
@@ -321,6 +375,7 @@ class ProfitLoss extends Component
             ->whereDate('sales.created_at', '>=', $this->startDate)
             ->whereDate('sales.created_at', '<=', $this->endDate);
         $this->applyBranchFilter($salesByDay);
+        $this->applySupervisorSalesFilter($salesByDay);
 
         $dailySales = (clone $salesByDay)
             ->select(DB::raw("DATE(sales.created_at) as sale_date"), DB::raw('SUM(sales.total) as revenue'))
@@ -356,6 +411,15 @@ class ProfitLoss extends Component
         } elseif (!auth()->user()->isSuperAdmin()) {
             $refundsForChart->where('refunds.branch_id', auth()->user()->branch_id);
         }
+        if (auth()->user()->isSupervisor()) {
+            $supervisorRegisterIds = auth()->user()->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $refundsForChart->whereRaw('0 = 1');
+            } else {
+                $reconciliationIds = \App\Models\CashReconciliation::whereIn('cash_register_id', $supervisorRegisterIds)->pluck('id');
+                $refundsForChart->whereHas('sale', fn($q) => $q->whereIn('cash_reconciliation_id', $reconciliationIds));
+            }
+        }
         foreach ($refundsForChart->with('items.product')->get() as $refund) {
             $date = $refund->created_at->format('Y-m-d');
             $dailyRefundRevenue[$date] = ($dailyRefundRevenue[$date] ?? 0) + (float) $refund->total;
@@ -376,6 +440,15 @@ class ProfitLoss extends Component
             $creditNotesForChart->where('credit_notes.branch_id', $this->selectedBranchId);
         } elseif (!auth()->user()->isSuperAdmin()) {
             $creditNotesForChart->where('credit_notes.branch_id', auth()->user()->branch_id);
+        }
+        if (auth()->user()->isSupervisor()) {
+            $supervisorRegisterIds = auth()->user()->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $creditNotesForChart->whereRaw('0 = 1');
+            } else {
+                $reconciliationIds = \App\Models\CashReconciliation::whereIn('cash_register_id', $supervisorRegisterIds)->pluck('id');
+                $creditNotesForChart->whereHas('sale', fn($q) => $q->whereIn('cash_reconciliation_id', $reconciliationIds));
+            }
         }
         foreach ($creditNotesForChart->with('items.product')->get() as $cn) {
             $date = $cn->created_at->format('Y-m-d');
@@ -421,6 +494,7 @@ class ProfitLoss extends Component
             ->whereDate('sales.created_at', '>=', $this->startDate)
             ->whereDate('sales.created_at', '<=', $this->endDate);
         $this->applyBranchFilter($categoryData);
+        $this->applySupervisorSalesFilter($categoryData);
 
         $catResults = (clone $categoryData)
             ->select(
@@ -446,6 +520,7 @@ class ProfitLoss extends Component
             ->whereDate('sales.created_at', '>=', $this->startDate)
             ->whereDate('sales.created_at', '<=', $this->endDate);
         $this->applyBranchFilter($paymentData);
+        $this->applySupervisorSalesFilter($paymentData);
 
         $this->revenueByPaymentMethod = (clone $paymentData)
             ->select('payment_methods.name', DB::raw('SUM(sale_payments.amount) as total'), DB::raw('COUNT(DISTINCT sales.id) as count'))
@@ -462,6 +537,7 @@ class ProfitLoss extends Component
             ->whereDate('sales.created_at', '>=', $this->startDate)
             ->whereDate('sales.created_at', '<=', $this->endDate);
         $this->applyBranchFilter($productProfits);
+        $this->applySupervisorSalesFilter($productProfits);
 
         $allProducts = (clone $productProfits)
             ->select(
@@ -501,6 +577,14 @@ class ProfitLoss extends Component
             $cashExpenses->whereHas('reconciliation', fn($q) => $q->where('branch_id', $this->selectedBranchId));
         } elseif (!auth()->user()->isSuperAdmin()) {
             $cashExpenses->whereHas('reconciliation', fn($q) => $q->where('branch_id', auth()->user()->branch_id));
+        }
+        if (auth()->user()->isSupervisor()) {
+            $supervisorRegisterIds = auth()->user()->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $cashExpenses->whereRaw('0 = 1');
+            } else {
+                $cashExpenses->whereHas('reconciliation', fn($q) => $q->whereIn('cash_register_id', $supervisorRegisterIds));
+            }
         }
         $cashExpenseData = $cashExpenses
             ->select('concept', DB::raw('SUM(amount) as total'), DB::raw('COUNT(*) as count'))

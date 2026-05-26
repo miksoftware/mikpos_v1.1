@@ -102,6 +102,17 @@
                     @endforeach
                 </select>
             </div>
+            @if($isSupervisor && $cashRegisters->isNotEmpty())
+            <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">Caja</label>
+                <select wire:model.live="selectedCashRegisterId" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                    <option value="">Todas las cajas</option>
+                    @foreach($cashRegisters as $register)
+                    <option value="{{ $register->id }}">{{ $register->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
         </div>
     </div>
 

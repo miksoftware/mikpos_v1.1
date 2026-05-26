@@ -25,6 +25,7 @@ class ProductsSold extends Component
     public ?string $startDate = null;
     public ?string $endDate = null;
     public ?int $selectedBranchId = null;
+    public ?int $selectedCashRegisterId = null;
     public ?int $selectedCategoryId = null;
     public ?int $selectedBrandId = null;
     public string $search = '';
@@ -152,10 +153,27 @@ class ProductsSold extends Component
             ->whereDate('sales.created_at', '>=', $this->startDate)
             ->whereDate('sales.created_at', '<=', $this->endDate);
 
+        $user = auth()->user();
         if ($this->selectedBranchId) {
             $query->where('sales.branch_id', $this->selectedBranchId);
-        } elseif (!auth()->user()->isSuperAdmin()) {
-            $query->where('sales.branch_id', auth()->user()->branch_id);
+        } elseif (!$user->isSuperAdmin()) {
+            $query->where('sales.branch_id', $user->branch_id);
+        }
+
+        if ($user->isSupervisor()) {
+            $supervisorRegisterIds = $user->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $query->whereRaw('0 = 1');
+            } else {
+                $filterIds = ($this->selectedCashRegisterId && in_array((int) $this->selectedCashRegisterId, $supervisorRegisterIds))
+                    ? [(int) $this->selectedCashRegisterId]
+                    : $supervisorRegisterIds;
+                $reconciliationIds = \App\Models\CashReconciliation::whereIn('cash_register_id', $filterIds)->pluck('id');
+                $query->whereIn('sales.cash_reconciliation_id', $reconciliationIds);
+            }
+        } elseif ($this->selectedCashRegisterId) {
+            $reconciliationIds = \App\Models\CashReconciliation::where('cash_register_id', $this->selectedCashRegisterId)->pluck('id');
+            $query->whereIn('sales.cash_reconciliation_id', $reconciliationIds);
         }
 
         if ($this->selectedCategoryId) {
@@ -189,12 +207,28 @@ class ProductsSold extends Component
             ->whereDate('created_at', '>=', $this->startDate)
             ->whereDate('created_at', '<=', $this->endDate);
             
+        $user = auth()->user();
         if ($this->selectedBranchId) {
             $salesQuery->where('branch_id', $this->selectedBranchId);
-        } elseif (!auth()->user()->isSuperAdmin()) {
-            $salesQuery->where('branch_id', auth()->user()->branch_id);
+        } elseif (!$user->isSuperAdmin()) {
+            $salesQuery->where('branch_id', $user->branch_id);
         }
-        
+        if ($user->isSupervisor()) {
+            $supervisorRegisterIds = $user->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $salesQuery->whereRaw('0 = 1');
+            } else {
+                $filterIds = ($this->selectedCashRegisterId && in_array((int) $this->selectedCashRegisterId, $supervisorRegisterIds))
+                    ? [(int) $this->selectedCashRegisterId]
+                    : $supervisorRegisterIds;
+                $reconciliationIds = \App\Models\CashReconciliation::whereIn('cash_register_id', $filterIds)->pluck('id');
+                $salesQuery->whereIn('cash_reconciliation_id', $reconciliationIds);
+            }
+        } elseif ($this->selectedCashRegisterId) {
+            $reconciliationIds = \App\Models\CashReconciliation::where('cash_register_id', $this->selectedCashRegisterId)->pluck('id');
+            $salesQuery->whereIn('cash_reconciliation_id', $reconciliationIds);
+        }
+
         $this->totalTransactions = $salesQuery->count();
         $this->averageTicket = $this->totalTransactions > 0 
             ? $this->totalRevenue / $this->totalTransactions 
@@ -314,10 +348,27 @@ class ProductsSold extends Component
             ->whereDate('sales.created_at', '>=', $this->startDate)
             ->whereDate('sales.created_at', '<=', $this->endDate);
 
+        $user = auth()->user();
         if ($this->selectedBranchId) {
             $salesQuery->where('sales.branch_id', $this->selectedBranchId);
-        } elseif (!auth()->user()->isSuperAdmin()) {
-            $salesQuery->where('sales.branch_id', auth()->user()->branch_id);
+        } elseif (!$user->isSuperAdmin()) {
+            $salesQuery->where('sales.branch_id', $user->branch_id);
+        }
+
+        if ($user->isSupervisor()) {
+            $supervisorRegisterIds = $user->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $salesQuery->whereRaw('0 = 1');
+            } else {
+                $filterIds = ($this->selectedCashRegisterId && in_array((int) $this->selectedCashRegisterId, $supervisorRegisterIds))
+                    ? [(int) $this->selectedCashRegisterId]
+                    : $supervisorRegisterIds;
+                $reconciliationIds = \App\Models\CashReconciliation::whereIn('cash_register_id', $filterIds)->pluck('id');
+                $salesQuery->whereIn('sales.cash_reconciliation_id', $reconciliationIds);
+            }
+        } elseif ($this->selectedCashRegisterId) {
+            $reconciliationIds = \App\Models\CashReconciliation::where('cash_register_id', $this->selectedCashRegisterId)->pluck('id');
+            $salesQuery->whereIn('sales.cash_reconciliation_id', $reconciliationIds);
         }
 
         return $salesQuery
@@ -478,9 +529,13 @@ class ProductsSold extends Component
         $items = $query->paginate(15);
 
         // Get filter options
+        $isSupervisor = $user->isSupervisor();
         $branches = $isSuperAdmin ? Branch::where('is_active', true)->orderBy('name')->get() : collect();
         $categories = Category::where('is_active', true)->orderBy('name')->get();
         $brands = Brand::where('is_active', true)->orderBy('name')->get();
+        $cashRegisters = $isSupervisor
+            ? $user->cashRegisters()->where('cash_registers.is_active', true)->orderBy('cash_registers.name')->get()
+            : collect();
 
         // Product search results
         $productSearchResults = $this->getProductSearchResults();
@@ -503,6 +558,8 @@ class ProductsSold extends Component
             'categories' => $categories,
             'brands' => $brands,
             'isSuperAdmin' => $isSuperAdmin,
+            'isSupervisor' => $isSupervisor,
+            'cashRegisters' => $cashRegisters,
             'productSearchResults' => $productSearchResults,
         ]);
     }

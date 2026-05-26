@@ -27,6 +27,7 @@ class Commissions extends Component
     public ?string $endDate = null;
     public ?int $selectedBranchId = null;
     public ?int $selectedUserId = null;
+    public ?int $selectedCashRegisterId = null;
     public ?int $selectedCategoryId = null;
     public ?int $selectedBrandId = null;
     public string $search = '';
@@ -121,10 +122,27 @@ class Commissions extends Component
                 });
             });
 
+        $user = auth()->user();
         if ($this->selectedBranchId) {
             $query->where('sales.branch_id', $this->selectedBranchId);
-        } elseif (!auth()->user()->isSuperAdmin()) {
-            $query->where('sales.branch_id', auth()->user()->branch_id);
+        } elseif (!$user->isSuperAdmin()) {
+            $query->where('sales.branch_id', $user->branch_id);
+        }
+
+        if ($user->isSupervisor()) {
+            $supervisorRegisterIds = $user->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $query->whereRaw('0 = 1');
+            } else {
+                $filterIds = ($this->selectedCashRegisterId && in_array((int) $this->selectedCashRegisterId, $supervisorRegisterIds))
+                    ? [(int) $this->selectedCashRegisterId]
+                    : $supervisorRegisterIds;
+                $reconciliationIds = \App\Models\CashReconciliation::whereIn('cash_register_id', $filterIds)->pluck('id');
+                $query->whereIn('sales.cash_reconciliation_id', $reconciliationIds);
+            }
+        } elseif ($this->selectedCashRegisterId) {
+            $reconciliationIds = \App\Models\CashReconciliation::where('cash_register_id', $this->selectedCashRegisterId)->pluck('id');
+            $query->whereIn('sales.cash_reconciliation_id', $reconciliationIds);
         }
 
         if ($this->selectedUserId) {
@@ -432,10 +450,14 @@ class Commissions extends Component
         $this->commissionsByCategory = $this->getCommissionsByCategory();
         $this->userRanking = array_slice($this->commissionsByUser, 0, 5);
 
+        $isSupervisor = $user->isSupervisor();
         $branches = $isSuperAdmin ? Branch::where('is_active', true)->orderBy('name')->get() : collect();
         $users = User::whereHas('roles')->orderBy('name')->get();
         $categories = Category::where('is_active', true)->orderBy('name')->get();
         $brands = Brand::where('is_active', true)->orderBy('name')->get();
+        $cashRegisters = $isSupervisor
+            ? $user->cashRegisters()->where('cash_registers.is_active', true)->orderBy('cash_registers.name')->get()
+            : collect();
 
         // Dispatch event to update charts
         $this->dispatch('charts-updated', [
@@ -451,6 +473,8 @@ class Commissions extends Component
             'categories' => $categories,
             'brands' => $brands,
             'isSuperAdmin' => $isSuperAdmin,
+            'isSupervisor' => $isSupervisor,
+            'cashRegisters' => $cashRegisters,
         ]);
     }
 }

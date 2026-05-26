@@ -131,7 +131,21 @@ class SalesBook extends Component
             });
         }
 
-        if ($this->selectedCashRegisterId) {
+        // Cash register filter – supervisor only sees their assigned registers
+        $user = auth()->user();
+        if ($user->isSupervisor()) {
+            $supervisorRegisterIds = $user->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $query->whereRaw('0 = 1');
+            } else {
+                $filterIds = ($this->selectedCashRegisterId && in_array((int) $this->selectedCashRegisterId, $supervisorRegisterIds))
+                    ? [(int) $this->selectedCashRegisterId]
+                    : $supervisorRegisterIds;
+                $query->whereHas('cashReconciliation', function ($q) use ($filterIds) {
+                    $q->whereIn('cash_register_id', $filterIds);
+                });
+            }
+        } elseif ($this->selectedCashRegisterId) {
             $query->whereHas('cashReconciliation', function ($q) {
                 $q->where('cash_register_id', $this->selectedCashRegisterId);
             });
@@ -357,13 +371,20 @@ class SalesBook extends Component
         $customers = Customer::orderBy('first_name')->limit(100)->get();
         $paymentMethods = PaymentMethod::where('is_active', true)->orderBy('name')->get();
         
-        $cashRegistersQuery = CashRegister::where('is_active', true);
-        if ($this->selectedBranchId) {
-            $cashRegistersQuery->where('branch_id', $this->selectedBranchId);
-        } elseif (!$isSuperAdmin) {
-            $cashRegistersQuery->where('branch_id', $user->branch_id);
+        if ($user->isSupervisor()) {
+            $cashRegisters = $user->cashRegisters()
+                ->where('cash_registers.is_active', true)
+                ->orderBy('cash_registers.name')
+                ->get();
+        } else {
+            $cashRegistersQuery = CashRegister::where('is_active', true);
+            if ($this->selectedBranchId) {
+                $cashRegistersQuery->where('branch_id', $this->selectedBranchId);
+            } elseif (!$isSuperAdmin) {
+                $cashRegistersQuery->where('branch_id', $user->branch_id);
+            }
+            $cashRegisters = $cashRegistersQuery->orderBy('name')->get();
         }
-        $cashRegisters = $cashRegistersQuery->orderBy('name')->get();
 
         return view('livewire.reports.sales-book', [
             'sales' => $sales,

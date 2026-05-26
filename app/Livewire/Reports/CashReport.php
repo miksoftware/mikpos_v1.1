@@ -95,12 +95,20 @@ class CashReport extends Component
 
     private function loadCashRegisters()
     {
-        $query = CashRegister::query();
+        $user = auth()->user();
+        if ($user->isSupervisor()) {
+            $this->cashRegisters = $user->cashRegisters()
+                ->where('cash_registers.is_active', true)
+                ->orderBy('cash_registers.name')
+                ->get();
+            return;
+        }
 
+        $query = CashRegister::query();
         if ($this->selectedBranchId) {
             $query->where('branch_id', $this->selectedBranchId);
-        } elseif (!auth()->user()->isSuperAdmin()) {
-            $query->where('branch_id', auth()->user()->branch_id);
+        } elseif (!$user->isSuperAdmin()) {
+            $query->where('branch_id', $user->branch_id);
         }
 
         $this->cashRegisters = $query->orderBy('name')->get();
@@ -110,14 +118,25 @@ class CashReport extends Component
     {
         $query = CashReconciliation::query();
 
-        if ($this->selectedBranchId) {
-            $query->where('cash_reconciliations.branch_id', $this->selectedBranchId);
-        } elseif (!auth()->user()->isSuperAdmin()) {
-            $query->where('cash_reconciliations.branch_id', auth()->user()->branch_id);
-        }
-
-        if ($this->selectedCashRegisterId) {
-            $query->where('cash_reconciliations.cash_register_id', $this->selectedCashRegisterId);
+        $user = auth()->user();
+        if ($user->isSupervisor()) {
+            $supervisorRegisterIds = $user->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $query->whereRaw('0 = 1');
+            } elseif ($this->selectedCashRegisterId && in_array((int) $this->selectedCashRegisterId, $supervisorRegisterIds)) {
+                $query->where('cash_reconciliations.cash_register_id', $this->selectedCashRegisterId);
+            } else {
+                $query->whereIn('cash_reconciliations.cash_register_id', $supervisorRegisterIds);
+            }
+        } else {
+            if ($this->selectedBranchId) {
+                $query->where('cash_reconciliations.branch_id', $this->selectedBranchId);
+            } elseif (!$user->isSuperAdmin()) {
+                $query->where('cash_reconciliations.branch_id', $user->branch_id);
+            }
+            if ($this->selectedCashRegisterId) {
+                $query->where('cash_reconciliations.cash_register_id', $this->selectedCashRegisterId);
+            }
         }
 
         if ($this->startDate) {
@@ -144,14 +163,25 @@ class CashReport extends Component
             ->leftJoin('cash_registers', 'cash_reconciliations.cash_register_id', '=', 'cash_registers.id')
             ->leftJoin('users', 'cash_movements.user_id', '=', 'users.id');
 
-        if ($this->selectedBranchId) {
-            $query->where('cash_reconciliations.branch_id', $this->selectedBranchId);
-        } elseif (!auth()->user()->isSuperAdmin()) {
-            $query->where('cash_reconciliations.branch_id', auth()->user()->branch_id);
-        }
-
-        if ($this->selectedCashRegisterId) {
-            $query->where('cash_reconciliations.cash_register_id', $this->selectedCashRegisterId);
+        $user = auth()->user();
+        if ($user->isSupervisor()) {
+            $supervisorRegisterIds = $user->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $query->whereRaw('0 = 1');
+            } elseif ($this->selectedCashRegisterId && in_array((int) $this->selectedCashRegisterId, $supervisorRegisterIds)) {
+                $query->where('cash_reconciliations.cash_register_id', $this->selectedCashRegisterId);
+            } else {
+                $query->whereIn('cash_reconciliations.cash_register_id', $supervisorRegisterIds);
+            }
+        } else {
+            if ($this->selectedBranchId) {
+                $query->where('cash_reconciliations.branch_id', $this->selectedBranchId);
+            } elseif (!$user->isSuperAdmin()) {
+                $query->where('cash_reconciliations.branch_id', $user->branch_id);
+            }
+            if ($this->selectedCashRegisterId) {
+                $query->where('cash_reconciliations.cash_register_id', $this->selectedCashRegisterId);
+            }
         }
 
         if ($this->startDate) {
