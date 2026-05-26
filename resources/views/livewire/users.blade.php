@@ -58,13 +58,20 @@
                         <td class="px-6 py-4 whitespace-nowrap">
                             @php $userRole = $user->roles->first(); @endphp
                             @if($userRole)
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium
-                                {{ $userRole->name === 'super_admin' ? 'bg-purple-100 text-purple-800' : '' }}
-                                {{ $userRole->name === 'branch_admin' ? 'bg-blue-100 text-blue-800' : '' }}
-                                {{ $userRole->name === 'supervisor' ? 'bg-orange-100 text-orange-800' : '' }}
-                                {{ $userRole->name === 'cashier' ? 'bg-green-100 text-green-800' : '' }}">
-                                {{ $userRole->display_name ?? $userRole->name }}
-                            </span>
+                            <div>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium
+                                    {{ $userRole->name === 'super_admin' ? 'bg-purple-100 text-purple-800' : '' }}
+                                    {{ $userRole->name === 'branch_admin' ? 'bg-blue-100 text-blue-800' : '' }}
+                                    {{ $userRole->name === 'supervisor' ? 'bg-orange-100 text-orange-800' : '' }}
+                                    {{ $userRole->name === 'cashier' ? 'bg-green-100 text-green-800' : '' }}">
+                                    {{ $userRole->display_name ?? $userRole->name }}
+                                </span>
+                                @if($userRole->name === 'supervisor' && $user->cashRegisters->count() > 0)
+                                <p class="text-xs text-slate-400 mt-0.5">
+                                    {{ $user->cashRegisters->map(fn($cr) => '#'.$cr->number)->join(', ') }}
+                                </p>
+                                @endif
+                            </div>
                             @else
                             <span class="text-slate-400 text-sm">Sin rol</span>
                             @endif
@@ -156,7 +163,7 @@
                             <!-- Role -->
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 mb-1">Rol *</label>
-                                <select wire:model="role" 
+                                <select wire:model.live="role" 
                                     class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                                     <option value="cashier">Cajero</option>
                                     <option value="supervisor">Supervisor</option>
@@ -169,7 +176,7 @@
                             <!-- Branch -->
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 mb-1">Sucursal</label>
-                                <select wire:model="branch_id" 
+                                <select wire:model.live="branch_id" 
                                     class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                                     <option value="">Sin asignar</option>
                                     @foreach($branches as $branch)
@@ -179,6 +186,36 @@
                                 @error('branch_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                             </div>
                         </div>
+
+                        {{-- Supervisor: assign cash registers --}}
+                        @if($role === 'supervisor')
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">
+                                Cajas Asignadas
+                                <span class="text-slate-400 text-xs ml-1">(Selecciona una o más)</span>
+                            </label>
+                            @if(!$branch_id)
+                                <p class="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Selecciona primero una sucursal para ver sus cajas.</p>
+                            @elseif(empty($availableCashRegisters))
+                                <p class="text-xs text-slate-400 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">No hay cajas activas en esta sucursal.</p>
+                            @else
+                            <div class="grid grid-cols-2 gap-2 p-3 border border-slate-200 rounded-xl bg-slate-50 max-h-40 overflow-y-auto">
+                                @foreach($availableCashRegisters as $cr)
+                                <label class="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-white transition-colors">
+                                    <input type="checkbox"
+                                        wire:model="selectedCashRegisters"
+                                        value="{{ $cr['id'] }}"
+                                        class="rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]/50">
+                                    <span class="text-sm text-slate-700">
+                                        <span class="font-medium">#{{ $cr['number'] }}</span> {{ $cr['name'] }}
+                                    </span>
+                                </label>
+                                @endforeach
+                            </div>
+                            @endif
+                            @error('selectedCashRegisters') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                        </div>
+                        @endif
                     </div>
                     <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
                         <button wire:click="$set('isModalOpen', false)" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>

@@ -7,6 +7,7 @@ use Livewire\WithPagination;
 use App\Models\User;
 use App\Models\Branch;
 use App\Models\Role;
+use App\Models\CashRegister;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Rule;
 use Livewire\Attributes\Layout;
@@ -42,6 +43,10 @@ class Users extends Component
     public $phone;
     public $is_active = true;
 
+    // Supervisor cash register assignments
+    public array $selectedCashRegisters = [];
+    public array $availableCashRegisters = [];
+
     public function render()
     {
         $users = User::query()
@@ -52,7 +57,7 @@ class Users extends Component
                         ->orWhere('email', 'like', '%'.$search.'%');
                 });
             })
-            ->with(['branch', 'roles'])
+            ->with(['branch', 'roles', 'cashRegisters'])
             ->latest()
             ->paginate(10);
 
@@ -62,17 +67,42 @@ class Users extends Component
         ]);
     }
 
+    public function updatedRole()
+    {
+        $this->selectedCashRegisters = [];
+        $this->loadAvailableCashRegisters();
+    }
+
+    public function updatedBranchId()
+    {
+        $this->selectedCashRegisters = [];
+        $this->loadAvailableCashRegisters();
+    }
+
+    private function loadAvailableCashRegisters(): void
+    {
+        if ($this->role === 'supervisor' && $this->branch_id) {
+            $this->availableCashRegisters = CashRegister::where('branch_id', $this->branch_id)
+                ->where('is_active', true)
+                ->orderBy('number')
+                ->get()
+                ->toArray();
+        } else {
+            $this->availableCashRegisters = [];
+        }
+    }
+
     public function create()
     {
         $this->resetValidation();
-        $this->reset(['userId', 'name', 'email', 'password', 'role', 'branch_id', 'phone', 'is_active']);
+        $this->reset(['userId', 'name', 'email', 'password', 'role', 'branch_id', 'phone', 'is_active', 'selectedCashRegisters', 'availableCashRegisters']);
         $this->isModalOpen = true;
     }
 
     public function edit($id)
     {
         $this->resetValidation();
-        $user = User::with('roles')->findOrFail($id);
+        $user = User::with('roles', 'cashRegisters')->findOrFail($id);
         $this->userId = $user->id;
         $this->name = $user->name;
         $this->email = $user->email;
@@ -80,7 +110,9 @@ class Users extends Component
         $this->branch_id = $user->branch_id;
         $this->phone = $user->phone;
         $this->is_active = $user->is_active;
-        $this->password = ''; // Don't populate password
+        $this->password = '';
+        $this->selectedCashRegisters = $user->cashRegisters->pluck('id')->map(fn($id) => (string) $id)->toArray();
+        $this->loadAvailableCashRegisters();
         $this->isModalOpen = true;
     }
 
@@ -120,6 +152,13 @@ class Users extends Component
         $role = Role::where('name', $this->role)->first();
         if ($role) {
             $user->roles()->sync([$role->id]);
+        }
+
+        // Sync cash register assignments (only for supervisors)
+        if ($this->role === 'supervisor') {
+            $user->cashRegisters()->sync(array_map('intval', $this->selectedCashRegisters));
+        } else {
+            $user->cashRegisters()->detach();
         }
 
         $this->isModalOpen = false;

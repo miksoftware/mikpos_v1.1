@@ -38,6 +38,11 @@ class CashRegister extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function supervisors(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'user_cash_register')->withTimestamps();
+    }
+
     // Scopes
 
     public function scopeActive(Builder $query): Builder

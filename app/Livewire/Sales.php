@@ -1403,6 +1403,15 @@ class Sales extends Component
             if ($this->filterBranch) {
                 $query->where('branch_id', $this->filterBranch);
             }
+        } elseif ($user->isSupervisor()) {
+            // Supervisor: scope to their assigned cash registers via reconciliations
+            $query->where('branch_id', $user->branch_id);
+            $cashRegisterIds = $user->getSupervisorCashRegisterIds();
+            if (!empty($cashRegisterIds)) {
+                $reconciliationIds = \App\Models\CashReconciliation::whereIn('cash_register_id', $cashRegisterIds)
+                    ->pluck('id');
+                $query->whereIn('cash_reconciliation_id', $reconciliationIds);
+            }
         } else {
             $query->where('branch_id', $user->branch_id);
         }

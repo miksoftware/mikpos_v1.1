@@ -62,17 +62,17 @@
     </div>
 
     {{-- KPI Cards --}}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-        {{-- Revenue --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+        {{-- Gross Revenue --}}
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
             <div class="flex items-center gap-3 mb-3">
                 <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
                     <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
                 </div>
-                <span class="text-sm text-slate-500">Ingresos Netos</span>
+                <span class="text-sm text-slate-500">Ingresos Brutos</span>
             </div>
-            <p class="text-2xl font-bold text-slate-800">${{ number_format($totalRevenue + $totalCashIncome, 0, ',', '.') }}</p>
-            <p class="text-xs text-slate-400 mt-1">{{ $totalTransactions }} ventas{{ $totalCashIncome > 0 ? ' + mov.' : '' }}{{ $totalRefunds > 0 ? ' (sin devoluc.)' : '' }}</p>
+            <p class="text-2xl font-bold text-slate-800">${{ number_format($rawRevenue + $totalCashIncome, 0, ',', '.') }}</p>
+            <p class="text-xs text-slate-400 mt-1">{{ $totalTransactions }} ventas{{ $totalCashIncome > 0 ? ' + mov.' : '' }}</p>
         </div>
 
         {{-- Returns --}}
@@ -85,6 +85,18 @@
             </div>
             <p class="text-2xl font-bold text-orange-600">${{ number_format($totalRefunds, 0, ',', '.') }}</p>
             <p class="text-xs text-slate-400 mt-1">{{ $totalRefundsCount }} dev. + N. crédito</p>
+        </div>
+
+        {{-- Real Income (gross - returns) --}}
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <span class="text-sm text-slate-500">Ingresos Reales</span>
+            </div>
+            <p class="text-2xl font-bold text-teal-700">${{ number_format($totalRevenue + $totalCashIncome, 0, ',', '.') }}</p>
+            <p class="text-xs text-slate-400 mt-1">Brutos - devoluciones</p>
         </div>
 
         {{-- Cost --}}
@@ -144,8 +156,8 @@
         </h3>
         <div class="space-y-2 text-sm">
             <div class="flex justify-between py-2 px-3 bg-blue-50 rounded-lg">
-                <span class="font-medium text-blue-800">Ingresos por Ventas</span>
-                <span class="font-bold text-blue-800">${{ number_format($totalRevenue, 2) }}</span>
+                <span class="font-medium text-blue-800">Ingresos por Ventas (Brutos)</span>
+                <span class="font-bold text-blue-800">${{ number_format($rawRevenue, 2) }}</span>
             </div>
             @if($totalCashIncome > 0)
             <div class="flex justify-between py-2 px-3 bg-green-50 rounded-lg">
@@ -159,6 +171,10 @@
                 <span class="font-bold text-orange-800">-${{ number_format($totalRefunds, 2) }}</span>
             </div>
             <p class="text-xs text-slate-400 px-3">Incluye devoluciones POS y notas crédito (totales y parciales) procesadas en el período</p>
+            <div class="flex justify-between py-2 px-3 bg-teal-50 rounded-lg">
+                <span class="font-medium text-teal-800">= Ingresos Reales</span>
+                <span class="font-bold text-teal-800">${{ number_format($totalRevenue + $totalCashIncome, 2) }}</span>
+            </div>
             @endif
             @if($totalDiscount > 0)
             <div class="flex justify-between py-2 px-3">

@@ -45,6 +45,9 @@ class ProfitLoss extends Component
     public float $totalDiscount = 0;
     public float $totalPurchases = 0;
 
+    // Gross revenue before subtracting returns (used for P&L display consistency)
+    public float $rawRevenue = 0;
+
     // Returns (refunds + credit notes) — partial returns specifically were
     // missing from previous reports. Total refunds change sale.status, but
     // partial ones don't, so we must read the refunds/credit_notes tables directly.
@@ -230,6 +233,9 @@ class ProfitLoss extends Component
         $this->totalRefunds = round($totalRefundAmount + $totalCreditNoteAmount, 2);
         $this->totalRefundsCost = round($refundCost + $creditNoteCost, 2);
         $this->totalRefundsCount = $totalRefundCount + $totalCreditNoteCount;
+
+        // Save gross revenue BEFORE subtracting returns (used for P&L display)
+        $this->rawRevenue = $this->totalRevenue;
 
         // Adjust revenue and cost for returns
         $this->totalRevenue = max(0, $this->totalRevenue - $this->totalRefunds);

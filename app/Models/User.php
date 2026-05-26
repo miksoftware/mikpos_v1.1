@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
@@ -59,6 +58,10 @@ class User extends Authenticatable
         return $this->hasOne(Employee::class);
     }
 
+    public function cashRegisters(): BelongsToMany
+    {
+        return $this->belongsToMany(CashRegister::class, 'user_cash_register')->withTimestamps();
+    }
 
     // Get user's role (global or for specific branch)
     public function getRole(?int $branchId = null): ?Role
@@ -97,6 +100,18 @@ class User extends Authenticatable
     public function isSuperAdmin(): bool
     {
         return $this->roles()->where('name', 'super_admin')->exists();
+    }
+
+    // Check if user is a supervisor
+    public function isSupervisor(): bool
+    {
+        return $this->roles()->where('name', 'supervisor')->exists();
+    }
+
+    // Get the IDs of cash registers assigned to this supervisor
+    public function getSupervisorCashRegisterIds(): array
+    {
+        return $this->cashRegisters()->pluck('cash_registers.id')->toArray();
     }
 
     // Check if user can access a specific branch

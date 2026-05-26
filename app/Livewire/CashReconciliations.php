@@ -75,14 +75,21 @@ class CashReconciliations extends Component
         $user = auth()->user();
         $this->needsBranchSelection = $user->isSuperAdmin() || !$user->branch_id;
         
-        // Check if user has an assigned cash register
+        // Check if user has an assigned cash register (single, for cashier workflow)
         $this->userCashRegister = CashRegister::where('user_id', $user->id)
             ->where('is_active', true)
             ->first();
         $this->hasAssignedCashRegister = $this->userCashRegister !== null;
         
-        if ($this->needsBranchSelection && !$this->hasAssignedCashRegister) {
+        if ($user->isSuperAdmin()) {
             $this->branches = Branch::where('is_active', true)->orderBy('name')->get();
+        } elseif ($user->isSupervisor()) {
+            // Supervisor: load the cash registers they can see
+            $cashRegisterIds = $user->getSupervisorCashRegisterIds();
+            $this->cashRegisters = CashRegister::whereIn('id', $cashRegisterIds)
+                ->where('is_active', true)
+                ->orderBy('number')
+                ->get();
         } elseif (!$this->hasAssignedCashRegister) {
             $this->selectedBranchId = $user->branch_id;
             $this->loadCashRegisters($this->selectedBranchId);
@@ -97,12 +104,21 @@ class CashReconciliations extends Component
             ->with(['branch', 'cashRegister', 'openedByUser', 'closedByUser']);
 
         // Filter by user for non-super admins
-        if (!$user->isSuperAdmin()) {
-            // Non-super admin users only see their own reconciliations
+        if ($user->isSuperAdmin()) {
+            if ($this->filterBranch) {
+                $query->where('branch_id', $this->filterBranch);
+            }
+        } elseif ($user->isSupervisor()) {
+            // Supervisor: only see reconciliations of their assigned cash registers
+            $cashRegisterIds = $user->getSupervisorCashRegisterIds();
+            if (!empty($cashRegisterIds)) {
+                $query->whereIn('cash_register_id', $cashRegisterIds);
+            } else {
+                $query->whereRaw('0 = 1'); // no assigned registers → show nothing
+            }
+        } else {
+            // Other users only see their own reconciliations
             $query->where('opened_by', $user->id);
-        } elseif ($this->filterBranch) {
-            // Super admin can filter by branch
-            $query->where('branch_id', $this->filterBranch);
         }
 
         // Apply status filter
