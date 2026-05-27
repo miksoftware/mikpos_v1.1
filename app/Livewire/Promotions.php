@@ -243,7 +243,7 @@ class Promotions extends Component
         $count = 0;
         foreach ($customers as $customer) {
             try {
-                Mail::to($customer->email)->queue(new PromotionMail($promo, $customer));
+                Mail::to($customer->email)->send(new PromotionMail($promo, $customer));
                 $count++;
             } catch (\Exception $e) {
                 // continue with remaining customers
