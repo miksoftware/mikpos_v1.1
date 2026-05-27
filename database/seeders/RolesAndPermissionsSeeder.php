@@ -274,6 +274,19 @@ class RolesAndPermissionsSeeder extends Seeder
                     ['name' => 'customers.delete', 'display_name' => 'Eliminar Clientes'],
                 ],
             ],
+            [
+                'name' => 'promotions',
+                'display_name' => 'Ofertas y Promociones',
+                'icon' => 'megaphone',
+                'order' => 23,
+                'permissions' => [
+                    ['name' => 'promotions.view',   'display_name' => 'Ver Campañas'],
+                    ['name' => 'promotions.create', 'display_name' => 'Crear Campañas'],
+                    ['name' => 'promotions.edit',   'display_name' => 'Editar Campañas'],
+                    ['name' => 'promotions.delete', 'display_name' => 'Eliminar Campañas'],
+                    ['name' => 'promotions.send',   'display_name' => 'Enviar Campañas'],
+                ],
+            ],
         ];
 
         foreach ($modules as $moduleData) {

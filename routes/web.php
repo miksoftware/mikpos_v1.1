@@ -253,6 +253,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('pos')
         ->middleware('permission:pos.access');
 
+    // Offers & Promotions
+    Route::get('/promotions', App\Livewire\Promotions::class)
+        ->name('promotions')
+        ->middleware('permission:promotions.view');
+
     // Quotes (Cotizaciones)
     Route::get('/quotes', App\Livewire\Quotes::class)
         ->name('quotes')
@@ -298,9 +303,10 @@ Route::middleware(['auth'])->group(function () {
             'ecommerceOrder.shippingMunicipality',
         ]);
 
-        $format = App\Models\PrintFormatSetting::getFormat('pos');
+        $documentType = $sale->source === 'ecommerce' ? 'ecommerce' : 'pos';
+        $format = App\Models\PrintFormatSetting::getFormat($documentType);
         $view = $format === 'letter' ? 'receipts.pos-receipt-letter' : 'receipts.pos-receipt';
-        $showLogo = $format === '80mm' && App\Models\PrintFormatSetting::shouldShowLogo80mm('pos');
+        $showLogo = $format === '80mm' && App\Models\PrintFormatSetting::shouldShowLogo80mm($documentType);
 
         return view($view, compact('sale', 'showLogo'));
     })->name('receipt.show');
