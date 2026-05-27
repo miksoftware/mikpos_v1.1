@@ -241,12 +241,19 @@ class Promotions extends Component
         }
 
         $count = 0;
+        $lastError = null;
         foreach ($customers as $customer) {
             try {
                 Mail::to($customer->email)->send(new PromotionMail($promo, $customer));
                 $count++;
-            } catch (\Exception $e) {
-                // continue with remaining customers
+            } catch (\Throwable $e) {
+                $lastError = $e->getMessage();
+                \Log::error('PromotionMail error', [
+                    'customer_id' => $customer->id,
+                    'email'       => $customer->email,
+                    'error'       => $e->getMessage(),
+                    'trace'       => $e->getTraceAsString(),
+                ]);
             }
         }
 
@@ -268,7 +275,11 @@ class Promotions extends Component
         $this->sendingPromoId = null;
         $this->selectedCustomerIds = [];
 
-        $this->dispatch('notify', message: "Campaña enviada a {$count} cliente(s) correctamente", type: 'success');
+        if ($count === 0 && $lastError) {
+            $this->dispatch('notify', message: "Error al enviar: {$lastError}", type: 'error');
+        } else {
+            $this->dispatch('notify', message: "Campaña enviada a {$count} cliente(s) correctamente", type: 'success');
+        }
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
