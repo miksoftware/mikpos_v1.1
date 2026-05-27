@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Mail\PromotionMail;
+use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\Promotion;
 use App\Services\ActivityLogService;
@@ -25,6 +26,7 @@ class Promotions extends Component
     // Create / Edit modal
     public bool $isModalOpen = false;
     public ?int $itemId = null;
+    public ?int $formBranchId = null;
     public string $subject = '';
     public string $message = '';
     public string $button_text = '';
@@ -62,6 +64,9 @@ class Promotions extends Component
             return;
         }
         $this->resetForm();
+        if (auth()->user()->isSuperAdmin()) {
+            $this->formBranchId = Branch::where('is_active', true)->value('id');
+        }
         $this->isModalOpen = true;
     }
 
@@ -73,6 +78,7 @@ class Promotions extends Component
         }
         $promo = Promotion::findOrFail($id);
         $this->itemId = $promo->id;
+        $this->formBranchId = $promo->branch_id;
         $this->subject = $promo->subject;
         $this->message = $promo->message;
         $this->button_text = $promo->button_text ?? '';
@@ -101,6 +107,10 @@ class Promotions extends Component
             'image'       => 'nullable|image|max:3072',
             'button_text' => 'nullable|max:100',
             'button_url'  => 'nullable|url|max:500',
+            ...(auth()->user()->isSuperAdmin() ? ['formBranchId' => 'required|exists:branches,id'] : []),
+        ], [
+            'formBranchId.required' => 'Debes seleccionar una sucursal.',
+            'formBranchId.exists'   => 'La sucursal seleccionada no es válida.',
         ]);
 
         // Handle image upload
@@ -127,8 +137,11 @@ class Promotions extends Component
             ActivityLogService::logUpdate('promotions', $promo, $old, "Campaña '{$promo->subject}' actualizada");
             $this->dispatch('notify', message: 'Campaña actualizada correctamente', type: 'success');
         } else {
+            $branchId = auth()->user()->isSuperAdmin()
+                ? $this->formBranchId
+                : auth()->user()->branch_id;
             $promo = Promotion::create(array_merge($data, [
-                'branch_id' => auth()->user()->branch_id,
+                'branch_id' => $branchId,
                 'user_id'   => auth()->id(),
                 'status'    => 'draft',
             ]));
@@ -287,6 +300,7 @@ class Promotions extends Component
     private function resetForm(): void
     {
         $this->itemId = null;
+        $this->formBranchId = null;
         $this->subject = '';
         $this->message = '';
         $this->button_text = '';
@@ -350,12 +364,17 @@ class Promotions extends Component
         $sentCount  = (clone $baseQuery)->where('status', 'sent')->count();
         $draftCount = (clone $baseQuery)->where('status', 'draft')->count();
 
+        $branches = auth()->user()->isSuperAdmin()
+            ? Branch::where('is_active', true)->orderBy('name')->get()
+            : collect();
+
         return view('livewire.promotions', [
             'promotions'    => $promotions,
             'sendCustomers' => $sendCustomers,
             'totalCount'    => $totalCount,
             'sentCount'     => $sentCount,
             'draftCount'    => $draftCount,
+            'branches'      => $branches,
         ]);
     }
 }

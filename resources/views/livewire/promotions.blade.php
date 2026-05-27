@@ -218,6 +218,23 @@
             {{-- Modal body --}}
             <div class="px-6 py-5 overflow-y-auto flex-1 space-y-5">
 
+                {{-- Branch selector (SuperAdmin only) --}}
+                @if(auth()->user()->isSuperAdmin())
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">
+                        Sucursal <span class="text-red-500">*</span>
+                    </label>
+                    <select wire:model="formBranchId"
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 outline-none bg-white @error('formBranchId') border-red-400 @enderror">
+                        <option value="">Selecciona una sucursal...</option>
+                        @foreach($branches as $branch)
+                            <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('formBranchId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                </div>
+                @endif
+
                 {{-- Subject --}}
                 <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1.5">
