@@ -1,4 +1,4 @@
-<div class="h-screen flex flex-col bg-slate-100" x-data="{ showCustomerSearch: false }" 
+<div class="h-screen flex flex-col bg-slate-100" x-data="{ showCustomerSearch: false, mobileView: 'products' }" 
     @keydown.f7.window.prevent="showCustomerSearch = true; $nextTick(() => $refs.customerSearchInput?.focus())"
     @keydown.f3.window.prevent="$wire.applyAllSpecialPrices()"
     @keydown.f4.window.prevent="$wire.openGlobalDiscountModal()"
@@ -25,32 +25,33 @@
         </div>
         <div class="flex items-center gap-4">
             @if($isElectronicInvoicingEnabled)
-            <div class="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 rounded-lg" title="Facturación Electrónica Activa">
+            <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-green-500/20 rounded-lg" title="Facturación Electrónica Activa">
                 <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
-                <span class="text-green-400 text-xs font-medium">FE</span>
+                <span class="text-green-400 text-xs font-medium uppercase tracking-wider">FE</span>
             </div>
             @endif
             @if($cashRegister)
-            <div class="flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-lg">
+            <div class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-lg">
                 <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
                 </svg>
-                <span class="text-white text-sm">{{ $cashRegister->name }}</span>
+                <span class="text-white text-xs font-medium">{{ $cashRegister->name }}</span>
             </div>
             @endif
-            <div class="text-white/70 text-sm">{{ now()->format('d/m/Y H:i') }}</div>
-            <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-medium">
+            <div class="hidden sm:block text-white/70 text-xs font-medium uppercase tracking-wider">{{ now()->format('d/m/Y H:i') }}</div>
+            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-white/20 to-white/5 border border-white/10 flex items-center justify-center text-white text-sm font-bold shadow-inner">
                 {{ substr(auth()->user()->name, 0, 1) }}
             </div>
         </div>
     </header>
 
     <!-- Main Content -->
-    <div class="flex-1 flex overflow-hidden">
+    <div class="flex-1 flex overflow-hidden relative">
         <!-- Left Panel - Cart (50%) -->
-        <div class="w-1/2 bg-white flex flex-col border-r border-slate-200">
+        <div class="w-full lg:w-1/2 bg-white flex flex-col border-r border-slate-200"
+            :class="{ 'hidden lg:flex': mobileView !== 'cart', 'flex': mobileView === 'cart' }">
             @if($fromQuoteId)
             <div class="p-3 bg-gradient-to-r from-orange-50 to-purple-50 border-b border-orange-200">
                 <div class="flex items-center gap-3">
@@ -358,59 +359,59 @@
                 
                 {{-- Special Price, Price Override & Discount Buttons --}}
                 @if(count($cart) > 0)
-                <div class="grid grid-cols-3 gap-2">
-                    <button wire:click="applyAllSpecialPrices" class="px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl transition flex items-center justify-center gap-1">
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <button wire:click="applyAllSpecialPrices" class="px-3 py-2 text-[11px] sm:text-sm font-bold text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl transition flex items-center justify-center gap-1 uppercase tracking-tight">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                         P. Especial
-                        <span class="text-xs px-1 py-0.5 rounded bg-green-200 text-green-800">F3</span>
+                        <span class="hidden sm:inline text-[10px] px-1 py-0.5 rounded bg-green-200 text-green-800">F3</span>
                     </button>
-                    <button wire:click="togglePriceOverride" class="px-3 py-2 text-sm font-medium rounded-xl transition flex items-center justify-center gap-1 {{ $showPriceOverride ? 'text-white bg-blue-600 border border-blue-600 ring-2 ring-blue-400' : 'text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200' }}">
+                    <button wire:click="togglePriceOverride" class="px-3 py-2 text-[11px] sm:text-sm font-bold rounded-xl transition flex items-center justify-center gap-1 uppercase tracking-tight {{ $showPriceOverride ? 'text-white bg-blue-600 border border-blue-600 ring-2 ring-blue-400' : 'text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200' }}">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                         </svg>
                         Precio
-                        <span class="text-xs px-1 py-0.5 rounded {{ $showPriceOverride ? 'bg-blue-500 text-white' : 'bg-blue-200 text-blue-800' }}">F6</span>
+                        <span class="hidden sm:inline text-[10px] px-1 py-0.5 rounded {{ $showPriceOverride ? 'bg-blue-500 text-white' : 'bg-blue-200 text-blue-800' }}">F6</span>
                     </button>
-                    <button wire:click="openGlobalDiscountModal" class="px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl transition flex items-center justify-center gap-1 {{ $globalDiscountApplied ? 'ring-2 ring-purple-400' : '' }}">
+                    <button wire:click="openGlobalDiscountModal" class="col-span-2 sm:col-span-1 px-3 py-2 text-[11px] sm:text-sm font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl transition flex items-center justify-center gap-1 uppercase tracking-tight {{ $globalDiscountApplied ? 'ring-2 ring-purple-400' : '' }}">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
                         </svg>
-                        Desc.
-                        <span class="text-xs px-1 py-0.5 rounded bg-purple-200 text-purple-800">F4</span>
+                        Descuento
+                        <span class="hidden sm:inline text-[10px] px-1 py-0.5 rounded bg-purple-200 text-purple-800">F4</span>
                     </button>
                 </div>
                 @endif
 
-                <div class="grid grid-cols-3 gap-2">
-                    <button wire:click="clearCart" class="px-4 py-3 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition flex items-center justify-center gap-2" {{ count($cart) === 0 ? 'disabled' : '' }}>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <button wire:click="clearCart" class="px-4 py-3 text-xs sm:text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition flex items-center justify-center gap-2 uppercase tracking-tight" {{ count($cart) === 0 ? 'disabled' : '' }}>
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                         </svg>
                         Limpiar
                     </button>
                     <div x-data="{ showHoldInput: false }" class="relative">
-                        <button @click="showHoldInput = !showHoldInput" class="w-full px-4 py-3 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition flex items-center justify-center gap-2 relative" {{ count($cart) === 0 ? 'disabled' : '' }}>
+                        <button @click="showHoldInput = !showHoldInput" class="w-full px-4 py-3 text-xs sm:text-sm font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition flex items-center justify-center gap-2 relative uppercase tracking-tight" {{ count($cart) === 0 ? 'disabled' : '' }}>
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
                             Espera
                             @if(count($heldOrders) > 0)
-                            <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">{{ count($heldOrders) }}</span>
+                            <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white shadow-sm">{{ count($heldOrders) }}</span>
                             @endif
                         </button>
                         <!-- Hold Note Dropdown -->
-                        <div x-show="showHoldInput" x-transition @click.away="showHoldInput = false" class="absolute bottom-full left-0 right-0 mb-2 p-3 bg-white rounded-xl shadow-lg border border-slate-200 z-50">
-                            <label class="text-xs font-medium text-slate-600 mb-1 block">Nota (opcional)</label>
-                            <input wire:model="holdNote" type="text" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 mb-2" placeholder="Ej: Cliente va a traer efectivo...">
-                            <button wire:click="holdOrder" @click="showHoldInput = false" class="w-full px-3 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition">
+                        <div x-show="showHoldInput" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" @click.away="showHoldInput = false" class="absolute bottom-full left-0 right-0 mb-2 p-3 bg-white rounded-xl shadow-2xl border border-slate-200 z-[60]">
+                            <label class="text-xs font-bold text-slate-600 mb-2 block uppercase tracking-wider">Nota de espera (opcional)</label>
+                            <input wire:model="holdNote" type="text" class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 mb-3 shadow-inner" placeholder="Ej: Traerá efectivo...">
+                            <button wire:click="holdOrder" @click="showHoldInput = false" class="w-full px-3 py-2.5 text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition shadow-md active:scale-[0.98]">
                                 Guardar en Espera
                             </button>
                         </div>
                     </div>
-                    <button wire:click="openPayment" class="px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] rounded-xl transition flex items-center justify-center gap-2 disabled:opacity-50" {{ count($cart) === 0 || $needsReconciliation ? 'disabled' : '' }}>
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button wire:click="openPayment" class="col-span-2 sm:col-span-1 px-4 py-3 text-xs sm:text-sm font-black text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] rounded-xl transition flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg active:scale-[0.98] uppercase tracking-widest" {{ count($cart) === 0 || $needsReconciliation ? 'disabled' : '' }}>
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
                         </svg>
                         Cobrar
@@ -429,7 +430,9 @@
         </div>
 
         <!-- Right Panel - Products (50%) -->
-        <div class="w-1/2 flex flex-col overflow-hidden bg-slate-50" x-data @focus-product-search.window="$refs.productSearchInput.focus()">
+        <div class="w-full lg:w-1/2 flex flex-col overflow-hidden bg-slate-50" 
+            :class="{ 'hidden lg:flex': mobileView !== 'products', 'flex': mobileView === 'products' }"
+            x-data @focus-product-search.window="$refs.productSearchInput.focus()">
             <div class="p-4 bg-white border-b border-slate-200">
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -459,7 +462,7 @@
             <!-- Products Grid -->
             <div class="flex-1 overflow-y-auto p-4">
                 @if($sellableItems->count() > 0)
-                <div class="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3">
                     @foreach($sellableItems as $item)
                     <button wire:click="{{ $item['type'] === 'service' ? 'addServiceToCart(' . $item['id'] . ')' : ($item['type'] === 'combo' ? 'addComboToCart(' . $item['id'] . ')' : 'addToCart(' . $item['id'] . ', ' . ($item['child_id'] ?? 'null') . ')') }}" class="bg-white rounded-lg border border-slate-200 hover:border-[#ff7261] hover:shadow-md transition-all duration-200 overflow-hidden group text-left">
                         <div class="aspect-square bg-slate-50 relative overflow-hidden">
@@ -543,11 +546,56 @@
         </div>
     </div>
 
+    <!-- Mobile Navigation Bar -->
+    <div class="lg:hidden h-16 bg-white border-t border-slate-200 flex items-center justify-around px-4 flex-shrink-0">
+        <button @click="mobileView = 'products'" 
+            class="flex flex-col items-center gap-1 transition-all duration-200"
+            :class="mobileView === 'products' ? 'text-[#ff7261]' : 'text-slate-400'">
+            <div class="relative">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                </svg>
+            </div>
+            <span class="text-[10px] font-bold uppercase tracking-wider">Productos</span>
+        </button>
+        
+        <button @click="mobileView = 'cart'" 
+            class="flex flex-col items-center gap-1 transition-all duration-200"
+            :class="mobileView === 'cart' ? 'text-[#a855f7]' : 'text-slate-400'">
+            <div class="relative">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+                @if($itemCount > 0)
+                <span class="absolute -top-2 -right-2 bg-[#ff7261] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-sm animate-pulse">
+                    {{ $itemCount }}
+                </span>
+                @endif
+            </div>
+            <span class="text-[10px] font-bold uppercase tracking-wider">Carrito</span>
+        </button>
+
+        @if(count($heldOrders) > 0)
+        <button wire:click="showHeldOrders" 
+            class="flex flex-col items-center gap-1 text-amber-500">
+            <div class="relative">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span class="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                    {{ count($heldOrders) }}
+                </span>
+            </div>
+            <span class="text-[10px] font-bold uppercase tracking-wider">Esperas</span>
+        </button>
+        @endif
+    </div>
+
     <!-- Customer Search Modal (F7) -->
     <div x-show="showCustomerSearch" x-transition class="fixed inset-0 z-[100]" @keydown.escape.window="showCustomerSearch = false; $wire.showCreateCustomer = false">
         <div class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100]" @click="showCustomerSearch = false; $wire.showCreateCustomer = false"></div>
         <div class="fixed inset-0 z-[101] overflow-y-auto">
-            <div class="flex min-h-full items-start justify-center p-4 pt-20">
+            <div class="flex min-h-full items-start justify-center p-2 sm:p-4 pt-10 sm:pt-20">
                 <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl" @click.away="showCustomerSearch = false; $wire.showCreateCustomer = false">
                     @if(!$showCreateCustomer)
                     {{-- Search View --}}
@@ -562,7 +610,7 @@
                     <div class="p-4">
                         <input x-ref="customerSearchInput" wire:model.live.debounce.300ms="customerSearch" type="text" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Buscar por nombre, documento o razón social...">
                     </div>
-                    <div class="max-h-80 overflow-y-auto">
+                    <div class="max-h-[50vh] sm:max-h-80 overflow-y-auto">
                         @if(count($customers) > 0)
                             @foreach($customers as $customer)
                             <button wire:click="selectCustomer({{ $customer->id }})" @click="showCustomerSearch = false" class="w-full px-6 py-4 text-left hover:bg-slate-50 flex items-center gap-4 border-b border-slate-100 last:border-0">
