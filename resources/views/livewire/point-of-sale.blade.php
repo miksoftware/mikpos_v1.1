@@ -1,4 +1,4 @@
-<div class="h-screen flex flex-col bg-slate-100" x-data="{ showCustomerSearch: false, mobileView: 'products' }" 
+<div class="h-[100dvh] flex flex-col bg-slate-100" x-data="{ showCustomerSearch: false, mobileView: 'products' }" 
     @keydown.f7.window.prevent="showCustomerSearch = true; $nextTick(() => $refs.customerSearchInput?.focus())"
     @keydown.f3.window.prevent="$wire.applyAllSpecialPrices()"
     @keydown.f4.window.prevent="$wire.openGlobalDiscountModal()"
@@ -52,6 +52,8 @@
         <!-- Left Panel - Cart (50%) -->
         <div class="w-full xl:w-1/2 bg-white flex flex-col border-r border-slate-200"
             :class="{ 'hidden xl:flex': mobileView !== 'cart', 'flex': mobileView === 'cart' }">
+            
+            <div class="flex-shrink-0 flex flex-col">
             @if($fromQuoteId)
             <div class="p-3 bg-gradient-to-r from-orange-50 to-purple-50 border-b border-orange-200">
                 <div class="flex items-center gap-3">
@@ -160,8 +162,10 @@
                 </div>
             </div>
 
+            </div>
+
             <!-- Cart Items -->
-            <div class="flex-1 overflow-y-auto custom-scrollbar p-2">
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-2 min-h-0">
                 @if(count($cart) > 0)
                 <div class="space-y-1">
                     @foreach($cart as $key => $item)
@@ -291,7 +295,7 @@
             </div>
 
             <!-- Cart Summary & Actions -->
-            <div class="border-t border-slate-200 bg-white p-2 sm:p-4 space-y-2 sm:space-y-3">
+            <div class="flex-shrink-0 border-t border-slate-200 bg-white p-2 sm:p-4 space-y-2 sm:space-y-3">
                 <div class="space-y-1 sm:space-y-2">
                     <div class="flex justify-between text-[10px] sm:text-sm">
                         <span class="text-slate-500">Subtotal ({{ $itemCount }} items)</span>
@@ -400,7 +404,7 @@
         <div class="w-full xl:w-1/2 flex flex-col overflow-hidden bg-slate-50" 
             :class="{ 'hidden xl:flex': mobileView !== 'products', 'flex': mobileView === 'products' }"
             x-data @focus-product-search.window="$refs.productSearchInput.focus()">
-            <div class="p-4 bg-white border-b border-slate-200">
+            <div class="flex-shrink-0 p-4 bg-white border-b border-slate-200">
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -411,7 +415,7 @@
                 </div>
             </div>
 
-            <div class="px-4 py-3 bg-white border-b border-slate-200">
+            <div class="flex-shrink-0 px-4 py-3 bg-white border-b border-slate-200">
                 <div class="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
                     <button wire:click="selectCategory(null)" class="px-4 py-2 text-sm font-medium rounded-xl whitespace-nowrap transition flex items-center gap-2 {{ !$selectedCategory ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -427,7 +431,7 @@
                 </div>            </div>
 
             <!-- Products Grid -->
-            <div class="flex-1 overflow-y-auto p-4">
+            <div class="flex-1 overflow-y-auto p-4 min-h-0">
                 @if($sellableItems->count() > 0)
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3">
                     @foreach($sellableItems as $item)
