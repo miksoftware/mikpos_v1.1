@@ -153,10 +153,9 @@
                         </svg>
                     </div>
                     <input wire:model="barcodeSearch" 
+                        wire:keydown.enter="searchByBarcode"
                         type="text" 
                         x-ref="barcodeInput"
-                        x-on:input="handleInput($event)"
-                        x-on:keydown.enter="handleEnter($event)"
                         class="w-full pl-9 sm:pl-10 pr-4 py-2 sm:py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-[10px] sm:text-sm"
                         placeholder="Escanear código de barras...">
                 </div>
@@ -1556,6 +1555,14 @@
                 }, 2000);
             }, 200);
         };
+    });
+
+    // Listen for focus barcode search event
+    $wire.on('focus-barcode-search', () => {
+        const input = document.querySelector('[x-ref="barcodeInput"]');
+        if (input) {
+            setTimeout(() => input.focus(), 100);
+        }
     });
 </script>
 @endscript

@@ -415,8 +415,8 @@ class PointOfSale extends Component
             return;
         }
 
-        // Search in product_barcodes table
-        $barcodeRecord = ProductBarcode::where('barcode', $barcode)->first();
+        // Search in product_barcodes table (case-insensitive for safety)
+        $barcodeRecord = ProductBarcode::where(DB::raw('LOWER(barcode)'), strtolower($barcode))->first();
 
         if ($barcodeRecord) {
             // Found a barcode - check if it's for a product child
@@ -464,8 +464,8 @@ class PointOfSale extends Component
             }
         }
 
-        // Fallback: search in legacy barcode fields (for backwards compatibility)
-        $child = ProductChild::where('barcode', $barcode)
+        // Fallback: search in legacy barcode fields (case-insensitive)
+        $child = ProductChild::where(DB::raw('LOWER(barcode)'), strtolower($barcode))
             ->where('is_active', true)
             ->whereHas('product', function ($q) {
                 $q->where('is_active', true)
@@ -480,7 +480,7 @@ class PointOfSale extends Component
             return;
         }
 
-        $product = Product::where('barcode', $barcode)
+        $product = Product::where(DB::raw('LOWER(barcode)'), strtolower($barcode))
             ->where('is_active', true)
             ->forBranch($this->branchId)
             ->with(['children' => function ($q) {
@@ -2145,6 +2145,7 @@ class PointOfSale extends Component
             $productsQuery->where(function ($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
                   ->orWhere('sku', 'like', '%' . $search . '%')
+                  ->orWhere('barcode', 'like', '%' . $search . '%')
                   ->orWhereHas('children', function ($cq) use ($search) {
                       $cq->where('is_active', true)
                          ->where(function ($ccq) use ($search) {
