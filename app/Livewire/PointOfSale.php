@@ -775,6 +775,8 @@ class PointOfSale extends Component
                 'sku' => $service->sku,
                 'price' => round($priceWithTax, 2),
                 'base_price' => round($basePrice, 2),
+                'original_price' => round($priceWithTax, 2),
+                'original_base_price' => round($basePrice, 2),
                 'quantity' => 1,
                 'subtotal' => round($basePrice, 2),
                 'tax_id' => $service->tax_id,
@@ -846,6 +848,8 @@ class PointOfSale extends Component
                 'sku' => 'COMBO-' . $combo->id,
                 'price' => $comboPrice,
                 'base_price' => $comboPrice,
+                'original_price' => $comboPrice,
+                'original_base_price' => $comboPrice,
                 'quantity' => 1,
                 'subtotal' => $comboPrice,
                 'tax_id' => null,
@@ -1485,8 +1489,8 @@ class PointOfSale extends Component
         $item = &$this->cart[$cartKey];
 
         // Restore original price
-        $item['price'] = $item['original_price'];
-        $item['base_price'] = $item['original_base_price'];
+        $item['price'] = $item['original_price'] ?? $item['price'];
+        $item['base_price'] = $item['original_base_price'] ?? $item['base_price'];
         $item['price_overridden'] = false;
         $item['using_special_price'] = false;
 

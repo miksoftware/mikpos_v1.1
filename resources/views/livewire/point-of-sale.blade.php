@@ -267,13 +267,13 @@
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                                 </button>
                                 @if($item['price_overridden'] ?? false)
-                                <button wire:click="resetItemPrice('{{ $key }}')" class="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition" title="Restaurar precio original (${{ number_format($item['original_price'], 0) }})">
+                                <button wire:click="resetItemPrice('{{ $key }}')" class="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition" title="Restaurar precio original (${{ number_format($item['original_price'] ?? $item['price'], 0) }})">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                                 </button>
                                 @endif
                             </div>
                             @if($item['price_overridden'] ?? false)
-                            <span class="text-[9px] text-blue-500 font-medium">Original: ${{ number_format($item['original_price'], 0) }}</span>
+                            <span class="text-[9px] text-blue-500 font-medium">Original: ${{ number_format($item['original_price'] ?? $item['price'], 0) }}</span>
                             @endif
                         </div>
                         @endif
