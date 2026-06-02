@@ -24,6 +24,10 @@
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                 Importar CSV
             </button>
+            <a href="{{ route('products.barcodes') }}" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                Imprimir Códigos
+            </a>
             <button wire:click="create" class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] text-white text-sm font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                 Nuevo Producto
@@ -300,6 +304,9 @@
                                 </button>
                                 @endif
                                 @if(auth()->user()->hasPermission('products.edit'))
+                                <a href="{{ route('products.barcodes', ['product_id' => $item->id]) }}" class="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors" title="Imprimir etiquetas">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                                </a>
                                 <button wire:click="manageBarcodes({{ $item->id }})" class="p-2 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded-lg transition-colors" title="Códigos de barras">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
                                 </button>
@@ -403,6 +410,9 @@
                         <td class="px-6 py-3 text-right">
                             <div class="flex items-center justify-end gap-1">
                                 @if(auth()->user()->hasPermission('products.edit'))
+                                <a href="{{ route('products.barcodes', ['variant_id' => $child->id]) }}" class="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors" title="Imprimir etiquetas">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                                </a>
                                 <button wire:click="manageChildBarcodes({{ $child->id }})" class="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded-lg transition-colors" title="Códigos de barras">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
                                 </button>
@@ -578,7 +588,12 @@
                                 @if($barcodeVisible)
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-1">Código de Barras @if($barcodeRequired)*@endif</label>
-                                    <input wire:model="barcode" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: 7701234567890">
+                                    <div class="relative">
+                                        <input wire:model="barcode" type="text" class="w-full pl-3 pr-10 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: 7701234567890">
+                                        <button type="button" wire:click="generateRandomBarcode('parent')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-[#ff7261]" title="Generar código aleatorio">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                        </button>
+                                    </div>
                                     @error('barcode')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
                                 </div>
                                 @endif
@@ -1059,7 +1074,12 @@
                                 @if($barcodeVisible)
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-1">Código de Barras @if($barcodeRequired)*@endif</label>
-                                    <input wire:model="childBarcode" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: 7701234567890">
+                                    <div class="relative">
+                                        <input wire:model="childBarcode" type="text" class="w-full pl-3 pr-10 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: 7701234567890">
+                                        <button type="button" wire:click="generateRandomBarcode('child')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-[#ff7261]" title="Generar código aleatorio">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                        </button>
+                                    </div>
                                     @error('childBarcode')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
                                 </div>
                                 @endif
@@ -1840,7 +1860,12 @@
                             <label class="block text-sm font-medium text-slate-700 mb-2">Agregar nuevo código</label>
                             <div class="space-y-3">
                                 <div>
-                                    <input type="text" wire:model="newBarcode" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Código de barras">
+                                    <div class="relative">
+                                        <input type="text" wire:model="newBarcode" class="w-full pl-3 pr-10 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Código de barras">
+                                        <button type="button" wire:click="generateRandomBarcode('newBarcode')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-[#ff7261]" title="Generar código aleatorio">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                        </button>
+                                    </div>
                                     @error('newBarcode') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                                 </div>
                                 <div>

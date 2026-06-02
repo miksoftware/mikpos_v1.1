@@ -741,6 +741,30 @@ class PurchaseCreate extends Component
             : [];
     }
 
+    /**
+     * Generate a unique random barcode for quick product creation.
+     */
+    public function generateQuickBarcode()
+    {
+        $unique = false;
+        $newBarcode = '';
+
+        while (!$unique) {
+            // Generate a random 10-digit number
+            $newBarcode = str_pad(mt_rand(1, 9999999999), 10, '0', STR_PAD_LEFT);
+            
+            // Check uniqueness in product_barcodes table
+            $exists = ProductBarcode::where('barcode', $newBarcode)->exists();
+            
+            if (!$exists) {
+                $unique = true;
+            }
+        }
+
+        $this->quickBarcode = $newBarcode;
+        $this->dispatch('notify', message: 'Código de barras generado');
+    }
+
     public function storeQuickProduct()
     {
         if (!auth()->user()->hasPermission('products.create')) {

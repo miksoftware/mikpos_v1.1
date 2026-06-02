@@ -99,7 +99,12 @@
                     {{-- Código de Barras --}}
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Código de Barras</label>
-                        <input wire:model="quickBarcode" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: 7701234567890">
+                        <div class="relative">
+                            <input wire:model="quickBarcode" type="text" class="w-full pl-3 pr-10 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: 7701234567890">
+                            <button type="button" wire:click="generateQuickBarcode" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-[#ff7261]" title="Generar código aleatorio">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            </button>
+                        </div>
                     </div>
 
                     {{-- Precios --}}

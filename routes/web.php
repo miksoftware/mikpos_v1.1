@@ -152,6 +152,14 @@ Route::middleware(['auth'])->group(function () {
         ->name('products')
         ->middleware('permission:products.view');
 
+    Route::get('/products/barcodes', App\Livewire\BarcodePrinter::class)
+        ->name('products.barcodes')
+        ->middleware('permission:products.view');
+
+    Route::get('/barcode/print', [App\Http\Controllers\BarcodeController::class, 'print'])
+        ->name('barcode.print')
+        ->middleware('permission:products.view');
+
     Route::get('/product-field-config', App\Livewire\ProductFieldConfig::class)
         ->name('product-field-config')
         ->middleware('permission:product_field_config.view');

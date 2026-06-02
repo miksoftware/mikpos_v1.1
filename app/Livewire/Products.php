@@ -202,6 +202,37 @@ class Products extends Component
         $this->resetPage();
     }
 
+    /**
+     * Generate a unique random barcode for parent or child product.
+     */
+    public function generateRandomBarcode($type = 'parent')
+    {
+        $unique = false;
+        $newBarcode = '';
+
+        while (!$unique) {
+            // Generate a random 10-digit number
+            $newBarcode = str_pad(mt_rand(1, 9999999999), 10, '0', STR_PAD_LEFT);
+            
+            // Check uniqueness in product_barcodes table
+            $exists = ProductBarcode::where('barcode', $newBarcode)->exists();
+            
+            if (!$exists) {
+                $unique = true;
+            }
+        }
+
+        if ($type === 'parent') {
+            $this->barcode = $newBarcode;
+        } elseif ($type === 'child') {
+            $this->childBarcode = $newBarcode;
+        } else {
+            $this->newBarcode = $newBarcode;
+        }
+
+        $this->dispatch('notify', message: 'Código de barras generado');
+    }
+
     public function updatedFilterStockStatus()
     {
         $this->resetPage();
