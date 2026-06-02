@@ -50,8 +50,8 @@
     <!-- Main Content -->
     <div class="flex-1 flex overflow-hidden relative">
         <!-- Left Panel - Cart (50%) -->
-        <div class="w-full lg:w-1/2 bg-white flex flex-col border-r border-slate-200"
-            :class="{ 'hidden lg:flex': mobileView !== 'cart', 'flex': mobileView === 'cart' }">
+        <div class="w-full xl:w-1/2 bg-white flex flex-col border-r border-slate-200"
+            :class="{ 'hidden xl:flex': mobileView !== 'cart', 'flex': mobileView === 'cart' }">
             @if($fromQuoteId)
             <div class="p-3 bg-gradient-to-r from-orange-50 to-purple-50 border-b border-orange-200">
                 <div class="flex items-center gap-3">
@@ -67,25 +67,25 @@
             @endif
 
             @if($needsReconciliation)
-            <div class="p-4 bg-amber-50 border-b border-amber-200">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3 text-amber-700">
-                        <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="p-2 sm:p-4 bg-amber-50 border-b border-amber-200">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 sm:gap-3 text-amber-700">
+                        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                             </svg>
                         </div>
-                        <div>
-                            <p class="font-medium">Caja no abierta</p>
-                            <p class="text-sm text-amber-600">Debes abrir la caja para poder vender</p>
+                        <div class="min-w-0">
+                            <p class="font-bold text-xs sm:text-base truncate">Caja no abierta</p>
+                            <p class="text-[10px] sm:text-sm text-amber-600 truncate">Debes abrir caja para vender</p>
                         </div>
                     </div>
                     @if($cashRegister)
-                    <button wire:click="openCashModal" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition">
+                    <button wire:click="openCashModal" class="px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-sm font-bold text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-lg sm:rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition shadow-sm flex-shrink-0">
                         Abrir Caja
                     </button>
                     @else
-                    <a href="{{ route('cash-reconciliations') }}" class="px-4 py-2 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-xl transition">
+                    <a href="{{ route('cash-reconciliations') }}" class="px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-sm font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg sm:rounded-xl transition flex-shrink-0">
                         Ir a Arqueos
                     </a>
                     @endif
@@ -94,37 +94,37 @@
             @endif
 
             <!-- Customer Section -->
-            <div class="p-4 border-b border-slate-200">
-                <div class="flex items-center justify-between mb-2">
-                    <label class="text-sm font-medium text-slate-700">Cliente</label>
+            <div class="p-2 sm:p-4 border-b border-slate-200">
+                <div class="flex items-center justify-between mb-1 sm:mb-2">
+                    <label class="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wider">Cliente</label>
                     <div class="flex items-center gap-1">
-                        <button @click="showCustomerSearch = true; $nextTick(() => $refs.customerSearchInput?.focus())" class="p-1.5 text-slate-400 hover:text-[#ff7261] hover:bg-slate-100 rounded-lg transition" title="Buscar cliente (F7)">
+                        <button @click="showCustomerSearch = true; $nextTick(() => $refs.customerSearchInput?.focus())" class="p-1 sm:p-1.5 text-slate-400 hover:text-[#ff7261] hover:bg-slate-100 rounded-lg transition" title="Buscar cliente (F7)">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
                         </button>
-                        <span class="text-xs text-slate-400 px-1.5 py-0.5 rounded bg-slate-100">F7</span>
+                        <span class="hidden sm:inline text-xs text-slate-400 px-1.5 py-0.5 rounded bg-slate-100 font-bold">F7</span>
                     </div>
                 </div>
                 @if($selectedCustomer)
-                <div class="flex items-center justify-between p-3 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border border-slate-200">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#ff7261] to-[#a855f7] flex items-center justify-center text-white font-medium">
+                <div class="flex items-center justify-between p-2 sm:p-3 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-[#ff7261] to-[#a855f7] flex items-center justify-center text-white font-bold text-xs sm:text-base flex-shrink-0 shadow-sm">
                             {{ substr($selectedCustomer->first_name ?? $selectedCustomer->business_name, 0, 1) }}
                         </div>
-                        <div>
-                            <p class="font-medium text-slate-800">{{ $selectedCustomer->full_name }}</p>
-                            <p class="text-xs text-slate-500">{{ $selectedCustomer->document_number }}</p>
+                        <div class="min-w-0">
+                            <p class="font-bold text-slate-800 text-xs sm:text-sm truncate">{{ $selectedCustomer->full_name }}</p>
+                            <p class="text-[10px] sm:text-xs text-slate-500 truncate">{{ $selectedCustomer->document_number }}</p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-1">
-                        <button @click="showCustomerSearch = true" class="p-1.5 text-slate-400 hover:text-[#ff7261] hover:bg-slate-100 rounded-lg transition" title="Cambiar cliente">
+                    <div class="flex items-center gap-1 flex-shrink-0 ml-2">
+                        <button @click="showCustomerSearch = true" class="p-1 sm:p-1.5 text-slate-400 hover:text-[#ff7261] hover:bg-slate-100 rounded-lg transition">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
                             </svg>
                         </button>
                         @if(!$selectedCustomer->is_default)
-                        <button wire:click="clearCustomer" class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Quitar cliente">
+                        <button wire:click="clearCustomer" class="p-1 sm:p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                             </svg>
@@ -133,8 +133,8 @@
                     </div>
                 </div>
                 @else
-                <button @click="showCustomerSearch = true; $nextTick(() => $refs.customerSearchInput?.focus())" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 border-dashed rounded-xl text-slate-500 hover:border-[#ff7261] hover:text-[#ff7261] transition text-sm text-left flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button @click="showCustomerSearch = true; $nextTick(() => $refs.customerSearchInput?.focus())" class="w-full px-3 py-2 sm:px-4 sm:py-3 bg-slate-50 border border-slate-200 border-dashed rounded-xl text-slate-500 hover:border-[#ff7261] hover:text-[#ff7261] transition text-[10px] sm:text-sm text-left flex items-center gap-2">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
                     Buscar o crear cliente (F7)
@@ -143,43 +143,10 @@
             </div>
 
             <!-- Barcode Scanner Input -->
-            <div class="px-4 py-3 border-b border-slate-200" x-data="{ 
-                lastKeyTime: 0,
-                inputBuffer: '',
-                scannerTimeout: null,
-                handleInput(e) {
-                    const now = Date.now();
-                    const timeDiff = now - this.lastKeyTime;
-                    this.lastKeyTime = now;
-                    
-                    // Clear previous timeout
-                    if (this.scannerTimeout) {
-                        clearTimeout(this.scannerTimeout);
-                    }
-                    
-                    const value = e.target.value.trim();
-                    
-                    // Auto-search after 300ms of no typing
-                    // Works for any barcode length (including short 4-digit codes)
-                    this.scannerTimeout = setTimeout(() => {
-                        if (value.length >= 1) {
-                            $wire.set('barcodeSearch', value).then(() => {
-                                $wire.searchByBarcode();
-                            });
-                        }
-                    }, 300);
-                },
-                handleEnter(e) {
-                    e.preventDefault();
-                    const value = e.target.value.trim();
-                    $wire.set('barcodeSearch', value).then(() => {
-                        $wire.searchByBarcode();
-                    });
-                }
-            }" @focus-barcode-search.window="$refs.barcodeInput.focus()">
+            <div class="px-2 sm:px-4 py-2 sm:py-3 border-b border-slate-200" ...>
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
                         </svg>
                     </div>
@@ -188,7 +155,7 @@
                         x-ref="barcodeInput"
                         x-on:input="handleInput($event)"
                         x-on:keydown.enter="handleEnter($event)"
-                        class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm"
+                        class="w-full pl-9 sm:pl-10 pr-4 py-2 sm:py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-[10px] sm:text-sm"
                         placeholder="Escanear código de barras...">
                 </div>
             </div>
@@ -324,36 +291,36 @@
             </div>
 
             <!-- Cart Summary & Actions -->
-            <div class="border-t border-slate-200 bg-white p-4 space-y-3">
-                <div class="space-y-2">
-                    <div class="flex justify-between text-sm">
+            <div class="border-t border-slate-200 bg-white p-2 sm:p-4 space-y-2 sm:space-y-3">
+                <div class="space-y-1 sm:space-y-2">
+                    <div class="flex justify-between text-[10px] sm:text-sm">
                         <span class="text-slate-500">Subtotal ({{ $itemCount }} items)</span>
-                        <span class="font-medium">${{ number_format($subtotal, 2) }}</span>
+                        <span class="font-bold">${{ number_format($subtotal, 2) }}</span>
                     </div>
                     @if($this->getDiscountTotalProperty() > 0)
-                    <div class="flex justify-between text-sm">
-                        <span class="text-amber-600">Desc. productos</span>
-                        <span class="font-medium text-amber-600">-${{ number_format($this->getDiscountTotalProperty(), 2) }}</span>
+                    <div class="flex justify-between text-[10px] sm:text-sm">
+                        <span class="text-amber-600 font-bold">Desc. productos</span>
+                        <span class="font-bold text-amber-600">-${{ number_format($this->getDiscountTotalProperty(), 2) }}</span>
                     </div>
                     @endif
-                    <div class="flex justify-between text-sm">
+                    <div class="flex justify-between text-[10px] sm:text-sm">
                         <span class="text-slate-500">Impuestos</span>
-                        <span class="font-medium">${{ number_format($taxTotal, 2) }}</span>
+                        <span class="font-bold">${{ number_format($taxTotal, 2) }}</span>
                     </div>
                     @if($globalDiscountApplied && $globalDiscountAmount > 0)
-                    <div class="flex justify-between text-sm items-center">
-                        <span class="text-purple-600 flex items-center gap-1">
+                    <div class="flex justify-between text-[10px] sm:text-sm items-center">
+                        <span class="text-purple-600 flex items-center gap-1 font-bold">
                             Desc. factura
-                            <button wire:click="removeGlobalDiscount" class="text-red-400 hover:text-red-600 transition" title="Quitar descuento">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            <button wire:click="removeGlobalDiscount" class="text-red-400 hover:text-red-600 transition">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>
                         </span>
-                        <span class="font-medium text-purple-600">-${{ number_format($globalDiscountAmount, 2) }}</span>
+                        <span class="font-bold text-purple-600">-${{ number_format($globalDiscountAmount, 2) }}</span>
                     </div>
                     @endif
-                    <div class="flex justify-between text-lg pt-2 border-t border-slate-200">
-                        <span class="font-bold text-slate-800">Total</span>
-                        <span class="font-bold text-[#ff7261]">${{ number_format($total, 2) }}</span>
+                    <div class="flex justify-between text-base sm:text-lg pt-1 sm:pt-2 border-t border-slate-200">
+                        <span class="font-black text-slate-800 uppercase tracking-tighter">Total</span>
+                        <span class="font-black text-[#ff7261]">${{ number_format($total, 2) }}</span>
                     </div>
                 </div>
                 
@@ -430,8 +397,8 @@
         </div>
 
         <!-- Right Panel - Products (50%) -->
-        <div class="w-full lg:w-1/2 flex flex-col overflow-hidden bg-slate-50" 
-            :class="{ 'hidden lg:flex': mobileView !== 'products', 'flex': mobileView === 'products' }"
+        <div class="w-full xl:w-1/2 flex flex-col overflow-hidden bg-slate-50" 
+            :class="{ 'hidden xl:flex': mobileView !== 'products', 'flex': mobileView === 'products' }"
             x-data @focus-product-search.window="$refs.productSearchInput.focus()">
             <div class="p-4 bg-white border-b border-slate-200">
                 <div class="relative">
@@ -547,7 +514,7 @@
     </div>
 
     <!-- Mobile Navigation Bar -->
-    <div class="lg:hidden h-16 bg-white border-t border-slate-200 flex items-center justify-around px-4 flex-shrink-0">
+    <div class="xl:hidden h-16 bg-white border-t border-slate-200 flex items-center justify-around px-4 flex-shrink-0">
         <button @click="mobileView = 'products'" 
             class="flex flex-col items-center gap-1 transition-all duration-200"
             :class="mobileView === 'products' ? 'text-[#ff7261]' : 'text-slate-400'">
