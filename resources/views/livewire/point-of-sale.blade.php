@@ -50,8 +50,8 @@
     <!-- Main Content -->
     <div class="flex-1 flex overflow-hidden relative">
         <!-- Left Panel - Cart (50%) -->
-        <div class="w-full xl:w-1/2 bg-white flex flex-col border-r border-slate-200"
-            :class="{ 'hidden xl:flex': mobileView !== 'cart', 'flex': mobileView === 'cart' }">
+        <div class="w-full lg:w-5/12 xl:w-1/2 bg-white flex flex-col border-r border-slate-200"
+            :class="{ 'hidden lg:flex': mobileView !== 'cart', 'flex': mobileView === 'cart' }">
             
             <div class="flex-shrink-0 flex flex-col">
             @if($fromQuoteId)
@@ -400,8 +400,8 @@
         </div>
 
         <!-- Right Panel - Products (50%) -->
-        <div class="w-full xl:w-1/2 flex flex-col overflow-hidden bg-slate-50" 
-            :class="{ 'hidden xl:flex': mobileView !== 'products', 'flex': mobileView === 'products' }"
+        <div class="w-full lg:w-7/12 xl:w-1/2 flex flex-col overflow-hidden bg-slate-50" 
+            :class="{ 'hidden lg:flex': mobileView !== 'products', 'flex': mobileView === 'products' }"
             x-data @focus-product-search.window="$refs.productSearchInput.focus()">
             <div class="flex-shrink-0 p-4 bg-white border-b border-slate-200">
                 <div class="relative">
@@ -517,7 +517,7 @@
     </div>
 
     <!-- Mobile Navigation Bar -->
-    <div class="xl:hidden h-16 bg-white border-t border-slate-200 flex items-center justify-around px-4 flex-shrink-0">
+    <div class="lg:hidden h-16 bg-white border-t border-slate-200 flex items-center justify-around px-4 flex-shrink-0">
         <button @click="mobileView = 'products'" 
             class="flex flex-col items-center gap-1 transition-all duration-200"
             :class="mobileView === 'products' ? 'text-[#ff7261]' : 'text-slate-400'">
