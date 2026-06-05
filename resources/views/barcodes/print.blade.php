@@ -8,7 +8,7 @@
     <style>
         @page {
             margin: 0;
-            size: auto; /* Thermal printers usually handle this automatically */
+            size: 32mm 18mm;
         }
         body {
             margin: 0;
@@ -17,42 +17,35 @@
             background: white;
         }
         .labels-container {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: flex-start;
+            display: block;
         }
         .label {
-            /* Adjust size based on user's image (approx 30mm x 15mm) */
-            /* Using pixels for better control: 1mm is approx 3.78px */
             width: 32mm;
             height: 18mm;
-            padding: 1mm;
+            padding: 1mm 2mm;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             text-align: center;
+            page-break-after: always;
+            position: relative;
             overflow: hidden;
-            page-break-inside: avoid;
-            border: 0.1px solid #eee; /* Light border for alignment, won't show on thermal */
         }
         .price {
-            font-size: 14pt;
+            font-size: 12pt;
             font-weight: bold;
-            margin-bottom: 0;
+            margin-bottom: 1mm;
             line-height: 1;
         }
         .barcode-svg {
             width: 100%;
             height: auto;
-            max-height: 8mm;
+            max-height: 10mm;
         }
         .sku {
-            font-size: 7pt;
-            font-weight: bold;
-            margin-top: 1px;
-            letter-spacing: 1px;
+            display: none; /* We'll use jsbarcode's displayValue instead */
         }
         
         @media print {
@@ -105,12 +98,13 @@
                     <svg class="barcode-svg"
                         jsbarcode-value="{{ $item['barcode'] }}"
                         jsbarcode-format="CODE128"
-                        jsbarcode-width="1"
+                        jsbarcode-width="2"
                         jsbarcode-height="30"
-                        jsbarcode-fontSize="0"
+                        jsbarcode-displayValue="true"
+                        jsbarcode-fontSize="14"
+                        jsbarcode-fontOptions="bold"
                         jsbarcode-margin="0">
                     </svg>
-                    <div class="sku">{{ $item['barcode'] }}</div>
                 </div>
             @endfor
         @endforeach
