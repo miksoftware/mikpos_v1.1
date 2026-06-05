@@ -13,7 +13,7 @@
         <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div class="aspect-[4/3] bg-slate-100">
                 <img src="{{ $product->getDisplayImageUrl() }}" alt="{{ $product->name }}"
-                    class="w-full h-full object-cover">
+                    class="w-full h-full object-contain">
             </div>
         </div>
 

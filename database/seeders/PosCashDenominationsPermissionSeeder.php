@@ -16,7 +16,7 @@ class PosCashDenominationsPermissionSeeder extends Seeder
             return;
         }
 
-        Permission::firstOrCreate(
+        $permission = Permission::firstOrCreate(
             ['name' => 'pos.cash_denominations'],
             [
                 'display_name' => 'Ver Billetes y Monedas al Pagar',
@@ -25,7 +25,10 @@ class PosCashDenominationsPermissionSeeder extends Seeder
             ]
         );
 
-        // Permission is NOT assigned to any role by default.
-        // Each user/admin enables it manually from the Roles module.
+        // Assign to super_admin, branch_admin and cashier roles by default
+        $roles = \App\Models\Role::whereIn('name', ['super_admin', 'branch_admin', 'cashier'])->get();
+        foreach ($roles as $role) {
+            $role->permissions()->syncWithoutDetaching([$permission->id]);
+        }
     }
 }

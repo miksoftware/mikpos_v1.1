@@ -106,4 +106,31 @@ class Customer extends Authenticatable
         $name = $this->getFullNameAttribute();
         return "{$name} ({$this->document_number})";
     }
+
+    /**
+     * Get the current used credit (unpaid sales).
+     */
+    public function getUsedCredit(): float
+    {
+        return (float) Sale::where('customer_id', $this->id)
+            ->where('payment_type', 'credit')
+            ->whereIn('payment_status', ['pending', 'partial'])
+            ->selectRaw('COALESCE(SUM(credit_amount - paid_amount), 0) as total_used')
+            ->value('total_used');
+    }
+
+    /**
+     * Get the remaining available credit.
+     */
+    public function getRemainingCredit(): float
+    {
+        if (!$this->has_credit) {
+            return 0;
+        }
+
+        $limit = (float) $this->credit_limit;
+        $used = $this->getUsedCredit();
+
+        return max(0, $limit - $used);
+    }
 }

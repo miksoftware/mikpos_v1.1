@@ -88,23 +88,51 @@
 
             {{-- Payment Method --}}
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                <h2 class="text-lg font-semibold text-slate-900 mb-4">Método de pago</h2>
-                @error('payment_method_id') <p class="text-red-500 text-xs mb-3">{{ $message }}</p> @enderror
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    @foreach($paymentMethods as $method)
-                        <label
-                            class="flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all
-                                {{ $payment_method_id == $method->id ? 'border-[#ff7261] bg-[#ff7261]/5' : 'border-slate-200 hover:border-slate-300' }}"
-                        >
-                            <input type="radio" wire:model.live="payment_method_id" value="{{ $method->id }}" class="sr-only">
-                            <div class="w-8 h-8 rounded-lg {{ $payment_method_id == $method->id ? 'bg-gradient-to-br from-[#ff7261] to-[#a855f7]' : 'bg-slate-100' }} flex items-center justify-center flex-shrink-0">
-                                <svg class="w-4 h-4 {{ $payment_method_id == $method->id ? 'text-white' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
-                                </svg>
-                            </div>
-                            <span class="text-sm font-medium {{ $payment_method_id == $method->id ? 'text-slate-900' : 'text-slate-600' }}">{{ $method->name }}</span>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold text-slate-900">Método de pago</h2>
+                    @if($this->isCreditEligible)
+                        <label class="flex items-center gap-2 cursor-pointer bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-[#ff7261] transition-all">
+                            <input type="checkbox" wire:model.live="use_credit" class="w-4 h-4 text-[#ff7261] border-slate-300 rounded focus:ring-[#ff7261]">
+                            <span class="text-sm font-medium text-slate-700">Pagar a Crédito</span>
                         </label>
-                    @endforeach
+                    @endif
+                </div>
+
+                @if($use_credit)
+                    <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl mb-4">
+                        <div class="flex gap-3">
+                            <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <div>
+                                <p class="text-sm font-medium text-amber-800">Pago a crédito seleccionado</p>
+                                <p class="text-xs text-amber-700 mt-0.5">
+                                    El pedido se cargará a tu cuenta de crédito una vez sea aprobado.
+                                    Tu cupo disponible: <span class="font-bold">${{ number_format(Auth::guard('customer')->user()->getRemainingCredit(), 0, ',', '.') }}</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
+                <div class="{{ $use_credit ? 'opacity-50 pointer-events-none' : '' }}">
+                    @error('payment_method_id') <p class="text-red-500 text-xs mb-3">{{ $message }}</p> @enderror
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        @foreach($paymentMethods as $method)
+                            <label
+                                class="flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all
+                                    {{ $payment_method_id == $method->id ? 'border-[#ff7261] bg-[#ff7261]/5' : 'border-slate-200 hover:border-slate-300' }}"
+                            >
+                                <input type="radio" wire:model.live="payment_method_id" value="{{ $method->id }}" class="sr-only">
+                                <div class="w-8 h-8 rounded-lg {{ $payment_method_id == $method->id ? 'bg-gradient-to-br from-[#ff7261] to-[#a855f7]' : 'bg-slate-100' }} flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-4 h-4 {{ $payment_method_id == $method->id ? 'text-white' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-medium {{ $payment_method_id == $method->id ? 'text-slate-900' : 'text-slate-600' }}">{{ $method->name }}</span>
+                            </label>
+                        @endforeach
+                    </div>
                 </div>
             </div>
         </div>
@@ -118,7 +146,7 @@
                     @foreach($items as $item)
                         <div class="flex items-center gap-3">
                             @if($item['image'])
-                                <img src="{{ Storage::url($item['image']) }}" alt="{{ $item['name'] }}" class="w-10 h-10 rounded-lg object-cover flex-shrink-0">
+                                <img src="{{ Storage::url($item['image']) }}" alt="{{ $item['name'] }}" class="w-10 h-10 rounded-lg object-contain flex-shrink-0">
                             @else
                                 <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
                                     <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>

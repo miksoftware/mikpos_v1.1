@@ -47,6 +47,11 @@ docker exec -w /var/www/html ${PROJECT_NAME}_php php artisan migrate --force 2>&
 echo -e "${GREEN}✓ Migraciones ejecutadas${NC}"
 
 echo ""
+echo -e "${YELLOW}[3.5/7] 🌱 Semillas pendientes...${NC}"
+docker exec -w /var/www/html ${PROJECT_NAME}_php php artisan db:seed-pending --force 2>&1
+echo -e "${GREEN}✓ Semillas ejecutadas${NC}"
+
+echo ""
 echo -e "${YELLOW}[4/7] 📦 Compilando assets...${NC}"
 if [ -f "$SRC_DIR/package.json" ]; then
     docker exec -w /var/www/html ${PROJECT_NAME}_php npm install 2>&1 | tail -3

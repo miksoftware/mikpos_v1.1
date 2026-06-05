@@ -24,6 +24,7 @@ class Checkout extends Component
 
     // Payment
     public string $payment_method_id = '';
+    public bool $use_credit = false;
 
     public function mount(): void
     {
@@ -73,7 +74,7 @@ class Checkout extends Component
             'address' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:50',
             'notes' => 'nullable|string|max:1000',
-            'payment_method_id' => 'required|exists:payment_methods,id',
+            'payment_method_id' => $this->use_credit ? 'nullable' : 'required|exists:payment_methods,id',
         ];
     }
 
@@ -103,7 +104,8 @@ class Checkout extends Component
                     'address' => $this->address ?: null,
                     'phone' => $this->phone ?: null,
                     'notes' => $this->notes ?: null,
-                ]
+                ],
+                isCredit: $this->use_credit
             );
 
             // Clear cart
@@ -119,6 +121,16 @@ class Checkout extends Component
     public function getSubtotalProperty(): float
     {
         return collect($this->items)->sum(fn($item) => $item['unit_price'] * $item['quantity']);
+    }
+
+    public function getIsCreditEligibleProperty(): bool
+    {
+        $customer = Auth::guard('customer')->user();
+        if (!$customer || !$customer->has_credit) {
+            return false;
+        }
+
+        return $customer->getRemainingCredit() >= $this->total;
     }
 
     public function getTaxTotalProperty(): float

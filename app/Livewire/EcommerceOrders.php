@@ -517,16 +517,19 @@ class EcommerceOrders extends Component
         $taxTotal = $availableItems->sum('tax_amount');
         $total = $availableItems->sum('total');
 
+        $isCredit = $sale->payment_type === 'credit';
+        
         $sale->update([
             'subtotal' => $subtotal,
             'tax_total' => $taxTotal,
             'total' => $total,
-            'paid_amount' => $total,
+            'paid_amount' => $isCredit ? $sale->paid_amount : $total,
+            'credit_amount' => $isCredit ? $total : 0,
         ]);
 
-        // Update payment amount
+        // Update payment amount (only for cash sales or upfront credit payments)
         $payment = $sale->payments()->first();
-        if ($payment) {
+        if ($payment && !$isCredit) {
             $payment->update(['amount' => $total]);
         }
     }

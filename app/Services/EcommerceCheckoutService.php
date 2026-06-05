@@ -29,10 +29,11 @@ class EcommerceCheckoutService
     public function placeOrder(
         Customer $customer,
         array $cartItems,
-        int $paymentMethodId,
-        array $shippingData
+        ?int $paymentMethodId,
+        array $shippingData,
+        bool $isCredit = false
     ): Sale {
-        return DB::transaction(function () use ($customer, $cartItems, $paymentMethodId, $shippingData) {
+        return DB::transaction(function () use ($customer, $cartItems, $paymentMethodId, $shippingData, $isCredit) {
             $this->validateStock($cartItems);
 
             $branchId = (int) config('ecommerce.branch_id');
@@ -49,6 +50,14 @@ class EcommerceCheckoutService
                 }
             }
 
+            $total = round($subtotal, 2);
+
+            // Determine payment type and status
+            $paymentType = $isCredit ? 'credit' : 'cash';
+            $paymentStatus = $isCredit ? 'pending' : 'paid';
+            $paidAmount = $isCredit ? 0 : $total;
+            $creditAmount = $isCredit ? $total : 0;
+
             $sale = Sale::create([
                 'branch_id' => $branchId,
                 'customer_id' => $customer->id,
@@ -56,13 +65,13 @@ class EcommerceCheckoutService
                 'subtotal' => round($subtotal - $taxTotal, 2),
                 'tax_total' => round($taxTotal, 2),
                 'discount' => 0,
-                'total' => round($subtotal, 2),
+                'total' => $total,
                 'status' => 'pending_approval',
                 'source' => 'ecommerce',
-                'payment_type' => 'cash',
-                'payment_status' => 'paid',
-                'credit_amount' => 0,
-                'paid_amount' => round($subtotal, 2),
+                'payment_type' => $paymentType,
+                'payment_status' => $paymentStatus,
+                'credit_amount' => $creditAmount,
+                'paid_amount' => $paidAmount,
             ]);
 
             // Create sale items
@@ -89,12 +98,14 @@ class EcommerceCheckoutService
                 ]);
             }
 
-            // Create sale payment
-            SalePayment::create([
-                'sale_id' => $sale->id,
-                'payment_method_id' => $paymentMethodId,
-                'amount' => round($subtotal, 2),
-            ]);
+            // Create sale payment only if it's a cash sale
+            if (!$isCredit) {
+                SalePayment::create([
+                    'sale_id' => $sale->id,
+                    'payment_method_id' => $paymentMethodId,
+                    'amount' => $total,
+                ]);
+            }
 
             // Create ecommerce order with shipping data
             EcommerceOrder::create([
