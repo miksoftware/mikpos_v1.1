@@ -6,7 +6,7 @@ use App\Models\Module;
 use App\Models\Permission;
 use Illuminate\Database\Seeder;
 
-class PosCashDenominationsPermissionSeeder extends Seeder
+class PosCashDenominationsRoleSeeder extends Seeder
 {
     public function run(): void
     {

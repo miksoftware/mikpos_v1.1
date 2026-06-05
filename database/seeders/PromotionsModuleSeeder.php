@@ -50,7 +50,5 @@ class PromotionsModuleSeeder extends Seeder
         if ($branchAdmin) {
             $branchAdmin->permissions()->syncWithoutDetaching($allPromoPermissions);
         }
-
-        $this->command->info('Promotions module seeded successfully.');
     }
 }
