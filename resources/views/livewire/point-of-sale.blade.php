@@ -1,4 +1,4 @@
-<div class="h-[100dvh] flex flex-col bg-slate-100" x-data="{ showCustomerSearch: false, mobileView: 'products' }" 
+<div class="h-screen flex flex-col bg-slate-100" x-data="{ showCustomerSearch: false, mobileView: 'products' }" 
     @keydown.f7.window.prevent="showCustomerSearch = true; $nextTick(() => $refs.customerSearchInput?.focus())"
     @keydown.f3.window.prevent="$wire.applyAllSpecialPrices()"
     @keydown.f4.window.prevent="$wire.openGlobalDiscountModal()"
