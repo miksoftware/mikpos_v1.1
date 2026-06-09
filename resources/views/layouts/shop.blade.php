@@ -10,6 +10,18 @@
         $shopName = $shopBranch->name ?? 'Tienda';
     @endphp
     <title>{{ $title ?? $shopName }}</title>
+    @php
+        $shopLogo = $shopBranch?->logo;
+        $shopLogoUrl = $shopLogo ? Storage::url($shopLogo) : null;
+        $faviconVersion = $shopBranch?->updated_at?->timestamp ?? 0;
+        $faviconUrl = $shopLogoUrl ? ($shopLogoUrl . '?v=' . $faviconVersion) : asset('favicon.ico');
+        $touchIconUrl = (is_string($shopLogo) && preg_match('/\.(png|jpe?g|webp)$/i', $shopLogo))
+            ? ($shopLogoUrl . '?v=' . $faviconVersion)
+            : asset('favicon.ico');
+    @endphp
+    <link rel="icon" href="{{ $faviconUrl }}">
+    <link rel="apple-touch-icon" href="{{ $touchIconUrl }}">
+    <link rel="manifest" href="{{ route('manifest', ['context' => 'shop', 'v' => $faviconVersion]) }}">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])

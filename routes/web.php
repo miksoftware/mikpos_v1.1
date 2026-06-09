@@ -22,6 +22,60 @@ Route::get('/', function () {
     return redirect('/login');
 });
 
+Route::get('/manifest.json', function () {
+    $context = request()->query('context', 'app');
+
+    $branch = null;
+    if ($context === 'shop') {
+        $branchId = (int) config('ecommerce.branch_id');
+        $branch = $branchId ? \App\Models\Branch::find($branchId) : null;
+    } else {
+        $branch = auth()->user()?->branch;
+    }
+
+    $name = $branch?->name ?? 'MikPOS';
+    $logo = $branch?->logo;
+
+    $logoIsRaster = is_string($logo) && preg_match('/\.(png|jpe?g|webp)$/i', $logo);
+    $iconUrl = $logoIsRaster ? \Illuminate\Support\Facades\Storage::url($logo) : asset('favicon.ico');
+    $iconType = 'image/x-icon';
+    if ($logoIsRaster) {
+        if (preg_match('/\.png$/i', $logo)) {
+            $iconType = 'image/png';
+        } elseif (preg_match('/\.webp$/i', $logo)) {
+            $iconType = 'image/webp';
+        } else {
+            $iconType = 'image/jpeg';
+        }
+    }
+
+    $manifest = [
+        'name' => $name,
+        'short_name' => $name,
+        'start_url' => $context === 'shop' ? url('/shop') : url('/dashboard'),
+        'display' => 'standalone',
+        'background_color' => '#ffffff',
+        'theme_color' => '#1a1225',
+        'icons' => [
+            [
+                'src' => $iconUrl,
+                'sizes' => '192x192',
+                'type' => $iconType,
+            ],
+            [
+                'src' => $iconUrl,
+                'sizes' => '512x512',
+                'type' => $iconType,
+            ],
+        ],
+    ];
+
+    return response()->json($manifest, 200, [
+        'Content-Type' => 'application/manifest+json',
+        'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+    ]);
+})->name('manifest');
+
 // Authentication routes
 Route::get('/login', Login::class)
     ->name('login')

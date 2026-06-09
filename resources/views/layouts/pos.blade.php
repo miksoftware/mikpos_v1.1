@@ -6,6 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>POS - MikPOS</title>
+    @php
+        $currentBranch = auth()->user()?->branch;
+        $branchLogo = $currentBranch?->logo;
+        $branchLogoUrl = $branchLogo ? Storage::url($branchLogo) : null;
+        $faviconVersion = $currentBranch?->updated_at?->timestamp ?? 0;
+        $faviconUrl = $branchLogoUrl ? ($branchLogoUrl . '?v=' . $faviconVersion) : asset('favicon.ico');
+        $touchIconUrl = (is_string($branchLogo) && preg_match('/\.(png|jpe?g|webp)$/i', $branchLogo))
+            ? ($branchLogoUrl . '?v=' . $faviconVersion)
+            : asset('favicon.ico');
+    @endphp
+    <link rel="icon" href="{{ $faviconUrl }}">
+    <link rel="apple-touch-icon" href="{{ $touchIconUrl }}">
+    <link rel="manifest" href="{{ route('manifest', ['context' => 'app', 'v' => $faviconVersion]) }}">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
