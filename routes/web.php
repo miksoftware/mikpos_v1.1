@@ -285,6 +285,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('billing-settings')
         ->middleware('permission:billing_settings.view');
 
+    // Whatsapp Config
+    Route::get('/whatsapp-config', App\Livewire\WhatsappConfig::class)
+        ->name('whatsapp-config')
+        ->middleware('permission:billing_settings.view');
+
     // Print Formats
     Route::get('/print-formats', App\Livewire\PrintFormats::class)
         ->name('print-formats')
