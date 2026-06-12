@@ -492,12 +492,19 @@
 
                     <div class="border border-slate-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto divide-y divide-slate-100">
                         @forelse($sendCustomers as $customer)
+                        @php
+                            $isWhatsapp = $sendChannel === 'whatsapp';
+                            $customerHasPhone = is_string($customer->phone ?? null) && trim($customer->phone) !== '';
+                            $isDisabled = $isWhatsapp && !$customerHasPhone;
+                        @endphp
                         <label class="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors {{ in_array($customer->id, $selectedCustomerIds) ? 'bg-violet-50' : '' }}">
-                            <input type="checkbox" wire:model.live="selectedCustomerIds" value="{{ $customer->id }}"
-                                class="rounded text-violet-600 focus:ring-violet-500 border-slate-300">
+                            <input type="checkbox" wire:model.live="selectedCustomerIds" value="{{ $customer->id }}" @disabled($isDisabled)
+                                class="rounded text-violet-600 focus:ring-violet-500 border-slate-300 {{ $isDisabled ? 'opacity-50 cursor-not-allowed' : '' }}">
                             <div class="min-w-0 flex-1">
                                 <p class="text-sm font-medium text-slate-800 truncate">{{ $customer->full_name }}</p>
-                                <p class="text-xs text-slate-400 truncate">{{ $sendChannel === 'whatsapp' ? $customer->phone : $customer->email }}</p>
+                                <p class="text-xs text-slate-400 truncate">
+                                    {{ $sendChannel === 'whatsapp' ? ($customerHasPhone ? $customer->phone : 'Sin teléfono') : $customer->email }}
+                                </p>
                             </div>
                         </label>
                         @empty

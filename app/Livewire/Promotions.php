@@ -276,7 +276,7 @@ class Promotions extends Component
 
         if ($customers->isEmpty()) {
             $emptyMessage = $this->sendChannel === 'whatsapp'
-                ? 'No hay clientes con número de WhatsApp registrado para este envío'
+                ? 'No hay clientes activos en la sucursal de la campaña para este envío'
                 : 'No hay clientes con correo electrónico registrado';
             $this->dispatch('notify', message: $emptyMessage, type: 'error');
             return;
@@ -338,9 +338,7 @@ class Promotions extends Component
         $query = Customer::where('is_active', true);
 
         if ($this->sendChannel === 'whatsapp') {
-            $query->whereNotNull('phone')
-                ->where('phone', '!=', '')
-                ->where('branch_id', $promo->branch_id);
+            $query->where('branch_id', $promo->branch_id);
         } else {
             $query->whereNotNull('email')
                 ->where('email', '!=', '');
@@ -407,6 +405,12 @@ class Promotions extends Component
 
         foreach ($customers as $customer) {
             try {
+                $to = $this->sanitizePhoneNumber($customer->phone);
+                if ($to === '') {
+                    $lastError = 'Hay clientes sin teléfono registrado.';
+                    continue;
+                }
+
                 $response = Http::withToken(trim($config->token_permanente))
                     ->acceptJson()
                     ->post(sprintf(
@@ -415,7 +419,7 @@ class Promotions extends Component
                         trim($config->phone_number_id)
                     ), [
                         'messaging_product' => 'whatsapp',
-                        'to' => $this->sanitizePhoneNumber($customer->phone),
+                        'to' => $to,
                         'type' => 'template',
                         'template' => [
                             'name' => $this->whatsappTemplateName,
