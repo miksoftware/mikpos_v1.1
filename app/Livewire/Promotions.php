@@ -294,7 +294,22 @@ class Promotions extends Component
             return;
         }
 
-        $customers = $this->buildSendCustomersQuery($promo)->get();
+        $customersQuery = Customer::where('is_active', true)
+            ->where('branch_id', $promo->branch_id);
+
+        if ($this->sendChannel === 'whatsapp') {
+            $customersQuery->whereNotNull('phone')
+                ->where('phone', '!=', '');
+        } else {
+            $customersQuery->whereNotNull('email')
+                ->where('email', '!=', '');
+        }
+
+        if (!$this->sendToAll) {
+            $customersQuery->whereIn('id', $this->selectedCustomerIds);
+        }
+
+        $customers = $customersQuery->get();
 
         if ($customers->isEmpty()) {
             $emptyMessage = $this->sendChannel === 'whatsapp'
@@ -365,10 +380,6 @@ class Promotions extends Component
         } else {
             $query->whereNotNull('email')
                 ->where('email', '!=', '');
-        }
-
-        if (!$this->sendToAll) {
-            $query->whereIn('id', $this->selectedCustomerIds);
         }
 
         if ($this->customerSearch) {
