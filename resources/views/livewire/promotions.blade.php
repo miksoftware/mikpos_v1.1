@@ -261,10 +261,12 @@
                 @if($campaignChannel === 'whatsapp')
                 <div class="rounded-2xl border border-green-200 bg-green-50 p-4 space-y-3">
                     <p class="text-sm font-semibold text-green-800">Campaña de WhatsApp</p>
-                    <p class="text-xs text-green-700">No necesitas asunto, mensaje, imagen ni botón aquí. El sistema enviará siempre la plantilla `mikpos` (es_CO) configurada en Meta.</p>
+                    <p class="text-xs text-green-700">No necesitas asunto, mensaje, imagen ni botón aquí. El sistema enviará la plantilla configurada en Meta para esta sucursal.</p>
                     <div class="max-w-xs rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
                         <div class="px-4 py-3 bg-[#e7f7ee] border-b border-slate-100">
-                            <p class="text-sm font-semibold text-slate-800">mikpos · Spanish (COL)</p>
+                            <p class="text-sm font-semibold text-slate-800">
+                                {{ $activeWhatsappConfig?->template_name ?: 'mikpos' }} · {{ $activeWhatsappConfig?->template_language ?: 'es_CO' }}
+                            </p>
                         </div>
                         <div class="p-4 space-y-3">
                             <div class="rounded-xl border border-slate-200 p-3 bg-slate-50">
@@ -429,7 +431,9 @@
 
                     <div class="max-w-xs rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
                         <div class="px-4 py-3 bg-[#e7f7ee] border-b border-slate-100">
-                            <p class="text-sm font-semibold text-slate-800">mikpos · Spanish (COL)</p>
+                            <p class="text-sm font-semibold text-slate-800">
+                                {{ $activeWhatsappConfig?->template_name ?: 'mikpos' }} · {{ $activeWhatsappConfig?->template_language ?: 'es_CO' }}
+                            </p>
                         </div>
                         <div class="p-4 space-y-3">
                             <div class="rounded-xl border border-slate-200 p-3 bg-slate-50">

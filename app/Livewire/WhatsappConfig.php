@@ -22,6 +22,8 @@ class WhatsappConfig extends Component
     public $token_permanente = '';
     public $api_version = 'v25.0';
     public $phone_number_oficial = '';
+    public $template_name = 'mikpos';
+    public $template_language = 'es_CO';
     public $is_active = true;
     public $test_recipient = '';
     public $test_template_name = 'hello_world';
@@ -75,6 +77,8 @@ class WhatsappConfig extends Component
         $config->token_permanente = $this->token_permanente;
         $config->api_version = $this->api_version;
         $config->phone_number_oficial = $this->phone_number_oficial;
+        $config->template_name = $this->template_name;
+        $config->template_language = $this->template_language;
         $config->is_active = $this->is_active;
         $config->save();
 
@@ -190,6 +194,8 @@ class WhatsappConfig extends Component
             'token_permanente' => 'required|string',
             'api_version' => 'required|string|max:50',
             'phone_number_oficial' => 'required|string|max:255',
+            'template_name' => 'required|string|max:255',
+            'template_language' => 'required|string|max:20',
             'is_active' => 'boolean',
         ];
     }
@@ -223,6 +229,8 @@ class WhatsappConfig extends Component
             $this->token_permanente = $config->token_permanente;
             $this->api_version = $config->api_version;
             $this->phone_number_oficial = $config->phone_number_oficial;
+            $this->template_name = $config->template_name ?: 'mikpos';
+            $this->template_language = $config->template_language ?: 'es_CO';
             $this->is_active = $config->is_active;
         }
     }
@@ -265,6 +273,8 @@ class WhatsappConfig extends Component
         $this->token_permanente = '';
         $this->api_version = 'v25.0';
         $this->phone_number_oficial = '';
+        $this->template_name = 'mikpos';
+        $this->template_language = 'es_CO';
         $this->is_active = true;
         $this->testResult = null;
     }

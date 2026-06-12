@@ -95,6 +95,26 @@
                         placeholder="Ej. v25.0">
                     @error('api_version') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                 </div>
+
+                <!-- Template Name -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Template por defecto (nombre interno)</label>
+                    <input wire:model="template_name" type="text"
+                        class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]"
+                        placeholder="Ej. mikpos">
+                    <p class="text-xs text-slate-500 mt-1">Debe coincidir exactamente con el nombre del template en Meta (no el título visible).</p>
+                    @error('template_name') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                </div>
+
+                <!-- Template Language -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Idioma del template por defecto</label>
+                    <input wire:model="template_language" type="text"
+                        class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]"
+                        placeholder="Ej. es_CO">
+                    <p class="text-xs text-slate-500 mt-1">Ejemplo recomendado: <span class="font-medium">es_CO</span>. Debe existir como traducción de esa plantilla en Meta.</p>
+                    @error('template_language') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                </div>
             </div>
 
             <!-- Token Permanente -->

@@ -14,6 +14,8 @@ class WhatsappConfig extends Model
         'token_permanente',
         'api_version',
         'phone_number_oficial',
+        'template_name',
+        'template_language',
         'is_active',
     ];
 

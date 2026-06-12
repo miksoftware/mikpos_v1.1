@@ -445,6 +445,9 @@ class Promotions extends Component
         $count = 0;
         $lastError = null;
 
+        $templateName = trim((string) ($config->template_name ?: $this->whatsappTemplateName));
+        $templateLanguage = trim((string) ($config->template_language ?: $this->whatsappTemplateLanguage));
+
         foreach ($customers as $customer) {
             try {
                 $to = $this->sanitizePhoneNumber($customer->phone);
@@ -464,9 +467,9 @@ class Promotions extends Component
                         'to' => $to,
                         'type' => 'template',
                         'template' => [
-                            'name' => $this->whatsappTemplateName,
+                            'name' => $templateName,
                             'language' => [
-                                'code' => $this->whatsappTemplateLanguage,
+                                'code' => $templateLanguage,
                             ],
                         ],
                     ]);
@@ -559,6 +562,14 @@ class Promotions extends Component
 
         $promotions = $query->latest()->paginate(10);
 
+        $sendingPromotion = $this->sendingPromoId ? Promotion::find($this->sendingPromoId) : null;
+        $activeWhatsappConfig = null;
+        if ($sendingPromotion) {
+            $activeWhatsappConfig = WhatsappConfig::where('branch_id', $sendingPromotion->branch_id)
+                ->where('is_active', true)
+                ->first();
+        }
+
         // Customers for send modal (only loaded when modal is open)
         $sendCustomers = collect();
         if ($this->isSendModalOpen && !$this->sendToAll) {
@@ -605,7 +616,8 @@ class Promotions extends Component
             'sentCount'     => $sentCount,
             'draftCount'    => $draftCount,
             'branches'      => $branches,
-            'sendingPromotion' => $this->sendingPromoId ? Promotion::find($this->sendingPromoId) : null,
+            'sendingPromotion' => $sendingPromotion,
+            'activeWhatsappConfig' => $activeWhatsappConfig,
         ]);
     }
 }
