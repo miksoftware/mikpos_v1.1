@@ -224,13 +224,7 @@
 
     <script>
         function renderBarcodes() {
-            JsBarcode('.barcode-svg', {
-                format: 'CODE128',
-                displayValue: true,
-                fontOptions: 'bold',
-                margin: 0,
-                textMargin: 0,
-            });
+            JsBarcode('.barcode-svg').init();
         }
 
         function triggerPrint() {
