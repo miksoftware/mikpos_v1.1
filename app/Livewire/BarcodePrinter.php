@@ -158,7 +158,7 @@ class BarcodePrinter extends Component
         // We'll pass the data via session to avoid long URLs
         session()->put('barcode_print_data', $this->printList);
         
-        $this->dispatch('open-print-window', url: route('barcode.print'));
+        $this->dispatch('open-print-window', url: route('barcode.print', ['print' => 1]));
     }
 
     public function render()

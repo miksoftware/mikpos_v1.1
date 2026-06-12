@@ -54,7 +54,9 @@
                     <div>
                         <h4 class="text-sm font-bold text-amber-800 mb-1">Información de Impresión</h4>
                         <p class="text-xs text-amber-700 leading-relaxed">
-                            Asegúrate de configurar tu impresora térmica con el tamaño de papel correcto (aprox. 30x15mm por etiqueta). Las etiquetas incluirán el nombre, el precio y el código de barras.
+                            Configura tu impresora térmica con el tamaño de etiqueta correcto (por defecto {{ config('barcode.label_width_mm', 33) }}×{{ config('barcode.label_height_mm', 22) }} mm).
+                            En el diálogo de impresión usa márgenes <strong>ninguno</strong>, escala <strong>100%</strong> y desactiva encabezados/pies de página.
+                            Cada etiqueta incluye precio y código de barras.
                         </p>
                     </div>
                 </div>
