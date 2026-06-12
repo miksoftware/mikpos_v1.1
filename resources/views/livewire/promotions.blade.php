@@ -523,7 +523,7 @@
                     </svg>
                     <p class="text-xs text-amber-700">
                         {{ $sendChannel === 'whatsapp'
-                            ? 'WhatsApp usará la configuración activa de la sucursal de esta campaña y solo se enviará a clientes activos con teléfono registrado.'
+                            ? 'WhatsApp usará la configuración activa de la sucursal de esta campaña. Solo se podrá enviar a clientes activos con teléfono registrado.'
                             : 'Los correos serán enviados en cola. Solo se envía a clientes activos con correo electrónico registrado.' }}
                     </p>
                 </div>

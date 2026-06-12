@@ -338,7 +338,9 @@ class Promotions extends Component
         $query = Customer::where('is_active', true);
 
         if ($this->sendChannel === 'whatsapp') {
-            $query->where('branch_id', $promo->branch_id);
+            if (!auth()->user()->isSuperAdmin()) {
+                $query->where('branch_id', auth()->user()->branch_id);
+            }
         } else {
             $query->whereNotNull('email')
                 ->where('email', '!=', '');
