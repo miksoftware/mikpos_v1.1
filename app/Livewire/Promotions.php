@@ -240,12 +240,34 @@ class Promotions extends Component
         $this->customerSearch = '';
         $this->selectedCustomerIds = [];
         $this->isSendModalOpen = true;
+
+        // #region debug-point openSendModal
+        $this->dbg('openSendModal', 'H3', [
+            'sendingPromoId' => $this->sendingPromoId,
+            'sendChannel' => $this->sendChannel,
+            'sendToAll' => $this->sendToAll,
+            'promo_exists' => (bool) $promo,
+            'promo_branch_id' => $promo?->branch_id,
+            'promo_channel' => $promo?->channel,
+            'user_id' => auth()->id(),
+            'user_is_super_admin' => auth()->user()?->isSuperAdmin(),
+            'user_branch_id' => auth()->user()?->branch_id,
+        ]);
+        // #endregion debug-point openSendModal
     }
 
     public function updatedSendChannel(): void
     {
         $this->customerSearch = '';
         $this->selectedCustomerIds = [];
+
+        // #region debug-point updatedSendChannel
+        $this->dbg('updatedSendChannel', 'H1', [
+            'sendChannel' => $this->sendChannel,
+            'sendingPromoId' => $this->sendingPromoId,
+            'sendToAll' => $this->sendToAll,
+        ]);
+        // #endregion debug-point updatedSendChannel
     }
 
     public function closeSendModal(): void
@@ -337,17 +359,12 @@ class Promotions extends Component
     {
         $query = Customer::where('is_active', true);
 
+        $query->where('branch_id', $promo->branch_id);
+
         if ($this->sendChannel === 'whatsapp') {
-            if (!auth()->user()->isSuperAdmin()) {
-                $query->where('branch_id', auth()->user()->branch_id);
-            }
         } else {
             $query->whereNotNull('email')
                 ->where('email', '!=', '');
-
-            if (!auth()->user()->isSuperAdmin()) {
-                $query->where('branch_id', auth()->user()->branch_id);
-            }
         }
 
         if (!$this->sendToAll) {
@@ -365,6 +382,18 @@ class Promotions extends Component
                     ->orWhere('document_number', 'like', "%{$term}%");
             });
         }
+
+        // #region debug-point buildSendCustomersQuery
+        $this->dbg('buildSendCustomersQuery', 'H2', [
+            'sendChannel' => $this->sendChannel,
+            'sendToAll' => $this->sendToAll,
+            'customerSearch' => $this->customerSearch,
+            'promo_id' => $promo->id ?? null,
+            'promo_branch_id' => $promo->branch_id ?? null,
+            'sql' => $query->toSql(),
+            'bindings' => $query->getBindings(),
+        ]);
+        // #endregion debug-point buildSendCustomersQuery
 
         return $query;
     }
@@ -467,6 +496,38 @@ class Promotions extends Component
         return preg_replace('/\D+/', '', (string) $phone) ?? '';
     }
 
+    // #region debug-point dbg-helper
+    protected function dbg(string $pointId, string $hypothesisId, array $data): void
+    {
+        try {
+            $envPath = base_path('.dbg/promotion-customer-search.env');
+            $debugUrl = null;
+            if (is_file($envPath)) {
+                $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+                foreach ($lines as $line) {
+                    if (str_starts_with($line, 'DEBUG_SERVER_URL=')) {
+                        $debugUrl = trim(substr($line, strlen('DEBUG_SERVER_URL=')));
+                        break;
+                    }
+                }
+            }
+            if (!$debugUrl) {
+                return;
+            }
+
+            Http::timeout(1)->asJson()->post($debugUrl, [
+                'sessionId' => 'promotion-customer-search',
+                'hypothesisId' => $hypothesisId,
+                'runId' => 'pre',
+                'pointId' => $pointId,
+                'ts' => now()->toISOString(),
+                'data' => $data,
+            ]);
+        } catch (\Throwable $e) {
+        }
+    }
+    // #endregion debug-point dbg-helper
+
     // ─── Render ───────────────────────────────────────────────────────────────
 
     public function render()
@@ -492,10 +553,24 @@ class Promotions extends Component
         if ($this->isSendModalOpen && !$this->sendToAll) {
             $sendingPromotion = Promotion::find($this->sendingPromoId);
             if ($sendingPromotion) {
-                $sendCustomers = $this->buildSendCustomersQuery($sendingPromotion)
+                $queryForDebug = $this->buildSendCustomersQuery($sendingPromotion)
                     ->orderBy('first_name')
-                    ->limit(100)
-                    ->get();
+                    ->limit(100);
+
+                $sendCustomers = $queryForDebug->get();
+
+                // #region debug-point render-sendCustomers
+                $this->dbg('render-sendCustomers', 'H5', [
+                    'isSendModalOpen' => $this->isSendModalOpen,
+                    'sendToAll' => $this->sendToAll,
+                    'sendChannel' => $this->sendChannel,
+                    'customerSearch' => $this->customerSearch,
+                    'sendingPromoId' => $this->sendingPromoId,
+                    'promo_branch_id' => $sendingPromotion->branch_id,
+                    'result_count' => $sendCustomers->count(),
+                    'result_ids' => $sendCustomers->pluck('id')->take(10)->values()->all(),
+                ]);
+                // #endregion debug-point render-sendCustomers
             }
         }
 
