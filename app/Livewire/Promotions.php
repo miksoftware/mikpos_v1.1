@@ -6,7 +6,10 @@ use App\Mail\PromotionMail;
 use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\Promotion;
+use App\Models\WhatsappConfig;
 use App\Services\ActivityLogService;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
@@ -27,6 +30,7 @@ class Promotions extends Component
     public bool $isModalOpen = false;
     public ?int $itemId = null;
     public ?int $formBranchId = null;
+    public string $campaignChannel = 'email';
     public string $subject = '';
     public string $message = '';
     public string $button_text = '';
@@ -40,6 +44,9 @@ class Promotions extends Component
     public bool $sendToAll = true;
     public string $customerSearch = '';
     public array $selectedCustomerIds = [];
+    public string $sendChannel = 'email';
+    public string $whatsappTemplateName = 'mikpos';
+    public string $whatsappTemplateLanguage = 'es_CO';
 
     // Delete modal
     public bool $isDeleteModalOpen = false;
@@ -64,6 +71,7 @@ class Promotions extends Component
             return;
         }
         $this->resetForm();
+        $this->campaignChannel = 'email';
         if (auth()->user()->isSuperAdmin()) {
             $this->formBranchId = Branch::where('is_active', true)->value('id');
         }
@@ -79,6 +87,7 @@ class Promotions extends Component
         $promo = Promotion::findOrFail($id);
         $this->itemId = $promo->id;
         $this->formBranchId = $promo->branch_id;
+        $this->campaignChannel = $promo->channel ?: 'email';
         $this->subject = $promo->subject;
         $this->message = $promo->message;
         $this->button_text = $promo->button_text ?? '';
@@ -86,6 +95,11 @@ class Promotions extends Component
         $this->existingImagePath = $promo->image_path;
         $this->image = null;
         $this->isModalOpen = true;
+    }
+
+    public function updatedCampaignChannel(): void
+    {
+        $this->resetValidation();
     }
 
     public function save(): void
@@ -101,16 +115,24 @@ class Promotions extends Component
             return;
         }
 
-        $this->validate([
-            'subject'     => 'required|min:3|max:255',
-            'message'     => 'required|min:5',
-            'image'       => 'nullable|image|max:3072',
-            'button_text' => 'nullable|max:100',
-            'button_url'  => 'nullable|url|max:500',
+        $rules = [
+            'campaignChannel' => 'required|in:email,whatsapp',
+            'image' => 'nullable|image|max:3072',
             ...(auth()->user()->isSuperAdmin() ? ['formBranchId' => 'required|exists:branches,id'] : []),
-        ], [
+        ];
+
+        if ($this->campaignChannel === 'email') {
+            $rules = array_merge($rules, [
+                'subject' => 'required|min:3|max:255',
+                'message' => 'required|min:5',
+                'button_text' => 'nullable|max:100',
+                'button_url' => 'nullable|url|max:500',
+            ]);
+        }
+
+        $this->validate($rules, [
             'formBranchId.required' => 'Debes seleccionar una sucursal.',
-            'formBranchId.exists'   => 'La sucursal seleccionada no es válida.',
+            'formBranchId.exists' => 'La sucursal seleccionada no es válida.',
         ]);
 
         // Handle image upload
@@ -123,11 +145,16 @@ class Promotions extends Component
         }
 
         $data = [
-            'subject'     => $this->subject,
-            'message'     => $this->message,
-            'image_path'  => $imagePath,
-            'button_text' => $this->button_text ?: null,
-            'button_url'  => $this->button_url ?: null,
+            'channel' => $this->campaignChannel,
+            'subject' => $this->campaignChannel === 'email'
+                ? $this->subject
+                : ('Campaña WhatsApp ' . now()->format('d/m/Y H:i')),
+            'message' => $this->campaignChannel === 'email'
+                ? $this->message
+                : 'Plantilla WhatsApp: mikpos',
+            'image_path' => $this->campaignChannel === 'email' ? $imagePath : null,
+            'button_text' => $this->campaignChannel === 'email' ? ($this->button_text ?: null) : null,
+            'button_url' => $this->campaignChannel === 'email' ? ($this->button_url ?: null) : null,
         ];
 
         if (!$isNew) {
@@ -207,16 +234,25 @@ class Promotions extends Component
             return;
         }
         $this->sendingPromoId = $id;
+        $promo = Promotion::find($id);
+        $this->sendChannel = ($promo?->channel === 'whatsapp') ? 'whatsapp' : 'email';
         $this->sendToAll = true;
         $this->customerSearch = '';
         $this->selectedCustomerIds = [];
         $this->isSendModalOpen = true;
     }
 
+    public function updatedSendChannel(): void
+    {
+        $this->customerSearch = '';
+        $this->selectedCustomerIds = [];
+    }
+
     public function closeSendModal(): void
     {
         $this->isSendModalOpen = false;
         $this->sendingPromoId = null;
+        $this->sendChannel = 'email';
         $this->selectedCustomerIds = [];
         $this->customerSearch = '';
     }
@@ -229,45 +265,30 @@ class Promotions extends Component
         }
 
         $promo = Promotion::with('branch.municipality')->findOrFail($this->sendingPromoId);
+        $channelLabel = $this->sendChannel === 'whatsapp' ? 'WhatsApp' : 'correo';
 
-        $query = Customer::whereNotNull('email')
-            ->where('email', '!=', '')
-            ->where('is_active', true);
-
-        if (!auth()->user()->isSuperAdmin()) {
-            $query->where('branch_id', auth()->user()->branch_id);
-        }
-
-        if (!$this->sendToAll) {
-            if (empty($this->selectedCustomerIds)) {
-                $this->dispatch('notify', message: 'Selecciona al menos un cliente', type: 'error');
-                return;
-            }
-            $query->whereIn('id', $this->selectedCustomerIds);
-        }
-
-        $customers = $query->get();
-
-        if ($customers->isEmpty()) {
-            $this->dispatch('notify', message: 'No hay clientes con correo electrónico registrado', type: 'error');
+        if (!$this->sendToAll && empty($this->selectedCustomerIds)) {
+            $this->dispatch('notify', message: 'Selecciona al menos un cliente', type: 'error');
             return;
         }
 
-        $count = 0;
-        $lastError = null;
-        foreach ($customers as $customer) {
-            try {
-                Mail::to($customer->email)->send(new PromotionMail($promo, $customer));
-                $count++;
-            } catch (\Throwable $e) {
-                $lastError = $e->getMessage();
-                \Log::error('PromotionMail error', [
-                    'customer_id' => $customer->id,
-                    'email'       => $customer->email,
-                    'error'       => $e->getMessage(),
-                    'trace'       => $e->getTraceAsString(),
-                ]);
-            }
+        $customers = $this->buildSendCustomersQuery($promo)->get();
+
+        if ($customers->isEmpty()) {
+            $emptyMessage = $this->sendChannel === 'whatsapp'
+                ? 'No hay clientes con número de WhatsApp registrado para este envío'
+                : 'No hay clientes con correo electrónico registrado';
+            $this->dispatch('notify', message: $emptyMessage, type: 'error');
+            return;
+        }
+
+        try {
+            ['count' => $count, 'lastError' => $lastError] = $this->sendChannel === 'whatsapp'
+                ? $this->sendWhatsappPromotion($promo, $customers)
+                : $this->sendEmailPromotion($promo, $customers);
+        } catch (\Throwable $e) {
+            $this->dispatch('notify', message: $e->getMessage(), type: 'error');
+            return;
         }
 
         $old = $promo->toArray();
@@ -281,17 +302,18 @@ class Promotions extends Component
             'promotions',
             $promo,
             $old,
-            "Campaña '{$promo->subject}' enviada a {$count} cliente(s)"
+            "Campaña '{$promo->subject}' enviada por {$channelLabel} a {$count} cliente(s)"
         );
 
         $this->isSendModalOpen = false;
         $this->sendingPromoId = null;
+        $this->sendChannel = 'email';
         $this->selectedCustomerIds = [];
 
         if ($count === 0 && $lastError) {
             $this->dispatch('notify', message: "Error al enviar: {$lastError}", type: 'error');
         } else {
-            $this->dispatch('notify', message: "Campaña enviada a {$count} cliente(s) correctamente", type: 'success');
+            $this->dispatch('notify', message: "Campaña enviada por {$channelLabel} a {$count} cliente(s) correctamente", type: 'success');
         }
     }
 
@@ -301,6 +323,7 @@ class Promotions extends Component
     {
         $this->itemId = null;
         $this->formBranchId = null;
+        $this->campaignChannel = 'email';
         $this->subject = '';
         $this->message = '';
         $this->button_text = '';
@@ -308,6 +331,134 @@ class Promotions extends Component
         $this->image = null;
         $this->existingImagePath = null;
         $this->resetValidation();
+    }
+
+    protected function buildSendCustomersQuery(Promotion $promo)
+    {
+        $query = Customer::where('is_active', true);
+
+        if ($this->sendChannel === 'whatsapp') {
+            $query->whereNotNull('phone')
+                ->where('phone', '!=', '')
+                ->where('branch_id', $promo->branch_id);
+        } else {
+            $query->whereNotNull('email')
+                ->where('email', '!=', '');
+
+            if (!auth()->user()->isSuperAdmin()) {
+                $query->where('branch_id', auth()->user()->branch_id);
+            }
+        }
+
+        if (!$this->sendToAll) {
+            $query->whereIn('id', $this->selectedCustomerIds);
+        }
+
+        if ($this->customerSearch) {
+            $term = $this->customerSearch;
+            $query->where(function ($q) use ($term) {
+                $q->where('first_name', 'like', "%{$term}%")
+                    ->orWhere('last_name', 'like', "%{$term}%")
+                    ->orWhere('business_name', 'like', "%{$term}%")
+                    ->orWhere('email', 'like', "%{$term}%")
+                    ->orWhere('phone', 'like', "%{$term}%")
+                    ->orWhere('document_number', 'like', "%{$term}%");
+            });
+        }
+
+        return $query;
+    }
+
+    protected function sendEmailPromotion(Promotion $promo, $customers): array
+    {
+        $count = 0;
+        $lastError = null;
+
+        foreach ($customers as $customer) {
+            try {
+                Mail::to($customer->email)->send(new PromotionMail($promo, $customer));
+                $count++;
+            } catch (\Throwable $e) {
+                $lastError = $e->getMessage();
+                Log::error('PromotionMail error', [
+                    'customer_id' => $customer->id,
+                    'email' => $customer->email,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        }
+
+        return compact('count', 'lastError');
+    }
+
+    protected function sendWhatsappPromotion(Promotion $promo, $customers): array
+    {
+        $config = WhatsappConfig::where('branch_id', $promo->branch_id)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$config) {
+            throw new \RuntimeException('La sucursal de esta campaña no tiene una configuración de WhatsApp activa.');
+        }
+
+        $count = 0;
+        $lastError = null;
+
+        foreach ($customers as $customer) {
+            try {
+                $response = Http::withToken(trim($config->token_permanente))
+                    ->acceptJson()
+                    ->post(sprintf(
+                        'https://graph.facebook.com/%s/%s/messages',
+                        trim($config->api_version),
+                        trim($config->phone_number_id)
+                    ), [
+                        'messaging_product' => 'whatsapp',
+                        'to' => $this->sanitizePhoneNumber($customer->phone),
+                        'type' => 'template',
+                        'template' => [
+                            'name' => $this->whatsappTemplateName,
+                            'language' => [
+                                'code' => $this->whatsappTemplateLanguage,
+                            ],
+                        ],
+                    ]);
+
+                if (!$response->successful()) {
+                    $responseData = $response->json();
+                    $lastError = data_get($responseData, 'error.message')
+                        ?? data_get($responseData, 'message')
+                        ?? 'Meta no aceptó el envío por WhatsApp.';
+
+                    Log::error('PromotionWhatsapp error', [
+                        'promotion_id' => $promo->id,
+                        'customer_id' => $customer->id,
+                        'phone' => $customer->phone,
+                        'response' => $responseData,
+                    ]);
+                    continue;
+                }
+
+                $count++;
+            } catch (\Throwable $e) {
+                $lastError = $e->getMessage();
+                Log::error('PromotionWhatsapp exception', [
+                    'promotion_id' => $promo->id,
+                    'customer_id' => $customer->id,
+                    'phone' => $customer->phone,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        }
+
+        return compact('count', 'lastError');
+    }
+
+    protected function sanitizePhoneNumber(?string $phone): string
+    {
+        return preg_replace('/\D+/', '', (string) $phone) ?? '';
     }
 
     // ─── Render ───────────────────────────────────────────────────────────────
@@ -333,26 +484,13 @@ class Promotions extends Component
         // Customers for send modal (only loaded when modal is open)
         $sendCustomers = collect();
         if ($this->isSendModalOpen && !$this->sendToAll) {
-            $cQuery = Customer::whereNotNull('email')
-                ->where('email', '!=', '')
-                ->where('is_active', true);
-
-            if (!auth()->user()->isSuperAdmin()) {
-                $cQuery->where('branch_id', auth()->user()->branch_id);
+            $sendingPromotion = Promotion::find($this->sendingPromoId);
+            if ($sendingPromotion) {
+                $sendCustomers = $this->buildSendCustomersQuery($sendingPromotion)
+                    ->orderBy('first_name')
+                    ->limit(100)
+                    ->get();
             }
-
-            if ($this->customerSearch) {
-                $term = $this->customerSearch;
-                $cQuery->where(function ($q) use ($term) {
-                    $q->where('first_name', 'like', "%{$term}%")
-                      ->orWhere('last_name', 'like', "%{$term}%")
-                      ->orWhere('business_name', 'like', "%{$term}%")
-                      ->orWhere('email', 'like', "%{$term}%")
-                      ->orWhere('document_number', 'like', "%{$term}%");
-                });
-            }
-
-            $sendCustomers = $cQuery->orderBy('first_name')->limit(100)->get();
         }
 
         // Stats
@@ -375,6 +513,7 @@ class Promotions extends Component
             'sentCount'     => $sentCount,
             'draftCount'    => $draftCount,
             'branches'      => $branches,
+            'sendingPromotion' => $this->sendingPromoId ? Promotion::find($this->sendingPromoId) : null,
         ]);
     }
 }

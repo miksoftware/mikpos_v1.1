@@ -2,9 +2,11 @@
 
 namespace App\Livewire;
 
+use App\Models\Branch;
 use App\Models\WhatsappConfig as WhatsappConfigModel;
 use App\Services\ActivityLogService;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Throwable;
@@ -13,6 +15,8 @@ use Throwable;
 class WhatsappConfig extends Component
 {
     public $branch_id;
+    public $branches = [];
+    public $canSelectBranch = false;
     public $phone_number_id = '';
     public $waba_id = '';
     public $token_permanente = '';
@@ -27,34 +31,45 @@ class WhatsappConfig extends Component
 
     public function mount()
     {
-        $this->branch_id = auth()->user()->branch_id;
-        $config = WhatsappConfigModel::where('branch_id', $this->branch_id)->first();
+        $user = auth()->user();
 
-        if ($config) {
-            $this->phone_number_id = $config->phone_number_id;
-            $this->waba_id = $config->waba_id;
-            $this->token_permanente = $config->token_permanente;
-            $this->api_version = $config->api_version;
-            $this->phone_number_oficial = $config->phone_number_oficial;
-            $this->is_active = $config->is_active;
+        $branchQuery = Branch::query()
+            ->where('is_active', true)
+            ->orderBy('name');
+
+        if ($user->isSuperAdmin()) {
+            $this->canSelectBranch = true;
+        } else {
+            $branchQuery->where('id', $user->branch_id);
         }
+
+        $this->branches = $branchQuery
+            ->get(['id', 'name'])
+            ->map(fn (Branch $branch) => [
+                'id' => $branch->id,
+                'name' => $branch->name,
+            ])
+            ->all();
+
+        $this->branch_id = $user->branch_id ?: ($this->branches[0]['id'] ?? null);
+        $this->loadConfigForSelectedBranch();
+    }
+
+    public function updatedBranchId()
+    {
+        $this->loadConfigForSelectedBranch();
     }
 
     public function save()
     {
-        $this->validate([
-            'phone_number_id' => 'required|string|max:255',
-            'waba_id' => 'required|string|max:255',
-            'token_permanente' => 'required|string',
-            'api_version' => 'required|string|max:50',
-            'phone_number_oficial' => 'required|string|max:255',
-            'is_active' => 'boolean',
-        ]);
+        $this->validate($this->rules());
+        $this->ensureCanAccessSelectedBranch();
 
         $config = WhatsappConfigModel::firstOrNew(['branch_id' => $this->branch_id]);
-        
+
         $oldValues = $config->exists ? $config->toArray() : [];
 
+        $config->branch_id = $this->branch_id;
         $config->phone_number_id = $this->phone_number_id;
         $config->waba_id = $this->waba_id;
         $config->token_permanente = $this->token_permanente;
@@ -63,7 +78,7 @@ class WhatsappConfig extends Component
         $config->is_active = $this->is_active;
         $config->save();
 
-        ActivityLogService::logUpdate('whatsapp_config', $config, $oldValues, "Configuración de WhatsApp actualizada");
+        ActivityLogService::logUpdate('whatsapp_config', $config, $oldValues, 'Configuración de WhatsApp actualizada');
 
         $this->dispatch('notify', message: 'Configuración de WhatsApp guardada correctamente', type: 'success');
     }
@@ -76,15 +91,13 @@ class WhatsappConfig extends Component
 
     public function sendTestMessage()
     {
-        $this->validate([
-            'phone_number_id' => 'required|string|max:255',
-            'token_permanente' => 'required|string',
-            'api_version' => 'required|string|max:50',
+        $this->validate(array_merge($this->rules(), [
             'test_recipient' => 'required|string|max:30',
             'test_template_name' => 'required|string|max:255',
             'test_template_language' => 'required|string|max:20',
             'test_template_parameters' => 'nullable|string',
-        ]);
+        ]));
+        $this->ensureCanAccessSelectedBranch();
 
         if (!$this->is_active) {
             $this->dispatch('notify', message: 'Activa primero la integración de WhatsApp para enviar pruebas', type: 'error');
@@ -143,6 +156,7 @@ class WhatsappConfig extends Component
                 null,
                 null,
                 [
+                    'branch_id' => $this->branch_id,
                     'to' => $payload['to'],
                     'template' => $payload['template']['name'],
                     'response' => $responseData,
@@ -164,6 +178,52 @@ class WhatsappConfig extends Component
             ];
 
             $this->dispatch('notify', message: $e->getMessage(), type: 'error');
+        }
+    }
+
+    protected function rules(): array
+    {
+        return [
+            'branch_id' => ['required', 'integer', Rule::exists('branches', 'id')],
+            'phone_number_id' => 'required|string|max:255',
+            'waba_id' => 'required|string|max:255',
+            'token_permanente' => 'required|string',
+            'api_version' => 'required|string|max:50',
+            'phone_number_oficial' => 'required|string|max:255',
+            'is_active' => 'boolean',
+        ];
+    }
+
+    protected function ensureCanAccessSelectedBranch(): void
+    {
+        $user = auth()->user();
+
+        if (!$this->branch_id) {
+            throw new \RuntimeException('Debes seleccionar una sucursal.');
+        }
+
+        if (!$user->canAccessBranch((int) $this->branch_id)) {
+            throw new \RuntimeException('No tienes permiso para configurar esta sucursal.');
+        }
+    }
+
+    protected function loadConfigForSelectedBranch(): void
+    {
+        $this->resetConfigFields();
+
+        if (!$this->branch_id) {
+            return;
+        }
+
+        $config = WhatsappConfigModel::where('branch_id', $this->branch_id)->first();
+
+        if ($config) {
+            $this->phone_number_id = $config->phone_number_id;
+            $this->waba_id = $config->waba_id;
+            $this->token_permanente = $config->token_permanente;
+            $this->api_version = $config->api_version;
+            $this->phone_number_oficial = $config->phone_number_oficial;
+            $this->is_active = $config->is_active;
         }
     }
 
@@ -196,6 +256,17 @@ class WhatsappConfig extends Component
         }
 
         return $decoded;
+    }
+
+    protected function resetConfigFields(): void
+    {
+        $this->phone_number_id = '';
+        $this->waba_id = '';
+        $this->token_permanente = '';
+        $this->api_version = 'v25.0';
+        $this->phone_number_oficial = '';
+        $this->is_active = true;
+        $this->testResult = null;
     }
 
     public function render()

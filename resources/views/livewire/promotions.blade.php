@@ -5,7 +5,7 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
             <h1 class="text-2xl font-bold text-slate-800">Ofertas y Promociones</h1>
-            <p class="text-slate-500 mt-1">Crea y envía campañas de correo a tus clientes</p>
+            <p class="text-slate-500 mt-1">Crea campañas y envíalas a tus clientes por correo o por WhatsApp</p>
         </div>
         @if(auth()->user()->hasPermission('promotions.create'))
         <button wire:click="create"
@@ -235,6 +235,52 @@
                 </div>
                 @endif
 
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">
+                        Canal <span class="text-red-500">*</span>
+                    </label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label class="flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all {{ $campaignChannel === 'email' ? 'border-violet-400 bg-violet-50' : 'border-slate-200 hover:border-slate-300' }}">
+                            <input wire:model.live="campaignChannel" type="radio" value="email" class="text-violet-600 focus:ring-violet-500">
+                            <div>
+                                <span class="text-sm font-semibold {{ $campaignChannel === 'email' ? 'text-violet-800' : 'text-slate-700' }}">Correo</span>
+                                <p class="text-xs {{ $campaignChannel === 'email' ? 'text-violet-500' : 'text-slate-400' }}">Crea una campaña con asunto, mensaje e imagen</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all {{ $campaignChannel === 'whatsapp' ? 'border-green-400 bg-green-50' : 'border-slate-200 hover:border-slate-300' }}">
+                            <input wire:model.live="campaignChannel" type="radio" value="whatsapp" class="text-green-600 focus:ring-green-500">
+                            <div>
+                                <span class="text-sm font-semibold {{ $campaignChannel === 'whatsapp' ? 'text-green-800' : 'text-slate-700' }}">WhatsApp</span>
+                                <p class="text-xs {{ $campaignChannel === 'whatsapp' ? 'text-green-600' : 'text-slate-400' }}">Usa la plantilla fija aprobada en Meta</p>
+                            </div>
+                        </label>
+                    </div>
+                    @error('campaignChannel') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                </div>
+
+                @if($campaignChannel === 'whatsapp')
+                <div class="rounded-2xl border border-green-200 bg-green-50 p-4 space-y-3">
+                    <p class="text-sm font-semibold text-green-800">Campaña de WhatsApp</p>
+                    <p class="text-xs text-green-700">No necesitas asunto, mensaje, imagen ni botón aquí. El sistema enviará siempre la plantilla `mikpos` (es_CO) configurada en Meta.</p>
+                    <div class="max-w-xs rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="px-4 py-3 bg-[#e7f7ee] border-b border-slate-100">
+                            <p class="text-sm font-semibold text-slate-800">mikpos · Spanish (COL)</p>
+                        </div>
+                        <div class="p-4 space-y-3">
+                            <div class="rounded-xl border border-slate-200 p-3 bg-slate-50">
+                                <p class="text-sm font-semibold text-slate-800">¡Actualizamos nuestro catálogo de productos!</p>
+                                <p class="text-sm text-slate-600 mt-2">Ya puedes conocer nuestros artículos más recientes, novedades y promociones disponibles.</p>
+                                <p class="text-sm text-slate-600 mt-2">Visita nuestra tienda virtual aquí.</p>
+                            </div>
+                            <button type="button" class="w-full px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg">
+                                Tienda Virtual
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                @endif
+
+                @if($campaignChannel === 'email')
                 {{-- Subject --}}
                 <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1.5">
@@ -308,6 +354,7 @@
                         </div>
                     </div>
                 </div>
+                @endif
 
             </div>
 
@@ -358,6 +405,49 @@
 
             {{-- Modal body --}}
             <div class="px-6 py-5 overflow-y-auto flex-1 space-y-5">
+                <div class="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-200 bg-slate-50">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-700">Canal de envío</p>
+                        <p class="text-xs text-slate-500 mt-0.5">El canal se define al crear la campaña.</p>
+                    </div>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $sendChannel === 'whatsapp' ? 'bg-green-100 text-green-700' : 'bg-violet-100 text-violet-700' }}">
+                        {{ $sendChannel === 'whatsapp' ? 'WhatsApp' : 'Correo' }}
+                    </span>
+                </div>
+
+                @if($sendChannel === 'whatsapp')
+                <div class="rounded-2xl border border-green-200 bg-green-50 p-4 space-y-4">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="text-sm font-semibold text-green-800">Vista previa de la plantilla de WhatsApp</p>
+                            <p class="text-xs text-green-700 mt-1">Se enviará la plantilla `{{ $whatsappTemplateName }}` en `{{ $whatsappTemplateLanguage }}` para la sucursal de la campaña.</p>
+                        </div>
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-white text-green-700 border border-green-200">
+                            Marketing
+                        </span>
+                    </div>
+
+                    <div class="max-w-xs rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="px-4 py-3 bg-[#e7f7ee] border-b border-slate-100">
+                            <p class="text-sm font-semibold text-slate-800">mikpos · Spanish (COL)</p>
+                        </div>
+                        <div class="p-4 space-y-3">
+                            <div class="rounded-xl border border-slate-200 p-3 bg-slate-50">
+                                <p class="text-sm font-semibold text-slate-800">¡Actualizamos nuestro catálogo de productos!</p>
+                                <p class="text-sm text-slate-600 mt-2">Ya puedes conocer nuestros artículos más recientes, novedades y promociones disponibles.</p>
+                                <p class="text-sm text-slate-600 mt-2">Visita nuestra tienda virtual aquí.</p>
+                            </div>
+                            <button type="button" class="w-full px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg">
+                                Tienda Virtual
+                            </button>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-green-700">
+                        Para este canal no se usa el asunto ni el cuerpo del correo; WhatsApp enviará siempre la plantilla aprobada en Meta.
+                    </p>
+                </div>
+                @endif
 
                 {{-- Recipient options --}}
                 <div>
@@ -367,7 +457,9 @@
                             <input wire:model.live="sendToAll" type="radio" value="1" class="text-violet-600 focus:ring-violet-500">
                             <div>
                                 <span class="text-sm font-semibold {{ $sendToAll ? 'text-violet-800' : 'text-slate-700' }}">Todos los clientes activos</span>
-                                <p class="text-xs {{ $sendToAll ? 'text-violet-500' : 'text-slate-400' }}">Envía a todos los clientes con correo electrónico registrado</p>
+                                <p class="text-xs {{ $sendToAll ? 'text-violet-500' : 'text-slate-400' }}">
+                                    {{ $sendChannel === 'whatsapp' ? 'Envía a todos los clientes activos con número registrado en la sucursal de la campaña' : 'Envía a todos los clientes con correo electrónico registrado' }}
+                                </p>
                             </div>
                         </label>
                         <label class="flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all {{ !$sendToAll ? 'border-violet-400 bg-violet-50' : 'border-slate-200 hover:border-slate-300' }}">
@@ -388,7 +480,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
                         <input wire:model.live.debounce.300ms="customerSearch" type="text"
-                            placeholder="Buscar cliente por nombre, documento o correo..."
+                            placeholder="Buscar cliente por nombre, documento, correo o teléfono..."
                             class="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 outline-none">
                     </div>
 
@@ -405,7 +497,7 @@
                                 class="rounded text-violet-600 focus:ring-violet-500 border-slate-300">
                             <div class="min-w-0 flex-1">
                                 <p class="text-sm font-medium text-slate-800 truncate">{{ $customer->full_name }}</p>
-                                <p class="text-xs text-slate-400 truncate">{{ $customer->email }}</p>
+                                <p class="text-xs text-slate-400 truncate">{{ $sendChannel === 'whatsapp' ? $customer->phone : $customer->email }}</p>
                             </div>
                         </label>
                         @empty
@@ -423,7 +515,9 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                     </svg>
                     <p class="text-xs text-amber-700">
-                        Los correos serán enviados en cola. Solo se envía a clientes activos con correo electrónico registrado.
+                        {{ $sendChannel === 'whatsapp'
+                            ? 'WhatsApp usará la configuración activa de la sucursal de esta campaña y solo se enviará a clientes activos con teléfono registrado.'
+                            : 'Los correos serán enviados en cola. Solo se envía a clientes activos con correo electrónico registrado.' }}
                     </p>
                 </div>
 
@@ -436,7 +530,7 @@
                     Cancelar
                 </button>
                 <button wire:click="sendPromotion" type="button" wire:loading.attr="disabled" wire:target="sendPromotion"
-                    class="px-5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2">
+                    class="px-5 py-2 text-sm font-semibold text-white {{ $sendChannel === 'whatsapp' ? 'bg-[#25D366] hover:bg-[#1faa55]' : 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:opacity-90' }} rounded-xl transition-opacity disabled:opacity-60 flex items-center gap-2">
                     <svg wire:loading wire:target="sendPromotion" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -444,7 +538,7 @@
                     <svg wire:loading.remove wire:target="sendPromotion" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
                     </svg>
-                    Confirmar envío
+                    Confirmar envío por {{ $sendChannel === 'whatsapp' ? 'WhatsApp' : 'correo' }}
                 </button>
             </div>
 

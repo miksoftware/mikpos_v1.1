@@ -81,9 +81,10 @@
 
                 {{-- Phone --}}
                 <div>
-                    <label for="phone" class="block text-sm font-medium text-slate-700 mb-1">Teléfono <span class="text-slate-400">(opcional)</span></label>
-                    <input type="tel" wire:model="phone" id="phone" placeholder="Número de teléfono"
+                    <label for="phone" class="block text-sm font-medium text-slate-700 mb-1">Teléfono</label>
+                    <input type="tel" wire:model="phone" id="phone" placeholder="Ej: 573153920724"
                         class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                    <p class="text-xs text-slate-500 mt-1">Formato recomendado: indicativo del país + número (solo dígitos). Ej: 573153920724</p>
                     @error('phone') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
 

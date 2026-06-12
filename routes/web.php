@@ -104,6 +104,7 @@ Route::prefix('shop')->middleware('ecommerce.auth')->group(function () {
     Route::get('/checkout', App\Livewire\Shop\Checkout::class)->name('shop.checkout');
     Route::get('/order/{sale}', App\Livewire\Shop\OrderConfirmation::class)->name('shop.order');
     Route::get('/orders', App\Livewire\Shop\Orders::class)->name('shop.orders');
+    Route::get('/profile', App\Livewire\Shop\Profile::class)->name('shop.profile');
 
     Route::post('/logout', function () {
         Auth::guard('customer')->logout();

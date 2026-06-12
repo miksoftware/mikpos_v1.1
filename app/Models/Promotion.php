@@ -10,6 +10,7 @@ class Promotion extends Model
     protected $fillable = [
         'branch_id',
         'user_id',
+        'channel',
         'subject',
         'message',
         'image_path',
