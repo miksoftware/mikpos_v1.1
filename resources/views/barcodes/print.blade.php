@@ -6,29 +6,48 @@
     <title>Imprimir Códigos de Barras</title>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <style>
-        @page {
-            margin: 0;
-            size: auto;
+        :root {
+            --paper-width: 104mm;
+            --label-width: 32mm;
+            --label-height: 18mm;
+            --gap-x: 2mm;
+            --gap-y: 2mm;
+            --sheet-padding-x: 1mm;
+            --sheet-padding-y: 1mm;
         }
 
+        @page {
+            margin: 0;
+            size: var(--paper-width) auto;
+        }
+
+        html,
         body {
             margin: 0;
             padding: 0;
+            width: var(--paper-width);
             font-family: Arial, sans-serif;
             background: white;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
 
         .labels-container {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: flex-start;
-            align-content: flex-start;
+            width: var(--paper-width);
+            display: grid;
+            grid-template-columns: repeat(3, var(--label-width));
+            grid-auto-rows: var(--label-height);
+            column-gap: var(--gap-x);
+            row-gap: var(--gap-y);
+            padding: var(--sheet-padding-y) var(--sheet-padding-x);
+            box-sizing: border-box;
+            align-content: start;
         }
 
         .label {
-            width: 32mm;
-            height: 18mm;
-            padding: 1mm;
+            width: var(--label-width);
+            height: var(--label-height);
+            padding: 0.8mm 0.8mm 0.6mm;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
@@ -36,33 +55,43 @@
             justify-content: center;
             text-align: center;
             overflow: hidden;
+            break-inside: avoid;
             page-break-inside: avoid;
             border: 0.1px solid #eee;
         }
 
         .price {
-            font-size: 14pt;
+            font-size: 10pt;
             font-weight: bold;
-            margin-bottom: 0;
+            margin-bottom: 0.4mm;
             line-height: 1;
         }
 
         .barcode-svg {
-            width: 100%;
-            height: auto;
-            max-height: 8mm;
+            display: block;
+            width: 28.5mm;
+            height: 6.8mm;
+            max-width: 100%;
+            overflow: hidden;
         }
 
         .sku {
-            font-size: 7pt;
+            font-size: 5.5pt;
             font-weight: bold;
-            margin-top: 1px;
-            letter-spacing: 1px;
+            margin-top: 0.4mm;
+            line-height: 1;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
         }
 
         @media print {
+            html,
+            body {
+                width: var(--paper-width);
+            }
+
             .no-print {
-                display: none;
+                display: none !important;
             }
 
             .label {
@@ -112,8 +141,8 @@
                     <svg class="barcode-svg"
                         jsbarcode-value="{{ $item['barcode'] }}"
                         jsbarcode-format="CODE128"
-                        jsbarcode-width="1"
-                        jsbarcode-height="30"
+                        jsbarcode-width="1.35"
+                        jsbarcode-height="24"
                         jsbarcode-fontSize="0"
                         jsbarcode-margin="0">
                     </svg>
