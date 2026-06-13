@@ -215,6 +215,18 @@ Route::middleware(['auth'])->group(function () {
         ->name('barcode.print')
         ->middleware('permission:products.view');
 
+    Route::get('/barcode/print/zpl', [App\Http\Controllers\BarcodeController::class, 'zpl'])
+        ->name('barcode.print.zpl')
+        ->middleware('permission:products.view');
+
+    Route::post('/barcode/print/send', [App\Http\Controllers\BarcodeController::class, 'send'])
+        ->name('barcode.print.send')
+        ->middleware('permission:products.view');
+
+    Route::get('/barcode/print/download', [App\Http\Controllers\BarcodeController::class, 'download'])
+        ->name('barcode.print.download')
+        ->middleware('permission:products.view');
+
     Route::get('/product-field-config', App\Livewire\ProductFieldConfig::class)
         ->name('product-field-config')
         ->middleware('permission:product_field_config.view');
