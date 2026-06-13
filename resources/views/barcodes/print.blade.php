@@ -18,7 +18,7 @@
 
         @page {
             margin: 0;
-            size: var(--paper-width) auto;
+            size: portrait;
         }
 
         html,
@@ -47,30 +47,42 @@
         .label {
             width: var(--label-width);
             height: var(--label-height);
-            padding: 0.8mm 0.8mm 0.6mm;
+            padding: 0;
             box-sizing: border-box;
+            overflow: hidden;
+            break-inside: avoid;
+            page-break-inside: avoid;
+            border: 0.1px solid #eee;
+            position: relative;
+        }
+
+        .label-inner {
+            position: absolute;
+            inset: 0;
+            width: var(--label-height);
+            height: var(--label-width);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             text-align: center;
-            overflow: hidden;
-            break-inside: avoid;
-            page-break-inside: avoid;
-            border: 0.1px solid #eee;
+            gap: 0.4mm;
+            transform: rotate(90deg) translateY(calc(-1 * var(--label-height)));
+            transform-origin: top left;
+            padding: 0.8mm 0.8mm 0.6mm;
+            box-sizing: border-box;
         }
 
         .price {
             font-size: 10pt;
             font-weight: bold;
-            margin-bottom: 0.4mm;
             line-height: 1;
         }
 
         .barcode-svg {
             display: block;
-            width: 28.5mm;
-            height: 6.8mm;
+            width: 29mm;
+            height: 6.2mm;
             max-width: 100%;
             overflow: hidden;
         }
@@ -78,7 +90,6 @@
         .sku {
             font-size: 5.5pt;
             font-weight: bold;
-            margin-top: 0.4mm;
             line-height: 1;
             letter-spacing: 0.3px;
             white-space: nowrap;
@@ -137,16 +148,18 @@
         @foreach($data as $item)
             @for($i = 0; $i < $item['quantity']; $i++)
                 <div class="label">
-                    <div class="price">${{ number_format($item['price'], 0, '', '') }}</div>
-                    <svg class="barcode-svg"
-                        jsbarcode-value="{{ $item['barcode'] }}"
-                        jsbarcode-format="CODE128"
-                        jsbarcode-width="1.35"
-                        jsbarcode-height="24"
-                        jsbarcode-fontSize="0"
-                        jsbarcode-margin="0">
-                    </svg>
-                    <div class="sku">{{ $item['barcode'] }}</div>
+                    <div class="label-inner">
+                        <div class="price">${{ number_format($item['price'], 0, '', '') }}</div>
+                        <svg class="barcode-svg"
+                            jsbarcode-value="{{ $item['barcode'] }}"
+                            jsbarcode-format="CODE128"
+                            jsbarcode-width="1.2"
+                            jsbarcode-height="22"
+                            jsbarcode-fontSize="0"
+                            jsbarcode-margin="0">
+                        </svg>
+                        <div class="sku">{{ $item['barcode'] }}</div>
+                    </div>
                 </div>
             @endfor
         @endforeach
