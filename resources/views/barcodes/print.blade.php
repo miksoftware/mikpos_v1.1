@@ -3,205 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Imprimir etiquetas</title>
+    <title>Imprimir Códigos de Barras</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @page {
+            margin: 0;
+            size: auto;
+        }
 
         body {
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f1f5f9;
-            color: #0f172a;
-            padding: 24px 16px 40px;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: white;
         }
 
-        .wrap {
-            max-width: 720px;
-            margin: 0 auto;
-        }
-
-        h1 {
-            font-size: 20px;
-            margin-bottom: 8px;
-        }
-
-        .meta {
-            color: #64748b;
-            font-size: 13px;
-            margin-bottom: 20px;
-        }
-
-        .card {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 14px;
-            padding: 18px;
-            margin-bottom: 16px;
-        }
-
-        .status {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 14px;
-            border-radius: 10px;
-            font-size: 14px;
-            margin-bottom: 16px;
-        }
-
-        .status.pending { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-        .status.success { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
-        .status.error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-
-        .preview-box {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 180px;
-            background: #f8fafc;
-            border: 1px dashed #cbd5e1;
-            border-radius: 10px;
-            padding: 16px;
-        }
-
-        .preview-box img {
-            max-width: 100%;
-            height: auto;
-            image-rendering: pixelated;
-        }
-
-        .actions {
+        .labels-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 16px;
+            justify-content: flex-start;
+            align-content: flex-start;
         }
 
-        .btn {
+        .label {
+            width: 32mm;
+            height: 18mm;
+            padding: 1mm;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            overflow: hidden;
+            page-break-inside: avoid;
+            border: 0.1px solid #eee;
+        }
+
+        .price {
+            font-size: 14pt;
+            font-weight: bold;
+            margin-bottom: 0;
+            line-height: 1;
+        }
+
+        .barcode-svg {
+            width: 100%;
+            height: auto;
+            max-height: 8mm;
+        }
+
+        .sku {
+            font-size: 7pt;
+            font-weight: bold;
+            margin-top: 1px;
+            letter-spacing: 1px;
+        }
+
+        @media print {
+            .no-print {
+                display: none;
+            }
+
+            .label {
+                border: none;
+            }
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            border: 1px solid #e2e8f0;
+            z-index: 1000;
+        }
+
+        .btn-print {
+            background: #ff7261;
+            color: white;
             border: none;
-            border-radius: 10px;
-            padding: 11px 16px;
-            font-size: 14px;
-            font-weight: 700;
+            padding: 10px 20px;
+            border-radius: 8px;
             cursor: pointer;
+            font-weight: bold;
         }
-
-        .btn-primary { background: #ff7261; color: #fff; }
-        .btn-primary:hover { background: #e55a4a; }
-        .btn-secondary { background: #fff; color: #334155; border: 1px solid #cbd5e1; }
-
-        .note {
-            font-size: 12px;
-            line-height: 1.5;
-            color: #64748b;
-        }
-
-        .note strong { color: #334155; }
     </style>
 </head>
 <body>
-    <div class="wrap">
-        <h1>Impresión de etiquetas ZPL</h1>
-        <p class="meta">{{ $labelCount }} etiqueta(s) · SAT TT448 · {{ config('barcode.label_width_mm') }}×{{ config('barcode.label_height_mm') }} mm</p>
+    <div class="controls no-print">
+        <button onclick="window.print()" class="btn-print">Imprimir Ahora</button>
+        <p style="font-size: 10px; margin-top: 10px; color: #64748b;">
+            Configuración recomendada:<br>
+            - Margen: Ninguno<br>
+            - Escala: 100%<br>
+            - Encabezado/Pie: Desactivado
+        </p>
+    </div>
 
-        <div id="status" class="status pending">Enviando etiquetas a la impresora...</div>
-
-        <div class="card">
-            <strong>Vista previa (primera etiqueta)</strong>
-            <div class="preview-box" style="margin-top:12px;">
-                <img id="preview" src="{{ $previewUrl }}" alt="Vista previa etiqueta">
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="actions">
-                <button type="button" class="btn btn-primary" onclick="sendToPrinter()">Reintentar impresión</button>
-                <a href="{{ route('barcode.print.download') }}" class="btn btn-secondary">Descargar .zpl</a>
-            </div>
-            <p class="note" style="margin-top:14px;">
-                Esta impresora usa <strong>ZPL</strong>, no impresión del navegador.
-                Si la app está en la nube, ejecuta el agente local:
-                <strong>tools\iniciar-agente-etiquetas.bat</strong>
-            </p>
-        </div>
+    <div class="labels-container">
+        @foreach($data as $item)
+            @for($i = 0; $i < $item['quantity']; $i++)
+                <div class="label">
+                    <div class="price">${{ number_format($item['price'], 0, '', '') }}</div>
+                    <svg class="barcode-svg"
+                        jsbarcode-value="{{ $item['barcode'] }}"
+                        jsbarcode-format="CODE128"
+                        jsbarcode-width="1"
+                        jsbarcode-height="30"
+                        jsbarcode-fontSize="0"
+                        jsbarcode-margin="0">
+                    </svg>
+                    <div class="sku">{{ $item['barcode'] }}</div>
+                </div>
+            @endfor
+        @endforeach
     </div>
 
     <script>
-        const zpl = @json($zpl);
-        const csrf = document.querySelector('meta[name="csrf-token"]').content;
-        const serverSendUrl = @json(route('barcode.print.send'));
-        const localAgentUrl = @json(rtrim(config('barcode.local_agent_url'), '/'));
-        const autoPrint = @json($autoPrint);
+        JsBarcode(".barcode-svg").init();
 
-        function setStatus(type, message) {
-            const el = document.getElementById('status');
-            el.className = 'status ' + type;
-            el.textContent = message;
+        if (@json($autoPrint)) {
+            window.onload = function () {
+                setTimeout(function () {
+                    window.print();
+                }, 500);
+            };
         }
-
-        async function sendToServer() {
-            const res = await fetch(serverSendUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrf,
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify({ zpl }),
-            });
-
-            return res.json();
-        }
-
-        async function sendToLocalAgent() {
-            const res = await fetch(localAgentUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain' },
-                body: zpl,
-                mode: 'cors',
-            });
-
-            if (!res.ok) {
-                throw new Error('Agente local no respondió');
-            }
-
-            return res.json();
-        }
-
-        async function sendToPrinter() {
-            setStatus('pending', 'Enviando etiquetas a la impresora...');
-
-            try {
-                const serverResult = await sendToServer();
-                if (serverResult.success) {
-                    setStatus('success', serverResult.message);
-                    return;
-                }
-            } catch (e) {}
-
-            try {
-                const agentResult = await sendToLocalAgent();
-                if (agentResult.success) {
-                    setStatus('success', 'Etiquetas enviadas mediante agente local.');
-                    return;
-                }
-
-                setStatus('error', agentResult.message || 'El agente local no pudo imprimir.');
-            } catch (e) {
-                setStatus(
-                    'error',
-                    'No se pudo imprimir. Ejecuta tools\\iniciar-agente-etiquetas.bat en esta PC o descarga el archivo .zpl.'
-                );
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', function () {
-            if (autoPrint) {
-                sendToPrinter();
-            } else {
-                setStatus('pending', 'Listo. Pulsa "Reintentar impresión" para enviar a la impresora.');
-            }
-        });
     </script>
 </body>
 </html>
