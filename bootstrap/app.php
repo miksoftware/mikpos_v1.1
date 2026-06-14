@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'api/system/toggle',
             'api/system/status',
+            'webhooks/whatsapp',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

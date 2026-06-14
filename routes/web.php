@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Livewire\Auth\Login;
 use App\Livewire\Install;
 use App\Http\Controllers\SystemToggleController;
+use App\Http\Controllers\WhatsappWebhookController;
 
 // ── System Toggle API (no auth, protected by SYSTEM_ADMIN_TOKEN) ──────────────
 Route::prefix('api/system')->withoutMiddleware(\App\Http\Middleware\CheckSystemStatus::class)->group(function () {
@@ -75,6 +76,13 @@ Route::get('/manifest.json', function () {
         'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
     ]);
 })->name('manifest');
+
+Route::prefix('webhooks/whatsapp')
+    ->withoutMiddleware(\App\Http\Middleware\CheckSystemStatus::class)
+    ->group(function () {
+        Route::get('/', [WhatsappWebhookController::class, 'verify'])->name('whatsapp.webhook.verify');
+        Route::post('/', [WhatsappWebhookController::class, 'receive'])->name('whatsapp.webhook.receive');
+    });
 
 // Authentication routes
 Route::get('/login', Login::class)

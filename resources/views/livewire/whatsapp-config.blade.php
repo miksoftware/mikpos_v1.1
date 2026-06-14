@@ -127,6 +127,36 @@
                 @error('token_permanente') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
             </div>
 
+            <div class="rounded-2xl border border-blue-200 bg-blue-50 p-5 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <h4 class="text-sm font-semibold text-blue-900">Webhook de WhatsApp</h4>
+                        <p class="text-xs text-blue-700 mt-1">Configura estos datos en Meta para recibir estados reales de entrega y mensajes entrantes.</p>
+                    </div>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $webhookAppSecretConfigured ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-amber-100 text-amber-700 border border-amber-200' }}">
+                        {{ $webhookAppSecretConfigured ? 'Firma activa' : 'Firma opcional pendiente' }}
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4">
+                    <div class="rounded-xl border border-blue-200 bg-white p-4">
+                        <p class="text-xs font-medium text-slate-700">URL de devolución de llamada</p>
+                        <code class="block mt-2 text-xs text-slate-800 break-all">{{ $webhookUrl }}</code>
+                    </div>
+
+                    <div class="rounded-xl border border-blue-200 bg-white p-4">
+                        <p class="text-xs font-medium text-slate-700">Token de verificación</p>
+                        <code class="block mt-2 text-xs text-slate-800 break-all">{{ $webhookVerifyToken }}</code>
+                    </div>
+                </div>
+
+                <div class="rounded-xl border border-blue-200 bg-white p-4 text-xs text-slate-700 space-y-2">
+                    <p><span class="font-semibold">Campo a suscribir en Meta:</span> <code>messages</code></p>
+                    <p><span class="font-semibold">Requisito:</span> la URL debe ser publica y con <code>https</code>. Si <code>APP_URL</code> apunta a local, cambia ese valor en produccion.</p>
+                    <p><span class="font-semibold">Seguridad:</span> si configuras <code>WHATSAPP_WEBHOOK_APP_SECRET</code> en el servidor, tambien se validara la firma <code>X-Hub-Signature-256</code>.</p>
+                </div>
+            </div>
+
             <div class="pt-4 border-t border-slate-200 space-y-4">
                 <div>
                     <h4 class="text-sm font-semibold text-slate-700">Mensaje de prueba</h4>
@@ -194,7 +224,7 @@
                         <div class="flex items-center justify-between gap-4">
                             <div>
                                 <p class="text-sm font-semibold {{ $testResult['success'] ? 'text-green-700' : 'text-red-700' }}">
-                                    {{ $testResult['success'] ? 'Envio exitoso' : 'Envio fallido' }}
+                                    {{ $testResult['success'] ? 'Solicitud aceptada por Meta' : 'Envio fallido' }}
                                 </p>
                                 <p class="text-xs mt-1 {{ $testResult['success'] ? 'text-green-700' : 'text-red-700' }}">
                                     {{ $testResult['message'] }}
@@ -215,6 +245,106 @@
                                 <pre class="text-xs bg-white/80 border border-slate-200 rounded-lg p-3 overflow-auto">{{ json_encode($testResult['response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
                             </div>
                         @endif
+                    </div>
+                @endif
+            </div>
+
+            <div wire:poll.15s class="pt-4 border-t border-slate-200 space-y-4">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <h4 class="text-sm font-semibold text-slate-700">Trazabilidad del webhook</h4>
+                        <p class="text-xs text-slate-500 mt-1">Aqui veras aceptaciones de Meta, cambios de estado y mensajes entrantes del numero configurado.</p>
+                    </div>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                        {{ $recentLogs->count() }} registro(s)
+                    </span>
+                </div>
+
+                @if($recentLogs->isEmpty())
+                    <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">
+                        Todavia no hay eventos para esta sucursal. Cuando Meta envie el webhook o aceptes un mensaje, apareceran aqui.
+                    </div>
+                @else
+                    <div class="space-y-3">
+                        @foreach($recentLogs as $log)
+                            <details class="rounded-xl border border-slate-200 bg-white p-4">
+                                <summary class="list-none cursor-pointer">
+                                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                                        <div class="space-y-1">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold
+                                                    @if($log->status === 'failed') bg-red-100 text-red-700
+                                                    @elseif($log->status === 'delivered' || $log->status === 'read') bg-green-100 text-green-700
+                                                    @elseif($log->status === 'sent' || $log->status === 'accepted') bg-blue-100 text-blue-700
+                                                    @else bg-slate-100 text-slate-700 @endif">
+                                                    {{ strtoupper($log->status ?: 'SIN ESTADO') }}
+                                                </span>
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold {{ $log->direction === 'inbound' ? 'bg-violet-100 text-violet-700' : 'bg-amber-100 text-amber-700' }}">
+                                                    {{ $log->direction === 'inbound' ? 'Entrante' : 'Saliente' }}
+                                                </span>
+                                                @if($log->event_type)
+                                                    <span class="text-xs text-slate-500">{{ $log->event_type }}</span>
+                                                @endif
+                                            </div>
+                                            <p class="text-sm font-medium text-slate-800">{{ $log->contact_phone ?: 'Sin numero' }}</p>
+                                            <p class="text-xs text-slate-500">
+                                                {{ $log->message_body ?: 'Sin resumen disponible' }}
+                                            </p>
+                                        </div>
+
+                                        <div class="text-xs text-slate-500 lg:text-right">
+                                            <p>Ultimo cambio: {{ optional($log->last_status_at)->format('Y-m-d H:i:s') ?: 'N/D' }}</p>
+                                            <p>ID: {{ $log->message_id ?: 'Sin message_id' }}</p>
+                                        </div>
+                                    </div>
+                                </summary>
+
+                                <div class="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <div class="space-y-2 text-xs text-slate-700">
+                                        <p><span class="font-semibold">Tipo:</span> {{ $log->message_type ?: 'N/D' }}</p>
+                                        <p><span class="font-semibold">Template:</span> {{ $log->template_name ?: 'N/D' }}</p>
+                                        <p><span class="font-semibold">Idioma:</span> {{ $log->template_language ?: 'N/D' }}</p>
+                                        <p><span class="font-semibold">Phone Number ID:</span> {{ $log->phone_number_id ?: 'N/D' }}</p>
+                                        <p><span class="font-semibold">Numero oficial:</span> {{ $log->display_phone_number ?: 'N/D' }}</p>
+                                        @if($log->error_message)
+                                            <p class="text-red-600"><span class="font-semibold">Error:</span> {{ $log->error_message }}</p>
+                                        @endif
+                                    </div>
+
+                                    <div class="space-y-2 text-xs text-slate-700">
+                                        <p><span class="font-semibold">Aceptado:</span> {{ optional($log->accepted_at)->format('Y-m-d H:i:s') ?: 'N/D' }}</p>
+                                        <p><span class="font-semibold">Enviado:</span> {{ optional($log->sent_at)->format('Y-m-d H:i:s') ?: 'N/D' }}</p>
+                                        <p><span class="font-semibold">Entregado:</span> {{ optional($log->delivered_at)->format('Y-m-d H:i:s') ?: 'N/D' }}</p>
+                                        <p><span class="font-semibold">Leido:</span> {{ optional($log->read_at)->format('Y-m-d H:i:s') ?: 'N/D' }}</p>
+                                        <p><span class="font-semibold">Fallido:</span> {{ optional($log->failed_at)->format('Y-m-d H:i:s') ?: 'N/D' }}</p>
+                                        <p><span class="font-semibold">Webhook recibido:</span> {{ optional($log->webhook_received_at)->format('Y-m-d H:i:s') ?: 'N/D' }}</p>
+                                    </div>
+                                </div>
+
+                                @if($log->send_payload || $log->send_response || $log->webhook_payload)
+                                    <div class="mt-4 space-y-3">
+                                        @if($log->send_payload)
+                                            <div>
+                                                <p class="text-xs font-medium text-slate-700 mb-2">Payload enviado</p>
+                                                <pre class="text-xs bg-slate-50 border border-slate-200 rounded-lg p-3 overflow-auto">{{ json_encode($log->send_payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+                                            </div>
+                                        @endif
+                                        @if($log->send_response)
+                                            <div>
+                                                <p class="text-xs font-medium text-slate-700 mb-2">Respuesta de la API</p>
+                                                <pre class="text-xs bg-slate-50 border border-slate-200 rounded-lg p-3 overflow-auto">{{ json_encode($log->send_response, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+                                            </div>
+                                        @endif
+                                        @if($log->webhook_payload)
+                                            <div>
+                                                <p class="text-xs font-medium text-slate-700 mb-2">Payload del webhook</p>
+                                                <pre class="text-xs bg-slate-50 border border-slate-200 rounded-lg p-3 overflow-auto">{{ json_encode($log->webhook_payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endif
+                            </details>
+                        @endforeach
                     </div>
                 @endif
             </div>

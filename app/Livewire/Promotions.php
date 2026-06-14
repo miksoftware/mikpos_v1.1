@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\Promotion;
 use App\Models\WhatsappConfig;
 use App\Services\ActivityLogService;
+use App\Services\WhatsappMessageLogService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -519,6 +520,22 @@ class Promotions extends Component
                     'to' => $to,
                     'response' => $response->json(),
                 ]);
+
+                WhatsappMessageLogService::recordAcceptedOutbound(
+                    $config,
+                    [
+                        'messaging_product' => 'whatsapp',
+                        'to' => $to,
+                        'type' => 'template',
+                        'template' => [
+                            'name' => $templateName,
+                            'language' => [
+                                'code' => $templateLanguage,
+                            ],
+                        ],
+                    ],
+                    $response->json()
+                );
 
                 $count++;
             } catch (\Throwable $e) {

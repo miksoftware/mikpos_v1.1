@@ -4,7 +4,9 @@ namespace App\Livewire;
 
 use App\Models\Branch;
 use App\Models\WhatsappConfig as WhatsappConfigModel;
+use App\Models\WhatsappMessageLog;
 use App\Services\ActivityLogService;
+use App\Services\WhatsappMessageLogService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -167,14 +169,20 @@ class WhatsappConfig extends Component
                 ]
             );
 
+            WhatsappMessageLogService::recordAcceptedOutbound(
+                $this->getConfigSnapshotModel(),
+                $payload,
+                $responseData
+            );
+
             $this->testResult = [
                 'success' => true,
-                'message' => 'Mensaje de prueba enviado correctamente.',
+                'message' => 'Meta acepto el mensaje de prueba. Revisa abajo los estados del webhook para confirmar entrega.',
                 'response' => $responseData,
                 'payload' => $payload,
             ];
 
-            $this->dispatch('notify', message: 'Mensaje de prueba enviado correctamente', type: 'success');
+            $this->dispatch('notify', message: 'Meta acepto el mensaje de prueba. Esperando estados del webhook.', type: 'success');
         } catch (Throwable $e) {
             $this->testResult = [
                 'success' => false,
@@ -266,6 +274,28 @@ class WhatsappConfig extends Component
         return $decoded;
     }
 
+    protected function getConfigSnapshotModel(): WhatsappConfigModel
+    {
+        $config = WhatsappConfigModel::where('branch_id', $this->branch_id)->first();
+
+        if ($config) {
+            return $config;
+        }
+
+        $snapshot = new WhatsappConfigModel();
+        $snapshot->branch_id = $this->branch_id;
+        $snapshot->phone_number_id = $this->phone_number_id;
+        $snapshot->waba_id = $this->waba_id;
+        $snapshot->token_permanente = $this->token_permanente;
+        $snapshot->api_version = $this->api_version;
+        $snapshot->phone_number_oficial = $this->phone_number_oficial;
+        $snapshot->template_name = $this->template_name;
+        $snapshot->template_language = $this->template_language;
+        $snapshot->is_active = $this->is_active;
+
+        return $snapshot;
+    }
+
     protected function resetConfigFields(): void
     {
         $this->phone_number_id = '';
@@ -281,6 +311,22 @@ class WhatsappConfig extends Component
 
     public function render()
     {
-        return view('livewire.whatsapp-config');
+        $recentLogs = collect();
+
+        if ($this->branch_id) {
+            $recentLogs = WhatsappMessageLog::query()
+                ->where('branch_id', $this->branch_id)
+                ->orderByDesc('last_status_at')
+                ->orderByDesc('id')
+                ->limit(20)
+                ->get();
+        }
+
+        return view('livewire.whatsapp-config', [
+            'recentLogs' => $recentLogs,
+            'webhookUrl' => route('whatsapp.webhook.receive'),
+            'webhookVerifyToken' => (string) config('services.whatsapp.webhook_verify_token'),
+            'webhookAppSecretConfigured' => (string) config('services.whatsapp.webhook_app_secret') !== '',
+        ]);
     }
 }

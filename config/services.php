@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'whatsapp' => [
+        'webhook_verify_token' => env('WHATSAPP_WEBHOOK_VERIFY_TOKEN', 'mikpos-whatsapp-webhook'),
+        'webhook_app_secret' => env('WHATSAPP_WEBHOOK_APP_SECRET', ''),
+    ],
+
 ];
