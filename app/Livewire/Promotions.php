@@ -498,6 +498,21 @@ class Promotions extends Component
                         ],
                     ]);
 
+                // #region debug-point C:promotion-send-response
+                $this->dbg('promotion-send-response', 'C', [
+                    'promotion_id' => $promo->id,
+                    'customer_id' => $customer->id,
+                    'phone_raw' => $customer->phone,
+                    'to' => $to,
+                    'phone_number_id' => $config->phone_number_id,
+                    'template_name' => $templateName,
+                    'template_language' => $templateLanguage,
+                    'ok' => $response->successful(),
+                    'status_code' => $response->status(),
+                    'response' => $response->json(),
+                ]);
+                // #endregion
+
                 if (!$response->successful()) {
                     $responseData = $response->json();
                     $lastError = data_get($responseData, 'error.message')

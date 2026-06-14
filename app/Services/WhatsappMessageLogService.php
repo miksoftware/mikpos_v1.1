@@ -13,6 +13,18 @@ class WhatsappMessageLogService
         $messageId = data_get($response, 'messages.0.id');
         $now = now();
 
+        // #region debug-point C:record-accepted-outbound
+        self::dbg('record-accepted-outbound', 'C', [
+            'branch_id' => $config->branch_id,
+            'config_id' => $config->id,
+            'phone_number_id' => $config->phone_number_id,
+            'message_id' => $messageId,
+            'to' => data_get($payload, 'to'),
+            'template' => data_get($payload, 'template.name'),
+            'message_status' => data_get($response, 'messages.0.message_status'),
+        ], '[DEBUG] record accepted outbound');
+        // #endregion
+
         $attributes = [
             'branch_id' => $config->branch_id,
             'whatsapp_config_id' => $config->id,
@@ -50,6 +62,17 @@ class WhatsappMessageLogService
         $statusValue = (string) data_get($status, 'status', 'unknown');
         $error = Arr::first((array) data_get($status, 'errors', []));
 
+        // #region debug-point B:record-status-update
+        self::dbg('record-status-update', 'B', [
+            'message_id' => $messageId,
+            'status' => $statusValue,
+            'recipient_id' => data_get($status, 'recipient_id'),
+            'phone_number_id' => data_get($webhookPayload, 'metadata.phone_number_id'),
+            'config_found' => $config !== null,
+            'errors' => data_get($status, 'errors', []),
+        ], '[DEBUG] record status update');
+        // #endregion
+
         $log = $messageId !== ''
             ? WhatsappMessageLog::firstOrNew(['message_id' => $messageId])
             : new WhatsappMessageLog();
@@ -82,6 +105,16 @@ class WhatsappMessageLogService
     {
         $messageId = (string) data_get($message, 'id', '');
         $now = now();
+
+        // #region debug-point A:record-incoming-message
+        self::dbg('record-incoming-message', 'A', [
+            'message_id' => $messageId,
+            'from' => data_get($message, 'from'),
+            'type' => data_get($message, 'type'),
+            'phone_number_id' => data_get($webhookPayload, 'metadata.phone_number_id'),
+            'config_found' => $config !== null,
+        ], '[DEBUG] record incoming message');
+        // #endregion
 
         $log = $messageId !== ''
             ? WhatsappMessageLog::firstOrNew(['message_id' => $messageId])
@@ -167,4 +200,41 @@ class WhatsappMessageLogService
                 : ($type !== '' ? "Mensaje {$type}" : 'Mensaje recibido'),
         };
     }
+
+    // #region debug-point dbg-helper
+    protected static function dbg(string $pointId, string $hypothesisId, array $data, string $msg): void
+    {
+        try {
+            $envPath = base_path('.dbg/whatsapp-accepted-only.env');
+            $debugUrl = null;
+            $sessionId = 'whatsapp-accepted-only';
+            if (is_file($envPath)) {
+                $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+                foreach ($lines as $line) {
+                    if (str_starts_with($line, 'DEBUG_SERVER_URL=')) {
+                        $debugUrl = trim(substr($line, strlen('DEBUG_SERVER_URL=')));
+                    }
+                    if (str_starts_with($line, 'DEBUG_SESSION_ID=')) {
+                        $sessionId = trim(substr($line, strlen('DEBUG_SESSION_ID=')));
+                    }
+                }
+            }
+            if (!$debugUrl) {
+                return;
+            }
+
+            \Illuminate\Support\Facades\Http::timeout(1)->asJson()->post($debugUrl, [
+                'sessionId' => $sessionId,
+                'runId' => 'pre-fix',
+                'hypothesisId' => $hypothesisId,
+                'pointId' => $pointId,
+                'location' => 'WhatsappMessageLogService',
+                'msg' => $msg,
+                'ts' => round(microtime(true) * 1000),
+                'data' => $data,
+            ]);
+        } catch (\Throwable $e) {
+        }
+    }
+    // #endregion
 }

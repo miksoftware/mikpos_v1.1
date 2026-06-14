@@ -111,6 +111,17 @@ class WhatsappConfig extends Component
         }
 
         try {
+            // #region debug-point C:test-send-entry
+            $this->dbg('test-send-entry', 'C', [
+                'branch_id' => $this->branch_id,
+                'phone_number_id' => $this->phone_number_id,
+                'recipient_raw' => $this->test_recipient,
+                'recipient_sanitized' => $this->sanitizePhoneNumber($this->test_recipient),
+                'template_name' => trim($this->test_template_name),
+                'template_language' => trim($this->test_template_language),
+            ], '[DEBUG] test send entry');
+            // #endregion
+
             $payload = [
                 'messaging_product' => 'whatsapp',
                 'to' => $this->sanitizePhoneNumber($this->test_recipient),
@@ -138,6 +149,14 @@ class WhatsappConfig extends Component
                 ->post($this->getMessagesEndpoint(), $payload);
 
             $responseData = $response->json();
+
+            // #region debug-point C:test-send-response
+            $this->dbg('test-send-response', 'C', [
+                'ok' => $response->successful(),
+                'status_code' => $response->status(),
+                'response' => $responseData,
+            ], '[DEBUG] test send response');
+            // #endregion
 
             if (!$response->successful()) {
                 $errorMessage = data_get($responseData, 'error.message')
@@ -308,6 +327,43 @@ class WhatsappConfig extends Component
         $this->is_active = true;
         $this->testResult = null;
     }
+
+    // #region debug-point dbg-helper
+    protected function dbg(string $pointId, string $hypothesisId, array $data, string $msg): void
+    {
+        try {
+            $envPath = base_path('.dbg/whatsapp-accepted-only.env');
+            $debugUrl = null;
+            $sessionId = 'whatsapp-accepted-only';
+            if (is_file($envPath)) {
+                $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+                foreach ($lines as $line) {
+                    if (str_starts_with($line, 'DEBUG_SERVER_URL=')) {
+                        $debugUrl = trim(substr($line, strlen('DEBUG_SERVER_URL=')));
+                    }
+                    if (str_starts_with($line, 'DEBUG_SESSION_ID=')) {
+                        $sessionId = trim(substr($line, strlen('DEBUG_SESSION_ID=')));
+                    }
+                }
+            }
+            if (!$debugUrl) {
+                return;
+            }
+
+            Http::timeout(1)->asJson()->post($debugUrl, [
+                'sessionId' => $sessionId,
+                'runId' => 'pre-fix',
+                'hypothesisId' => $hypothesisId,
+                'pointId' => $pointId,
+                'location' => 'WhatsappConfig',
+                'msg' => $msg,
+                'ts' => round(microtime(true) * 1000),
+                'data' => $data,
+            ]);
+        } catch (\Throwable $e) {
+        }
+    }
+    // #endregion
 
     public function render()
     {
