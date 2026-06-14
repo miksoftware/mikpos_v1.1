@@ -328,6 +328,16 @@ class Promotions extends Component
             return;
         }
 
+        $sentChannel = $this->sendChannel;
+
+        if ($count === 0) {
+            $defaultError = $sentChannel === 'whatsapp'
+                ? 'Meta no acepto la solicitud.'
+                : 'No se pudo completar el envio.';
+            $this->dispatch('notify', message: 'No se pudo completar el envio: ' . ($lastError ?: $defaultError), type: 'error');
+            return;
+        }
+
         $old = $promo->toArray();
         $promo->update([
             'status'           => 'sent',
@@ -347,11 +357,24 @@ class Promotions extends Component
         $this->sendChannel = 'email';
         $this->selectedCustomerIds = [];
 
-        if ($count === 0 && $lastError) {
-            $this->dispatch('notify', message: "Error al enviar: {$lastError}", type: 'error');
-        } else {
-            $this->dispatch('notify', message: "Campaña enviada por {$channelLabel} a {$count} cliente(s) correctamente", type: 'success');
+        if ($sentChannel === 'whatsapp') {
+            $message = "Solicitud aceptada por Meta para {$count} cliente(s). La entrega final depende del estado de WhatsApp.";
+            $type = $lastError ? 'warning' : 'success';
+
+            if ($lastError) {
+                $message .= " Ultimo detalle: {$lastError}";
+            }
+
+            $this->dispatch('notify', message: $message, type: $type);
+            return;
         }
+
+        if ($lastError) {
+            $this->dispatch('notify', message: "Campaña enviada por {$channelLabel} a {$count} cliente(s). Ultimo detalle: {$lastError}", type: 'warning');
+            return;
+        }
+
+        $this->dispatch('notify', message: "Campaña enviada por {$channelLabel} a {$count} cliente(s) correctamente", type: 'success');
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -488,6 +511,14 @@ class Promotions extends Component
                     ]);
                     continue;
                 }
+
+                Log::info('PromotionWhatsapp accepted', [
+                    'promotion_id' => $promo->id,
+                    'customer_id' => $customer->id,
+                    'phone' => $customer->phone,
+                    'to' => $to,
+                    'response' => $response->json(),
+                ]);
 
                 $count++;
             } catch (\Throwable $e) {
