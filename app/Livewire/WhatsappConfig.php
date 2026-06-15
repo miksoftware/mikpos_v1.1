@@ -32,6 +32,7 @@ class WhatsappConfig extends Component
     public $test_template_language = 'en_US';
     public $test_template_parameters = '';
     public $testResult = null;
+    public $metaDiagnostic = null;
 
     public function mount()
     {
@@ -212,6 +213,111 @@ class WhatsappConfig extends Component
         }
     }
 
+    public function runMetaDiagnostic()
+    {
+        $this->validate([
+            'waba_id' => 'required|string|max:255',
+            'phone_number_id' => 'required|string|max:255',
+            'token_permanente' => 'required|string',
+            'api_version' => 'required|string|max:50',
+        ]);
+        $this->ensureCanAccessSelectedBranch();
+
+        try {
+            $version = trim($this->api_version);
+            $token = trim($this->token_permanente);
+
+            $subscribedAppsResponse = Http::withToken($token)
+                ->acceptJson()
+                ->get("https://graph.facebook.com/{$version}/{$this->waba_id}/subscribed_apps");
+
+            $wabaPhoneNumbersResponse = Http::withToken($token)
+                ->acceptJson()
+                ->get("https://graph.facebook.com/{$version}/{$this->waba_id}/phone_numbers", [
+                    'fields' => 'id,display_phone_number,verified_name,quality_rating,code_verification_status,name_status,status',
+                ]);
+
+            $phoneNumberResponse = Http::withToken($token)
+                ->acceptJson()
+                ->get("https://graph.facebook.com/{$version}/{$this->phone_number_id}", [
+                    'fields' => 'id,display_phone_number,verified_name,quality_rating,code_verification_status,name_status,status,platform_type',
+                ]);
+
+            $subscribedAppsData = $subscribedAppsResponse->json();
+            $wabaPhoneNumbersData = $wabaPhoneNumbersResponse->json();
+            $phoneNumberData = $phoneNumberResponse->json();
+
+            $wabaPhoneNumbers = (array) data_get($wabaPhoneNumbersData, 'data', []);
+            $matchingPhone = collect($wabaPhoneNumbers)->first(
+                fn (array $phone) => (string) data_get($phone, 'id') === trim($this->phone_number_id)
+            );
+
+            $subscriptions = (array) data_get($subscribedAppsData, 'data', []);
+            $subscriptionNames = collect($subscriptions)
+                ->map(fn (array $app) => data_get($app, 'whatsapp_business_api_data.name'))
+                ->filter()
+                ->values()
+                ->all();
+
+            $this->metaDiagnostic = [
+                'success' => $subscribedAppsResponse->successful()
+                    && $wabaPhoneNumbersResponse->successful()
+                    && $phoneNumberResponse->successful(),
+                'summary' => [
+                    'subscriptions_count' => count($subscriptions),
+                    'subscription_names' => $subscriptionNames,
+                    'phone_exists_in_waba' => $matchingPhone !== null,
+                    'phone_status' => data_get($phoneNumberData, 'status'),
+                    'phone_quality_rating' => data_get($phoneNumberData, 'quality_rating'),
+                    'code_verification_status' => data_get($phoneNumberData, 'code_verification_status'),
+                    'name_status' => data_get($phoneNumberData, 'name_status'),
+                    'verified_name' => data_get($phoneNumberData, 'verified_name'),
+                ],
+                'responses' => [
+                    'subscribed_apps' => [
+                        'ok' => $subscribedAppsResponse->successful(),
+                        'status' => $subscribedAppsResponse->status(),
+                        'body' => $subscribedAppsData,
+                    ],
+                    'waba_phone_numbers' => [
+                        'ok' => $wabaPhoneNumbersResponse->successful(),
+                        'status' => $wabaPhoneNumbersResponse->status(),
+                        'body' => $wabaPhoneNumbersData,
+                    ],
+                    'phone_number' => [
+                        'ok' => $phoneNumberResponse->successful(),
+                        'status' => $phoneNumberResponse->status(),
+                        'body' => $phoneNumberData,
+                    ],
+                ],
+            ];
+
+            // #region debug-point E:meta-diagnostic-response
+            $this->dbg('meta-diagnostic-response', 'E', [
+                'summary' => $this->metaDiagnostic['summary'],
+                'subscribed_apps_ok' => $subscribedAppsResponse->successful(),
+                'waba_phone_numbers_ok' => $wabaPhoneNumbersResponse->successful(),
+                'phone_number_ok' => $phoneNumberResponse->successful(),
+            ], '[DEBUG] meta diagnostic response');
+            // #endregion
+
+            $this->dispatch(
+                'notify',
+                message: $this->metaDiagnostic['success']
+                    ? 'Diagnostico de Meta consultado correctamente.'
+                    : 'Diagnostico consultado con observaciones. Revisa los detalles abajo.',
+                type: $this->metaDiagnostic['success'] ? 'success' : 'warning'
+            );
+        } catch (Throwable $e) {
+            $this->metaDiagnostic = [
+                'success' => false,
+                'message' => $e->getMessage(),
+            ];
+
+            $this->dispatch('notify', message: $e->getMessage(), type: 'error');
+        }
+    }
+
     protected function rules(): array
     {
         return [
@@ -326,6 +432,7 @@ class WhatsappConfig extends Component
         $this->template_language = 'es_CO';
         $this->is_active = true;
         $this->testResult = null;
+        $this->metaDiagnostic = null;
     }
 
     // #region debug-point dbg-helper

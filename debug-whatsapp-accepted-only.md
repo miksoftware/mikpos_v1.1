@@ -19,6 +19,9 @@ Status: [OPEN]
 - UI muestra `accepted`.
 - No hay `webhook_received_at`.
 - No hay cambio de estado posterior en la trazabilidad.
+- El archivo `.dbg/trae-debug-log-whatsapp-accepted-only.ndjson` aun no existe, por lo que no ha entrado ninguna llamada instrumentada del webhook ni del nuevo intento de prueba.
+- El usuario reporta que la respuesta de API contiene `message_status = accepted`, pero sigue sin `sent`, `delivered`, `read` o `failed`.
+- En la configuracion de Meta se observo el warning de app sin publicar y el listado de campos del webhook con `messages` inicialmente no suscrito.
 
 ## Plan
 1. Instrumentar el flujo de envio y el webhook con puntos de depuracion.

@@ -157,6 +157,68 @@
                 </div>
             </div>
 
+            <div class="rounded-2xl border border-violet-200 bg-violet-50 p-5 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <h4 class="text-sm font-semibold text-violet-900">Diagnóstico de Meta</h4>
+                        <p class="text-xs text-violet-700 mt-1">Consulta si el WABA tiene apps suscritas, si el `phone_number_id` existe en ese WABA y qué estado devuelve Meta para el número.</p>
+                    </div>
+                    <button wire:click="runMetaDiagnostic" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-violet-700 rounded-xl hover:bg-violet-800 transition-colors">
+                        <svg wire:loading.remove wire:target="runMetaDiagnostic" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-6m3 6V7m3 10v-3m3 7H6a2 2 0 01-2-2V5a2 2 0 012-2h7.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <svg wire:loading wire:target="runMetaDiagnostic" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span wire:loading.remove wire:target="runMetaDiagnostic">Consultar Meta</span>
+                        <span wire:loading wire:target="runMetaDiagnostic">Consultando...</span>
+                    </button>
+                </div>
+
+                @if($metaDiagnostic)
+                    <div class="rounded-xl border p-4 {{ !empty($metaDiagnostic['success']) ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50' }}">
+                        @if(!empty($metaDiagnostic['summary']))
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs text-slate-700">
+                                <div class="space-y-2">
+                                    <p><span class="font-semibold">Apps suscritas al WABA:</span> {{ $metaDiagnostic['summary']['subscriptions_count'] ?? 'N/D' }}</p>
+                                    <p><span class="font-semibold">Nombres de apps:</span> {{ !empty($metaDiagnostic['summary']['subscription_names']) ? implode(', ', $metaDiagnostic['summary']['subscription_names']) : 'N/D' }}</p>
+                                    <p><span class="font-semibold">Phone ID existe en el WABA:</span> {{ !empty($metaDiagnostic['summary']['phone_exists_in_waba']) ? 'Si' : 'No' }}</p>
+                                </div>
+                                <div class="space-y-2">
+                                    <p><span class="font-semibold">Estado del numero:</span> {{ $metaDiagnostic['summary']['phone_status'] ?? 'N/D' }}</p>
+                                    <p><span class="font-semibold">Quality rating:</span> {{ $metaDiagnostic['summary']['phone_quality_rating'] ?? 'N/D' }}</p>
+                                    <p><span class="font-semibold">Code verification:</span> {{ $metaDiagnostic['summary']['code_verification_status'] ?? 'N/D' }}</p>
+                                    <p><span class="font-semibold">Name status:</span> {{ $metaDiagnostic['summary']['name_status'] ?? 'N/D' }}</p>
+                                    <p><span class="font-semibold">Verified name:</span> {{ $metaDiagnostic['summary']['verified_name'] ?? 'N/D' }}</p>
+                                </div>
+                            </div>
+                        @endif
+
+                        @if(!empty($metaDiagnostic['message']))
+                            <p class="text-sm text-red-700">{{ $metaDiagnostic['message'] }}</p>
+                        @endif
+
+                        @if(!empty($metaDiagnostic['responses']))
+                            <div class="mt-4 space-y-3">
+                                <div>
+                                    <p class="text-xs font-medium text-slate-700 mb-2">Respuesta `subscribed_apps`</p>
+                                    <pre class="text-xs bg-white/80 border border-slate-200 rounded-lg p-3 overflow-auto">{{ json_encode($metaDiagnostic['responses']['subscribed_apps'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium text-slate-700 mb-2">Respuesta `/{WABA_ID}/phone_numbers`</p>
+                                    <pre class="text-xs bg-white/80 border border-slate-200 rounded-lg p-3 overflow-auto">{{ json_encode($metaDiagnostic['responses']['waba_phone_numbers'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium text-slate-700 mb-2">Respuesta `/{PHONE_NUMBER_ID}`</p>
+                                    <pre class="text-xs bg-white/80 border border-slate-200 rounded-lg p-3 overflow-auto">{{ json_encode($metaDiagnostic['responses']['phone_number'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                @endif
+            </div>
+
             <div class="pt-4 border-t border-slate-200 space-y-4">
                 <div>
                     <h4 class="text-sm font-semibold text-slate-700">Mensaje de prueba</h4>
