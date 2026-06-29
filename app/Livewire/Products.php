@@ -66,6 +66,7 @@ class Products extends Component
     public ?int $unit_id = null;
     public ?int $tax_id = null;
     public float $purchase_price = 0;
+    public ?float $average_cost = null;
     public float $sale_price = 0;
     public ?float $special_price = null;
     public bool $price_includes_tax = false;
@@ -382,6 +383,7 @@ class Products extends Component
         $this->unit_id = $item->unit_id;
         $this->tax_id = $item->tax_id;
         $this->purchase_price = (float) $item->purchase_price;
+        $this->average_cost = $item->average_cost ? (float) $item->average_cost : null;
         $this->sale_price = (float) $item->sale_price;
         $this->special_price = $item->special_price ? (float) $item->special_price : null;
         $this->price_includes_tax = $item->price_includes_tax;
@@ -1315,6 +1317,7 @@ class Products extends Component
         $this->unit_id = null;
         $this->tax_id = null;
         $this->purchase_price = 0;
+        $this->average_cost = null;
         $this->sale_price = 0;
         $this->special_price = null;
         $this->price_includes_tax = false;

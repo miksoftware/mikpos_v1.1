@@ -95,8 +95,8 @@
                         <option value="created_at">Fecha creación</option>
                         <option value="name">Nombre</option>
                         <option value="sale_price">Precio venta</option>
-                        <option value="purchase_price">Precio compra</option>
-                        <option value="current_stock">Stock</option>
+                        <option value="purchase_price">Precio compra base</option>
+                        <option value="average_cost">Costo promedio</option>
                     </select>
                     <button wire:click="sortByColumn('{{ $sortBy }}')" class="p-2.5 border border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors" title="{{ $sortDirection === 'asc' ? 'Ascendente' : 'Descendente' }}">
                         @if($sortDirection === 'asc')
@@ -163,10 +163,10 @@
                             </div>
                         </th>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Categoría</th>
-                        <th wire:click="sortByColumn('purchase_price')" class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase cursor-pointer hover:text-slate-700 transition-colors">
+                        <th wire:click="sortByColumn('average_cost')" class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase cursor-pointer hover:text-slate-700 transition-colors">
                             <div class="flex items-center justify-end gap-1">
-                                P. Compra
-                                @if($sortBy === 'purchase_price')
+                                C. Promedio
+                                @if($sortBy === 'average_cost')
                                 <svg class="w-4 h-4 {{ $sortDirection === 'asc' ? '' : 'rotate-180' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
                                 @endif
                             </div>
@@ -244,7 +244,10 @@
                             @endif
                         </td>
                         <td class="px-6 py-4 text-right">
-                            <span class="text-sm text-slate-600">${{ number_format($item->purchase_price, 0, ',', '.') }}</span>
+                            <span class="text-sm text-slate-600 font-medium">${{ number_format($item->average_cost, 0, ',', '.') }}</span>
+                            @if($item->purchase_price != $item->average_cost)
+                            <div class="text-[10px] text-slate-400">Base: ${{ number_format($item->purchase_price, 0, ',', '.') }}</div>
+                            @endif
                         </td>
                         <td class="px-6 py-4 text-right">
                             <div class="text-sm">
@@ -700,12 +703,26 @@
                             </h4>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-slate-700 mb-1">Precio Compra *</label>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">Precio de compra (Base) <span class="text-red-500">*</span></label>
                                     <div class="relative">
-                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">$</span>
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <span class="text-slate-500 sm:text-sm">$</span>
+                                        </div>
                                         <input wire:model.live="purchase_price" x-model.number="purchasePrice" type="number" step="0.01" min="0" class="w-full pl-7 pr-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="0.00">
                                     </div>
                                     @error('purchase_price')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                                    
+                                    @if($itemId)
+                                    <div class="mt-3 bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex items-center justify-between">
+                                        <div>
+                                            <p class="text-xs font-medium text-blue-600 mb-0.5">Costo Promedio Actual</p>
+                                            <p class="text-xs text-blue-500">Calculado auto. por compras</p>
+                                        </div>
+                                        <div class="text-lg font-bold text-blue-700">
+                                            ${{ number_format($this->average_cost ?? 0, 2) }}
+                                        </div>
+                                    </div>
+                                    @endif
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-1">Precio Venta *</label>
@@ -962,7 +979,7 @@
     @if($isChildModalOpen)
     <div class="relative z-[100]" x-data="{
         unitQuantity: @entangle('childUnitQuantity'),
-        parentPurchasePrice: {{ $parentProduct?->purchase_price ?? 0 }},
+        parentPurchasePrice: {{ $parentProduct?->average_cost > 0 ? $parentProduct->average_cost : ($parentProduct?->purchase_price ?? 0) }},
         salePrice: @entangle('childSalePrice'),
         get purchasePrice() {
             return this.parentPurchasePrice * this.unitQuantity;
@@ -1017,7 +1034,7 @@
                                 </div>
                                 <div>
                                     <span class="text-slate-500">Precio Compra (por unidad):</span>
-                                    <p class="font-medium text-slate-700">${{ number_format($parentProduct->purchase_price, 2) }}</p>
+                                    <p class="font-medium text-slate-700">${{ number_format($parentProduct->average_cost > 0 ? $parentProduct->average_cost : $parentProduct->purchase_price, 2) }}</p>
                                 </div>
                                 <div>
                                     <span class="text-slate-500">Stock Actual:</span>
@@ -1191,7 +1208,7 @@
                                     <span class="text-sm text-blue-700">Costo calculado ({{ $parentProduct?->unit?->abbreviation ?? 'und' }} x cantidad):</span>
                                     <span class="text-lg font-bold text-blue-800" x-text="'$' + purchasePrice.toFixed(2)"></span>
                                 </div>
-                                <p class="text-xs text-blue-600 mt-1">= ${{ number_format($parentProduct?->purchase_price ?? 0, 2) }} × <span x-text="unitQuantity"></span> {{ $parentProduct?->unit?->abbreviation ?? 'und' }}</p>
+                                <p class="text-xs text-blue-600 mt-1">= ${{ number_format($parentProduct?->average_cost > 0 ? $parentProduct->average_cost : ($parentProduct?->purchase_price ?? 0), 2) }} × <span x-text="unitQuantity"></span> {{ $parentProduct?->unit?->abbreviation ?? 'und' }}</p>
                             </div>
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
