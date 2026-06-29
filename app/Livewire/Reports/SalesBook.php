@@ -206,7 +206,7 @@ class SalesBook extends Component
         foreach ($query->get() as $sale) {
             foreach ($sale->items as $item) {
                 if ($item->product) {
-                    $cost = $item->product->purchase_price * $item->quantity;
+                    $cost = $item->unit_cost * $item->quantity;
                     $revenue = $item->subtotal;
                     $profit += ($revenue - $cost);
                 }

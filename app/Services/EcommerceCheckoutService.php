@@ -83,6 +83,19 @@ class EcommerceCheckoutService
                     $taxAmount = ($item['unit_price'] - $priceWithoutTax) * $item['quantity'];
                 }
 
+                $unitCost = 0;
+                if (isset($item['product_id'])) {
+                    $product = Product::find($item['product_id']);
+                    if ($product) {
+                        if (isset($item['product_child_id']) && $item['product_child_id']) {
+                            $child = ProductChild::find($item['product_child_id']);
+                            $unitCost = $child ? $child->getAverageCost() : 0;
+                        } else {
+                            $unitCost = $product->average_cost > 0 ? $product->average_cost : $product->purchase_price;
+                        }
+                    }
+                }
+
                 SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_id' => $item['product_id'],
@@ -90,6 +103,7 @@ class EcommerceCheckoutService
                     'product_name' => $item['name'],
                     'product_sku' => $item['sku'],
                     'unit_price' => $item['unit_price'],
+                    'unit_cost' => $unitCost,
                     'quantity' => $item['quantity'],
                     'tax_rate' => $item['tax_rate'],
                     'tax_amount' => round($taxAmount, 2),

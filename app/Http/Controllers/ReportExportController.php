@@ -591,7 +591,7 @@ class ReportExportController extends Controller
         foreach ($sales as $sale) {
             foreach ($sale->items as $item) {
                 if ($item->product) {
-                    $totalCost += $item->product->purchase_price * (float) $item->quantity;
+                    $totalCost += $item->unit_cost * (float) $item->quantity;
                 }
             }
         }
@@ -608,9 +608,9 @@ class ReportExportController extends Controller
         $refundIds = (clone $refundsQuery)->pluck('refunds.id');
         $refundCost = 0;
         if ($refundIds->isNotEmpty()) {
-            $refundCost = (float) \App\Models\RefundItem::join('products', 'refund_items.product_id', '=', 'products.id')
+            $refundCost = (float) \App\Models\RefundItem::join('sale_items', 'refund_items.sale_item_id', '=', 'sale_items.id')
                 ->whereIn('refund_items.refund_id', $refundIds)
-                ->sum(DB::raw('refund_items.quantity * products.purchase_price'));
+                ->sum(DB::raw('refund_items.quantity * sale_items.unit_cost'));
         }
 
         $creditNotesQuery = \App\Models\CreditNote::query()
@@ -624,9 +624,9 @@ class ReportExportController extends Controller
         $creditNoteIds = (clone $creditNotesQuery)->pluck('credit_notes.id');
         $creditNoteCost = 0;
         if ($creditNoteIds->isNotEmpty()) {
-            $creditNoteCost = (float) \App\Models\CreditNoteItem::join('products', 'credit_note_items.product_id', '=', 'products.id')
+            $creditNoteCost = (float) \App\Models\CreditNoteItem::join('sale_items', 'credit_note_items.sale_item_id', '=', 'sale_items.id')
                 ->whereIn('credit_note_items.credit_note_id', $creditNoteIds)
-                ->sum(DB::raw('credit_note_items.quantity * products.purchase_price'));
+                ->sum(DB::raw('credit_note_items.quantity * sale_items.unit_cost'));
         }
 
         $totalRefunds = round($totalRefundAmount + $totalCreditNoteAmount, 2);
@@ -704,7 +704,7 @@ class ReportExportController extends Controller
         $categories = $categoryData->select(
             DB::raw("COALESCE(categories.name, 'Sin categoría') as name"),
             DB::raw('SUM(sale_items.subtotal) as revenue'),
-            DB::raw('SUM(sale_items.quantity * products.purchase_price) as cost')
+            DB::raw('SUM(sale_items.quantity * sale_items.unit_cost) as cost')
         )->groupBy('categories.name')->orderByDesc('revenue')->get();
 
         // Product profitability
@@ -719,8 +719,8 @@ class ReportExportController extends Controller
             'products.name', 'products.sku',
             DB::raw('SUM(sale_items.quantity) as qty'),
             DB::raw('SUM(sale_items.subtotal) as revenue'),
-            DB::raw('SUM(sale_items.quantity * products.purchase_price) as cost')
-        )->groupBy('products.id', 'products.name', 'products.sku')->orderByDesc(DB::raw('SUM(sale_items.subtotal) - SUM(sale_items.quantity * products.purchase_price)'))->get();
+            DB::raw('SUM(sale_items.quantity * sale_items.unit_cost) as cost')
+        )->groupBy('products.id', 'products.name', 'products.sku')->orderByDesc(DB::raw('SUM(sale_items.subtotal) - SUM(sale_items.quantity * sale_items.unit_cost)'))->get();
 
         // Payment methods
         $payments = SalePayment::join('sales', 'sale_payments.sale_id', '=', 'sales.id')
@@ -2314,7 +2314,7 @@ class ReportExportController extends Controller
         $totalInventoryValue = (float) $products->where('current_stock', '>', 0)
             ->sum(fn($p) => (float) $p->current_stock * (float) $p->sale_price);
         $totalInventoryCost = (float) $products->where('current_stock', '>', 0)
-            ->sum(fn($p) => (float) $p->current_stock * (float) $p->purchase_price);
+            ->sum(fn($p) => (float) $p->current_stock * (float) $p->average_cost);
         $totalPotentialProfit = $totalInventoryValue - $totalInventoryCost;
 
         // Group by category
@@ -2322,7 +2322,7 @@ class ReportExportController extends Controller
             ->map(function ($group) {
                 $totalStock = (float) $group->sum('current_stock');
                 $totalValue = (float) $group->sum(fn($p) => (float) $p->current_stock * (float) $p->sale_price);
-                $totalCost = (float) $group->sum(fn($p) => (float) $p->current_stock * (float) $p->purchase_price);
+                $totalCost = (float) $group->sum(fn($p) => (float) $p->current_stock * (float) $p->average_cost);
                 return [
                     'count' => $group->count(),
                     'stock' => $totalStock,
@@ -2488,7 +2488,7 @@ class ReportExportController extends Controller
         foreach ($products as $p) {
             $stock = (float) $p->current_stock;
             $value = $stock > 0 ? $stock * (float) $p->sale_price : 0;
-            $cost = $stock > 0 ? $stock * (float) $p->purchase_price : 0;
+            $cost = $stock > 0 ? $stock * (float) $p->average_cost : 0;
 
             $invSheet->setCellValue('A' . $row, $p->sku);
             $invSheet->setCellValue('B' . $row, $p->name);
@@ -2498,7 +2498,7 @@ class ReportExportController extends Controller
             $invSheet->setCellValue('F' . $row, $p->unit?->abbreviation ?? '—');
             $invSheet->setCellValue('G' . $row, $stock);
             $invSheet->setCellValue('H' . $row, (float) $p->min_stock);
-            $invSheet->setCellValue('I' . $row, (float) $p->purchase_price);
+            $invSheet->setCellValue('I' . $row, (float) $p->average_cost);
             $invSheet->setCellValue('J' . $row, (float) $p->sale_price);
             $invSheet->setCellValue('K' . $row, $value);
             $invSheet->setCellValue('L' . $row, $cost);

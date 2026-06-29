@@ -169,7 +169,7 @@ class ProfitLoss extends Component
         foreach ($sales as $sale) {
             foreach ($sale->items as $item) {
                 if ($item->product) {
-                    $this->totalCost += $item->product->purchase_price * (float) $item->quantity;
+                    $this->totalCost += $item->unit_cost * (float) $item->quantity;
                 }
             }
         }
@@ -225,9 +225,9 @@ class ProfitLoss extends Component
         $refundCost = 0;
         $refundIds = (clone $refundsQuery)->pluck('refunds.id');
         if ($refundIds->isNotEmpty()) {
-            $refundCost = (float) RefundItem::join('products', 'refund_items.product_id', '=', 'products.id')
+            $refundCost = (float) RefundItem::join('sale_items', 'refund_items.sale_item_id', '=', 'sale_items.id')
                 ->whereIn('refund_items.refund_id', $refundIds)
-                ->sum(DB::raw('refund_items.quantity * products.purchase_price'));
+                ->sum(DB::raw('refund_items.quantity * sale_items.unit_cost'));
         }
 
         // Credit notes (status pending/validated) tied to sales still in 'completed'
@@ -263,9 +263,9 @@ class ProfitLoss extends Component
         $creditNoteCost = 0;
         $creditNoteIds = (clone $creditNotesQuery)->pluck('credit_notes.id');
         if ($creditNoteIds->isNotEmpty()) {
-            $creditNoteCost = (float) CreditNoteItem::join('products', 'credit_note_items.product_id', '=', 'products.id')
+            $creditNoteCost = (float) CreditNoteItem::join('sale_items', 'credit_note_items.sale_item_id', '=', 'sale_items.id')
                 ->whereIn('credit_note_items.credit_note_id', $creditNoteIds)
-                ->sum(DB::raw('credit_note_items.quantity * products.purchase_price'));
+                ->sum(DB::raw('credit_note_items.quantity * sale_items.unit_cost'));
         }
 
         $this->totalRefunds = round($totalRefundAmount + $totalCreditNoteAmount, 2);
@@ -392,7 +392,7 @@ class ProfitLoss extends Component
             if (!isset($dailyCost[$date])) $dailyCost[$date] = 0;
             foreach ($sale->items as $item) {
                 if ($item->product) {
-                    $dailyCost[$date] += $item->product->purchase_price * (float) $item->quantity;
+                    $dailyCost[$date] += $item->unit_cost * (float) $item->quantity;
                 }
             }
         }
@@ -426,7 +426,7 @@ class ProfitLoss extends Component
             foreach ($refund->items as $item) {
                 if ($item->product) {
                     $dailyRefundCost[$date] = ($dailyRefundCost[$date] ?? 0)
-                        + (float) $item->quantity * (float) $item->product->purchase_price;
+                        + (float) $item->quantity * (float) ($item->saleItem?->unit_cost ?? 0);
                 }
             }
         }
@@ -456,7 +456,7 @@ class ProfitLoss extends Component
             foreach ($cn->items as $item) {
                 if ($item->product) {
                     $dailyRefundCost[$date] = ($dailyRefundCost[$date] ?? 0)
-                        + (float) $item->quantity * (float) $item->product->purchase_price;
+                        + (float) $item->quantity * (float) ($item->saleItem?->unit_cost ?? 0);
                 }
             }
         }
@@ -500,7 +500,7 @@ class ProfitLoss extends Component
             ->select(
                 DB::raw("COALESCE(categories.name, 'Sin categoría') as category_name"),
                 DB::raw('SUM(sale_items.subtotal) as revenue'),
-                DB::raw('SUM(sale_items.quantity * products.purchase_price) as cost')
+                DB::raw('SUM(sale_items.quantity * sale_items.unit_cost) as cost')
             )
             ->groupBy('categories.name')
             ->orderByDesc('revenue')
@@ -545,7 +545,7 @@ class ProfitLoss extends Component
                 'products.sku',
                 DB::raw('SUM(sale_items.quantity) as qty'),
                 DB::raw('SUM(sale_items.subtotal) as revenue'),
-                DB::raw('SUM(sale_items.quantity * products.purchase_price) as cost')
+                DB::raw('SUM(sale_items.quantity * sale_items.unit_cost) as cost')
             )
             ->groupBy('products.id', 'products.name', 'products.sku')
             ->get()

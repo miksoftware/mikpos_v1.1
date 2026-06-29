@@ -19,6 +19,7 @@ class SaleItem extends Model
         'product_name',
         'product_sku',
         'unit_price',
+        'unit_cost',
         'quantity',
         'tax_rate',
         'tax_amount',
@@ -38,6 +39,7 @@ class SaleItem extends Model
     {
         return [
             'unit_price' => 'decimal:2',
+            'unit_cost' => 'decimal:2',
             'quantity' => 'decimal:3',
             'original_quantity' => 'decimal:3',
             'tax_rate' => 'decimal:2',

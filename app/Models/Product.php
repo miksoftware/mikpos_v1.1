@@ -43,6 +43,7 @@ class Product extends Model
         'has_commission',
         'commission_type',
         'commission_value',
+        'average_cost',
     ];
 
     protected function casts(): array
@@ -54,6 +55,7 @@ class Product extends Model
             'price_includes_tax' => 'boolean',
             'has_commission' => 'boolean',
             'purchase_price' => 'decimal:2',
+            'average_cost' => 'decimal:2',
             'sale_price' => 'decimal:2',
             'special_price' => 'decimal:2',
             'commission_value' => 'decimal:2',
@@ -250,12 +252,13 @@ class Product extends Model
      */
     public function getMargin(): ?float
     {
-        if ($this->purchase_price <= 0) {
+        $cost = $this->average_cost > 0 ? $this->average_cost : $this->purchase_price;
+        if ($cost <= 0) {
             return null;
         }
         
         $salePrice = $this->getSalePriceWithoutTax();
-        return (($salePrice - $this->purchase_price) / $this->purchase_price) * 100;
+        return (($salePrice - $cost) / $cost) * 100;
     }
 
     /**
@@ -293,7 +296,8 @@ class Product extends Model
     public function getProfit(): float
     {
         $salePrice = $this->getSalePriceWithoutTax();
-        return $salePrice - $this->purchase_price;
+        $cost = $this->average_cost > 0 ? $this->average_cost : $this->purchase_price;
+        return $salePrice - $cost;
     }
 
     /**
@@ -389,5 +393,30 @@ class Product extends Model
 
         // Return a placeholder SVG as data URI
         return 'data:image/svg+xml,' . rawurlencode('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>');
+    }
+
+    /**
+     * Calculate and update the average cost based on new stock arrival.
+     * Also updates the purchase_price to reflect the last purchase price.
+     */
+    public function updateAverageCost(float $purchasedQuantity, float $purchaseUnitCost): void
+    {
+        $currentStock = (float) $this->current_stock;
+        $currentAverageCost = (float) ($this->average_cost > 0 ? $this->average_cost : $this->purchase_price);
+
+        if ($currentStock <= 0 || ($currentStock + $purchasedQuantity) <= 0) {
+            $this->update([
+                'average_cost' => $purchaseUnitCost,
+                'purchase_price' => $purchaseUnitCost
+            ]);
+            return;
+        }
+
+        $newAverageCost = (($currentStock * $currentAverageCost) + ($purchasedQuantity * $purchaseUnitCost)) / ($currentStock + $purchasedQuantity);
+        
+        $this->update([
+            'average_cost' => round($newAverageCost, 2),
+            'purchase_price' => $purchaseUnitCost
+        ]);
     }
 }

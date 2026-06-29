@@ -1697,6 +1697,21 @@ class PointOfSale extends Component
             
             // Create sale items and update stock
             foreach ($this->cart as $item) {
+                $unitCost = 0;
+                $product = null;
+
+                if ($item['product_id']) {
+                    $product = Product::find($item['product_id']);
+                    if ($product) {
+                        if (isset($item['child_id']) && $item['child_id']) {
+                            $child = ProductChild::find($item['child_id']);
+                            $unitCost = $child ? $child->getAverageCost() : 0;
+                        } else {
+                            $unitCost = $product->average_cost > 0 ? $product->average_cost : $product->purchase_price;
+                        }
+                    }
+                }
+
                 SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_id' => $item['product_id'],
@@ -1706,6 +1721,7 @@ class PointOfSale extends Component
                     'product_name' => $item['name'],
                     'product_sku' => $item['sku'],
                     'unit_price' => $item['base_price'], // Price without tax
+                    'unit_cost' => $unitCost, // Cost at the time of sale
                     'quantity' => $item['quantity'],
                     'tax_rate' => $item['tax_rate'],
                     'tax_amount' => $item['tax_amount'],
@@ -1718,16 +1734,14 @@ class PointOfSale extends Component
                 ]);
                 
                 // Update product stock (only for products, not services or combos)
-                if ($item['product_id']) {
-                    $product = Product::find($item['product_id']);
-                    if ($product && $product->manages_inventory) {
-                        // Create inventory movement for sale
-                        InventoryMovement::createMovement(
-                            'sale',
-                            $product,
-                            'out',
-                            $item['quantity'],
-                            (float) $item['base_price'],
+                if ($product && $product->manages_inventory) {
+                    // Create inventory movement for sale
+                    InventoryMovement::createMovement(
+                        'sale',
+                        $product,
+                        'out',
+                        $item['quantity'],
+                        (float) $item['base_price'],
                             "Venta #{$sale->invoice_number}",
                             $sale,
                             $this->branchId
@@ -1736,7 +1750,6 @@ class PointOfSale extends Component
                         // Update stock
                         $product->decrement('current_stock', $item['quantity']);
                     }
-                }
 
                 // Handle combo stock: decrement each product in the combo
                 if (!empty($item['combo_id'])) {

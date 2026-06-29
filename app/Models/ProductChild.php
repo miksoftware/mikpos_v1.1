@@ -153,6 +153,18 @@ class ProductChild extends Model
     }
 
     /**
+     * Get the average cost from the parent product, adjusted by unit_quantity.
+     */
+    public function getAverageCost(): float
+    {
+        if (!$this->product) {
+            return 0;
+        }
+        $cost = $this->product->average_cost > 0 ? $this->product->average_cost : $this->product->purchase_price;
+        return $cost * $this->unit_quantity;
+    }
+
+    /**
      * Get the sale price without tax.
      * If price_includes_tax is true, removes the tax percentage.
      */
@@ -192,14 +204,14 @@ class ProductChild extends Model
      */
     public function getMargin(): ?float
     {
-        $purchasePrice = $this->getPurchasePrice();
+        $cost = $this->getAverageCost();
         
-        if ($purchasePrice <= 0) {
+        if ($cost <= 0) {
             return null;
         }
 
         $salePrice = $this->getSalePriceWithoutTax();
-        return round((($salePrice - $purchasePrice) / $purchasePrice) * 100, 2);
+        return round((($salePrice - $cost) / $cost) * 100, 2);
     }
 
     /**
@@ -209,8 +221,8 @@ class ProductChild extends Model
     public function getProfit(): float
     {
         $salePrice = $this->getSalePriceWithoutTax();
-        $purchasePrice = $this->getPurchasePrice();
-        return $salePrice - $purchasePrice;
+        $cost = $this->getAverageCost();
+        return $salePrice - $cost;
     }
 
     /**

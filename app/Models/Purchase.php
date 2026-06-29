@@ -225,13 +225,11 @@ class Purchase extends Model
                 // Store the actual purchase date (not creation date) for Kardex accuracy
                 $movement->update(['movement_date' => $this->purchase_date]);
 
+                // Update average cost before incrementing stock
+                $product->updateAverageCost((float) $item->quantity, (float) $item->unit_cost);
+
                 // Update stock
                 $product->increment('current_stock', $item->quantity);
-                
-                // Optionally update purchase price if different
-                if ($item->unit_cost != $product->purchase_price) {
-                    $product->update(['purchase_price' => $item->unit_cost]);
-                }
             }
         }
 

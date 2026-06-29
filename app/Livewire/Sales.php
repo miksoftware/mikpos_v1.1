@@ -944,6 +944,21 @@ class Sales extends Component
 
         // Replicate items and update stock
         foreach ($originalSale->items as $item) {
+            $unitCost = 0;
+            $product = null;
+
+            if ($item->product_id) {
+                $product = Product::find($item->product_id);
+                if ($product) {
+                    if ($item->product_child_id) {
+                        $child = ProductChild::find($item->product_child_id);
+                        $unitCost = $child ? $child->getAverageCost() : 0;
+                    } else {
+                        $unitCost = $product->average_cost > 0 ? $product->average_cost : $product->purchase_price;
+                    }
+                }
+            }
+
             SaleItem::create([
                 'sale_id' => $newSale->id,
                 'product_id' => $item->product_id,
@@ -953,6 +968,7 @@ class Sales extends Component
                 'product_name' => $item->product_name,
                 'product_sku' => $item->product_sku,
                 'unit_price' => $item->unit_price,
+                'unit_cost' => $unitCost,
                 'quantity' => $item->quantity,
                 'tax_rate' => $item->tax_rate,
                 'tax_amount' => $item->tax_amount,
@@ -965,17 +981,14 @@ class Sales extends Component
             ]);
 
             // Decrement stock for products
-            if ($item->product_id) {
-                $product = Product::find($item->product_id);
-                if ($product) {
-                    InventoryMovement::createMovement(
-                        'sale', $product, 'out', (float) $item->quantity,
-                        (float) $item->unit_price,
-                        "Venta #{$newSale->invoice_number} (replicada de {$originalSale->invoice_number})",
-                        $newSale, $originalSale->branch_id
-                    );
-                    $product->decrement('current_stock', (float) $item->quantity);
-                }
+            if ($product) {
+                InventoryMovement::createMovement(
+                    'sale', $product, 'out', (float) $item->quantity,
+                    (float) $item->unit_price,
+                    "Venta #{$newSale->invoice_number} (replicada de {$originalSale->invoice_number})",
+                    $newSale, $originalSale->branch_id
+                );
+                $product->decrement('current_stock', (float) $item->quantity);
             }
 
             // Handle combo stock
