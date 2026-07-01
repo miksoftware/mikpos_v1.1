@@ -46,14 +46,17 @@ return new class extends Migration
             }
 
             // Assign to super_admin (assuming role_id = 1)
-            $existingRolePerm = DB::table('role_permission')->where('permission_id', $id)->where('role_id', 1)->first();
-            if (!$existingRolePerm) {
-                DB::table('role_permission')->insert([
-                    'permission_id' => $id,
-                    'role_id' => 1,
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]);
+            $roleExists = DB::table('roles')->where('id', 1)->exists();
+            if ($roleExists) {
+                $existingRolePerm = DB::table('role_permission')->where('permission_id', $id)->where('role_id', 1)->first();
+                if (!$existingRolePerm) {
+                    DB::table('role_permission')->insert([
+                        'permission_id' => $id,
+                        'role_id' => 1,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
             }
         }
 

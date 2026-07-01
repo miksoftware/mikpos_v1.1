@@ -332,7 +332,7 @@
             <div class="cufe">{{ $sale->cufe }}</div>
             @if($sale->qr_code)
             <div class="qr-container">
-                <img src="{{ $sale->qr_code }}" alt="QR DIAN" onerror="this.style.display='none'">
+                <img src="https://quickchart.io/qr?text={{ urlencode($sale->qr_code) }}&size=150" alt="QR DIAN" onerror="this.style.display='none'">
             </div>
             @endif
         </div>

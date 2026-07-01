@@ -26,6 +26,7 @@ class ProductsModuleSeeder extends Seeder
             ['name' => 'products.create', 'display_name' => 'Crear Productos'],
             ['name' => 'products.edit', 'display_name' => 'Editar Productos'],
             ['name' => 'products.delete', 'display_name' => 'Eliminar Productos'],
+            ['name' => 'products.manage_types', 'display_name' => 'Gestionar Tipos de Producto'],
         ];
 
         foreach ($permissions as $permissionData) {

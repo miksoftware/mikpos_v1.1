@@ -11,7 +11,7 @@ use App\Models\EcommerceOrder;
 use App\Models\Product;
 use App\Models\InventoryMovement;
 use App\Services\EcommerceCheckoutService;
-use App\Services\FactusService;
+use App\Services\FactusV2Service;
 use App\Services\ActivityLogService;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -466,7 +466,7 @@ class EcommerceOrders extends Component
 
             // PROCESS ELECTRONIC INVOICE (DIAN/FACTUS)
             // If the customer has electronic invoicing data or it's enabled globally
-            $factusService = new FactusService();
+            $factusService = new FactusV2Service();
             if ($factusService->isEnabled()) {
                 try {
                     $factusService->createInvoice($sale->fresh());

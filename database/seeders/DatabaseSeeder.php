@@ -26,6 +26,48 @@ class DatabaseSeeder extends Seeder
         $this->call(TaxDocumentsSeeder::class);
         $this->call(SystemDocumentsSeeder::class);
 
+        // Run all modular feature and permission seeders
+        $this->call(BillingSettingsModuleSeeder::class);
+        $this->call(CashReconciliationEditPermissionSeeder::class);
+        $this->call(CashReconciliationsModuleSeeder::class);
+        $this->call(CashRegistersModuleSeeder::class);
+        $this->call(CashReportPermissionSeeder::class);
+        $this->call(CombosModuleSeeder::class);
+        $this->call(CommissionsReportPermissionSeeder::class);
+        $this->call(CreditsModuleSeeder::class);
+        $this->call(CreditsReportPermissionSeeder::class);
+        $this->call(CustomerModuleSeeder::class);
+        $this->call(CustomerSalesReportPermissionSeeder::class);
+        $this->call(DiscountsModuleSeeder::class);
+        $this->call(EcommerceModuleSeeder::class);
+        $this->call(EcommerceOrdersModuleSeeder::class);
+        $this->call(EcommerceSystemDocumentSeeder::class);
+        $this->call(ExpensesModuleSeeder::class);
+        $this->call(InventoryAdjustmentsModuleSeeder::class);
+        $this->call(InventoryTransfersModuleSeeder::class);
+        $this->call(KardexReportPermissionSeeder::class);
+        $this->call(MigrationModuleSeeder::class);
+        $this->call(PaymentMethodsReportPermissionSeeder::class);
+        $this->call(PayrollModuleSeeder::class);
+        $this->call(PosCashDenominationsRoleSeeder::class);
+        $this->call(PrintFormatsModuleSeeder::class);
+        $this->call(ProductCatalogPermissionsSeeder::class);
+        $this->call(ProductsModuleSeeder::class);
+        $this->call(ProfitLossReportPermissionSeeder::class);
+        $this->call(PromotionsModuleSeeder::class);
+        $this->call(PurchasesModuleSeeder::class);
+        $this->call(PurchasesReportPermissionSeeder::class);
+        $this->call(QuotesModuleSeeder::class);
+        $this->call(RefundsReportPermissionSeeder::class);
+        $this->call(RefundSystemDocumentSeeder::class);
+        $this->call(ReportsModuleSeeder::class);
+        $this->call(SalesBookReportPermissionSeeder::class);
+        $this->call(SalesModuleSeeder::class);
+        $this->call(SalesViewOwnPermissionSeeder::class);
+        $this->call(ServicesModuleSeeder::class);
+        $this->call(SupplierModuleSeeder::class);
+        $this->call(ProductionModuleSeeder::class);
+
         // Create test branches
         $mainBranch = Branch::create([
             'code' => 'SUC001',

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Exception;
 
-class FactusService
+class FactusV2Service
 {
     protected BillingSetting $settings;
     protected string $baseUrl;
@@ -138,7 +138,7 @@ class FactusService
 
         $response = Http::withToken($token)
             ->acceptJson()
-            ->post($this->baseUrl . '/v1/bills/validate', $payload);
+            ->post($this->baseUrl . '/v2/bills/validate', $payload);
 
         $responseData = $response->json();
         
@@ -160,24 +160,21 @@ class FactusService
         }
 
         // Update sale with DIAN response
-        $billData = $responseData['data']['bill'] ?? [];
+        $billData = $responseData['data'] ?? [];
         
         $sale->update([
             'is_electronic' => true,
             'cufe' => $billData['cufe'] ?? null,
-            'qr_code' => $billData['qr_image'] ?? null, // Use qr_image (base64) instead of qr (URL)
-            'dian_public_url' => $billData['public_url'] ?? null, // URL to view/download PDF
+            'qr_code' => $billData['links']['qr'] ?? null,
+            'dian_public_url' => $billData['links']['public_url'] ?? null,
             'dian_number' => $billData['number'] ?? null,
-            'dian_validated_at' => isset($billData['validated']) ? now() : null,
+            'dian_validated_at' => isset($billData['is_validated']) && $billData['is_validated'] ? now() : null,
             'dian_response' => $responseData,
         ]);
 
         return $responseData;
     }
 
-    /**
-     * Build the invoice payload for Factus API.
-     */
     protected function buildInvoicePayload(Sale $sale): array
     {
         $customer = $sale->customer;
@@ -225,20 +222,16 @@ class FactusService
             'document' => '01', // Factura electrónica de venta
             'reference_code' => $referenceCode,
             'observation' => $sale->notes ?? '',
-            'payment_method_code' => $paymentMethodCode,
-            'payment_form' => $paymentForm, // Must be string, not array
+            'payment_details' => [
+                [
+                    'payment_form' => $paymentForm,
+                    'payment_method_code' => $paymentMethodCode,
+                    'reference_code' => 'PAGO-' . $sale->id,
+                    'amount' => number_format($sale->total, 2, '.', ''),
+                ]
+            ],
+            'cash_rounding_amount' => '0.00',
         ];
-
-        // Add establishment info if branch has municipality
-        if ($branch->municipality_id) {
-            $payload['establishment'] = [
-                'name' => $branch->name,
-                'address' => $branch->address ?? '',
-                'phone_number' => $branch->phone ?? '',
-                'email' => $branch->email ?? '',
-                'municipality_id' => $branch->municipality_id,
-            ];
-        }
 
         // Customer data
         $payload['customer'] = $this->buildCustomerData($customer);
@@ -249,29 +242,49 @@ class FactusService
         return $payload;
     }
 
-    /**
-     * Build customer data for Factus API.
-     */
     protected function buildCustomerData(Customer $customer): array
     {
+        $dianCode = $customer->taxDocument?->dian_code ?? '13';
+        
+        // Map old v1 DIAN codes to v2 DIAN codes if necessary
+        $docMapping = [
+            '1' => '11', // Registro Civil
+            '2' => '12', // Tarjeta de Identidad
+            '3' => '13', // Cédula de Ciudadanía
+            '4' => '21', // Tarjeta de Extranjería
+            '5' => '22', // Cédula de Extranjería
+            '6' => '31', // NIT
+            '7' => '41', // Pasaporte
+            '8' => '42', // Documento Identificación Extranjero
+        ];
+        
+        if (isset($docMapping[$dianCode])) {
+            $dianCode = $docMapping[$dianCode];
+        }
+
         $data = [
             'identification' => $customer->document_number,
-            'identification_document_id' => (int) ($customer->taxDocument?->dian_code ?? 3), // Default: CC
-            'legal_organization_id' => $customer->customer_type === 'juridico' ? 1 : 2, // 1: Persona Jurídica, 2: Persona Natural
-            'tribute_id' => 21, // ZZ - No aplica (for most retail customers)
+            'identification_document_code' => (string) $dianCode,
+            'legal_organization_code' => $customer->customer_type === 'juridico' ? '1' : '2',
+            'tribute_code' => 'ZZ', // ZZ - No aplica
+            'country_code' => 'CO', // Colombia
         ];
 
         // Add DV for NIT
-        if ($customer->taxDocument?->dian_code === '6') {
-            $data['dv'] = $this->calculateDV($customer->document_number);
+        if ($dianCode === '31') {
+            $data['dv'] = (string) $this->calculateDV($customer->document_number);
         }
 
         // Names based on customer type
         if ($customer->customer_type === 'juridico') {
             $data['company'] = $customer->business_name ?? '';
             $data['trade_name'] = $customer->business_name ?? '';
+            $data['names'] = $customer->business_name ?? '';
         } else {
-            $data['names'] = trim($customer->first_name . ' ' . $customer->last_name);
+            $name = trim($customer->first_name . ' ' . $customer->last_name);
+            $data['company'] = $name;
+            $data['trade_name'] = $name;
+            $data['names'] = $name;
         }
 
         // Optional fields
@@ -285,41 +298,44 @@ class FactusService
             $data['phone'] = $customer->phone;
         }
         if ($customer->municipality_id) {
-            $data['municipality_id'] = $customer->municipality_id;
+            $data['municipality_code'] = (string) ($customer->municipality?->dian_code ?? '11001');
+        } else {
+            // Default to Bogota if empty, because it's usually required by API if missing
+            $data['municipality_code'] = '11001'; 
         }
 
         return $data;
     }
 
-    /**
-     * Build items data for Factus API.
-     */
     protected function buildItemsData(Sale $sale): array
     {
         $items = [];
 
-        // Only include items that are not marked as unavailable
         $availableItems = $sale->items()->where('is_unavailable', false)->get();
 
         foreach ($availableItems as $item) {
-            // unit_price is the base price (without tax)
-            // Factus expects price with tax included
             $taxRate = (float) $item->tax_rate;
-            $unitPriceWithTax = $item->unit_price * (1 + ($taxRate / 100));
+            // For v2, if standard invoice, price should be base (tax excluded if tax is added in taxes array).
+            // Let's assume unit_price is base price without tax.
+            $basePrice = $item->unit_price;
             
-            $items[] = [
+            $itemData = [
                 'code_reference' => $item->product_sku ?? (string) $item->product_id,
                 'name' => $item->product_name,
-                'quantity' => round((float) $item->quantity, 3),
-                'discount_rate' => 0, // No discount at item level for now
-                'price' => round($unitPriceWithTax, 2), // Unit price with tax included
-                'tax_rate' => number_format($taxRate, 2, '.', ''),
-                'unit_measure_id' => 70, // 70 = unidad (94 is the code, 70 is the ID)
-                'standard_code_id' => 1, // Estándar de adopción del contribuyente
-                'is_excluded' => $taxRate == 0 ? 1 : 0,
-                'tribute_id' => 1, // IVA
-                'withholding_taxes' => [],
+                'quantity' => number_format((float) $item->quantity, 2, '.', ''),
+                'discount_rate' => '0.00',
+                'price' => number_format($basePrice, 2, '.', ''),
+                'unit_measure_code' => '94', // 94 = unidad
+                'standard_code' => '999', // Estándar de adopción del contribuyente
+                'taxes' => [
+                    [
+                        'code' => '01', // IVA
+                        'rate' => number_format($taxRate, 2, '.', '')
+                    ]
+                ]
             ];
+
+            $items[] = $itemData;
         }
 
         return $items;
@@ -363,7 +379,7 @@ class FactusService
             
             $response = Http::withToken($token)
                 ->acceptJson()
-                ->get($this->baseUrl . '/v1/bills/' . $sale->dian_number . '/download-pdf');
+                ->get($this->baseUrl . '/v2/bills/' . $sale->dian_number . '/download-pdf');
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -390,7 +406,7 @@ class FactusService
             
             $response = Http::withToken($token)
                 ->acceptJson()
-                ->get($this->baseUrl . '/v1/bills/reference/' . $sale->reference_code);
+                ->get($this->baseUrl . '/v2/bills/reference/' . $sale->reference_code);
 
             if ($response->successful()) {
                 return $response->json();
@@ -423,7 +439,7 @@ class FactusService
 
         $response = Http::withToken($token)
             ->acceptJson()
-            ->post($this->baseUrl . '/v1/credit-notes/validate', $payload);
+            ->post($this->baseUrl . '/v2/credit-notes/validate', $payload);
 
         $responseData = $response->json();
         
@@ -443,13 +459,13 @@ class FactusService
         }
 
         // Update credit note with DIAN response
-        $noteData = $responseData['data']['credit_note'] ?? $responseData['data']['bill'] ?? [];
+        $noteData = $responseData['data'] ?? [];
         
         $creditNote->update([
             'status' => 'validated',
-            'cufe' => $noteData['cufe'] ?? null,
-            'qr_code' => $noteData['qr_image'] ?? null,
-            'dian_public_url' => $noteData['public_url'] ?? null,
+            'cufe' => $noteData['cude'] ?? $noteData['cufe'] ?? null,
+            'qr_code' => $noteData['links']['qr'] ?? null,
+            'dian_public_url' => $noteData['links']['public_url'] ?? null,
             'dian_number' => $noteData['number'] ?? null,
             'dian_validated_at' => now(),
             'dian_response' => $responseData,
@@ -475,28 +491,23 @@ class FactusService
             'document' => '91', // Nota crédito electrónica
             'reference_code' => $referenceCode,
             'observation' => $creditNote->reason,
-            'payment_method_code' => '10', // Default to cash for credit notes
-            'payment_form' => '1',
-            // Reference to original invoice
-            'numbering_range_id' => null, // Will use default
-            'bill_reference' => [
-                'number' => $sale->dian_number,
-                'cufe' => $sale->cufe,
-                'issue_date' => $sale->dian_validated_at?->format('Y-m-d') ?? $sale->created_at->format('Y-m-d'),
+            'payment_details' => [
+                [
+                    'payment_form' => '1',
+                    'payment_method_code' => '10', // Default to cash for credit notes
+                    'reference_code' => 'PAGO-NC-' . $creditNote->id,
+                    'amount' => number_format($creditNote->total, 2, '.', ''),
+                ]
             ],
+            // Reference to original invoice
+            'numbering_range_id' => $this->getCreditNoteNumberingRangeId(),
+            'bill_number' => $sale->dian_number,
             'correction_concept_code' => $creditNote->correction_concept_code,
         ];
 
         // Add establishment info if branch has municipality
-        if ($branch->municipality_id) {
-            $payload['establishment'] = [
-                'name' => $branch->name,
-                'address' => $branch->address ?? '',
-                'phone_number' => $branch->phone ?? '',
-                'email' => $branch->email ?? '',
-                'municipality_id' => $branch->municipality_id,
-            ];
-        }
+        // Factus API might not require establishment but if so, the v2 format is just `establishment` object.
+        // We will omit it for now as the required data is usually minimal.
 
         // Customer data (same as original invoice)
         $payload['customer'] = $this->buildCustomerData($customer);
@@ -516,21 +527,25 @@ class FactusService
 
         foreach ($creditNote->items as $item) {
             $taxRate = (float) $item->tax_rate;
-            $unitPriceWithTax = $item->unit_price * (1 + ($taxRate / 100));
+            $basePrice = $item->unit_price;
             
-            $items[] = [
+            $itemData = [
                 'code_reference' => $item->product_sku ?? (string) $item->product_id,
                 'name' => $item->product_name,
-                'quantity' => round((float) $item->quantity, 3),
-                'discount_rate' => 0,
-                'price' => round($unitPriceWithTax, 2),
-                'tax_rate' => number_format($taxRate, 2, '.', ''),
-                'unit_measure_id' => 70,
-                'standard_code_id' => 1,
-                'is_excluded' => $taxRate == 0 ? 1 : 0,
-                'tribute_id' => 1,
-                'withholding_taxes' => [],
+                'quantity' => number_format((float) $item->quantity, 2, '.', ''),
+                'discount_rate' => '0.00',
+                'price' => number_format($basePrice, 2, '.', ''),
+                'unit_measure_code' => '94',
+                'standard_code' => '999',
+                'taxes' => [
+                    [
+                        'code' => '01',
+                        'rate' => number_format($taxRate, 2, '.', '')
+                    ]
+                ]
             ];
+
+            $items[] = $itemData;
         }
 
         return $items;
@@ -550,7 +565,7 @@ class FactusService
             
             $response = Http::withToken($token)
                 ->acceptJson()
-                ->get($this->baseUrl . '/v1/credit-notes/' . $creditNote->dian_number . '/download-pdf');
+                ->get($this->baseUrl . '/v2/credit-notes/' . $creditNote->dian_number . '/download-pdf');
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -561,5 +576,23 @@ class FactusService
         }
 
         return null;
+    }
+
+    protected function getCreditNoteNumberingRangeId()
+    {
+        return \Illuminate\Support\Facades\Cache::remember('factus_credit_note_range_id', 3600, function () {
+            $token = $this->getAccessToken();
+            $response = \Illuminate\Support\Facades\Http::withToken($token)->get($this->baseUrl . '/v2/numbering-ranges');
+            if ($response->successful()) {
+                $ranges = $response->json()['data']['data'] ?? [];
+                foreach ($ranges as $range) {
+                    // Look for active credit note range
+                    if ($range['is_active'] && stripos($range['document'], 'crédito') !== false) {
+                        return $range['id'];
+                    }
+                }
+            }
+            throw new \Exception("No se encontró un rango de numeración activo para Notas Crédito en Factus.");
+        });
     }
 }

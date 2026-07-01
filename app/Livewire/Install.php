@@ -289,6 +289,28 @@ class Install extends Component
             $this->updateStatus('Configurando reporte de créditos...', 93);
             Artisan::call('db:seed', ['--class' => 'CreditsReportPermissionSeeder', '--force' => true]);
 
+            $this->updateStatus('Configurando modulos adicionales...', 94);
+            Artisan::call('db:seed', ['--class' => 'CashReconciliationEditPermissionSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'CashReportPermissionSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'CustomerSalesReportPermissionSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'DiscountsModuleSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'EcommerceModuleSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'EcommerceOrdersModuleSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'EcommerceSystemDocumentSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'ExpensesModuleSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'MigrationModuleSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'PaymentMethodsReportPermissionSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'PayrollModuleSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'PosCashDenominationsRoleSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'PrintFormatsModuleSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'PromotionsModuleSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'PurchasesReportPermissionSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'QuotesModuleSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'RefundsReportPermissionSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'RefundSystemDocumentSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'SalesViewOwnPermissionSeeder', '--force' => true]);
+            Artisan::call('db:seed', ['--class' => 'ProductionModuleSeeder', '--force' => true]);
+
             // Mark all seeders as executed so db:seed-pending won't re-run them
             Artisan::call('db:seed-mark-executed', ['--all' => true]);
 

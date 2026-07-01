@@ -25,7 +25,7 @@ use App\Models\InventoryMovement;
 use App\Models\PrintFormatSetting;
 use App\Models\Quote;
 use App\Services\ActivityLogService;
-use App\Services\FactusService;
+use App\Services\FactusV2Service;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Layout;
@@ -1906,7 +1906,7 @@ class PointOfSale extends Component
         ];
 
         try {
-            $factusService = new FactusService();
+            $factusService = new FactusV2Service();
             
             if (!$factusService->isEnabled()) {
                 return $result;

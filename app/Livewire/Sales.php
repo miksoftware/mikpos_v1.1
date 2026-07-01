@@ -18,7 +18,7 @@ use App\Models\Customer;
 use App\Models\PaymentMethod;
 use App\Models\SaleItem;
 use App\Models\SalePayment;
-use App\Services\FactusService;
+use App\Services\FactusV2Service;
 use App\Services\ActivityLogService;
 use App\Services\EcommerceCheckoutService;
 use Livewire\Attributes\Layout;
@@ -161,7 +161,6 @@ class Sales extends Component
         ]);
 
         ActivityLogService::logCreate('sales', $sale, "Visualización de factura electrónica: {$sale->dian_number}");
-        $this->dispatch('open-url', url: $sale->dian_public_url);
     }
 
     public function viewReprints($saleId)
@@ -400,7 +399,7 @@ class Sales extends Component
             }
 
             // Send to DIAN via Factus
-            $factusService = new FactusService();
+            $factusService = new FactusV2Service();
             
             if ($factusService->isEnabled()) {
                 try {
@@ -453,7 +452,7 @@ class Sales extends Component
         }
 
         try {
-            $factusService = new FactusService();
+            $factusService = new FactusV2Service();
             
             if (!$factusService->isEnabled()) {
                 $this->dispatch('notify', message: 'Facturación electrónica no está habilitada', type: 'error');
@@ -1051,7 +1050,7 @@ class Sales extends Component
 
         // Process electronic invoice if the original was electronic
         if ($originalSale->is_electronic) {
-            $factusService = new FactusService();
+            $factusService = new FactusV2Service();
             if ($factusService->isEnabled()) {
                 try {
                     $factusService->createInvoice($newSale);
@@ -1350,7 +1349,7 @@ class Sales extends Component
         $this->isRetrying = true;
 
         try {
-            $factusService = new FactusService();
+            $factusService = new FactusV2Service();
             if (!$factusService->isEnabled()) {
                 $this->dispatch('notify', message: 'Facturación electrónica no está habilitada', type: 'error');
                 $this->isRetrying = false;

@@ -358,7 +358,7 @@
                                     <div class="text-right">
                                         <p class="font-bold text-amber-800">-${{ number_format($cn->total, 0, ',', '.') }}</p>
                                         @if($cn->dian_public_url)
-                                        <button wire:click="viewCreditNotePdf({{ $cn->id }})" class="text-xs text-amber-600 hover:text-amber-800">Ver PDF</button>
+                                        <a href="{{ $cn->dian_public_url }}" target="_blank" class="text-xs text-amber-600 hover:text-amber-800 inline-block px-2 py-1">Ver PDF</a>
                                         @endif
                                     </div>
                                 </div>
@@ -417,10 +417,10 @@
                                 Reimprimir
                             </button>
                             @if($selectedSale->is_electronic && $selectedSale->cufe && $selectedSale->dian_public_url)
-                            <button wire:click="viewElectronicPdf({{ $selectedSale->id }})" class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100">
+                            <a href="{{ $selectedSale->dian_public_url }}" target="_blank" wire:click="viewElectronicPdf({{ $selectedSale->id }})" class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
                                 PDF DIAN
-                            </button>
+                            </a>
                             <button wire:click="openCreditNoteModal({{ $selectedSale->id }})" class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"></path></svg>
                                 Nota Crédito
