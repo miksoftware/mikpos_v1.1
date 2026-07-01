@@ -91,7 +91,10 @@ class CashRegisters extends Component
     private function loadUsersForBranch($branchId)
     {
         if ($branchId) {
-            $this->users = User::where('branch_id', $branchId)
+            $this->users = User::where(function($query) use ($branchId) {
+                    $query->where('branch_id', $branchId)
+                          ->orWhereNull('branch_id');
+                })
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get();
