@@ -425,6 +425,7 @@ class PointOfSale extends Component
                     ->where('is_active', true)
                     ->whereHas('product', function ($q) {
                         $q->where('is_active', true)
+                          ->where('show_in_pos', true)
                           ->forBranch($this->branchId);
                     })
                     ->first();
@@ -441,6 +442,7 @@ class PointOfSale extends Component
             if ($barcodeRecord->product_id) {
                 $product = Product::where('id', $barcodeRecord->product_id)
                     ->where('is_active', true)
+                    ->where('show_in_pos', true)
                     ->forBranch($this->branchId)
                     ->with(['children' => function ($q) {
                         $q->where('is_active', true);
@@ -469,6 +471,7 @@ class PointOfSale extends Component
             ->where('is_active', true)
             ->whereHas('product', function ($q) {
                 $q->where('is_active', true)
+                  ->where('show_in_pos', true)
                   ->forBranch($this->branchId);
             })
             ->first();
@@ -482,6 +485,7 @@ class PointOfSale extends Component
 
         $product = Product::where(DB::raw('LOWER(barcode)'), strtolower($barcode))
             ->where('is_active', true)
+            ->where('show_in_pos', true)
             ->forBranch($this->branchId)
             ->with(['children' => function ($q) {
                 $q->where('is_active', true);
@@ -2147,6 +2151,7 @@ class PointOfSale extends Component
                 $q->where('is_active', true);
             }])
             ->where('is_active', true)
+            ->where('show_in_pos', true)
             ->where(function ($q) {
                 $q->where('manages_inventory', false)
                   ->orWhere('current_stock', '>', 0);

@@ -12,7 +12,12 @@ class Product extends Model
 {
     use HasFactory;
 
+    public const TYPE_STANDARD = 'standard';
+    public const TYPE_RAW_MATERIAL = 'raw_material';
+    public const TYPE_FINISHED_PRODUCT = 'finished_product';
+
     protected $fillable = [
+        'type',
         'branch_id',
         'sku',
         'barcode',
@@ -40,6 +45,7 @@ class Product extends Model
         'is_active',
         'manages_inventory',
         'show_in_shop',
+        'show_in_pos',
         'has_commission',
         'commission_type',
         'commission_value',
@@ -52,6 +58,7 @@ class Product extends Model
             'is_active' => 'boolean',
             'manages_inventory' => 'boolean',
             'show_in_shop' => 'boolean',
+            'show_in_pos' => 'boolean',
             'price_includes_tax' => 'boolean',
             'has_commission' => 'boolean',
             'purchase_price' => 'decimal:2',
@@ -155,6 +162,21 @@ class Product extends Model
         return $query->where('is_active', true);
     }
 
+    public function scopeRawMaterials(Builder $query): Builder
+    {
+        return $query->where('type', self::TYPE_RAW_MATERIAL);
+    }
+
+    public function scopeFinishedProducts(Builder $query): Builder
+    {
+        return $query->where('type', self::TYPE_FINISHED_PRODUCT);
+    }
+
+    public function scopeStandard(Builder $query): Builder
+    {
+        return $query->where('type', self::TYPE_STANDARD);
+    }
+
     /**
      * Scope to filter products by branch.
      * If user has a branch, filter by that branch.
@@ -175,6 +197,7 @@ class Product extends Model
     public function scopeForPosSearch(Builder $query): Builder
     {
         return $query->where('is_active', true)
+            ->where('type', '!=', self::TYPE_RAW_MATERIAL)
             ->whereHas('children', function (Builder $q) {
                 $q->where('is_active', true);
             });

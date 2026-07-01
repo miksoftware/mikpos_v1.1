@@ -444,6 +444,56 @@
 </div>
 @endif
 
+<!-- Producción Section -->
+@if (auth()->user()->hasPermission('recipes.view') || auth()->user()->hasPermission('production.view'))
+@if($mobile)
+<div class="{{ $sectionClass }}">
+    <p class="{{ $labelClass }}">Producción</p>
+    @if (auth()->user()->hasPermission('recipes.view'))
+    <a href="{{ route('recipes') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('recipes') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+        <span>Recetas / BOM</span>
+    </a>
+    @endif
+    @if (auth()->user()->hasPermission('production.view'))
+    <a href="{{ route('production.index') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('production.*') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        <span>Órdenes de Producción</span>
+    </a>
+    @endif
+</div>
+@else
+<div x-data="{ produccionOpen: {{ request()->routeIs('recipes') || request()->routeIs('production.*') ? 'true' : 'false' }} }">
+    <button @click="produccionOpen = !produccionOpen"
+        class="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-slate-400 hover:bg-white/5 hover:text-white">
+        <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 flex-shrink-0 group-hover:text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+            </svg>
+            <span x-show="sidebarOpen" class="font-medium">Producción</span>
+        </div>
+        <svg x-show="sidebarOpen" class="w-4 h-4 transition-transform duration-200" :class="produccionOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+        </svg>
+    </button>
+    <div x-show="produccionOpen && sidebarOpen" x-collapse class="{{ $sectionClass }}">
+        @if (auth()->user()->hasPermission('recipes.view'))
+        <a href="{{ route('recipes') }}" class="{{ $linkClass }} {{ request()->routeIs('recipes') ? $activeClass : $inactiveClass }}">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+            <span class="text-sm">Recetas / BOM</span>
+        </a>
+        @endif
+        @if (auth()->user()->hasPermission('production.view'))
+        <a href="{{ route('production.index') }}" class="{{ $linkClass }} {{ request()->routeIs('production.*') ? $activeClass : $inactiveClass }}">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            <span class="text-sm">Órdenes de Producción</span>
+        </a>
+        @endif
+    </div>
+</div>
+@endif
+@endif
+
 <!-- Nómina Section -->
 @if (auth()->user()->hasPermission('employees.view') || auth()->user()->hasPermission('payrolls.view'))
 @if($mobile)

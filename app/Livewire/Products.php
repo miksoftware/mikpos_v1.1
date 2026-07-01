@@ -34,6 +34,7 @@ class Products extends Component
     public string $search = '';
     public ?int $filterCategory = null;
     public ?int $filterBrand = null;
+    public ?string $filterType = null;
     public ?string $filterStatus = null;
     public ?string $filterBranch = null;
     public ?string $filterHasVariants = null;
@@ -58,6 +59,7 @@ class Products extends Component
     public ?int $branch_id = null;
     public ?string $sku = null;
     public ?string $barcode = null;
+    public ?string $type = 'standard';
     public string $name = '';
     public ?string $description = null;
     public ?int $category_id = null;
@@ -76,6 +78,7 @@ class Products extends Component
     public bool $is_active = true;
     public bool $manages_inventory = true;
     public bool $show_in_shop = true;
+    public bool $show_in_pos = true;
     public bool $has_commission = false;
     public ?string $commission_type = 'percentage';
     public ?float $commission_value = null;
@@ -108,6 +111,7 @@ class Products extends Component
     public ?string $childImei = null;
     public bool $childIsActive = true;
     public bool $childShowInShop = true;
+    public bool $childShowInPos = true;
     public bool $childHasCommission = false;
     public ?string $childCommissionType = 'percentage';
     public ?float $childCommissionValue = null;
@@ -184,6 +188,11 @@ class Products extends Component
     }
 
     public function updatedFilterBrand()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterType()
     {
         $this->resetPage();
     }
@@ -280,6 +289,7 @@ class Products extends Component
             })
             ->when($this->filterCategory, fn($q) => $q->where('category_id', $this->filterCategory))
             ->when($this->filterBrand, fn($q) => $q->where('brand_id', $this->filterBrand))
+            ->when($this->filterType, fn($q) => $q->where('type', $this->filterType))
             ->when($this->filterStatus !== null && $this->filterStatus !== '', function ($q) {
                 $q->where('is_active', $this->filterStatus === '1');
             })
@@ -373,6 +383,7 @@ class Products extends Component
         
         $this->itemId = $item->id;
         $this->branch_id = $item->branch_id;
+        $this->type = $item->type;
         $this->sku = $item->sku;
         $this->barcode = $item->barcode;
         $this->name = $item->name;
@@ -393,6 +404,7 @@ class Products extends Component
         $this->is_active = $item->is_active;
         $this->manages_inventory = $item->manages_inventory;
         $this->show_in_shop = $item->show_in_shop;
+        $this->show_in_pos = $item->show_in_pos;
         
         // Load configurable fields
         $this->presentation_id = $item->presentation_id;
@@ -453,6 +465,7 @@ class Products extends Component
 
         $item = Product::updateOrCreate(['id' => $this->itemId], [
             'branch_id' => $branchId,
+            'type' => $this->type ?? 'standard',
             'barcode' => $this->barcode ?: null,
             'name' => mb_strtoupper($this->name),
             'description' => $this->description ? mb_strtoupper($this->description) : null,
@@ -471,6 +484,7 @@ class Products extends Component
             'is_active' => $this->is_active,
             'manages_inventory' => $this->manages_inventory,
             'show_in_shop' => $this->show_in_shop,
+            'show_in_pos' => $this->show_in_pos,
             'has_commission' => $this->has_commission,
             'commission_type' => $this->has_commission ? $this->commission_type : null,
             'commission_value' => $this->has_commission ? $this->commission_value : null,
@@ -784,6 +798,7 @@ class Products extends Component
         $this->childImei = $child->imei;
         $this->childIsActive = $child->is_active;
         $this->childShowInShop = $child->show_in_shop;
+        $this->childShowInPos = $child->show_in_pos;
         $this->childHasCommission = $child->has_commission;
         $this->childCommissionType = $child->commission_type ?? 'percentage';
         $this->childCommissionValue = $child->commission_value ? (float) $child->commission_value : null;
@@ -846,6 +861,7 @@ class Products extends Component
             'imei' => $this->childImei ?: null,
             'is_active' => $this->childIsActive,
             'show_in_shop' => $this->childShowInShop,
+            'show_in_pos' => $this->childShowInPos,
             'has_commission' => $this->childHasCommission,
             'commission_type' => $this->childHasCommission ? $this->childCommissionType : null,
             'commission_value' => $this->childHasCommission ? $this->childCommissionValue : null,
@@ -1015,6 +1031,7 @@ class Products extends Component
     private function buildParentValidationRules(): array
     {
         $rules = [
+            'type' => 'required|in:standard,raw_material,finished_product',
             'name' => 'required|min:2',
             'sku' => 'nullable|unique:products,sku,' . $this->itemId,
             'category_id' => 'required|exists:categories,id',
@@ -1252,6 +1269,7 @@ class Products extends Component
         $this->childImei = null;
         $this->childIsActive = true;
         $this->childShowInShop = true;
+        $this->childShowInPos = true;
         $this->childHasCommission = false;
         $this->childCommissionType = 'percentage';
         $this->childCommissionValue = null;
@@ -1307,6 +1325,7 @@ class Products extends Component
     {
         $this->itemId = null;
         $this->branch_id = null;
+        $this->type = 'standard';
         $this->sku = null;
         $this->barcode = null;
         $this->name = '';
@@ -1327,6 +1346,7 @@ class Products extends Component
         $this->is_active = true;
         $this->manages_inventory = true;
         $this->show_in_shop = true;
+        $this->show_in_pos = true;
         $this->has_commission = false;
         $this->commission_type = 'percentage';
         $this->commission_value = null;

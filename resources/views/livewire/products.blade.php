@@ -60,6 +60,12 @@
                         <option value="{{ $brand->id }}">{{ $brand->name }}</option>
                         @endforeach
                     </select>
+                    <select wire:model.live="filterType" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[140px]">
+                        <option value="">Todos los tipos</option>
+                        <option value="standard">Estándar</option>
+                        <option value="raw_material">Insumo</option>
+                        <option value="finished_product">P. Terminado</option>
+                    </select>
                     <select wire:model.live="filterStatus" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[120px]">
                         <option value="">Todos</option>
                         <option value="1">Activos</option>
@@ -229,7 +235,14 @@
                                         </button>
                                         @endif
                                     </div>
-                                    <div class="text-sm text-slate-500">SKU: {{ $item->sku ?? 'Sin SKU' }}</div>
+                                    <div class="text-sm text-slate-500 flex items-center gap-2">
+                                        <span>SKU: {{ $item->sku ?? 'Sin SKU' }}</span>
+                                        @if($item->type === 'raw_material')
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">Insumo</span>
+                                        @elseif($item->type === 'finished_product')
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800">P. Terminado</span>
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
                         </td>
@@ -503,6 +516,26 @@
                                 Información Básica
                             </h4>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                @if(auth()->user()->hasPermission('products.manage_types'))
+                                <div class="sm:col-span-2">
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Tipo de Producto *</label>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <label class="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 transition-colors {{ $type === 'standard' ? 'border-[#ff7261] bg-orange-50/30' : 'border-slate-200' }}">
+                                            <input type="radio" wire:model.live="type" value="standard" class="text-[#ff7261] focus:ring-[#ff7261]">
+                                            <span class="text-sm font-medium text-slate-700">Estándar</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 transition-colors {{ $type === 'raw_material' ? 'border-[#ff7261] bg-orange-50/30' : 'border-slate-200' }}">
+                                            <input type="radio" wire:model.live="type" value="raw_material" class="text-[#ff7261] focus:ring-[#ff7261]">
+                                            <span class="text-sm font-medium text-slate-700">Insumo</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 transition-colors {{ $type === 'finished_product' ? 'border-[#ff7261] bg-orange-50/30' : 'border-slate-200' }}">
+                                            <input type="radio" wire:model.live="type" value="finished_product" class="text-[#ff7261] focus:ring-[#ff7261]">
+                                            <span class="text-sm font-medium text-slate-700">P. Terminado</span>
+                                        </label>
+                                    </div>
+                                    @error('type')<span class="text-red-500 text-sm mt-1 block">{{ $message }}</span>@enderror
+                                </div>
+                                @endif
                                 <div class="sm:col-span-2">
                                     <label class="block text-sm font-medium text-slate-700 mb-1">SKU <span class="text-slate-400 font-normal">(se genera automáticamente)</span></label>
                                     <input wire:model="sku" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: MED-00001">
@@ -814,16 +847,23 @@
                             @endif
                         </div>
                         @if($ecommerceEnabled)
-                        <div>
+                        <div class="space-y-4">
                             <label class="flex items-center gap-3 cursor-pointer" wire:click.prevent="$toggle('show_in_shop')">
                                 <div class="relative">
-                                    <div class="w-10 h-5 rounded-full transition-colors duration-200 {{ $show_in_shop ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7]' : 'bg-slate-300' }}">
-                                        <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 {{ $show_in_shop ? 'translate-x-5' : '' }}"></div>
-                                    </div>
+                                    <div class="w-10 h-5 rounded-full transition-colors duration-200 {{ $show_in_shop ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7]' : 'bg-slate-300' }}"></div>
+                                    <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 {{ $show_in_shop ? 'translate-x-5' : '' }}"></div>
                                 </div>
-                                <span class="text-sm font-medium text-slate-700">Mostrar en tienda en línea</span>
+                                <span class="text-sm font-medium text-slate-700">Visible en Tienda Virtual</span>
                             </label>
-                            <p class="text-xs text-slate-500 mt-1 ml-[52px]">Si se desactiva, el producto no aparecerá en la tienda en línea.</p>
+
+                            <label class="flex items-center gap-3 cursor-pointer" wire:click.prevent="$toggle('show_in_pos')">
+                                <div class="relative">
+                                    <div class="w-10 h-5 rounded-full transition-colors duration-200 {{ $show_in_pos ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7]' : 'bg-slate-300' }}"></div>
+                                    <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 {{ $show_in_pos ? 'translate-x-5' : '' }}"></div>
+                                </div>
+                                <span class="text-sm font-medium text-slate-700">Visible en POS</span>
+                            </label>
+                            <p class="text-xs text-slate-500 mt-1 ml-[52px]">Controla dónde se muestra este producto.</p>
                         </div>
                         @endif
                         <div>
@@ -1334,6 +1374,11 @@
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input wire:model="childShowInShop" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
                                 <span class="text-sm text-slate-700">Mostrar en tienda en línea</span>
+                            </label>
+                            
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input wire:model="childShowInPos" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                                <span class="text-sm text-slate-700">Mostrar en POS</span>
                             </label>
                             @endif
                         </div>

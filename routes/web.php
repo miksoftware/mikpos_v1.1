@@ -239,6 +239,19 @@ Route::middleware(['auth'])->group(function () {
         ->name('product-field-config')
         ->middleware('permission:product_field_config.view');
 
+    // Production Routes
+    Route::get('/recipes', App\Livewire\Recipes::class)
+        ->name('recipes')
+        ->middleware('permission:recipes.view');
+
+    Route::get('/production', App\Livewire\ProductionOrders::class)
+        ->name('production.index')
+        ->middleware('permission:production.view');
+
+    Route::get('/production/create', App\Livewire\ProductionCreate::class)
+        ->name('production.create')
+        ->middleware('permission:production.create');
+
     // Combos Management Routes
     Route::get('/combos', App\Livewire\Combos::class)
         ->name('combos')
