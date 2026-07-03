@@ -146,7 +146,7 @@ class Commissions extends Component
         }
 
         if ($this->selectedUserId) {
-            $query->where('sales.user_id', $this->selectedUserId);
+            $query->where('sales.seller_id', $this->selectedUserId);
         }
 
         if ($this->selectedCategoryId) {
@@ -229,7 +229,7 @@ class Commissions extends Component
         }
 
         if ($this->selectedUserId) {
-            $salesQuery->where('user_id', $this->selectedUserId);
+            $salesQuery->where('seller_id', $this->selectedUserId);
         }
 
         $this->totalTransactions = $salesQuery->count();
@@ -241,7 +241,7 @@ class Commissions extends Component
     private function getCommissionsByUser()
     {
         $items = $this->getBaseQuery()
-            ->join('users', 'sales.user_id', '=', 'users.id')
+            ->join('users', 'sales.seller_id', '=', 'users.id')
             ->select(
                 'users.id as user_id',
                 'users.name as user_name',
@@ -388,7 +388,7 @@ class Commissions extends Component
                 $join->on('categories.id', '=', DB::raw('COALESCE(products.category_id, services.category_id)'));
             })
             ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
-            ->where('sales.user_id', $userId)
+            ->where('sales.seller_id', $userId)
             ->select(
                 'sale_items.*',
                 'sales.invoice_number',

@@ -18,6 +18,7 @@ class Sale extends Model
         'cash_reconciliation_id',
         'customer_id',
         'user_id',
+        'seller_id',
         'invoice_number',
         'cufe',
         'qr_code',
@@ -83,6 +84,11 @@ class Sale extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function seller(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'seller_id');
     }
 
     public function items(): HasMany

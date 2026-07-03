@@ -39,6 +39,10 @@ class PointOfSale extends Component
     public $customerSearch = '';
     public $selectedCustomer = null;
     
+    // Seller
+    public $sellerId = null;
+    public $branchUsers = [];
+    
     // Create customer form
     public $showCreateCustomer = false;
     public $newCustomerType = 'natural';
@@ -158,6 +162,20 @@ class PointOfSale extends Component
         if ($quoteId) {
             $this->loadFromQuote((int) $quoteId);
         }
+
+        // Load branch users for seller dropdown
+        $this->branchUsers = \App\Models\User::where(function($query) use ($user) {
+                $query->where('branch_id', $this->branchId)
+                      ->orWhereNull('branch_id');
+            })
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+            
+        // Set default seller to current user
+        if (!$this->sellerId) {
+            $this->sellerId = $user->id;
+        }
     }
 
     /**
@@ -189,6 +207,9 @@ class PointOfSale extends Component
             $this->customerId = $quote->customer_id;
             $this->selectedCustomer = $quote->customer;
         }
+
+        // Set seller from quote creator
+        $this->sellerId = $quote->user_id;
 
         // Build cart from quote items
         $this->cart = [];
@@ -1682,6 +1703,7 @@ class PointOfSale extends Component
                 'cash_reconciliation_id' => $this->openReconciliation->id,
                 'customer_id' => $this->customerId,
                 'user_id' => auth()->id(),
+                'seller_id' => $this->sellerId ?: auth()->id(),
                 'invoice_number' => Sale::generateInvoiceNumber($this->branchId),
                 'subtotal' => $this->getSubtotalProperty(),
                 'tax_total' => $this->getTaxTotalProperty(),

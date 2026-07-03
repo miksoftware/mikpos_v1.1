@@ -293,6 +293,18 @@
                 @endif
             </div>
 
+            <!-- Seller Section -->
+            <div class="px-2 sm:px-4 py-2 border-b border-slate-200 bg-slate-50">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wider">Vendedor</label>
+                    <select wire:model="sellerId" class="text-xs sm:text-sm border-slate-300 rounded-lg shadow-sm focus:border-[#a855f7] focus:ring-[#a855f7] bg-white py-1.5 pl-3 pr-8">
+                        @foreach($branchUsers as $user)
+                            <option value="{{ $user->id }}">{{ $user->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+
             <!-- Cart Summary & Actions -->
             <div class="flex-shrink-0 border-t border-slate-200 bg-white p-2 sm:p-4 space-y-2 sm:space-y-3">
                 <div class="space-y-1 sm:space-y-2">
