@@ -400,8 +400,9 @@ class QuoteCreate extends Component
     }
 
     /**
-     * Add a product to cart. Quotes do NOT validate stock — quote may include
-     * any product regardless of current stock level.
+     * Add a product to cart.
+     * Validates that there is enough stock available before adding/incrementing.
+     * Stock = current_stock (already accounts for other quote reservations).
      */
     public function addToCart($productId, $childId = null): void
     {
@@ -427,9 +428,27 @@ class QuoteCreate extends Component
         $cartKey = $productId . '-' . ($childId ?? 'parent');
 
         if (isset($this->cart[$cartKey])) {
+            // Validate stock before incrementing
+            if ($product->manages_inventory) {
+                $currentInCart = (float) $this->cart[$cartKey]['quantity'];
+                $availableStock = (float) $product->current_stock;
+                if ($currentInCart >= $availableStock) {
+                    $this->dispatch('notify', message: "Sin stock disponible para \"{$product->name}\" (disponible: " . rtrim(rtrim(number_format($availableStock, 3), '0'), '.') . ')', type: 'error');
+                    return;
+                }
+            }
             $this->cart[$cartKey]['quantity']++;
             $this->updateCartItemTotals($cartKey);
         } else {
+            // Validate stock before adding new item
+            if ($product->manages_inventory) {
+                $availableStock = (float) $product->current_stock;
+                if ($availableStock <= 0) {
+                    $this->dispatch('notify', message: "Sin stock disponible para \"{$product->name}\"", type: 'error');
+                    return;
+                }
+            }
+
             $priceIncludesTax = $child ? $child->price_includes_tax : $product->price_includes_tax;
             $taxRate = $product->tax?->value ?? 0;
 
@@ -681,9 +700,37 @@ class QuoteCreate extends Component
         $cartKey = $productId . '-' . ($childId ?? 'parent');
 
         if (isset($this->cart[$cartKey])) {
+            // Validate stock before adding more quantity
+            if ($product->manages_inventory) {
+                $currentInCart = (float) $this->cart[$cartKey]['quantity'];
+                $availableStock = (float) $product->current_stock;
+                $newQty = round($currentInCart + $quantity, 3);
+                if ($newQty > $availableStock) {
+                    $remaining = round($availableStock - $currentInCart, 3);
+                    if ($remaining <= 0) {
+                        $this->dispatch('notify', message: "Sin stock disponible para \"{$product->name}\"", type: 'error');
+                        return;
+                    }
+                    $quantity = $remaining;
+                    $this->dispatch('notify', message: "Stock ajustado al máximo disponible: " . rtrim(rtrim(number_format($quantity, 3), '0'), '.'), type: 'warning');
+                }
+            }
             $this->cart[$cartKey]['quantity'] = round($this->cart[$cartKey]['quantity'] + $quantity, 3);
             $this->updateCartItemTotals($cartKey);
         } else {
+            // Validate stock for new item
+            if ($product->manages_inventory) {
+                $availableStock = (float) $product->current_stock;
+                if ($availableStock <= 0) {
+                    $this->dispatch('notify', message: "Sin stock disponible para \"{$product->name}\"", type: 'error');
+                    return;
+                }
+                if ($quantity > $availableStock) {
+                    $quantity = $availableStock;
+                    $this->dispatch('notify', message: "Stock ajustado al máximo disponible: " . rtrim(rtrim(number_format($quantity, 3), '0'), '.'), type: 'warning');
+                }
+            }
+
             $priceIncludesTax = $child ? $child->price_includes_tax : $product->price_includes_tax;
             $taxRate = $product->tax?->value ?? 0;
 
@@ -826,10 +873,24 @@ class QuoteCreate extends Component
 
     public function incrementQuantity($cartKey): void
     {
-        if (isset($this->cart[$cartKey])) {
-            $this->cart[$cartKey]['quantity']++;
-            $this->updateCartItemTotals($cartKey);
+        if (!isset($this->cart[$cartKey])) return;
+
+        $item = $this->cart[$cartKey];
+
+        // Validate stock for products that manage inventory
+        if (!empty($item['product_id']) && empty($item['service_id']) && empty($item['combo_id'])) {
+            $product = Product::find($item['product_id']);
+            if ($product && $product->manages_inventory) {
+                $availableStock = (float) $product->current_stock;
+                if ((float) $item['quantity'] >= $availableStock) {
+                    $this->dispatch('notify', message: "Sin stock disponible para \"{$item['name']}\" (disponible: " . rtrim(rtrim(number_format($availableStock, 3), '0'), '.') . ')', type: 'error');
+                    return;
+                }
+            }
         }
+
+        $this->cart[$cartKey]['quantity']++;
+        $this->updateCartItemTotals($cartKey);
     }
 
     public function decrementQuantity($cartKey): void
@@ -1163,6 +1224,9 @@ class QuoteCreate extends Component
             }
 
             DB::commit();
+
+            // Reserve inventory for product items (decrements stock so other quotes/sales reflect real availability)
+            $quote->reserveInventory();
 
             ActivityLogService::logCreate(
                 'quotes',

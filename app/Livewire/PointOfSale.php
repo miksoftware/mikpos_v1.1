@@ -1722,6 +1722,19 @@ class PointOfSale extends Component
             ]);
             
             // Create sale items and update stock
+            // When converting a quote that reserved inventory, the stock was already decremented
+            // by the quote reservation — do NOT decrement again. Only create the 'sale' inventory
+            // movement for traceability (without touching current_stock).
+            $isFromReservedQuote = false;
+            if ($this->fromQuoteId) {
+                $quoteForConversion = \App\Models\Quote::find($this->fromQuoteId);
+                if ($quoteForConversion && $quoteForConversion->reserves_inventory) {
+                    $isFromReservedQuote = true;
+                    // Mark the quote reservation as released (replaced by the sale movement)
+                    $quoteForConversion->update(['reserves_inventory' => false]);
+                }
+            }
+
             foreach ($this->cart as $item) {
                 $unitCost = 0;
                 $product = null;
@@ -1773,8 +1786,10 @@ class PointOfSale extends Component
                             $this->branchId
                         );
 
-                        // Update stock
-                        $product->decrement('current_stock', $item['quantity']);
+                        // Update stock — skip if coming from a reserved quote (already decremented)
+                        if (!$isFromReservedQuote) {
+                            $product->decrement('current_stock', $item['quantity']);
+                        }
                     }
 
                 // Handle combo stock: decrement each product in the combo

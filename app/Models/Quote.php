@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Quote extends Model
 {
@@ -27,6 +28,7 @@ class Quote extends Model
         'global_discount_amount',
         'global_discount_reason',
         'status',
+        'reserves_inventory',
         'converted_to_sale_id',
         'converted_at',
         'notes',
@@ -43,6 +45,7 @@ class Quote extends Model
             'global_discount_value' => 'decimal:2',
             'global_discount_amount' => 'decimal:2',
             'converted_at' => 'datetime',
+            'reserves_inventory' => 'boolean',
         ];
     }
 
@@ -71,6 +74,11 @@ class Quote extends Model
     public function convertedToSale(): BelongsTo
     {
         return $this->belongsTo(Sale::class, 'converted_to_sale_id');
+    }
+
+    public function inventoryMovements(): MorphMany
+    {
+        return $this->morphMany(InventoryMovement::class, 'reference');
     }
 
     // Scopes
@@ -116,6 +124,97 @@ class Quote extends Model
             return false;
         }
         return $this->valid_until->isPast() && $this->status === 'draft';
+    }
+
+    /**
+     * Reserve inventory for all product items in this quote.
+     * Creates 'out' inventory movements (type: quote_reservation) and decrements current_stock.
+     * Only processes items that are actual products with manages_inventory = true.
+     * Safe to call multiple times — skips if already reserved.
+     */
+    public function reserveInventory(): void
+    {
+        if ($this->reserves_inventory) {
+            return; // Already reserved
+        }
+
+        $this->load('items');
+
+        foreach ($this->items as $item) {
+            if (!$item->product_id || $item->service_id || $item->combo_id) {
+                continue;
+            }
+
+            $product = Product::find($item->product_id);
+            if (!$product || !$product->manages_inventory) {
+                continue;
+            }
+
+            $qty = (float) $item->quantity;
+            if ($qty <= 0) {
+                continue;
+            }
+
+            InventoryMovement::createMovement(
+                'quote_reservation',
+                $product,
+                'out',
+                $qty,
+                (float) $product->average_cost > 0 ? (float) $product->average_cost : (float) $product->purchase_price,
+                "Reserva cotización #{$this->quote_number}",
+                $this,
+                $this->branch_id
+            );
+
+            $product->decrement('current_stock', $qty);
+        }
+
+        $this->update(['reserves_inventory' => true]);
+    }
+
+    /**
+     * Release reserved inventory back to stock.
+     * Creates 'in' inventory movements to reverse the reservation.
+     * Safe to call if not reserved — does nothing in that case.
+     */
+    public function releaseInventory(): void
+    {
+        if (!$this->reserves_inventory) {
+            return; // Nothing to release
+        }
+
+        $this->load('items');
+
+        foreach ($this->items as $item) {
+            if (!$item->product_id || $item->service_id || $item->combo_id) {
+                continue;
+            }
+
+            $product = Product::find($item->product_id);
+            if (!$product || !$product->manages_inventory) {
+                continue;
+            }
+
+            $qty = (float) $item->quantity;
+            if ($qty <= 0) {
+                continue;
+            }
+
+            InventoryMovement::createMovement(
+                'adjustment',
+                $product,
+                'in',
+                $qty,
+                (float) $product->average_cost > 0 ? (float) $product->average_cost : (float) $product->purchase_price,
+                "Liberación reserva cotización #{$this->quote_number}",
+                $this,
+                $this->branch_id
+            );
+
+            $product->increment('current_stock', $qty);
+        }
+
+        $this->update(['reserves_inventory' => false]);
     }
 
     /**

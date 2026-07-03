@@ -123,6 +123,9 @@ class Quotes extends Component
             return;
         }
 
+        // Release reserved inventory before cancelling
+        $quote->releaseInventory();
+
         $oldValues = $quote->toArray();
         $quote->update(['status' => 'cancelled']);
 
@@ -133,7 +136,7 @@ class Quotes extends Component
             "Cotización {$quote->quote_number} cancelada"
         );
 
-        $this->dispatch('notify', message: 'Cotización cancelada', type: 'success');
+        $this->dispatch('notify', message: 'Cotización cancelada y stock liberado', type: 'success');
         $this->closeCancelModal();
     }
 
