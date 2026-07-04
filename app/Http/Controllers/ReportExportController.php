@@ -2314,7 +2314,7 @@ class ReportExportController extends Controller
         $totalInventoryValue = (float) $products->where('current_stock', '>', 0)
             ->sum(fn($p) => (float) $p->current_stock * (float) $p->sale_price);
         $totalInventoryCost = (float) $products->where('current_stock', '>', 0)
-            ->sum(fn($p) => (float) $p->current_stock * (float) $p->average_cost);
+            ->sum(fn($p) => (float) $p->current_stock * (float) ($p->average_cost > 0 ? $p->average_cost : $p->purchase_price));
         $totalPotentialProfit = $totalInventoryValue - $totalInventoryCost;
 
         // Group by category
@@ -2322,7 +2322,7 @@ class ReportExportController extends Controller
             ->map(function ($group) {
                 $totalStock = (float) $group->sum('current_stock');
                 $totalValue = (float) $group->sum(fn($p) => (float) $p->current_stock * (float) $p->sale_price);
-                $totalCost = (float) $group->sum(fn($p) => (float) $p->current_stock * (float) $p->average_cost);
+                $totalCost = (float) $group->sum(fn($p) => (float) $p->current_stock * (float) ($p->average_cost > 0 ? $p->average_cost : $p->purchase_price));
                 return [
                     'count' => $group->count(),
                     'stock' => $totalStock,
@@ -2488,7 +2488,7 @@ class ReportExportController extends Controller
         foreach ($products as $p) {
             $stock = (float) $p->current_stock;
             $value = $stock > 0 ? $stock * (float) $p->sale_price : 0;
-            $cost = $stock > 0 ? $stock * (float) $p->average_cost : 0;
+            $cost = $stock > 0 ? $stock * (float) ($p->average_cost > 0 ? $p->average_cost : $p->purchase_price) : 0;
 
             $invSheet->setCellValue('A' . $row, $p->sku);
             $invSheet->setCellValue('B' . $row, $p->name);

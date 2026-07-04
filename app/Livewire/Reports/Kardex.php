@@ -132,7 +132,7 @@ class Kardex extends Component
         // Calculate inventory cost (average cost * stock)
         $this->totalInventoryCost = (clone $baseQuery)
             ->where('current_stock', '>', 0)
-            ->selectRaw('SUM(current_stock * average_cost) as total')
+            ->selectRaw('SUM(current_stock * COALESCE(NULLIF(average_cost, 0), purchase_price)) as total')
             ->value('total') ?? 0;
 
         // Calculate potential profit (value - cost)
