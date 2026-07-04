@@ -304,9 +304,18 @@
         <span>Descuentos</span>
     </a>
     @endif
+    @if (auth()->user()->hasPermission('locations.view'))
+    <a href="{{ route('locations') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('locations') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        <span>Ubicaciones</span>
+    </a>
+    @endif
 </div>
 @else
-<div x-data="{ creacionOpen: {{ request()->routeIs('customers') || request()->routeIs('suppliers') || request()->routeIs('products') || request()->routeIs('combos') || request()->routeIs('services') || request()->routeIs('discounts') ? 'true' : 'false' }} }">
+<div x-data="{ creacionOpen: {{ request()->routeIs('customers') || request()->routeIs('suppliers') || request()->routeIs('products') || request()->routeIs('combos') || request()->routeIs('services') || request()->routeIs('discounts') || request()->routeIs('locations') ? 'true' : 'false' }} }">
     <button @click="creacionOpen = !creacionOpen"
         class="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-slate-400 hover:bg-white/5 hover:text-white">
         <div class="flex items-center gap-3">
@@ -368,6 +377,15 @@
             <span class="text-sm">Descuentos</span>
         </a>
         @endif
+        @if (auth()->user()->hasPermission('locations.view'))
+        <a href="{{ route('locations') }}" class="{{ $linkClass }} {{ request()->routeIs('locations') ? $activeClass : $inactiveClass }}">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            <span class="text-sm">Ubicaciones</span>
+        </a>
+        @endif
     </div>
 </div>
 @endif
@@ -400,9 +418,17 @@
         <span>Traslados</span>
     </a>
     @endif
+    @if (auth()->user()->hasPermission('location_transfers.view'))
+    <a href="{{ route('location-transfers') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('location-transfers') ? $activeClass : $inactiveClass }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        <span>Traslado Ubicación</span>
+    </a>
+    @endif
 </div>
 @else
-<div x-data="{ inventariosOpen: {{ request()->routeIs('purchases') || request()->routeIs('purchases.create') || request()->routeIs('inventory-adjustments') || request()->routeIs('inventory-transfers') ? 'true' : 'false' }} }">
+<div x-data="{ inventariosOpen: {{ request()->routeIs('purchases') || request()->routeIs('purchases.create') || request()->routeIs('inventory-adjustments') || request()->routeIs('inventory-transfers') || request()->routeIs('location-transfers') ? 'true' : 'false' }} }">
     <button @click="inventariosOpen = !inventariosOpen"
         class="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-slate-400 hover:bg-white/5 hover:text-white">
         <div class="flex items-center gap-3">
@@ -438,6 +464,14 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
             </svg>
             <span class="text-sm">Traslados</span>
+        </a>
+        @endif
+        @if (auth()->user()->hasPermission('location_transfers.view'))
+        <a href="{{ route('location-transfers') }}" class="{{ $linkClass }} {{ request()->routeIs('location-transfers') ? $activeClass : $inactiveClass }}">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            <span class="text-sm">Traslado Ubicación</span>
         </a>
         @endif
     </div>

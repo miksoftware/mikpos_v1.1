@@ -280,6 +280,15 @@ Route::middleware(['auth'])->group(function () {
         ->name('purchases.edit')
         ->middleware('permission:purchases.edit');
 
+    // Locations
+    Route::get('/locations', App\Livewire\Locations::class)
+        ->name('locations')
+        ->middleware('permission:locations.view');
+
+    Route::get('/location-transfers', App\Livewire\LocationTransfers::class)
+        ->name('location-transfers')
+        ->middleware('permission:location_transfers.view');
+
     Route::get('/inventory-adjustments', App\Livewire\InventoryAdjustments::class)
         ->name('inventory-adjustments')
         ->middleware('permission:inventory_adjustments.view');

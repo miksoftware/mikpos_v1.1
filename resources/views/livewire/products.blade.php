@@ -845,6 +845,54 @@
                                 </div>
                             </div>
                             @endif
+                            {{-- Ubicaciones Múltiples --}}
+                            @if($locations->isNotEmpty())
+                            <div class="mt-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <div class="flex items-center justify-between mb-3">
+                                    <label class="block text-sm font-medium text-slate-700">
+                                        <span class="flex items-center gap-1.5">
+                                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            </svg>
+                                            Ubicaciones e Inventario
+                                        </span>
+                                    </label>
+                                    <button type="button" wire:click="addProductLocation" class="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                        Añadir Ubicación
+                                    </button>
+                                </div>
+                                <p class="text-xs text-slate-500 mb-3">Asigna el producto a diferentes ubicaciones e indica su cantidad.</p>
+                                
+                                <div class="space-y-3">
+                                    @foreach($productLocations as $index => $prodLoc)
+                                    <div class="flex gap-2 items-start" wire:key="product-location-{{ $index }}">
+                                        <div class="flex-1">
+                                            <select wire:model="productLocations.{{ $index }}.location_id" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                                <option value="">Seleccione ubicación...</option>
+                                                @foreach($locations as $loc)
+                                                <option value="{{ $loc->id }}">{{ $loc->display_name ?? $loc->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="w-24">
+                                            <input wire:model="productLocations.{{ $index }}.quantity" type="number" step="0.001" min="0" placeholder="Cant." class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                        </div>
+                                        <button type="button" wire:click="removeProductLocation({{ $index }})" class="p-2 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors mt-0.5">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        </button>
+                                    </div>
+                                    @endforeach
+                                    
+                                    @if(count($productLocations) === 0)
+                                    <div class="text-center py-3 bg-white border border-dashed border-slate-300 rounded-xl">
+                                        <span class="text-sm text-slate-400">Sin ubicaciones asignadas</span>
+                                    </div>
+                                    @endif
+                                </div>
+                            </div>
+                            @endif
                         </div>
                         @if($ecommerceEnabled)
                         <div class="space-y-4">

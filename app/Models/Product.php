@@ -79,6 +79,13 @@ class Product extends Model
         return $this->belongsTo(Branch::class);
     }
 
+    public function locations(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\Location::class, 'location_products')
+            ->withPivot('quantity', 'notes')
+            ->withTimestamps();
+    }
+
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);

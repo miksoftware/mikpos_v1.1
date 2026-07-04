@@ -194,6 +194,12 @@
                                 <p class="font-medium text-slate-800 text-xs truncate">
                                     @if($item['is_combo'] ?? false)<span class="text-amber-600">[Combo]</span> @endif{{ $item['name'] }}
                                 </p>
+                                @if(!empty($item['location_name']))
+                                <p class="text-[10px] text-purple-600 font-medium mb-0.5 flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    {{ $item['location_name'] }}
+                                </p>
+                                @endif
                                 <div class="flex items-center gap-1 text-[10px]">
                                     <span class="text-slate-500">{{ $item['sku'] }}</span>
                                     @if(($item['discount_amount'] ?? 0) > 0)
@@ -897,6 +903,60 @@
                         <button wire:click="applyDiscount" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-amber-600 rounded-xl hover:from-amber-600 hover:to-amber-700">
                             Aplicar Descuento
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Location Selection Modal -->
+    @if($showLocationModal && $locationProduct)
+    <div class="fixed inset-0 z-[100]">
+        <div class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100]" wire:click="closeLocationModal"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl">
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-slate-900">Seleccionar Ubicación</h3>
+                        <button wire:click="closeLocationModal" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="p-6">
+                        <div class="flex items-center gap-4 mb-6 p-4 bg-slate-50 rounded-xl">
+                            @if($locationProduct->image)
+                            <img src="{{ Storage::url($locationProduct->image) }}" alt="{{ $locationProduct->name }}" class="w-16 h-16 rounded-xl object-cover border border-slate-200 shadow-sm">
+                            @else
+                            <div class="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200">
+                                <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            </div>
+                            @endif
+                            <div>
+                                <h4 class="font-bold text-slate-900 leading-tight">{{ $locationProduct->name }}</h4>
+                                <p class="text-sm text-slate-500 mt-1">¿De qué ubicación deseas retirarlo?</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            @foreach($availableLocations as $loc)
+                            <button wire:click="selectLocation({{ $loc['id'] }}, '{{ $loc['name'] }}', {{ $loc['quantity'] }})" class="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-200 hover:border-[#ff7261] hover:bg-[#ff7261]/5 transition-all text-left group">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-slate-100 group-hover:bg-white flex items-center justify-center border border-slate-200 group-hover:border-[#ff7261]/20">
+                                        <svg class="w-5 h-5 text-slate-400 group-hover:text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-slate-900 group-hover:text-[#ff7261] transition-colors">{{ $loc['name'] }}</p>
+                                        <p class="text-sm text-slate-500">Disponible: {{ number_format($loc['quantity'], 3) }}</p>
+                                    </div>
+                                </div>
+                                <svg class="w-5 h-5 text-slate-300 group-hover:text-[#ff7261] transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                            </button>
+                            @endforeach
+                        </div>
                     </div>
                 </div>
             </div>

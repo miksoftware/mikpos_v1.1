@@ -98,6 +98,12 @@ class PointOfSale extends Component
     public $variantProduct = null;
     public $variantOptions = [];
 
+    // Location selection modal
+    public $showLocationModal = false;
+    public $locationProduct = null;
+    public $locationChildId = null;
+    public $availableLocations = [];
+
     // Discount modal
     public $showDiscountModal = false;
     public $discountCartKey = null;
@@ -573,14 +579,45 @@ class PointOfSale extends Component
         $this->dispatch('focus-barcode-search');
     }
 
+    public function openLocationModal($product, $childId, $locations)
+    {
+        $this->locationProduct = clone $product;
+        $this->locationChildId = $childId;
+        $this->availableLocations = $locations->map(function ($loc) {
+            return [
+                'id' => $loc->id,
+                'name' => $loc->name,
+                'quantity' => (float) $loc->pivot->quantity,
+            ];
+        })->values()->toArray();
+        $this->showLocationModal = true;
+    }
+
+    public function selectLocation($locationId, $locationName, $quantity)
+    {
+        if ($this->locationProduct) {
+            $this->addToCart($this->locationProduct->id, $this->locationChildId, $locationId, $locationName, $quantity);
+        }
+        $this->closeLocationModal();
+    }
+
+    public function closeLocationModal()
+    {
+        $this->showLocationModal = false;
+        $this->locationProduct = null;
+        $this->locationChildId = null;
+        $this->availableLocations = [];
+        $this->dispatch('focus-barcode-search');
+    }
+
     public function selectCategory($categoryId)
     {
         $this->selectedCategory = $categoryId === $this->selectedCategory ? null : $categoryId;
     }
 
-    public function addToCart($productId, $childId = null)
+    public function addToCart($productId, $childId = null, $locationId = null, $locationName = null, $locationMaxStock = null)
     {
-        $product = Product::with(['tax', 'unit', 'children' => function ($q) {
+        $product = Product::with(['tax', 'unit', 'locations', 'children' => function ($q) {
             $q->where('is_active', true);
         }])->find($productId);
         
@@ -591,10 +628,22 @@ class PointOfSale extends Component
             $this->dispatch('notify', message: 'Producto sin stock disponible', type: 'error');
             return;
         }
+
+        // Check for locations
+        if ($product->manages_inventory && $locationId === null && $product->locations->count() > 0) {
+            $locationsWithStock = $product->locations->filter(function ($loc) {
+                return $loc->pivot->quantity > 0;
+            });
+            
+            if ($locationsWithStock->count() > 0) {
+                $this->openLocationModal($product, $childId, $locationsWithStock);
+                return;
+            }
+        }
         
         // Check if weight-based product - show quantity modal instead of adding directly
         if ($this->isWeightBasedProduct($product)) {
-            $this->openWeightModal($productId, $childId);
+            $this->openWeightModal($productId, $childId, $locationId, $locationName, $locationMaxStock);
             return;
         }
         
@@ -610,8 +659,11 @@ class PointOfSale extends Component
         
         // Check stock availability (only for products that manage inventory)
         $currentQtyInCart = isset($this->cart[$cartKey]) ? $this->cart[$cartKey]['quantity'] : 0;
-        if ($product->manages_inventory && $currentQtyInCart >= $product->current_stock) {
-            $this->dispatch('notify', message: 'Stock insuficiente. Disponible: ' . number_format($product->current_stock, 3), type: 'warning');
+        
+        $maxStock = $locationMaxStock !== null ? $locationMaxStock : $product->current_stock;
+        
+        if ($product->manages_inventory && $currentQtyInCart >= $maxStock) {
+            $this->dispatch('notify', message: 'Stock insuficiente. Disponible: ' . number_format($maxStock, 3), type: 'warning');
             return;
         }
         
@@ -662,7 +714,9 @@ class PointOfSale extends Component
                 'tax_amount' => round($priceWithTax - $basePrice, 2), // Tax for 1 unit
                 'price_includes_tax' => $priceIncludesTax,
                 'image' => $displayImage,
-                'max_stock' => (float) $product->current_stock,
+                'max_stock' => (float) $maxStock,
+                'location_id' => $locationId,
+                'location_name' => $locationName,
                 // Discount fields
                 'discount_type' => null,
                 'discount_type_value' => 0,
@@ -959,9 +1013,11 @@ class PointOfSale extends Component
             'name' => $displayName,
             'price' => round($priceWithTax, 2),
             'unit' => $product->unit?->abbreviation ?? 'UND',
-            'stock' => (float) $product->current_stock,
+            'stock' => $locationMaxStock !== null ? (float) $locationMaxStock : (float) $product->current_stock,
             'manages_inventory' => (bool) $product->manages_inventory,
             'image' => $displayImage,
+            'location_id' => $locationId,
+            'location_name' => $locationName,
         ];
         
         // Clear quantity and show modal
@@ -1021,9 +1077,12 @@ class PointOfSale extends Component
         // Get product data from modal
         $productId = $this->weightModalProduct['product_id'];
         $childId = $this->weightModalProduct['child_id'];
+        $locationId = $this->weightModalProduct['location_id'] ?? null;
+        $locationName = $this->weightModalProduct['location_name'] ?? null;
+        $locationMaxStock = $this->weightModalProduct['stock'] ?? null;
 
         // Add product to cart with specified quantity
-        $this->addProductToCartWithQuantity($productId, $childId, $quantity);
+        $this->addProductToCartWithQuantity($productId, $childId, $quantity, $locationId, $locationName, $locationMaxStock);
 
         // Close modal and reset state
         $this->closeWeightModal();
@@ -1074,7 +1133,7 @@ class PointOfSale extends Component
      * @param int|null $childId The product child ID (if variant)
      * @param float $quantity The quantity to add
      */
-    protected function addProductToCartWithQuantity($productId, $childId, $quantity): void
+    protected function addProductToCartWithQuantity($productId, $childId, $quantity, $locationId = null, $locationName = null, $locationMaxStock = null): void
     {
         $product = Product::with(['tax', 'children' => function ($q) {
             $q->where('is_active', true);
@@ -1095,8 +1154,10 @@ class PointOfSale extends Component
         $currentQtyInCart = isset($this->cart[$cartKey]) ? $this->cart[$cartKey]['quantity'] : 0;
         $totalQty = $currentQtyInCart + $quantity;
         
-        if ($product->manages_inventory && $totalQty > $product->current_stock) {
-            $available = $product->current_stock - $currentQtyInCart;
+        $maxStock = $locationMaxStock !== null ? $locationMaxStock : $product->current_stock;
+        
+        if ($product->manages_inventory && $totalQty > $maxStock) {
+            $available = $maxStock - $currentQtyInCart;
             $formattedAvailable = rtrim(rtrim(number_format($available, 3), '0'), '.');
             $this->dispatch('notify', message: "Stock insuficiente. Disponible: {$formattedAvailable}", type: 'warning');
             return;
@@ -1148,7 +1209,9 @@ class PointOfSale extends Component
                 'tax_amount' => round(($priceWithTax - $basePrice) * $quantity, 2),
                 'price_includes_tax' => $priceIncludesTax,
                 'image' => $displayImage,
-                'max_stock' => (float) $product->current_stock,
+                'max_stock' => (float) $maxStock,
+                'location_id' => $locationId,
+                'location_name' => $locationName,
                 // Discount fields
                 'discount_type' => null,
                 'discount_type_value' => 0,
@@ -1781,16 +1844,23 @@ class PointOfSale extends Component
                         'out',
                         $item['quantity'],
                         (float) $item['base_price'],
-                            "Venta #{$sale->invoice_number}",
-                            $sale,
-                            $this->branchId
-                        );
+                        "Venta #{$sale->invoice_number}",
+                        $sale,
+                        $this->branchId
+                    );
 
-                        // Update stock — skip if coming from a reserved quote (already decremented)
-                        if (!$isFromReservedQuote) {
-                            $product->decrement('current_stock', $item['quantity']);
+                    // Update stock — skip if coming from a reserved quote (already decremented)
+                    if (!$isFromReservedQuote) {
+                        $product->decrement('current_stock', $item['quantity']);
+                        
+                        // Deduct from specific location if selected
+                        if (!empty($item['location_id'])) {
+                            $product->locations()->updateExistingPivot($item['location_id'], [
+                                'quantity' => DB::raw("quantity - {$item['quantity']}")
+                            ]);
                         }
                     }
+                }
 
                 // Handle combo stock: decrement each product in the combo
                 if (!empty($item['combo_id'])) {

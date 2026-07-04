@@ -7,6 +7,7 @@ use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Color;
 use App\Models\InventoryMovement;
+use App\Models\Location;
 use App\Models\Presentation;
 use App\Models\Product;
 use App\Models\ProductBarcode;
@@ -92,6 +93,9 @@ class Products extends Component
     public ?string $size = null;
     public ?float $weight = null;
     public ?string $imei = null;
+
+    // Locations: array of [location_id => '', quantity => ''] rows
+    public array $productLocations = [];
 
     // Form data for child product
     public ?int $childId = null;
@@ -341,6 +345,11 @@ class Products extends Component
             'colors' => $colors,
             'productModels' => $productModels,
             'ecommerceEnabled' => $ecommerceEnabled,
+            'locations' => Location::active()
+                ->when(!$this->needsBranchSelection, fn($q) => $q->where('branch_id', auth()->user()->branch_id))
+                ->when($this->needsBranchSelection && $this->branch_id, fn($q) => $q->where('branch_id', $this->branch_id))
+                ->orderBy('name')
+                ->get(),
         ]);
     }
 
@@ -419,6 +428,12 @@ class Products extends Component
         $this->existingImage = $item->image;
         $this->image = null;
 
+        // Load existing location assignments
+        $this->productLocations = $item->locations->map(fn($loc) => [
+            'location_id' => (string) $loc->id,
+            'quantity'    => rtrim(rtrim(number_format((float) $loc->pivot->quantity, 3), '0'), '.'),
+        ])->toArray();
+
         // Load subcategories for the selected category
         $this->subcategories = $this->category_id
             ? Subcategory::where('category_id', $this->category_id)->where('is_active', true)->orderBy('name')->get()
@@ -446,6 +461,24 @@ class Products extends Component
         }
         
         $this->validate($rules, $messages);
+
+        // Validate location quantities match current stock
+        if ($this->manages_inventory && !empty($this->productLocations)) {
+            $totalLocationsStock = 0;
+            $hasValidLocations = false;
+            foreach ($this->productLocations as $loc) {
+                if (!empty($loc['location_id'])) {
+                    $totalLocationsStock += (float) ($loc['quantity'] ?: 0);
+                    $hasValidLocations = true;
+                }
+            }
+
+            if ($hasValidLocations && round($totalLocationsStock, 3) !== round((float) $this->current_stock, 3)) {
+                $this->addError('current_stock', 'El stock inicial debe coincidir con la suma en las ubicaciones (' . rtrim(rtrim(number_format($totalLocationsStock, 3), '0'), '.') . ').');
+                $this->dispatch('notify', message: 'Verifica el inventario. La suma de las ubicaciones no coincide con el stock inicial.', type: 'error');
+                return;
+            }
+        }
 
         $oldValues = $isNew ? null : Product::find($this->itemId)->toArray();
 
@@ -535,6 +568,15 @@ class Products extends Component
                 \Log::warning("Could not create initial stock movement: " . $e->getMessage());
             }
         }
+
+        // Sync Locations
+        $syncData = [];
+        foreach ($this->productLocations as $loc) {
+            if (!empty($loc['location_id'])) {
+                $syncData[$loc['location_id']] = ['quantity' => $loc['quantity'] ?: 0];
+            }
+        }
+        $item->locations()->sync($syncData);
 
         // Handle barcode - save to product_barcodes table
         if ($this->barcode) {
@@ -1321,6 +1363,17 @@ class Products extends Component
         $this->childImage = null;
     }
 
+    public function addProductLocation()
+    {
+        $this->productLocations[] = ['location_id' => '', 'quantity' => 0];
+    }
+
+    public function removeProductLocation($index)
+    {
+        unset($this->productLocations[$index]);
+        $this->productLocations = array_values($this->productLocations);
+    }
+
     private function resetForm()
     {
         $this->itemId = null;
@@ -1360,6 +1413,7 @@ class Products extends Component
         $this->size = null;
         $this->weight = null;
         $this->imei = null;
+        $this->productLocations = [];
     }
 
     // ==================== CSV EXPORT METHOD ====================
@@ -1534,6 +1588,7 @@ class Products extends Component
             'P1' => 'valor_comision',
             'Q1' => 'precio_incluye_impuesto',
             'R1' => 'impuesto_nombre',
+            'S1' => 'ubicacion',
         ];
 
         foreach ($headers as $cell => $value) {
@@ -1547,7 +1602,7 @@ class Products extends Component
             'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
             'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]],
         ];
-        $sheet->getStyle('A1:R1')->applyFromArray($headerStyle);
+        $sheet->getStyle('A1:S1')->applyFromArray($headerStyle);
 
         // Get available taxes for examples
         $taxes = Tax::where('is_active', true)->pluck('name')->toArray();
@@ -1564,11 +1619,11 @@ class Products extends Component
 
         // Example data
         $examples = [
-            ['PADRE', 'MED-001', 'Acetaminofén 500mg', 'Analgésico y antipirético', $catName, $subcatName, $brandName, '', '', 100, 1500, 2500, '7701234567890', 'SI', 'PORCENTAJE', 5, 'NO', $taxExample1],
-            ['VARIANTE', '', 'Acetaminofén - Caja x 10', 'Caja de 10 tabletas', '', '', '', 'MED-001', 10, '', '', 22000, '7701234567891', 'NO', '', '', 'SI', ''],
-            ['PADRE', 'MED-002', 'Ibuprofeno 400mg', 'Antiinflamatorio', $catName, '', '', '', '', 50, 2000, 3500, '', 'NO', '', '', 'NO', $taxExample2],
-            ['VARIANTE', '', 'Ibuprofeno - Blister x 4', 'Blister de 4 tabletas', '', '', '', 'MED-002', 4, '', '', 12000, '', 'SI', 'FIJO', 500, 'NO', ''],
-            ['PADRE', '', 'Aspirina 100mg', 'Sin variantes', $catName, '', $brandName, '', '', 30, 800, 1500, '', 'NO', '', '', 'NO', ''],
+            ['PADRE', 'MED-001', 'Acetaminofén 500mg', 'Analgésico y antipirético', $catName, $subcatName, $brandName, '', '', 100, 1500, 2500, '7701234567890', 'SI', 'PORCENTAJE', 5, 'NO', $taxExample1, 'Estante A'],
+            ['VARIANTE', '', 'Acetaminofén - Caja x 10', 'Caja de 10 tabletas', '', '', '', 'MED-001', 10, '', '', 22000, '7701234567891', 'NO', '', '', 'SI', '', ''],
+            ['PADRE', 'MED-002', 'Ibuprofeno 400mg', 'Antiinflamatorio', $catName, '', '', '', '', 50, 2000, 3500, '', 'NO', '', '', 'NO', $taxExample2, 'Bodega 1'],
+            ['VARIANTE', '', 'Ibuprofeno - Blister x 4', 'Blister de 4 tabletas', '', '', '', 'MED-002', 4, '', '', 12000, '', 'SI', 'FIJO', 500, 'NO', '', ''],
+            ['PADRE', '', 'Aspirina 100mg', 'Sin variantes', $catName, '', $brandName, '', '', 30, 800, 1500, '', 'NO', '', '', 'NO', '', ''],
         ];
 
         $row = 2;
@@ -1580,17 +1635,17 @@ class Products extends Component
             }
             // Color rows by type
             $fillColor = $data[0] === 'PADRE' ? 'E0E7FF' : 'FEF3C7';
-            $sheet->getStyle("A{$row}:R{$row}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB($fillColor);
+            $sheet->getStyle("A{$row}:S{$row}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB($fillColor);
             $row++;
         }
 
         // Auto-size columns
-        foreach (range('A', 'R') as $col) {
+        foreach (range('A', 'S') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
         // Add borders to data
-        $sheet->getStyle('A2:R6')->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+        $sheet->getStyle('A2:S6')->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
 
         // Instructions sheet
         $instructionsSheet = $spreadsheet->createSheet();
@@ -1647,6 +1702,7 @@ class Products extends Component
             ['- tipo_comision: PORCENTAJE o FIJO (solo si tiene_comision = SI)'],
             ['- valor_comision: Número (ej: 5 para 5% o 500 para $500 fijo)'],
             ['- precio_incluye_impuesto: SI si el precio ya tiene impuesto, NO si no'],
+            ['- ubicacion: Nombre de la ubicación donde estará el stock (opcional, solo para PADRE)'],
             [''],
             ['═══════════════════════════════════════════════════════════════'],
             ['CATEGORÍAS DISPONIBLES EN SU SISTEMA:'],
@@ -2191,6 +2247,16 @@ class Products extends Component
                 $createdParentSkus[$product->sku] = $product->id;
 
                 $stockInicial = intval($data['stock_inicial'] ?? 0);
+                
+                // Add location if specified
+                if (!empty($data['ubicacion'])) {
+                    $locationName = mb_strtoupper(trim($data['ubicacion']));
+                    $location = \App\Models\Location::firstOrCreate(
+                        ['branch_id' => $branchId, 'name' => $locationName],
+                        ['is_active' => true]
+                    );
+                    $product->locations()->attach($location->id, ['quantity' => $stockInicial]);
+                }
                 if ($stockInicial > 0 && $systemDocument) {
                     \App\Models\InventoryMovement::create([
                         'system_document_id' => $systemDocument->id,

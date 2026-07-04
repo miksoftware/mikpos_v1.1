@@ -58,6 +58,7 @@ class SeedMarkExecuted extends Command
         'QuotesModuleSeeder',
         'RefundsReportPermissionSeeder',
         'QuoteReservationSystemDocumentSeeder',
+        'LocationsModuleSeeder',
     ];
 
     public function handle(): int
