@@ -27,6 +27,7 @@ class InventoryMovement extends Model
         'reference_id',
         'notes',
         'movement_date',
+        'location_id',
     ];
 
     protected $casts = [
@@ -58,6 +59,11 @@ class InventoryMovement extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(Location::class);
+    }
+
     public function reference(): MorphTo
     {
         return $this->morphTo();
@@ -74,7 +80,8 @@ class InventoryMovement extends Model
         ?float $unitCost = null,
         ?string $notes = null,
         ?Model $reference = null,
-        ?int $branchId = null
+        ?int $branchId = null,
+        ?int $locationId = null
     ): self {
         $systemDocument = SystemDocument::findByCode($documentCode);
         
@@ -103,6 +110,7 @@ class InventoryMovement extends Model
             'reference_id' => $reference?->id,
             'notes' => $notes,
             'movement_date' => now(),
+            'location_id' => $locationId,
         ]);
     }
 }

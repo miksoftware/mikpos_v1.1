@@ -127,7 +127,7 @@ class InventoryAdjustments extends Component
 
     public function addProduct($productId)
     {
-        $product = Product::find($productId);
+        $product = Product::with('locations')->find($productId);
         if (!$product) return;
 
         foreach ($this->items as $item) {
@@ -137,6 +137,14 @@ class InventoryAdjustments extends Component
             }
         }
 
+        $locations = $product->locations->map(function ($loc) {
+            return [
+                'id' => $loc->id,
+                'name' => $loc->name,
+                'stock' => $loc->pivot->quantity
+            ];
+        })->toArray();
+
         $this->items[] = [
             'product_id' => $product->id,
             'name' => $product->name,
@@ -144,6 +152,8 @@ class InventoryAdjustments extends Component
             'current_stock' => $product->current_stock ?? 0,
             'quantity' => 1,
             'type' => 'in', // Default to entrada
+            'locations' => $locations,
+            'location_id' => count($locations) > 0 ? '' : null,
         ];
 
         $this->productSearch = '';
@@ -245,6 +255,24 @@ class InventoryAdjustments extends Component
         }
     }
 
+    public function updateItemLocation($index, $locationId)
+    {
+        if (isset($this->items[$index])) {
+            $this->items[$index]['location_id'] = $locationId;
+            if ($locationId) {
+                // Find stock for this location
+                $loc = collect($this->items[$index]['locations'])->firstWhere('id', (int) $locationId);
+                if ($loc) {
+                    $this->items[$index]['current_stock'] = $loc['stock'];
+                }
+            } else {
+                // Reset to global stock
+                $product = Product::find($this->items[$index]['product_id']);
+                $this->items[$index]['current_stock'] = $product->current_stock ?? 0;
+            }
+        }
+    }
+
     public function store()
     {
         if (!auth()->user()->hasPermission('inventory_adjustments.create')) {
@@ -265,6 +293,11 @@ class InventoryAdjustments extends Component
 
         // Validate stock for outgoing items
         foreach ($this->items as $item) {
+            if (!empty($item['locations']) && empty($item['location_id'])) {
+                $this->dispatch('notify', message: "Debes seleccionar una ubicación para {$item['name']}", type: 'error');
+                return;
+            }
+
             if ($item['type'] === 'out' && $item['current_stock'] < $item['quantity']) {
                 $this->dispatch('notify', message: "Stock insuficiente para {$item['name']}. Stock: {$item['current_stock']}", type: 'error');
                 return;
@@ -288,10 +321,33 @@ class InventoryAdjustments extends Component
                 $product = Product::find($item['product_id']);
                 if (!$product) continue;
 
+                $locationId = !empty($item['location_id']) ? $item['location_id'] : null;
                 $stockBefore = $product->current_stock ?? 0;
                 $stockAfter = $item['type'] === 'in' 
                     ? $stockBefore + $item['quantity'] 
                     : $stockBefore - $item['quantity'];
+
+                if ($locationId) {
+                    $locationProduct = DB::table('location_products')
+                        ->where('location_id', $locationId)
+                        ->where('product_id', $product->id)
+                        ->first();
+                    
+                    if ($locationProduct) {
+                        $locStockBefore = $locationProduct->quantity;
+                        $locStockAfter = $item['type'] === 'in'
+                            ? $locStockBefore + $item['quantity']
+                            : $locStockBefore - $item['quantity'];
+                        
+                        DB::table('location_products')
+                            ->where('location_id', $locationId)
+                            ->where('product_id', $product->id)
+                            ->update(['quantity' => $locStockAfter]);
+                        
+                        $stockBefore = $locStockBefore;
+                        $stockAfter = $locStockAfter;
+                    }
+                }
 
                 InventoryMovement::create([
                     'system_document_id' => $adjustmentDoc->id,
@@ -307,9 +363,15 @@ class InventoryAdjustments extends Component
                     'total_cost' => $product->purchase_price * $item['quantity'],
                     'notes' => $this->notes,
                     'movement_date' => now(),
+                    'location_id' => $locationId,
                 ]);
 
-                $product->current_stock = $stockAfter;
+                // Update global stock
+                $globalStockAfter = $item['type'] === 'in'
+                    ? $product->current_stock + $item['quantity']
+                    : $product->current_stock - $item['quantity'];
+                
+                $product->current_stock = $globalStockAfter;
                 $product->save();
             }
 
@@ -341,7 +403,7 @@ class InventoryAdjustments extends Component
     public function viewDocument($documentNumber)
     {
         $this->viewingDocument = InventoryMovement::where('document_number', $documentNumber)
-            ->with(['product', 'user'])
+            ->with(['product', 'user', 'location'])
             ->get();
         $this->isViewModalOpen = true;
     }
@@ -384,6 +446,24 @@ class InventoryAdjustments extends Component
                         ? $product->current_stock - $movement->quantity
                         : $product->current_stock + $movement->quantity;
                     $product->save();
+
+                    if ($movement->location_id) {
+                        $locationProduct = DB::table('location_products')
+                            ->where('location_id', $movement->location_id)
+                            ->where('product_id', $product->id)
+                            ->first();
+                        
+                        if ($locationProduct) {
+                            $locStock = $movement->movement_type === 'in'
+                                ? $locationProduct->quantity - $movement->quantity
+                                : $locationProduct->quantity + $movement->quantity;
+                            
+                            DB::table('location_products')
+                                ->where('location_id', $movement->location_id)
+                                ->where('product_id', $product->id)
+                                ->update(['quantity' => $locStock]);
+                        }
+                    }
                 }
                 $movement->delete();
             }

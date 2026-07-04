@@ -250,6 +250,7 @@
                                     <thead class="bg-slate-50">
                                         <tr>
                                             <th class="px-3 py-2 text-left text-xs font-semibold text-slate-500">Producto</th>
+                                            <th class="px-3 py-2 text-center text-xs font-semibold text-slate-500">Ubicación</th>
                                             <th class="px-3 py-2 text-center text-xs font-semibold text-slate-500">Stock</th>
                                             <th class="px-3 py-2 text-center text-xs font-semibold text-slate-500">Tipo</th>
                                             <th class="px-3 py-2 text-center text-xs font-semibold text-slate-500">Cant.</th>
@@ -269,6 +270,18 @@
                                             <td class="px-3 py-2">
                                                 <div class="font-medium text-slate-900 text-sm">{{ $item['name'] }}</div>
                                                 <div class="text-xs text-slate-500">{{ $item['sku'] }}</div>
+                                            </td>
+                                            <td class="px-3 py-2 text-center">
+                                                @if(!empty($item['locations']))
+                                                    <select wire:change="updateItemLocation({{ $index }}, $event.target.value)" class="w-full text-xs px-2 py-1 border border-slate-300 rounded focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                                        <option value="">Seleccione...</option>
+                                                        @foreach($item['locations'] as $loc)
+                                                            <option value="{{ $loc['id'] }}" {{ ($item['location_id'] ?? '') == $loc['id'] ? 'selected' : '' }}>{{ $loc['name'] }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                @else
+                                                    <span class="text-xs text-slate-400">N/A</span>
+                                                @endif
                                             </td>
                                             <td class="px-3 py-2 text-center text-sm text-slate-600">{{ $item['current_stock'] }}</td>
                                             <td class="px-3 py-2 text-center">
@@ -355,6 +368,7 @@
                             <thead class="bg-slate-50">
                                 <tr>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Producto</th>
+                                    <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Ubicación</th>
                                     <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Tipo</th>
                                     <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Cantidad</th>
                                     <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Antes → Después</th>
@@ -366,6 +380,9 @@
                                     <td class="px-4 py-3">
                                         <div class="font-medium text-slate-900">{{ $movement->product?->name ?? 'N/A' }}</div>
                                         <div class="text-xs text-slate-500">{{ $movement->product?->sku }}</div>
+                                    </td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-600">
+                                        {{ $movement->location?->name ?? 'N/A' }}
                                     </td>
                                     <td class="px-4 py-3 text-center">
                                         @if($movement->movement_type === 'in')
