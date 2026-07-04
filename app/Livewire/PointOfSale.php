@@ -139,6 +139,9 @@ class PointOfSale extends Component
     public $fromQuoteId = null;
     public $fromQuoteNumber = null;
 
+    // Electronic Invoicing Toggle
+    public bool $generateElectronicInvoice = false;
+
     public function mount()
     {
         $user = auth()->user();
@@ -1688,6 +1691,7 @@ class PointOfSale extends Component
             ['method_id' => $defaultPaymentMethod?->id ?? '', 'amount' => $initialAmount]
         ];
         $this->isCredit = false;
+        $this->generateElectronicInvoice = false;
         $this->showPaymentModal = true;
     }
 
@@ -2015,7 +2019,7 @@ class PointOfSale extends Component
         try {
             $factusService = new FactusV2Service();
             
-            if (!$factusService->isEnabled()) {
+            if (!$factusService->isEnabled() || !$this->generateElectronicInvoice) {
                 return $result;
             }
 

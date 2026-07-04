@@ -1056,6 +1056,29 @@
                             @endif
                         </div>
 
+                        <!-- Electronic Invoice Toggle -->
+                        @if($isElectronicInvoicingEnabled)
+                        <div class="p-4 rounded-xl border-2 transition-all {{ $generateElectronicInvoice ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-slate-50' }}">
+                            <label class="flex items-center justify-between cursor-pointer">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full {{ $generateElectronicInvoice ? 'bg-blue-100' : 'bg-slate-200' }} flex items-center justify-center">
+                                        <svg class="w-5 h-5 {{ $generateElectronicInvoice ? 'text-blue-600' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <span class="text-sm font-semibold {{ $generateElectronicInvoice ? 'text-blue-700' : 'text-slate-700' }}">Factura Electrónica</span>
+                                        <p class="text-xs {{ $generateElectronicInvoice ? 'text-blue-500' : 'text-slate-400' }}">
+                                            {{ $generateElectronicInvoice ? 'Se enviará a la DIAN' : 'Solo comprobante POS' }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="relative">
+                                    <input wire:model.live="generateElectronicInvoice" type="checkbox" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </div>
+                            </label>
+                        </div>
+                        @endif
+
                         <!-- Credit Toggle (only if customer has credit) -->
                         @if($creditInfo['available'])
                         <div class="p-4 rounded-xl border-2 transition-all {{ $isCredit ? 'border-purple-500 bg-purple-50' : 'border-slate-200 bg-slate-50' }}">
