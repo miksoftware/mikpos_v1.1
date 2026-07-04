@@ -31,6 +31,7 @@ class PrintFormatSetting extends Model
         'show_payment_info' => true,
         'show_amount_words' => true,
         'show_footer' => true,
+        'show_logo' => true,
     ];
 
     public static function getFormat(string $documentType): string

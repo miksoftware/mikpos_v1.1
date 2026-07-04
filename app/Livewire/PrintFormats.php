@@ -81,6 +81,7 @@ class PrintFormats extends Component
             'show_payment_info' => 'Información de pago',
             'show_amount_words' => 'Monto en letras',
             'show_footer' => 'Pie de página',
+            'show_logo' => 'Logo de la empresa',
         ];
 
         $label = $optionLabels[$option] ?? $option;

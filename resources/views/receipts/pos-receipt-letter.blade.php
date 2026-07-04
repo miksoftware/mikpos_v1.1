@@ -116,6 +116,11 @@
         <!-- Header -->
         <div class="invoice-header">
             <div>
+                @if($options['show_logo'] && $sale->branch->logo)
+                <div style="margin-bottom: 10px;">
+                    <img src="{{ Storage::url($sale->branch->logo) }}" alt="{{ $sale->branch->name }}" style="max-width: 250px; max-height: 120px; object-fit: contain;">
+                </div>
+                @endif
                 <div class="invoice-title">FACTURA</div>
             </div>
             <div class="invoice-number-box">
