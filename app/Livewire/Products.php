@@ -1702,7 +1702,10 @@ class Products extends Component
             ['- tipo_comision: PORCENTAJE o FIJO (solo si tiene_comision = SI)'],
             ['- valor_comision: Número (ej: 5 para 5% o 500 para $500 fijo)'],
             ['- precio_incluye_impuesto: SI si el precio ya tiene impuesto, NO si no'],
-            ['- ubicacion: Nombre de la ubicación donde estará el stock (opcional, solo para PADRE)'],
+            ['- ubicacion: Nombre de la ubicación donde estará el stock (solo para PADRE).'],
+            ['  * Para una sola ubicación: "Bodega Principal"'],
+            ['  * Para múltiples ubicaciones: "Bodega 1:10|Estante A:5"'],
+            ['  (La suma de las cantidades debe ser igual al stock_inicial)'],
             [''],
             ['═══════════════════════════════════════════════════════════════'],
             ['CATEGORÍAS DISPONIBLES EN SU SISTEMA:'],
@@ -1796,6 +1799,12 @@ class Products extends Component
         $instructionsSheet->setCellValue('A' . $rowNum, '  Fila 1: PADRE | MED-001 | Acetaminofén 500mg | ... | Medicamentos | Analgésicos | Genérico | ...');
         $rowNum++;
         $instructionsSheet->setCellValue('A' . $rowNum, '  Fila 2: VARIANTE | (vacío) | Caja x 10 | ... | (vacío) | (vacío) | (vacío) | MED-001 | 10');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, 'Ubicaciones múltiples:');
+        $rowNum++;
+        $instructionsSheet->setCellValue('A' . $rowNum, '  En la columna ubicacion: Bodega 1:20|Estante A:15  (El stock_inicial debe ser 35)');
         $rowNum++;
         $instructionsSheet->setCellValue('A' . $rowNum, '');
         $rowNum++;
@@ -2030,6 +2039,29 @@ class Products extends Component
                     $errors[] = "Marca '{$brandName}' no existe o está inactiva";
                 }
             }
+
+            // Validate multi-locations
+            if (!empty($data['ubicacion']) && strpos($data['ubicacion'], ':') !== false) {
+                $locs = explode('|', $data['ubicacion']);
+                $totalLocStock = 0;
+                $validFormat = true;
+                foreach ($locs as $loc) {
+                    $parts = explode(':', $loc);
+                    if (count($parts) !== 2 || !is_numeric(trim($parts[1]))) {
+                        $validFormat = false;
+                        break;
+                    }
+                    $totalLocStock += floatval(trim($parts[1]));
+                }
+                
+                if (!$validFormat) {
+                    $errors[] = "Formato de ubicaciones inválido. Use Nombre:Cantidad|Nombre:Cantidad";
+                } elseif (isset($data['stock_inicial']) && is_numeric($data['stock_inicial'])) {
+                    if (abs($totalLocStock - floatval($data['stock_inicial'])) > 0.001) {
+                        $errors[] = "La suma de cantidades en las ubicaciones (" . $totalLocStock . ") no coincide con el stock_inicial (" . $data['stock_inicial'] . ")";
+                    }
+                }
+            }
         }
 
         if ($tipo === 'VARIANTE') {
@@ -2250,13 +2282,35 @@ class Products extends Component
                 
                 // Add location if specified
                 if (!empty($data['ubicacion'])) {
-                    $locationName = mb_strtoupper(trim($data['ubicacion']));
-                    $location = \App\Models\Location::firstOrCreate(
-                        ['branch_id' => $branchId, 'name' => $locationName],
-                        ['is_active' => true]
-                    );
-                    $product->locations()->attach($location->id, ['quantity' => $stockInicial]);
+                    $ubicacionStr = trim($data['ubicacion']);
+                    if (strpos($ubicacionStr, ':') !== false) {
+                        // Multi-location: Bodega 1:10|Bodega 2:5
+                        $locs = explode('|', $ubicacionStr);
+                        foreach ($locs as $loc) {
+                            $parts = explode(':', $loc);
+                            if (count($parts) === 2) {
+                                $locationName = mb_strtoupper(trim($parts[0]));
+                                $qty = floatval(trim($parts[1]));
+                                if ($qty > 0) {
+                                    $location = \App\Models\Location::firstOrCreate(
+                                        ['branch_id' => $branchId, 'name' => $locationName],
+                                        ['is_active' => true]
+                                    );
+                                    $product->locations()->attach($location->id, ['quantity' => $qty]);
+                                }
+                            }
+                        }
+                    } else {
+                        // Single location: Bodega 1
+                        $locationName = mb_strtoupper($ubicacionStr);
+                        $location = \App\Models\Location::firstOrCreate(
+                            ['branch_id' => $branchId, 'name' => $locationName],
+                            ['is_active' => true]
+                        );
+                        $product->locations()->attach($location->id, ['quantity' => $stockInicial]);
+                    }
                 }
+
                 if ($stockInicial > 0 && $systemDocument) {
                     \App\Models\InventoryMovement::create([
                         'system_document_id' => $systemDocument->id,
