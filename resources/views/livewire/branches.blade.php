@@ -279,6 +279,10 @@
                                 <input wire:model="is_active" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
                                 <span class="text-sm text-slate-700">Sucursal Activa</span>
                             </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input wire:model="quotes_reserve_inventory" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                                <span class="text-sm text-slate-700">Cotizaciones reservan inventario</span>
+                            </label>
                             @if(str_contains(auth()->user()->email ?? '', 'softwaremik'))
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input wire:model="ecommerce_enabled" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#a855f7] focus:ring-[#a855f7]">

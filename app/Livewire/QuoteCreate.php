@@ -1225,8 +1225,11 @@ class QuoteCreate extends Component
 
             DB::commit();
 
-            // Reserve inventory for product items (decrements stock so other quotes/sales reflect real availability)
-            $quote->reserveInventory();
+            // Reserve inventory for product items only if the branch allows it
+            $branch = \App\Models\Branch::find($this->branchId);
+            if ($branch && $branch->quotes_reserve_inventory) {
+                $quote->reserveInventory();
+            }
 
             ActivityLogService::logCreate(
                 'quotes',
