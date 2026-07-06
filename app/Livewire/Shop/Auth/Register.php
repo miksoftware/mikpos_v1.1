@@ -102,7 +102,7 @@ class Register extends Component
         $phoneDigits = preg_replace('/\D+/', '', $this->phone) ?? '';
 
         $customer = Customer::create([
-            'branch_id' => config('ecommerce.branch_id'),
+            'branch_id' => \App\Models\Branch::getEcommerceBranchId(),
             'customer_type' => $this->customer_type,
             'tax_document_id' => $this->tax_document_id,
             'document_number' => $this->document_number,

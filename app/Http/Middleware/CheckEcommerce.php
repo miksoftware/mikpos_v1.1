@@ -14,13 +14,10 @@ class CheckEcommerce
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $branchId = config('ecommerce.branch_id');
+        $branch = Branch::getEcommerceBranch();
 
-        if ($branchId) {
-            $branch = Branch::find($branchId);
-            if ($branch && $branch->is_active && $branch->ecommerce_enabled) {
-                return $next($request);
-            }
+        if ($branch) {
+            return $next($request);
         }
 
         abort(503, 'La tienda en línea no está disponible en este momento.');

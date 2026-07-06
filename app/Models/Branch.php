@@ -67,4 +67,37 @@ class Branch extends Model
     {
         return $this->hasMany(User::class)->where('is_active', true);
     }
+
+    /**
+     * Get the active ecommerce branch. 
+     * Falls back to the first available ecommerce branch if config is not set or invalid.
+     */
+    public static function getEcommerceBranch(): ?self
+    {
+        $envBranchId = config('ecommerce.branch_id');
+        
+        if ($envBranchId) {
+            $branch = self::where('id', $envBranchId)
+                ->where('is_active', true)
+                ->where('ecommerce_enabled', true)
+                ->first();
+                
+            if ($branch) {
+                return $branch;
+            }
+        }
+        
+        // Fallback
+        return self::where('is_active', true)
+            ->where('ecommerce_enabled', true)
+            ->first();
+    }
+
+    /**
+     * Get the ID of the active ecommerce branch.
+     */
+    public static function getEcommerceBranchId(): ?int
+    {
+        return self::getEcommerceBranch()?->id;
+    }
 }

@@ -270,7 +270,7 @@ class Catalog extends Component
 
     public function render()
     {
-        $branchId = config('ecommerce.branch_id');
+        $branchId = \App\Models\Branch::getEcommerceBranchId();
 
         $query = Product::query()
             ->where('is_active', true)

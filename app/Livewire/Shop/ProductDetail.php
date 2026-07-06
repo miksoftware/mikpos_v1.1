@@ -17,7 +17,7 @@ class ProductDetail extends Component
     {
         // Validate product belongs to ecommerce branch and is active
         if (
-            $product->branch_id != config('ecommerce.branch_id') ||
+            $product->branch_id != \App\Models\Branch::getEcommerceBranchId() ||
             !$product->is_active ||
             !$product->show_in_shop
         ) {
@@ -129,7 +129,7 @@ class ProductDetail extends Component
 
     public function render()
     {
-        $branch = \App\Models\Branch::find(config('ecommerce.branch_id'));
+        $branch = \App\Models\Branch::getEcommerceBranch();
         $showStockInShop = $branch ? (bool) $branch->show_stock_in_shop : false;
 
         return view('livewire.shop.product-detail', [
