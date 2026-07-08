@@ -156,11 +156,13 @@ class ProductionCreate extends Component
             $finishedProduct = Product::find($recipe->product_id);
             $finishedProduct->increment('current_stock', $this->quantity_to_produce);
             
-            // Recalculate average cost for finished product (simplified here)
-            // Or just leave average cost logic if you have an observer.
-            $finishedProduct->update([
-                'purchase_price' => $this->estimatedCost / $this->quantity_to_produce
-            ]);
+            $unitCost = $this->estimatedCost / $this->quantity_to_produce;
+            
+            // Only update cost if the estimated cost is greater than 0
+            // This prevents zeroing out the cost if raw materials have no cost
+            if ($unitCost > 0) {
+                $finishedProduct->updateAverageCost((float) $this->quantity_to_produce, (float) $unitCost);
+            }
 
             InventoryMovement::createMovement(
                 'PROD',
