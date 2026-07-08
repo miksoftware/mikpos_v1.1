@@ -16,7 +16,18 @@ class CheckPermission
             return redirect()->route('login');
         }
 
-        if (!$user->hasPermission($permission)) {
+        // Handle OR logic if multiple permissions are passed with pipe
+        $permissions = explode('|', $permission);
+        $hasPermission = false;
+        
+        foreach ($permissions as $p) {
+            if ($user->hasPermission($p)) {
+                $hasPermission = true;
+                break;
+            }
+        }
+
+        if (!$hasPermission) {
             if ($request->expectsJson() || $request->header('X-Livewire')) {
                 abort(403, 'No tienes permiso para realizar esta acción.');
             }
