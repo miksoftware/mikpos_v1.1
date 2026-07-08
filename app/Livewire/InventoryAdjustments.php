@@ -41,6 +41,8 @@ class InventoryAdjustments extends Component
     public bool $needsBranchSelection = false;
     public $branches = [];
 
+    public $allLocations = [];
+
     public function mount()
     {
         $user = auth()->user();
@@ -49,6 +51,8 @@ class InventoryAdjustments extends Component
         if ($this->needsBranchSelection) {
             $this->branches = Branch::where('is_active', true)->orderBy('name')->get();
         }
+        
+        $this->allLocations = \App\Models\Location::where('is_active', true)->orderBy('name')->get()->toArray();
     }
 
     public function render()
@@ -130,20 +134,17 @@ class InventoryAdjustments extends Component
         $product = Product::with('locations')->find($productId);
         if (!$product) return;
 
-        foreach ($this->items as $item) {
-            if ($item['product_id'] == $productId) {
-                $this->dispatch('notify', message: 'Este producto ya está en la lista', type: 'warning');
-                return;
-            }
-        }
+        // Removed duplicate check so the user can add multiple rows for the same product
 
-        $locations = $product->locations->map(function ($loc) {
+        $productLocations = $product->locations->keyBy('id');
+        $locations = array_map(function($loc) use ($productLocations) {
+            $productLoc = $productLocations->get($loc['id']);
             return [
-                'id' => $loc->id,
-                'name' => $loc->name,
-                'stock' => $loc->pivot->quantity
+                'id' => $loc['id'],
+                'name' => $loc['name'],
+                'stock' => $productLoc ? $productLoc->pivot->quantity : 0
             ];
-        })->toArray();
+        }, $this->allLocations);
 
         $this->items[] = [
             'product_id' => $product->id,
@@ -343,6 +344,22 @@ class InventoryAdjustments extends Component
                             ->where('location_id', $locationId)
                             ->where('product_id', $product->id)
                             ->update(['quantity' => $locStockAfter]);
+                        
+                        $stockBefore = $locStockBefore;
+                        $stockAfter = $locStockAfter;
+                    } else {
+                        $locStockBefore = 0;
+                        $locStockAfter = $item['type'] === 'in'
+                            ? $item['quantity']
+                            : -$item['quantity'];
+                            
+                        DB::table('location_products')->insert([
+                            'location_id' => $locationId,
+                            'product_id' => $product->id,
+                            'quantity' => $locStockAfter,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
                         
                         $stockBefore = $locStockBefore;
                         $stockAfter = $locStockAfter;
