@@ -2272,7 +2272,7 @@ class ReportExportController extends Controller
 
         // ============= Build product query =============
         $productsQuery = Product::query()
-            ->with(['category', 'brand', 'unit', 'branch'])
+            ->with(['category', 'brand', 'unit', 'branch', 'locations'])
             ->where('is_active', true);
 
         if ($branchId) {
@@ -2466,14 +2466,14 @@ class ReportExportController extends Controller
 
         $row = 1;
         $invSheet->setCellValue('A' . $row, 'INVENTARIO DETALLADO');
-        $invSheet->mergeCells('A' . $row . ':L' . $row);
+        $invSheet->mergeCells('A' . $row . ':M' . $row);
         $invSheet->getStyle('A' . $row)->applyFromArray($titleStyle);
         $invSheet->getRowDimension($row)->setRowHeight(28);
         $row += 2;
 
         $invHeaders = [
             'SKU', 'Producto', 'Categoría', 'Marca', 'Sucursal', 'Unidad',
-            'Stock actual', 'Stock mín.', 'Precio compra', 'Precio venta',
+            'Stock actual', 'Ubicaciones', 'Stock mín.', 'Precio compra', 'Precio venta',
             'Valor inv.', 'Costo inv.',
         ];
         $col = 'A';
@@ -2481,7 +2481,7 @@ class ReportExportController extends Controller
             $invSheet->setCellValue($col . $row, $h);
             $col++;
         }
-        $invSheet->getStyle('A' . $row . ':L' . $row)->applyFromArray($tableHeaderStyle);
+        $invSheet->getStyle('A' . $row . ':M' . $row)->applyFromArray($tableHeaderStyle);
         $invSheet->getRowDimension($row)->setRowHeight(22);
         $row++;
 
@@ -2496,47 +2496,51 @@ class ReportExportController extends Controller
             $invSheet->setCellValue('D' . $row, $p->brand?->name ?? '—');
             $invSheet->setCellValue('E' . $row, $p->branch?->name ?? '—');
             $invSheet->setCellValue('F' . $row, $p->unit?->abbreviation ?? '—');
+            $locationsText = collect($p->locations ?? [])->map(fn($l) => $l->name . ': ' . $l->pivot->quantity)->implode(', ');
+
             $invSheet->setCellValue('G' . $row, $stock);
-            $invSheet->setCellValue('H' . $row, (float) $p->min_stock);
-            $invSheet->setCellValue('I' . $row, (float) $p->average_cost);
-            $invSheet->setCellValue('J' . $row, (float) $p->sale_price);
-            $invSheet->setCellValue('K' . $row, $value);
-            $invSheet->setCellValue('L' . $row, $cost);
+            $invSheet->setCellValue('H' . $row, $locationsText);
+            $invSheet->setCellValue('I' . $row, (float) $p->min_stock);
+            $invSheet->setCellValue('J' . $row, (float) $p->average_cost);
+            $invSheet->setCellValue('K' . $row, (float) $p->sale_price);
+            $invSheet->setCellValue('L' . $row, $value);
+            $invSheet->setCellValue('M' . $row, $cost);
 
             // Number formats
-            $invSheet->getStyle('G' . $row . ':H' . $row)->getNumberFormat()->setFormatCode('#,##0.000');
-            $invSheet->getStyle('I' . $row . ':L' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $invSheet->getStyle('G' . $row)->getNumberFormat()->setFormatCode('#,##0.000');
+            $invSheet->getStyle('I' . $row)->getNumberFormat()->setFormatCode('#,##0.000');
+            $invSheet->getStyle('J' . $row . ':M' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
 
             // Highlight rows with stock issues
             if ($stock < 0) {
-                $invSheet->getStyle('A' . $row . ':L' . $row)->getFill()
+                $invSheet->getStyle('A' . $row . ':M' . $row)->getFill()
                     ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FEE2E2');
             } elseif ($stock == 0) {
-                $invSheet->getStyle('A' . $row . ':L' . $row)->getFill()
+                $invSheet->getStyle('A' . $row . ':M' . $row)->getFill()
                     ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FEF3C7');
             } elseif ($p->min_stock > 0 && $stock <= $p->min_stock) {
-                $invSheet->getStyle('A' . $row . ':L' . $row)->getFill()
+                $invSheet->getStyle('A' . $row . ':M' . $row)->getFill()
                     ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FFEDD5');
             }
 
-            $invSheet->getStyle('A' . $row . ':L' . $row)->applyFromArray($cellBorderStyle);
+            $invSheet->getStyle('A' . $row . ':M' . $row)->applyFromArray($cellBorderStyle);
             $row++;
         }
 
         // Totals row
         if ($products->count() > 0) {
             $invSheet->setCellValue('A' . $row, 'TOTALES');
-            $invSheet->mergeCells('A' . $row . ':J' . $row);
-            $invSheet->setCellValue('K' . $row, $totalInventoryValue);
-            $invSheet->setCellValue('L' . $row, $totalInventoryCost);
-            $invSheet->getStyle('A' . $row . ':L' . $row)->getFont()->setBold(true);
-            $invSheet->getStyle('A' . $row . ':L' . $row)->getFill()
+            $invSheet->mergeCells('A' . $row . ':K' . $row);
+            $invSheet->setCellValue('L' . $row, $totalInventoryValue);
+            $invSheet->setCellValue('M' . $row, $totalInventoryCost);
+            $invSheet->getStyle('A' . $row . ':M' . $row)->getFont()->setBold(true);
+            $invSheet->getStyle('A' . $row . ':M' . $row)->getFill()
                 ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F1F5F9');
-            $invSheet->getStyle('K' . $row . ':L' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $invSheet->getStyle('L' . $row . ':M' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
             $invSheet->getStyle('A' . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
         }
 
-        foreach (['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as $colLetter) {
+        foreach (['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'] as $colLetter) {
             $invSheet->getColumnDimension($colLetter)->setAutoSize(true);
         }
         $invSheet->freezePane('A4');

@@ -138,7 +138,7 @@
 @endif
 
 <!-- Ventas -->
-@if (auth()->user()->hasPermission('sales.view'))
+@if (auth()->user()->hasPermission('sales.view') || auth()->user()->hasPermission('sales.view_own'))
 @if($mobile)
 <div class="{{ $sectionClass }}">
     <a href="{{ route('sales') }}" @click="mobileMenuOpen = false"

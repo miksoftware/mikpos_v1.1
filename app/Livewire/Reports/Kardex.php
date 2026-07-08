@@ -374,7 +374,7 @@ class Kardex extends Component
         $this->loadChartData();
 
         $products = $this->getBaseQuery()
-            ->with(['category', 'brand', 'unit'])
+            ->with(['category', 'brand', 'unit', 'locations'])
             ->orderBy('name')
             ->paginate(15);
 

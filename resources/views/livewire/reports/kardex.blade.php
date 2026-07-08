@@ -385,6 +385,16 @@
                             ">
                                 {{ $product->current_stock }} {{ $product->unit?->abbreviation ?? 'und' }}
                             </span>
+                            @if($product->locations && $product->locations->isNotEmpty())
+                                <div class="mt-2 flex flex-col gap-1 text-xs text-slate-500 items-center">
+                                    @foreach($product->locations as $location)
+                                        <div class="flex items-center justify-between w-full max-w-[120px] gap-2 border-b border-slate-100 pb-1 last:border-0 last:pb-0" title="{{ $location->name }}">
+                                            <span class="truncate">{{ $location->name }}</span>
+                                            <span class="font-medium {{ $location->pivot->quantity > 0 ? 'text-green-600' : ($location->pivot->quantity < 0 ? 'text-red-600' : 'text-slate-400') }}">{{ $location->pivot->quantity }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
                         </td>
                         <td class="px-6 py-4 text-right text-slate-600">${{ number_format($product->purchase_price, 2) }}</td>
                         <td class="px-6 py-4 text-right text-slate-600">${{ number_format($product->sale_price, 2) }}</td>
