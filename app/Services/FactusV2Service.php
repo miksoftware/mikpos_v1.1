@@ -187,7 +187,7 @@ class FactusV2Service
         $sale->update(['reference_code' => $referenceCode]);
 
         // Determine payment form (1 = contado, 2 = crédito)
-        $paymentForm = '1'; // Default: contado
+        $paymentForm = $sale->payment_type === 'credit' ? '2' : '1';
         
         // Get primary payment method code - must be string and valid DIAN code
         $primaryPayment = $sale->payments->first();
@@ -218,17 +218,23 @@ class FactusV2Service
         
         $paymentMethodCode = (string) $dianCode;
 
+        $paymentDetail = [
+            'payment_form' => $paymentForm,
+            'payment_method_code' => $paymentMethodCode,
+            'reference_code' => 'PAGO-' . $sale->id,
+            'amount' => number_format($sale->total, 2, '.', ''),
+        ];
+        
+        if ($paymentForm === '2' && $sale->payment_due_date) {
+            $paymentDetail['payment_due_date'] = \Carbon\Carbon::parse($sale->payment_due_date)->format('Y-m-d');
+        }
+
         $payload = [
             'document' => '01', // Factura electrónica de venta
             'reference_code' => $referenceCode,
             'observation' => $sale->notes ?? '',
             'payment_details' => [
-                [
-                    'payment_form' => $paymentForm,
-                    'payment_method_code' => $paymentMethodCode,
-                    'reference_code' => 'PAGO-' . $sale->id,
-                    'amount' => number_format($sale->total, 2, '.', ''),
-                ]
+                $paymentDetail
             ],
             'cash_rounding_amount' => '0.00',
         ];

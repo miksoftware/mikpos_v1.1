@@ -79,6 +79,7 @@ class PointOfSale extends Component
     public $showPaymentModal = false;
     public $payments = [];
     public $paymentNotes = '';
+    public $paymentDueDate = null;
     
     // Hold/Park functionality
     public $heldOrders = [];
@@ -1737,6 +1738,11 @@ class PointOfSale extends Component
                     }
                 }
             }
+
+            if (empty($this->paymentDueDate)) {
+                $this->dispatch('notify', message: 'Selecciona una fecha de vencimiento', type: 'error');
+                return;
+            }
         } else {
             // Cash sale validation
             foreach ($this->payments as $payment) {
@@ -1781,6 +1787,7 @@ class PointOfSale extends Component
                 'payment_status' => $paymentStatus,
                 'credit_amount' => $this->isCredit ? $total : 0,
                 'paid_amount' => $paidAmount,
+                'payment_due_date' => $this->isCredit ? $this->paymentDueDate : null,
                 'notes' => $this->paymentNotes ?: null,
                 'global_discount_type' => $this->globalDiscountApplied ? $this->globalDiscountType : null,
                 'global_discount_value' => $this->globalDiscountApplied ? (float) str_replace(',', '.', $this->globalDiscountValue) : 0,

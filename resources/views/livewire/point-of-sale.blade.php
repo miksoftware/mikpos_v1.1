@@ -1111,6 +1111,15 @@
                         </div>
                         @endif
 
+                        <!-- Due Date (if Credit) -->
+                        @if($isCredit)
+                        <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Fecha de Vencimiento</label>
+                            <input wire:model="paymentDueDate" type="date" min="{{ date('Y-m-d') }}" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 text-sm">
+                            @error('paymentDueDate') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+                        @endif
+
                         <!-- Payment Methods List -->
                         <div>
                             <div class="flex items-center justify-between mb-3">
