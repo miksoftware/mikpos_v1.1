@@ -126,6 +126,11 @@
                         </td>
                         <td class="px-6 py-4 text-right">
                             <p class="font-semibold text-slate-900">${{ number_format($sale->total, 0, ',', '.') }}</p>
+                            @if($sale->payment_type === 'credit')
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 mt-1 uppercase tracking-wider">Crédito</span>
+                            @else
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 mt-1 uppercase tracking-wider">Contado</span>
+                            @endif
                         </td>
                         <td class="px-6 py-4 text-center">
                             @if($sale->source === 'ecommerce')
