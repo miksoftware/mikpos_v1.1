@@ -155,6 +155,21 @@
                             </div>
                         </div>
 
+                        {{-- Location --}}
+                        @if(count($locations) > 0)
+                        <div class="w-32">
+                            <label class="text-xs text-slate-500 block mb-1">Ubicación</label>
+                            <select wire:change="updateLocation({{ $index }}, $event.target.value)" class="w-full px-2 py-1.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                                <option value="">General</option>
+                                @foreach($locations as $location)
+                                    <option value="{{ $location->id }}" {{ ($item['location_id'] ?? null) == $location->id ? 'selected' : '' }}>
+                                        {{ $location->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @endif
+
                         {{-- Subtotal --}}
                         <div class="w-24 text-right">
                             <p class="text-xs text-slate-500">Subtotal</p>

@@ -8,13 +8,13 @@
             <p class="text-slate-500 text-sm mt-1">Análisis detallado de ventas por producto</p>
         </div>
         <div class="flex items-center gap-3">
-            <a href="{{ route('reports.products-sold.excel', ['start_date' => $startDate, 'end_date' => $endDate, 'branch_id' => $selectedBranchId, 'category_id' => $selectedCategoryId]) }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition">
+            <a href="{{ route('reports.products-sold.excel', ['start_date' => $startDate, 'end_date' => $endDate, 'branch_id' => $selectedBranchId, 'category_id' => $selectedCategoryId, 'user_id' => $selectedUserId]) }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition">
                 <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
                 Excel
             </a>
-            <a href="{{ route('reports.products-sold.pdf', ['start_date' => $startDate, 'end_date' => $endDate, 'branch_id' => $selectedBranchId, 'category_id' => $selectedCategoryId]) }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition shadow-lg shadow-purple-500/25">
+            <a href="{{ route('reports.products-sold.pdf', ['start_date' => $startDate, 'end_date' => $endDate, 'branch_id' => $selectedBranchId, 'category_id' => $selectedCategoryId, 'user_id' => $selectedUserId]) }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition shadow-lg shadow-purple-500/25">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
@@ -58,6 +58,15 @@
                 </select>
             </div>
             @endif
+            <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">Vendedor</label>
+                <select wire:model.live="selectedUserId" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                    <option value="">Todos</option>
+                    @foreach($users as $user)
+                    <option value="{{ $user->id }}">{{ $user->name }}</option>
+                    @endforeach
+                </select>
+            </div>
             <div>
                 <label class="block text-xs font-medium text-slate-500 mb-1">Categoría</label>
                 <select wire:model.live="selectedCategoryId" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
@@ -453,6 +462,7 @@
                             </button>
                         </th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Vendedor</th>
                         <th class="px-6 py-4 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
                             <button wire:click="sortByColumn('quantity')" class="flex items-center gap-1 hover:text-slate-700 mx-auto">
                                 Cant.
@@ -489,6 +499,9 @@
                         </td>
                         <td class="px-6 py-4">
                             <span class="text-sm text-slate-600">{{ $item->sale->customer?->full_name ?? 'Consumidor Final' }}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-sm text-slate-600">{{ $item->sale->user?->name ?? '-' }}</span>
                         </td>
                         <td class="px-6 py-4 text-center">
                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-[#a855f7]/10 text-[#a855f7]">

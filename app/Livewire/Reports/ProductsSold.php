@@ -25,6 +25,7 @@ class ProductsSold extends Component
     public ?string $startDate = null;
     public ?string $endDate = null;
     public ?int $selectedBranchId = null;
+    public ?int $selectedUserId = null;
     public ?int $selectedCashRegisterId = null;
     public ?int $selectedCategoryId = null;
     public ?int $selectedBrandId = null;
@@ -160,6 +161,10 @@ class ProductsSold extends Component
             $query->where('sales.branch_id', $user->branch_id);
         }
 
+        if ($this->selectedUserId) {
+            $query->where('sales.user_id', $this->selectedUserId);
+        }
+
         if ($user->isSupervisor()) {
             $supervisorRegisterIds = $user->getSupervisorCashRegisterIds();
             if (empty($supervisorRegisterIds)) {
@@ -212,6 +217,10 @@ class ProductsSold extends Component
             $salesQuery->where('branch_id', $this->selectedBranchId);
         } elseif (!$user->isSuperAdmin()) {
             $salesQuery->where('branch_id', $user->branch_id);
+        }
+
+        if ($this->selectedUserId) {
+            $salesQuery->where('user_id', $this->selectedUserId);
         }
         if ($user->isSupervisor()) {
             $supervisorRegisterIds = $user->getSupervisorCashRegisterIds();
@@ -353,6 +362,10 @@ class ProductsSold extends Component
             $salesQuery->where('sales.branch_id', $this->selectedBranchId);
         } elseif (!$user->isSuperAdmin()) {
             $salesQuery->where('sales.branch_id', $user->branch_id);
+        }
+
+        if ($this->selectedUserId) {
+            $salesQuery->where('sales.user_id', $this->selectedUserId);
         }
 
         if ($user->isSupervisor()) {
@@ -536,6 +549,7 @@ class ProductsSold extends Component
         $cashRegisters = $isSupervisor
             ? $user->cashRegisters()->where('cash_registers.is_active', true)->orderBy('cash_registers.name')->get()
             : collect();
+        $users = \App\Models\User::where('is_active', true)->orderBy('name')->get();
 
         // Product search results
         $productSearchResults = $this->getProductSearchResults();
@@ -560,6 +574,7 @@ class ProductsSold extends Component
             'isSuperAdmin' => $isSuperAdmin,
             'isSupervisor' => $isSupervisor,
             'cashRegisters' => $cashRegisters,
+            'users' => $users,
             'productSearchResults' => $productSearchResults,
         ]);
     }

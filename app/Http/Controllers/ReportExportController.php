@@ -340,6 +340,11 @@ class ReportExportController extends Controller
         $sheet->getStyle('A' . $row)->getFont()->setBold(true);
         $row++;
 
+        $sheet->setCellValue('A' . $row, 'Vendedor:');
+        $sheet->setCellValue('B' . $row, $data['sellerName']);
+        $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+        $row++;
+
         $sheet->setCellValue('A' . $row, 'Categoría:');
         $sheet->setCellValue('B' . $row, $data['categoryName']);
         $sheet->getStyle('A' . $row)->getFont()->setBold(true);
@@ -414,13 +419,13 @@ class ReportExportController extends Controller
         $row++;
 
         // Detail header
-        $headers = ['Fecha', 'Factura', 'Producto', 'SKU', 'Cliente', 'Cantidad', 'P. Unitario', 'Total'];
+        $headers = ['Fecha', 'Factura', 'Producto', 'SKU', 'Cliente', 'Vendedor', 'Cantidad', 'P. Unitario', 'Total'];
         $col = 'A';
         foreach ($headers as $header) {
             $sheet->setCellValue($col . $row, $header);
             $col++;
         }
-        $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($headerStyle);
+        $sheet->getStyle('A' . $row . ':I' . $row)->applyFromArray($headerStyle);
         $sheet->getRowDimension($row)->setRowHeight(25);
         $row++;
 
@@ -431,14 +436,15 @@ class ReportExportController extends Controller
             $sheet->setCellValue('C' . $row, $item->product_name);
             $sheet->setCellValue('D' . $row, $item->product_sku);
             $sheet->setCellValue('E' . $row, $item->sale->customer?->full_name ?? 'Consumidor Final');
-            $sheet->setCellValue('F' . $row, $item->quantity);
-            $sheet->setCellValue('G' . $row, $item->unit_price);
-            $sheet->setCellValue('H' . $row, $item->total);
+            $sheet->setCellValue('F' . $row, $item->sale->user?->name ?? '-');
+            $sheet->setCellValue('G' . $row, $item->quantity);
+            $sheet->setCellValue('H' . $row, $item->unit_price);
+            $sheet->setCellValue('I' . $row, $item->total);
             
-            $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($dataStyle);
-            $sheet->getStyle('F' . $row)->getNumberFormat()->setFormatCode('#,##0');
-            $sheet->getStyle('G' . $row)->getNumberFormat()->setFormatCode('$#,##0');
+            $sheet->getStyle('A' . $row . ':I' . $row)->applyFromArray($dataStyle);
+            $sheet->getStyle('G' . $row)->getNumberFormat()->setFormatCode('#,##0');
             $sheet->getStyle('H' . $row)->getNumberFormat()->setFormatCode('$#,##0');
+            $sheet->getStyle('I' . $row)->getNumberFormat()->setFormatCode('$#,##0');
             
             // Alternate row colors
             if ($row % 2 == 0) {
@@ -473,6 +479,7 @@ class ReportExportController extends Controller
         $endDate = $request->get('end_date', now()->format('Y-m-d'));
         $branchId = $request->get('branch_id');
         $categoryId = $request->get('category_id');
+        $userId = $request->get('user_id');
 
         $user = auth()->user();
 
@@ -486,6 +493,10 @@ class ReportExportController extends Controller
             $query->where('sales.branch_id', $branchId);
         } elseif (!$user->isSuperAdmin()) {
             $query->where('sales.branch_id', $user->branch_id);
+        }
+
+        if ($userId) {
+            $query->where('sales.user_id', $userId);
         }
 
         if ($categoryId) {
@@ -538,11 +549,19 @@ class ReportExportController extends Controller
             $categoryName = $category ? $category->name : 'Categoría no encontrada';
         }
 
+        // Get seller name
+        $sellerName = 'Todos los vendedores';
+        if ($userId) {
+            $selectedUser = User::find($userId);
+            $sellerName = $selectedUser ? $selectedUser->name : 'Vendedor no encontrado';
+        }
+
         return [
             'startDate' => Carbon::parse($startDate)->format('d/m/Y'),
             'endDate' => Carbon::parse($endDate)->format('d/m/Y'),
             'branchName' => $branchName,
             'categoryName' => $categoryName,
+            'sellerName' => $sellerName,
             'totalQuantity' => $totalQuantity,
             'totalRevenue' => $totalRevenue,
             'items' => $items,
@@ -1699,6 +1718,11 @@ class ReportExportController extends Controller
             $branchName = $user->branch?->name ?? '-';
         }
 
+        $sellerName = 'Todos';
+        if ($userId) {
+            $sellerName = User::find($userId)?->name ?? 'Todos';
+        }
+
         // Build spreadsheet
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -1748,6 +1772,11 @@ class ReportExportController extends Controller
 
         $sheet->setCellValue('A' . $row, 'Sucursal:');
         $sheet->setCellValue('B' . $row, $branchName);
+        $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'Vendedor:');
+        $sheet->setCellValue('B' . $row, $sellerName);
         $sheet->getStyle('A' . $row)->getFont()->setBold(true);
         $row++;
 

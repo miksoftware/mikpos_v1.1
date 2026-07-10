@@ -219,7 +219,8 @@ class Purchase extends Model
                     (float) $item->unit_cost,
                     "Compra #{$this->purchase_number}",
                     $this,
-                    $this->branch_id
+                    $this->branch_id,
+                    $item->location_id
                 );
 
                 // Store the actual purchase date (not creation date) for Kardex accuracy
@@ -227,6 +228,29 @@ class Purchase extends Model
 
                 // Update average cost before incrementing stock
                 $product->updateAverageCost((float) $item->quantity, (float) $item->unit_cost);
+
+                // Update stock in locations if location_id is provided
+                if ($item->location_id) {
+                    $locationProduct = \Illuminate\Support\Facades\DB::table('location_products')
+                        ->where('location_id', $item->location_id)
+                        ->where('product_id', $product->id)
+                        ->first();
+                    
+                    if ($locationProduct) {
+                        \Illuminate\Support\Facades\DB::table('location_products')
+                            ->where('location_id', $item->location_id)
+                            ->where('product_id', $product->id)
+                            ->update(['quantity' => $locationProduct->quantity + $item->quantity, 'updated_at' => now()]);
+                    } else {
+                        \Illuminate\Support\Facades\DB::table('location_products')->insert([
+                            'location_id' => $item->location_id,
+                            'product_id' => $product->id,
+                            'quantity' => $item->quantity,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
+                }
 
                 // Update stock
                 $product->increment('current_stock', $item->quantity);
@@ -262,8 +286,24 @@ class Purchase extends Model
                         (float) $item->unit_cost,
                         "Anulación compra #{$this->purchase_number}",
                         $this,
-                        $this->branch_id
+                        $this->branch_id,
+                        $item->location_id
                     );
+
+                    // Revert location stock
+                    if ($item->location_id) {
+                        $locationProduct = \Illuminate\Support\Facades\DB::table('location_products')
+                            ->where('location_id', $item->location_id)
+                            ->where('product_id', $product->id)
+                            ->first();
+                        
+                        if ($locationProduct) {
+                            \Illuminate\Support\Facades\DB::table('location_products')
+                                ->where('location_id', $item->location_id)
+                                ->where('product_id', $product->id)
+                                ->update(['quantity' => $locationProduct->quantity - $item->quantity, 'updated_at' => now()]);
+                        }
+                    }
 
                     $product->decrement('current_stock', $item->quantity);
                 }

@@ -22,6 +22,7 @@ class PurchaseItem extends Model
         'discount_type_value',
         'subtotal',
         'total',
+        'location_id',
     ];
 
     protected function casts(): array
@@ -48,6 +49,11 @@ class PurchaseItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(Location::class);
     }
 
     // Methods

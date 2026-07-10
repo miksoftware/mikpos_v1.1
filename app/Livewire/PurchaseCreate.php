@@ -60,6 +60,7 @@ class PurchaseCreate extends Component
     public $suppliers = [];
     public $paymentMethods = [];
     public $branches = [];
+    public $locations = [];
 
     // Branch control
     public bool $needsBranchSelection = false;
@@ -135,8 +136,12 @@ class PurchaseCreate extends Component
         
         if ($this->needsBranchSelection) {
             $this->branches = Branch::where('is_active', true)->orderBy('name')->get();
+            if ($this->branch_id) {
+                $this->locations = \App\Models\Location::where('branch_id', $this->branch_id)->where('is_active', true)->orderBy('name')->get();
+            }
         } else {
             $this->branch_id = $user->branch_id;
+            $this->locations = \App\Models\Location::where('branch_id', $this->branch_id)->where('is_active', true)->orderBy('name')->get();
         }
 
         if ($id) {
@@ -223,6 +228,7 @@ class PurchaseCreate extends Component
                 'discount_type_value' => (float) ($item->discount_type_value ?? 0),
                 'subtotal' => (float) $item->subtotal,
                 'total' => (float) $item->total,
+                'location_id' => $item->location_id,
             ];
         }
 
@@ -314,6 +320,7 @@ class PurchaseCreate extends Component
             'discount_type_value' => 0,
             'subtotal' => (float) $product->purchase_price,
             'total' => 0,
+            'location_id' => null,
         ];
 
         $lastIndex = count($this->cartItems) - 1;
@@ -428,6 +435,11 @@ class PurchaseCreate extends Component
             $price = 0;
         }
         $this->cartItems[$index]['sale_price'] = $price;
+    }
+
+    public function updateLocation(int $index, ?int $locationId)
+    {
+        $this->cartItems[$index]['location_id'] = $locationId ?: null;
     }
 
     public function removeItem(int $index)
@@ -1009,6 +1021,7 @@ class PurchaseCreate extends Component
                 'discount_type_value' => $item['discount_type_value'] ?? 0,
                 'subtotal' => $item['subtotal'],
                 'total' => $item['total'],
+                'location_id' => $item['location_id'] ?? null,
             ]);
 
             // Update product prices if changed
@@ -1056,6 +1069,21 @@ class PurchaseCreate extends Component
             foreach ($this->purchase->items as $item) {
                 $product = $item->product;
                 if ($product) {
+                    // Revert location stock
+                    if ($item->location_id) {
+                        $locationProduct = \Illuminate\Support\Facades\DB::table('location_products')
+                            ->where('location_id', $item->location_id)
+                            ->where('product_id', $product->id)
+                            ->first();
+                        
+                        if ($locationProduct) {
+                            \Illuminate\Support\Facades\DB::table('location_products')
+                                ->where('location_id', $item->location_id)
+                                ->where('product_id', $product->id)
+                                ->update(['quantity' => $locationProduct->quantity - $item->quantity, 'updated_at' => now()]);
+                        }
+                    }
+
                     $product->decrement('current_stock', $item->quantity);
                 }
             }
@@ -1080,6 +1108,7 @@ class PurchaseCreate extends Component
                 'discount_type_value' => $item['discount_type_value'] ?? 0,
                 'subtotal' => $item['subtotal'],
                 'total' => $item['total'],
+                'location_id' => $item['location_id'] ?? null,
             ]);
 
             // Update product prices if changed
