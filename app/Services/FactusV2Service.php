@@ -225,8 +225,10 @@ class FactusV2Service
             'amount' => number_format($sale->total, 2, '.', ''),
         ];
         
-        if ($paymentForm === '2' && $sale->payment_due_date) {
-            $paymentDetail['payment_due_date'] = \Carbon\Carbon::parse($sale->payment_due_date)->format('Y-m-d');
+        if ($paymentForm === '2') {
+            $paymentDetail['due_date'] = $sale->payment_due_date 
+                ? \Carbon\Carbon::parse($sale->payment_due_date)->format('Y-m-d') 
+                : now()->format('Y-m-d');
         }
 
         $payload = [
