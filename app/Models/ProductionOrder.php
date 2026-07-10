@@ -14,10 +14,6 @@ class ProductionOrder extends Model
     protected $fillable = [
         'branch_id',
         'user_id',
-        'product_id',
-        'recipe_id',
-        'quantity_to_produce',
-        'total_cost',
         'status',
         'notes',
         'completed_at',
@@ -26,8 +22,6 @@ class ProductionOrder extends Model
     protected function casts(): array
     {
         return [
-            'quantity_to_produce' => 'decimal:3',
-            'total_cost' => 'decimal:2',
             'completed_at' => 'datetime',
         ];
     }
@@ -42,14 +36,9 @@ class ProductionOrder extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function product(): BelongsTo
+    public function items(): HasMany
     {
-        return $this->belongsTo(Product::class);
-    }
-
-    public function recipe(): BelongsTo
-    {
-        return $this->belongsTo(Recipe::class);
+        return $this->hasMany(ProductionOrderItem::class);
     }
 
     public function details(): HasMany

@@ -29,7 +29,7 @@
                 <span class="text-sm text-slate-500">Ordenar:</span>
                 <select wire:model.live="sortBy" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm">
                     <option value="created_at">Fecha</option>
-                    <option value="quantity_to_produce">Cantidad</option>
+                    <option value="quantity_to_produce">Cantidad Total</option>
                     <option value="total_cost">Costo Total</option>
                 </select>
                 <button wire:click="sortByColumn('{{ $sortBy }}')" class="p-2.5 border border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
@@ -50,8 +50,8 @@
                 <thead class="bg-slate-50">
                     <tr>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Fecha</th>
-                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Producto Fabricado</th>
-                        <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Cantidad</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Productos Fabricados</th>
+                        <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Cantidad Total</th>
                         <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Costo Total</th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Estado</th>
                         <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Acciones</th>
@@ -64,18 +64,22 @@
                             {{ $order->created_at->format('d/m/Y H:i') }}
                         </td>
                         <td class="px-6 py-4">
-                            <div class="font-medium text-slate-900">{{ $order->product->name ?? 'Producto Eliminado' }}</div>
+                            @if($order->items->count() === 1)
+                                <div class="font-medium text-slate-900">{{ $order->items->first()->product->name ?? 'Producto Eliminado' }}</div>
+                            @else
+                                <div class="font-medium text-slate-900">Varias recetas ({{ $order->items->count() }})</div>
+                            @endif
                             <div class="text-sm text-slate-500 flex gap-2">
                                 <span>Usuario: {{ $order->user->name ?? 'N/A' }}</span>
                             </div>
                         </td>
                         <td class="px-6 py-4 text-center">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-emerald-100 text-emerald-700">
-                                +{{ number_format($order->quantity_to_produce, 2) }}
+                                +{{ number_format($order->quantity_to_produce ?? $order->items->sum('quantity_to_produce'), 2) }}
                             </span>
                         </td>
                         <td class="px-6 py-4 text-right font-medium text-slate-700">
-                            ${{ number_format($order->total_cost, 2) }}
+                            ${{ number_format($order->total_cost ?? $order->items->sum('total_cost'), 2) }}
                         </td>
                         <td class="px-6 py-4 text-center">
                             @if($order->status === 'completed')
@@ -124,7 +128,7 @@
         <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm transition-opacity" wire:click="closeViewModal"></div>
         <div class="fixed inset-0 z-[101] overflow-y-auto">
             <div class="flex min-h-full items-center justify-center p-4">
-                <div class="relative w-full max-w-3xl bg-white rounded-2xl shadow-xl overflow-hidden">
+                <div class="relative w-full max-w-4xl bg-white rounded-2xl shadow-xl overflow-hidden">
                     <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
                         <div>
                             <h3 class="text-lg font-bold text-slate-900">Detalles de Orden de Producción #{{ $selectedOrder->id }}</h3>
@@ -137,16 +141,16 @@
                     <div class="p-6">
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
                             <div>
-                                <div class="text-sm text-slate-500 mb-1">Producto Fabricado</div>
-                                <div class="font-semibold text-slate-800">{{ $selectedOrder->product->name ?? 'N/A' }}</div>
+                                <div class="text-sm text-slate-500 mb-1">Ítems Fabricados</div>
+                                <div class="font-semibold text-slate-800">{{ $selectedOrder->items->count() }}</div>
                             </div>
                             <div>
-                                <div class="text-sm text-slate-500 mb-1">Cantidad</div>
-                                <div class="font-semibold text-emerald-600">+{{ number_format($selectedOrder->quantity_to_produce, 2) }}</div>
+                                <div class="text-sm text-slate-500 mb-1">Cantidad Total</div>
+                                <div class="font-semibold text-emerald-600">+{{ number_format($selectedOrder->items->sum('quantity_to_produce'), 2) }}</div>
                             </div>
                             <div>
                                 <div class="text-sm text-slate-500 mb-1">Costo Total</div>
-                                <div class="font-semibold text-slate-800">${{ number_format($selectedOrder->total_cost, 2) }}</div>
+                                <div class="font-semibold text-slate-800">${{ number_format($selectedOrder->items->sum('total_cost'), 2) }}</div>
                             </div>
                             <div>
                                 <div class="text-sm text-slate-500 mb-1">Estado</div>
@@ -167,28 +171,48 @@
                         </div>
                         @endif
 
-                        <h4 class="text-base font-bold text-slate-800 mb-4 border-b pb-2">Insumos Utilizados</h4>
-                        <div class="overflow-hidden border border-slate-200 rounded-xl">
-                            <table class="min-w-full divide-y divide-slate-200">
-                                <thead class="bg-slate-50">
-                                    <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Insumo</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase">Cantidad Consumida</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase">Costo Unit.</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase">Subtotal</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-200 bg-white">
-                                    @foreach($selectedOrder->details as $detail)
-                                    <tr>
-                                        <td class="px-4 py-3 text-sm text-slate-800">{{ $detail->product->name ?? 'N/A' }}</td>
-                                        <td class="px-4 py-3 text-sm text-slate-800 text-right text-amber-600">-{{ number_format($detail->quantity_consumed, 2) }}</td>
-                                        <td class="px-4 py-3 text-sm text-slate-800 text-right">${{ number_format($detail->unit_cost_at_time, 2) }}</td>
-                                        <td class="px-4 py-3 text-sm text-slate-800 text-right font-medium">${{ number_format($detail->quantity_consumed * $detail->unit_cost_at_time, 2) }}</td>
-                                    </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
+                        <h4 class="text-base font-bold text-slate-800 mb-4 border-b pb-2">Detalle de Fabricación</h4>
+                        
+                        <div class="space-y-6">
+                            @foreach($selectedOrder->items as $item)
+                            <div class="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                <div class="bg-slate-50 px-4 py-3 flex justify-between items-center border-b border-slate-200">
+                                    <div>
+                                        <h5 class="font-bold text-slate-800">{{ $item->product->name ?? 'N/A' }}</h5>
+                                        <p class="text-xs text-slate-500">
+                                            @if($item->location)
+                                            Destino: <span class="font-semibold text-slate-700">{{ $item->location->name }}</span> | 
+                                            @endif
+                                            Cantidad Producida: <span class="font-semibold text-emerald-600">+{{ number_format($item->quantity_to_produce, 2) }}</span>
+                                        </p>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="block text-sm font-bold text-slate-800">${{ number_format($item->total_cost, 2) }}</span>
+                                        <span class="text-xs text-slate-500">Costo Estimado</span>
+                                    </div>
+                                </div>
+                                <table class="min-w-full divide-y divide-slate-200 bg-white">
+                                    <thead class="bg-white">
+                                        <tr>
+                                            <th class="px-4 py-2 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Insumo Consumido</th>
+                                            <th class="px-4 py-2 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Cant.</th>
+                                            <th class="px-4 py-2 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Costo U.</th>
+                                            <th class="px-4 py-2 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        @foreach($item->details as $detail)
+                                        <tr class="hover:bg-slate-50">
+                                            <td class="px-4 py-2 text-sm text-slate-700">{{ $detail->product->name ?? 'N/A' }}</td>
+                                            <td class="px-4 py-2 text-sm text-amber-600 font-medium text-right">-{{ number_format($detail->quantity_consumed, 2) }}</td>
+                                            <td class="px-4 py-2 text-sm text-slate-600 text-right">${{ number_format($detail->unit_cost_at_time, 2) }}</td>
+                                            <td class="px-4 py-2 text-sm text-slate-800 font-medium text-right">${{ number_format($detail->quantity_consumed * $detail->unit_cost_at_time, 2) }}</td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                            @endforeach
                         </div>
                     </div>
                 </div>

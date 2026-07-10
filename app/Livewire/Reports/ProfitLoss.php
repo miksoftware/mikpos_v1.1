@@ -332,8 +332,8 @@ class ProfitLoss extends Component
         $this->totalCashExpenses = (float) $expensesQuery->sum('amount');
 
         // Module expenses (from expenses table)
-        $moduleExpensesQuery = Expense::whereDate('expenses.created_at', '>=', $this->startDate)
-            ->whereDate('expenses.created_at', '<=', $this->endDate);
+        $moduleExpensesQuery = Expense::whereDate('expenses.expense_date', '>=', $this->startDate)
+            ->whereDate('expenses.expense_date', '<=', $this->endDate);
         if ($this->selectedBranchId) {
             $moduleExpensesQuery->where('expenses.branch_id', $this->selectedBranchId);
         } elseif (!auth()->user()->isSuperAdmin()) {
@@ -592,8 +592,8 @@ class ProfitLoss extends Component
             ->get()
             ->map(fn($e) => ['concept' => $e->concept . ' (Caja)', 'total' => round($e->total, 2), 'count' => $e->count]);
 
-        $moduleExpenses = Expense::whereDate('expenses.created_at', '>=', $this->startDate)
-            ->whereDate('expenses.created_at', '<=', $this->endDate);
+        $moduleExpenses = Expense::whereDate('expenses.expense_date', '>=', $this->startDate)
+            ->whereDate('expenses.expense_date', '<=', $this->endDate);
         if ($this->selectedBranchId) {
             $moduleExpenses->where('expenses.branch_id', $this->selectedBranchId);
         } elseif (!auth()->user()->isSuperAdmin()) {

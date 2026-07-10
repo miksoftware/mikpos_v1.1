@@ -26,9 +26,11 @@ class ProductionOrders extends Component
 
     public function render()
     {
-        $orders = ProductionOrder::with(['product', 'user', 'branch'])
+        $orders = ProductionOrder::with(['items.product', 'user', 'branch'])
+            ->withSum('items as total_cost', 'total_cost')
+            ->withSum('items as quantity_to_produce', 'quantity_to_produce')
             ->when($this->search, function ($query) {
-                $query->whereHas('product', function ($q) {
+                $query->whereHas('items.product', function ($q) {
                     $q->where('name', 'like', '%' . $this->search . '%')
                       ->orWhere('sku', 'like', '%' . $this->search . '%');
                 });
@@ -62,7 +64,9 @@ class ProductionOrders extends Component
             return;
         }
 
-        $this->selectedOrder = ProductionOrder::with(['product', 'user', 'branch', 'details.product'])->findOrFail($id);
+        $this->selectedOrder = ProductionOrder::with([
+            'items.product', 'items.location', 'user', 'branch', 'details.product'
+        ])->findOrFail($id);
         $this->isViewModalOpen = true;
     }
 

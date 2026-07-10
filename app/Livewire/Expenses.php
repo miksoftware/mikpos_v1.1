@@ -28,6 +28,8 @@ class Expenses extends Component
     // Form
     public bool $isModalOpen = false;
     public ?int $itemId = null;
+    #[Rule('required|date')]
+    public string $expense_date = '';
     #[Rule('required|min:3')]
     public string $description = '';
     #[Rule('required|numeric|min:0.01')]
@@ -50,6 +52,7 @@ class Expenses extends Component
     public function create()
     {
         $this->resetForm();
+        $this->expense_date = date('Y-m-d');
         $this->expensePayments = [['method_id' => '', 'amount' => '']];
         $this->isModalOpen = true;
     }
@@ -58,6 +61,7 @@ class Expenses extends Component
     {
         $expense = Expense::findOrFail($id);
         $this->itemId = $expense->id;
+        $this->expense_date = $expense->expense_date ? $expense->expense_date->format('Y-m-d') : $expense->created_at->format('Y-m-d');
         $this->description = $expense->description;
         $this->amount = $expense->amount;
         $this->contact_id = $expense->contact_type && $expense->contact_id
@@ -108,6 +112,7 @@ class Expenses extends Component
     public function store()
     {
         $this->validate([
+            'expense_date' => 'required|date',
             'description' => 'required|min:3',
             'amount' => 'required|numeric|min:0.01',
         ]);
@@ -156,6 +161,7 @@ class Expenses extends Component
             $expense = Expense::findOrFail($this->itemId);
             $oldValues = $expense->toArray();
             $expense->update([
+                'expense_date' => $this->expense_date,
                 'description' => $this->description,
                 'amount' => $this->amount,
                 'payment_method_id' => $primaryMethodId,
@@ -173,6 +179,7 @@ class Expenses extends Component
                 'payment_details' => $paymentDetails,
                 'contact_type' => $contactType,
                 'contact_id' => $contactId,
+                'expense_date' => $this->expense_date,
                 'description' => $this->description,
                 'amount' => $this->amount,
             ]);
@@ -221,6 +228,7 @@ class Expenses extends Component
     private function resetForm()
     {
         $this->itemId = null;
+        $this->expense_date = '';
         $this->description = '';
         $this->amount = '';
         $this->payment_method_id = '';
@@ -244,8 +252,8 @@ class Expenses extends Component
                 $q->where('description', 'like', '%' . trim($this->search) . '%');
             })
             ->when($this->filterPaymentMethod, fn($q) => $q->where('expenses.payment_method_id', $this->filterPaymentMethod))
-            ->when($this->filterDateFrom, fn($q) => $q->whereDate('expenses.created_at', '>=', $this->filterDateFrom))
-            ->when($this->filterDateTo, fn($q) => $q->whereDate('expenses.created_at', '<=', $this->filterDateTo))
+            ->when($this->filterDateFrom, fn($q) => $q->whereDate('expenses.expense_date', '>=', $this->filterDateFrom))
+            ->when($this->filterDateTo, fn($q) => $q->whereDate('expenses.expense_date', '<=', $this->filterDateTo))
             ->when($this->filterContactType, fn($q) => $q->where('expenses.contact_type', $this->filterContactType))
             ->when(trim($this->filterContact), function ($q) {
                 $search = '%' . trim($this->filterContact) . '%';
@@ -279,7 +287,7 @@ class Expenses extends Component
 
         $totalFiltered = (clone $query)->sum('expenses.amount');
 
-        $items = $query->latest('expenses.created_at')->paginate(10);
+        $items = $query->latest('expenses.expense_date')->latest('expenses.id')->paginate(10);
 
         // Build contacts list: suppliers + customers
         $branchId = $user->isSuperAdmin() ? null : $user->branch_id;

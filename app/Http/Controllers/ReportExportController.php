@@ -666,8 +666,8 @@ class ReportExportController extends Controller
         $totalCashIncome = (float) $cashIncomeQuery->sum('amount');
 
         // Module expenses
-        $moduleExpQuery = Expense::whereDate('expenses.created_at', '>=', $startDate)
-            ->whereDate('expenses.created_at', '<=', $endDate);
+        $moduleExpQuery = Expense::whereDate('expenses.expense_date', '>=', $startDate)
+            ->whereDate('expenses.expense_date', '<=', $endDate);
         if ($branchId) {
             $moduleExpQuery->where('expenses.branch_id', $branchId);
         }
@@ -747,8 +747,8 @@ class ReportExportController extends Controller
             ->groupBy('concept')->orderByDesc('total')->get()
             ->map(fn($e) => (object) ['concept' => $e->concept . ' (Caja)', 'total' => $e->total, 'count' => $e->count]);
 
-        $modExpBreakdown = Expense::whereDate('expenses.created_at', '>=', $startDate)
-            ->whereDate('expenses.created_at', '<=', $endDate);
+        $modExpBreakdown = Expense::whereDate('expenses.expense_date', '>=', $startDate)
+            ->whereDate('expenses.expense_date', '<=', $endDate);
         if ($branchId) {
             $modExpBreakdown->where('expenses.branch_id', $branchId);
         }

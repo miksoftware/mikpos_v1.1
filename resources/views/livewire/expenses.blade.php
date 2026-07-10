@@ -90,7 +90,8 @@
                     @forelse($items as $item)
                     <tr class="hover:bg-slate-50/50 transition-colors">
                         <td class="px-6 py-4 text-sm text-slate-600">
-                            {{ $item->created_at->format('d/m/Y H:i') }}
+                            {{ $item->expense_date ? $item->expense_date->format('d/m/Y') : $item->created_at->format('d/m/Y') }}
+                            <p class="text-[10px] text-slate-400">Reg: {{ $item->created_at->format('d/m/Y H:i') }}</p>
                         </td>
                         <td class="px-6 py-4">
                             <span class="text-sm font-medium text-slate-900">{{ $item->description }}</span>
@@ -180,6 +181,11 @@
                         </button>
                     </div>
                     <div class="px-6 py-4 space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Fecha del Gasto *</label>
+                            <input wire:model="expense_date" type="date" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                            @error('expense_date')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                        </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Detalle *</label>
                             <input wire:model="description" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: Pago de arriendo, Compra de insumos...">
