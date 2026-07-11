@@ -421,6 +421,36 @@ Route::middleware(['auth'])->group(function () {
         return view($view, compact('sale', 'showLogo'));
     })->name('receipt.show');
 
+    // Credit Receipt
+    Route::get('/credit-receipt/{type}/{id}', function ($type, $id) {
+        if ($type === 'sale') {
+            $sale = App\Models\Sale::with([
+                'branch.department',
+                'branch.municipality',
+                'customer.taxDocument',
+                'customer.municipality',
+                'customer.department',
+                'user',
+                'items',
+                'creditPayments.paymentMethod',
+                'creditPayments.user',
+                'cashReconciliation.cashRegister',
+                'ecommerceOrder.shippingDepartment',
+                'ecommerceOrder.shippingMunicipality',
+            ])->findOrFail($id);
+
+            $documentType = $sale->source === 'ecommerce' ? 'ecommerce' : 'pos';
+            $format = App\Models\PrintFormatSetting::getFormat($documentType);
+            $view = $format === 'letter' ? 'receipts.credit-receipt-letter' : 'receipts.credit-receipt';
+            $showLogo = $format === '80mm' && App\Models\PrintFormatSetting::shouldShowLogo80mm($documentType);
+
+            return view($view, compact('sale', 'showLogo', 'type'));
+        } else {
+            // For purchase, if needed later
+            abort(404, 'Formato no soportado para compras actualmente.');
+        }
+    })->name('credit-receipt.show');
+
     // Refund Receipt
     Route::get('/refund-receipt/{refund}', function (App\Models\Refund $refund) {
         $refund->load([
