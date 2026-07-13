@@ -179,7 +179,7 @@ class EvoWhatsappConfig extends Component
                 'apikey' => $this->global_api_key,
                 'Content-Type' => 'application/json',
             ])->post($this->server_url . '/instance/create', [
-                'instanceName' => $this->instance_name,
+                'name' => $this->instance_name,
                 'token' => uniqid('evo_'),
                 'qrcode' => true
             ]);
@@ -188,8 +188,8 @@ class EvoWhatsappConfig extends Component
                 $data = $response->json();
                 
                 $config = EvoWhatsappConfigModel::firstOrNew(['branch_id' => $this->branch_id]);
-                $config->instance_name = $data['instance']['instanceName'] ?? $this->instance_name;
-                $config->instance_token = $data['hash']['apikey'] ?? $this->global_api_key;
+                $config->instance_name = $data['instance']['name'] ?? $data['instance']['instanceName'] ?? $this->instance_name;
+                $config->instance_token = $data['hash']['apikey'] ?? $data['instance']['token'] ?? $this->global_api_key;
                 $config->status = $data['instance']['status'] ?? 'connecting';
                 $config->save();
 
