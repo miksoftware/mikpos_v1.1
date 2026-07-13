@@ -62,6 +62,54 @@ class EvoWhatsappConfig extends Component
         $this->loadConfigForSelectedBranch();
     }
 
+    public function saveGlobalSettings()
+    {
+        if (!auth()->user()->isSuperAdmin()) {
+            $this->dispatch('notify', message: 'No tienes permisos para modificar la configuración global.', type: 'error');
+            return;
+        }
+
+        $this->validate([
+            'server_url' => 'required|url',
+            'global_api_key' => 'required|string',
+        ]);
+
+        $this->updateEnv([
+            'EVO_WHATSAPP_SERVER_URL' => $this->server_url,
+            'EVO_WHATSAPP_GLOBAL_API_KEY' => $this->global_api_key,
+        ]);
+
+        $this->dispatch('notify', message: 'Configuración global guardada correctamente.', type: 'success');
+    }
+
+    protected function updateEnv(array $values)
+    {
+        $envFile = app()->environmentFilePath();
+        $str = file_get_contents($envFile);
+
+        if (count($values) > 0) {
+            foreach ($values as $envKey => $envValue) {
+                $str .= "\n"; // Ensure new lines at the end before adding
+                $keyPosition = strpos($str, "{$envKey}=");
+                $endOfLinePosition = strpos($str, "\n", $keyPosition);
+                $oldLine = substr($str, $keyPosition, $endOfLinePosition - $keyPosition);
+
+                // If key doesn't exist, append it
+                if (!$keyPosition || !$endOfLinePosition || !$oldLine) {
+                    $str .= "{$envKey}={$envValue}\n";
+                } else {
+                    $str = str_replace($oldLine, "{$envKey}={$envValue}", $str);
+                }
+            }
+        }
+
+        $str = substr($str, 0, -1);
+        if (!file_put_contents($envFile, $str)) {
+            return false;
+        }
+        return true;
+    }
+
     protected function ensureCanAccessSelectedBranch(): void
     {
         $user = auth()->user();

@@ -121,11 +121,36 @@
                 </div>
             </div>
 
-            <!-- Global API Setup notice -->
-            @if(empty($global_api_key))
-                <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 mt-4">
-                    <p class="text-sm font-medium text-amber-800">Falta la configuración de Evolution API</p>
-                    <p class="text-xs text-amber-700 mt-1">Agrega <code>EVO_WHATSAPP_SERVER_URL</code> y <code>EVO_WHATSAPP_GLOBAL_API_KEY</code> en tu archivo .env</p>
+            <!-- Global Configuration Form (Super Admin Only) -->
+            @if(auth()->user()->isSuperAdmin())
+                <div class="mt-8 pt-6 border-t border-slate-200">
+                    <h4 class="text-lg font-semibold text-slate-800 mb-1">Configuración Global del Servidor</h4>
+                    <p class="text-sm text-slate-500 mb-4">Estos parámetros se guardarán automáticamente en tu archivo de entorno (.env).</p>
+                    <form wire:submit="saveGlobalSettings" class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">URL del Servidor (Server URL)</label>
+                            <input wire:model="server_url" type="url" placeholder="Ej. https://tu-evolution-api.com" required
+                                class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                            @error('server_url') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Global API Key</label>
+                            <input wire:model="global_api_key" type="password" placeholder="Tu API Key Global" required
+                                class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                            @error('global_api_key') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
+                        </div>
+                        <div class="md:col-span-2">
+                            <button type="submit" class="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white font-medium rounded-xl hover:bg-slate-700 transition-colors">
+                                <span wire:loading.remove wire:target="saveGlobalSettings">Guardar en Configuración (.env)</span>
+                                <span wire:loading wire:target="saveGlobalSettings">Guardando...</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            @elseif(empty($global_api_key))
+                <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 mt-8">
+                    <p class="text-sm font-medium text-amber-800">Falta la configuración global</p>
+                    <p class="text-xs text-amber-700 mt-1">Por favor, comunícate con el Administrador Principal para que configure la URL y API Key del servidor.</p>
                 </div>
             @endif
         </div>
