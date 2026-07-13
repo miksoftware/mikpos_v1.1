@@ -216,54 +216,48 @@ class EvoWhatsappConfig extends Component
         $this->ensureCanAccessSelectedBranch();
         
         try {
-            // In Evolution GO, we get the QR via GET /instance/qr using the instance token
-            $response = Http::withHeaders([
-                'apikey' => $this->instance_token,
-            ])->get($this->server_url . '/instance/qr');
+            $tryEndpoints = [
+                ['method' => 'get', 'url' => '/instance/connect/' . $this->instance_name, 'header' => $this->global_api_key, 'body' => []],
+                ['method' => 'get', 'url' => '/instance/qr/' . $this->instance_name, 'header' => $this->global_api_key, 'body' => []],
+                ['method' => 'get', 'url' => '/instance/qr', 'header' => $this->instance_token, 'body' => []],
+                ['method' => 'post', 'url' => '/instance/connect', 'header' => $this->global_api_key, 'body' => ['instance' => $this->instance_name]],
+                ['method' => 'post', 'url' => '/instance/connect', 'header' => $this->instance_token, 'body' => ['instance' => $this->instance_name]],
+            ];
 
-            if ($response->successful()) {
-                $data = $response->json();
-                if (isset($data['base64'])) {
-                    $this->qr_code = $data['base64'];
-                    $this->status = 'connecting';
-                } elseif (isset($data['qrcode']['base64'])) {
-                    $this->qr_code = $data['qrcode']['base64'];
-                    $this->status = 'connecting';
+            $success = false;
+            $lastError = '';
+
+            foreach ($tryEndpoints as $ep) {
+                $req = Http::withHeaders(['apikey' => $ep['header'], 'Content-Type' => 'application/json']);
+                if ($ep['method'] === 'get') {
+                    $response = $req->get($this->server_url . $ep['url']);
                 } else {
-                    // Try to trigger connection explicitly
-                    $connectResponse = Http::withHeaders([
-                        'apikey' => $this->instance_token,
-                    ])->post($this->server_url . '/instance/connect');
-                    
-                    if ($connectResponse->successful()) {
-                        $cData = $connectResponse->json();
-                        if (isset($cData['base64'])) {
-                            $this->qr_code = $cData['base64'];
-                            $this->status = 'connecting';
-                        } elseif (isset($cData['qrcode']['base64'])) {
-                            $this->qr_code = $cData['qrcode']['base64'];
-                            $this->status = 'connecting';
-                        }
-                    }
+                    $response = $req->post($this->server_url . $ep['url'], $ep['body']);
                 }
-            } else {
-                // Fallback to legacy v1 connect URL just in case
-                $legacyResponse = Http::withHeaders([
-                    'apikey' => $this->global_api_key,
-                ])->get($this->server_url . '/instance/connect/' . $this->instance_name);
 
-                if ($legacyResponse->successful()) {
-                    $data = $legacyResponse->json();
-                    if (isset($data['base64'])) {
-                        $this->qr_code = $data['base64'];
+                if ($response->successful()) {
+                    $data = $response->json();
+                    $b64 = $data['base64'] ?? $data['qrcode']['base64'] ?? $data['qrcode'] ?? null;
+                    if ($b64 && is_string($b64)) {
+                        // Ensure it has data URI prefix
+                        if (strpos($b64, 'iVBOR') === 0) {
+                            $b64 = 'data:image/png;base64,' . $b64;
+                        }
+                        $this->qr_code = $b64;
                         $this->status = 'connecting';
+                        $success = true;
+                        break;
                     }
                 } else {
-                    $this->dispatch('notify', message: 'Error al obtener QR', type: 'error');
+                    $lastError = $response->status() . ' - ' . substr($response->body(), 0, 50);
                 }
             }
+
+            if (!$success) {
+                $this->dispatch('notify', message: 'Error al obtener QR: ' . $lastError, type: 'error');
+            }
         } catch (Throwable $e) {
-            $this->dispatch('notify', message: 'Error de conexión', type: 'error');
+            $this->dispatch('notify', message: 'Error de conexión: ' . $e->getMessage(), type: 'error');
         }
     }
 
@@ -272,21 +266,25 @@ class EvoWhatsappConfig extends Component
         if (empty($this->instance_name)) return;
         
         try {
-            // In Evolution GO, status is fetched via GET /instance/status with instance token
-            $response = Http::withHeaders([
-                'apikey' => $this->instance_token,
-            ])->get($this->server_url . '/instance/status');
-
-            if (!$response->successful()) {
-                // Fallback to legacy v1 connectionState URL just in case
-                $response = Http::withHeaders([
-                    'apikey' => $this->global_api_key,
-                ])->get($this->server_url . '/instance/connectionState/' . $this->instance_name);
+            $endpoints = [
+                ['url' => '/instance/connectionState/' . $this->instance_name, 'header' => $this->global_api_key],
+                ['url' => '/instance/status', 'header' => $this->instance_token],
+                ['url' => '/instance/status/' . $this->instance_name, 'header' => $this->global_api_key],
+            ];
+            
+            $data = null;
+            foreach ($endpoints as $ep) {
+                $response = Http::withHeaders(['apikey' => $ep['header']])->get($this->server_url . $ep['url']);
+                if ($response->successful()) {
+                    $data = $response->json();
+                    if(isset($data['instance']['state']) || isset($data['state'])) {
+                        break;
+                    }
+                }
             }
 
-            if ($response->successful()) {
-                $data = $response->json();
-                $newStatus = $data['instance']['state'] ?? 'disconnected';
+            if ($data) {
+                $newStatus = $data['instance']['state'] ?? $data['state'] ?? 'disconnected';
                 
                 if ($newStatus === 'open') {
                     $this->status = 'connected';
@@ -347,17 +345,33 @@ class EvoWhatsappConfig extends Component
         $this->ensureCanAccessSelectedBranch();
         
         try {
-            $response = Http::withHeaders([
-                'apikey' => $this->global_api_key,
-            ])->delete($this->server_url . '/instance/delete/' . $this->instance_name);
+            // Try to logout first (Evolution GO often requires this)
+            Http::withHeaders(['apikey' => $this->global_api_key])->delete($this->server_url . '/instance/logout/' . $this->instance_name);
+            Http::withHeaders(['apikey' => $this->instance_token])->delete($this->server_url . '/instance/logout');
 
-            if ($response->successful()) {
-                EvoWhatsappConfigModel::where('branch_id', $this->branch_id)->delete();
-                $this->loadConfigForSelectedBranch();
+            // Try to delete instance
+            $res = Http::withHeaders(['apikey' => $this->global_api_key])->delete($this->server_url . '/instance/delete/' . $this->instance_name);
+            if (!$res->successful()) {
+                $res = Http::withHeaders(['apikey' => $this->instance_token])->delete($this->server_url . '/instance/delete/' . $this->instance_name);
+            }
+
+            // Regardless of API success (to prevent getting stuck), we delete locally
+            $config = EvoWhatsappConfigModel::where('branch_id', $this->branch_id)->first();
+            if ($config) {
+                $config->delete();
+            }
+            
+            $this->instance_name = 'branch_' . $this->branch_id . '_' . uniqid();
+            $this->instance_token = '';
+            $this->status = 'disconnected';
+            $this->qr_code = null;
+            
+            if ($res->successful() || $res->status() == 404) {
                 $this->dispatch('notify', message: 'Instancia eliminada exitosamente', type: 'success');
             } else {
-                $this->dispatch('notify', message: 'Error al eliminar instancia', type: 'error');
+                $this->dispatch('notify', message: 'Eliminada localmente. Error en API: ' . $res->status(), type: 'warning');
             }
+            
         } catch (Throwable $e) {
             $this->dispatch('notify', message: 'Error de conexión: ' . $e->getMessage(), type: 'error');
         }
