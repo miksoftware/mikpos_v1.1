@@ -40,4 +40,9 @@ return [
         'webhook_app_secret' => env('WHATSAPP_WEBHOOK_APP_SECRET', ''),
     ],
 
+    'evo_whatsapp' => [
+        'server_url' => env('EVO_WHATSAPP_SERVER_URL', 'http://76.13.26.221:8080'),
+        'global_api_key' => env('EVO_WHATSAPP_GLOBAL_API_KEY', ''),
+    ],
+
 ];

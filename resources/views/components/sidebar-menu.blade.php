@@ -860,11 +860,11 @@
         </svg>
         <span>Facturación Electrónica</span>
     </a>
-    <a href="{{ route('whatsapp-config') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('whatsapp-config') ? $activeClass : $inactiveClass }}">
+    <a href="{{ route('evo-whatsapp-config') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('evo-whatsapp-config') ? $activeClass : $inactiveClass }}">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2C6.477 2 2 6.477 2 12c0 1.748.452 3.39 1.246 4.828L2 22l5.35-1.205A9.957 9.957 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"></path>
         </svg>
-        <span>Configuración WhatsApp</span>
+        <span>Evo WhatsApp</span>
     </a>
     @endif
     @if (auth()->user()->hasPermission('migration.view'))
@@ -1064,11 +1064,11 @@
 
             <div x-show="configOpen" x-collapse class="{{ $subSectionClass }}">
                 @if (auth()->user()->hasPermission('billing_settings.view'))
-                <a href="{{ route('whatsapp-config') }}" class="flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all duration-200 {{ request()->routeIs('whatsapp-config') ? $activeClass : $inactiveClass }}">
+                <a href="{{ route('evo-whatsapp-config') }}" class="flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all duration-200 {{ request()->routeIs('evo-whatsapp-config') ? $activeClass : $inactiveClass }}">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2C6.477 2 2 6.477 2 12c0 1.748.452 3.39 1.246 4.828L2 22l5.35-1.205A9.957 9.957 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"></path>
                     </svg>
-                    <span class="text-sm">WhatsApp</span>
+                    <span class="text-sm">Evo WhatsApp</span>
                 </a>
                 @endif
                 <a href="{{ route('departments') }}" class="flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all duration-200 {{ request()->routeIs('departments') ? $activeClass : $inactiveClass }}">

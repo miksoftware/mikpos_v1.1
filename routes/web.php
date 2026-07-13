@@ -328,9 +328,9 @@ Route::middleware(['auth'])->group(function () {
         ->name('billing-settings')
         ->middleware('permission:billing_settings.view');
 
-    // Whatsapp Config
-    Route::get('/whatsapp-config', App\Livewire\WhatsappConfig::class)
-        ->name('whatsapp-config')
+    // Evo Whatsapp Config
+    Route::get('/evo-whatsapp-config', App\Livewire\EvoWhatsappConfig::class)
+        ->name('evo-whatsapp-config')
         ->middleware('permission:billing_settings.view');
 
     // Print Formats
