@@ -860,6 +860,8 @@
         </svg>
         <span>Facturación Electrónica</span>
     </a>
+    @endif
+    @if (auth()->user()->hasPermission('evo_whatsapp.view'))
     <a href="{{ route('evo-whatsapp-config') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('evo-whatsapp-config') ? $activeClass : $inactiveClass }}">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2C6.477 2 2 6.477 2 12c0 1.748.452 3.39 1.246 4.828L2 22l5.35-1.205A9.957 9.957 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"></path>
@@ -1063,7 +1065,7 @@
             </button>
 
             <div x-show="configOpen" x-collapse class="{{ $subSectionClass }}">
-                @if (auth()->user()->hasPermission('billing_settings.view'))
+                @if (auth()->user()->hasPermission('evo_whatsapp.view'))
                 <a href="{{ route('evo-whatsapp-config') }}" class="flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all duration-200 {{ request()->routeIs('evo-whatsapp-config') ? $activeClass : $inactiveClass }}">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2C6.477 2 2 6.477 2 12c0 1.748.452 3.39 1.246 4.828L2 22l5.35-1.205A9.957 9.957 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"></path>
