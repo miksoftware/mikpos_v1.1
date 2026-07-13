@@ -1,0 +1,719 @@
+{
+    "\/instance\/all": {
+        "get": {
+            "description": "Get all instances",
+            "consumes": [
+                "application\/json"
+            ],
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Get all instances",
+            "responses": {
+                "200": {
+                    "description": "All instances",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        }
+    },
+    "\/instance\/connect": {
+        "post": {
+            "description": "Connect to instance with the provided data",
+            "consumes": [
+                "application\/json"
+            ],
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Connect to instance",
+            "parameters": [
+                {
+                    "description": "Instance data",
+                    "name": "instance",
+                    "in": "body",
+                    "required": true,
+                    "schema": {
+                        "$ref": "#\/definitions\/github_com_EvolutionAPI_evolution-go_pkg_instance_service.ConnectStruct"
+                    }
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "Instance connected successfully",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "400": {
+                    "description": "Error on validation",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        }
+    },
+    "\/instance\/create": {
+        "post": {
+            "description": "Creates a new instance with the provided data including optional advanced settings",
+            "consumes": [
+                "application\/json"
+            ],
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Create a new instance",
+            "parameters": [
+                {
+                    "description": "Instance data with optional advanced settings",
+                    "name": "instance",
+                    "in": "body",
+                    "required": true,
+                    "schema": {
+                        "$ref": "#\/definitions\/github_com_EvolutionAPI_evolution-go_pkg_instance_service.CreateStruct"
+                    }
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "Instance created successfully",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "400": {
+                    "description": "Error on validation",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        }
+    },
+    "\/instance\/delete\/{instanceId}": {
+        "delete": {
+            "description": "Delete instance",
+            "consumes": [
+                "application\/json"
+            ],
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Delete instance",
+            "parameters": [
+                {
+                    "type": "string",
+                    "description": "Instance Id",
+                    "name": "instanceId",
+                    "in": "path",
+                    "required": true
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "Instance deleted successfully",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "400": {
+                    "description": "Error on validation",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        }
+    },
+    "\/instance\/disconnect": {
+        "post": {
+            "description": "Disconnect from instance",
+            "consumes": [
+                "application\/json"
+            ],
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Disconnect from instance",
+            "responses": {
+                "200": {
+                    "description": "Instance disconnected successfully",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        }
+    },
+    "\/instance\/forcereconnect\/{instanceId}": {
+        "post": {
+            "description": "Force reconnect",
+            "consumes": [
+                "application\/json"
+            ],
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Force reconnect",
+            "parameters": [
+                {
+                    "type": "string",
+                    "description": "Instance Id",
+                    "name": "instanceId",
+                    "in": "path",
+                    "required": true
+                },
+                {
+                    "description": "Instance data",
+                    "name": "instance",
+                    "in": "body",
+                    "required": true,
+                    "schema": {
+                        "$ref": "#\/definitions\/github_com_EvolutionAPI_evolution-go_pkg_instance_service.ForceReconnectStruct"
+                    }
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "Instance force reconnected successfully",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "400": {
+                    "description": "Error on validation",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        }
+    },
+    "\/instance\/info\/{instanceId}": {
+        "get": {
+            "description": "Get instance",
+            "consumes": [
+                "application\/json"
+            ],
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Get instance",
+            "parameters": [
+                {
+                    "type": "string",
+                    "description": "Instance Id",
+                    "name": "instanceId",
+                    "in": "path",
+                    "required": true
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "Instance",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "400": {
+                    "description": "Error on validation",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        }
+    },
+    "\/instance\/logout": {
+        "delete": {
+            "description": "Logout from instance",
+            "consumes": [
+                "application\/json"
+            ],
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Logout from instance",
+            "responses": {
+                "200": {
+                    "description": "Instance logged out successfully",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        }
+    },
+    "\/instance\/logs\/{instanceId}": {
+        "get": {
+            "description": "Returns log entries for an instance, filterable by date range, level and limit",
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Get instance logs",
+            "parameters": [
+                {
+                    "type": "string",
+                    "description": "Instance Id",
+                    "name": "instanceId",
+                    "in": "path",
+                    "required": true
+                },
+                {
+                    "type": "string",
+                    "description": "Start date (YYYY-MM-DD, defaults to 7 days ago)",
+                    "name": "start_date",
+                    "in": "query"
+                },
+                {
+                    "type": "string",
+                    "description": "End date (YYYY-MM-DD, defaults to now)",
+                    "name": "end_date",
+                    "in": "query"
+                },
+                {
+                    "type": "string",
+                    "description": "Log level filter",
+                    "name": "level",
+                    "in": "query"
+                },
+                {
+                    "type": "integer",
+                    "description": "Max number of entries",
+                    "name": "limit",
+                    "in": "query"
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "Logs",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "400": {
+                    "description": "Error on validation",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        }
+    },
+    "\/instance\/pair": {
+        "post": {
+            "description": "Request pairing code",
+            "consumes": [
+                "application\/json"
+            ],
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Request pairing code",
+            "parameters": [
+                {
+                    "description": "Instance data",
+                    "name": "instance",
+                    "in": "body",
+                    "required": true,
+                    "schema": {
+                        "$ref": "#\/definitions\/github_com_EvolutionAPI_evolution-go_pkg_instance_service.PairStruct"
+                    }
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "Pairing code",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "400": {
+                    "description": "Error on validation",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        }
+    },
+    "\/instance\/proxy\/{instanceId}": {
+        "post": {
+            "description": "Set proxy configuration for an instance",
+            "consumes": [
+                "application\/json"
+            ],
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Set proxy configuration",
+            "parameters": [
+                {
+                    "type": "string",
+                    "description": "Instance id",
+                    "name": "instanceId",
+                    "in": "path",
+                    "required": true
+                },
+                {
+                    "description": "Proxy configuration",
+                    "name": "proxy",
+                    "in": "body",
+                    "required": true,
+                    "schema": {
+                        "$ref": "#\/definitions\/github_com_EvolutionAPI_evolution-go_pkg_instance_service.SetProxyStruct"
+                    }
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "Proxy set successfully",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "400": {
+                    "description": "Error on validation",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        },
+        "delete": {
+            "description": "Delete proxy",
+            "consumes": [
+                "application\/json"
+            ],
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Delete proxy",
+            "parameters": [
+                {
+                    "type": "string",
+                    "description": "Instance id",
+                    "name": "instanceId",
+                    "in": "path",
+                    "required": true
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "Proxy deleted successfully",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "400": {
+                    "description": "Error on validation",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        }
+    },
+    "\/instance\/qr": {
+        "get": {
+            "description": "Get instance QR code",
+            "consumes": [
+                "application\/json"
+            ],
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Get instance QR code",
+            "responses": {
+                "200": {
+                    "description": "Instance QR code",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        }
+    },
+    "\/instance\/reconnect": {
+        "post": {
+            "description": "Reconnect to instance",
+            "consumes": [
+                "application\/json"
+            ],
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Reconnect to instance",
+            "responses": {
+                "200": {
+                    "description": "Instance reconnected successfully",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        }
+    },
+    "\/instance\/status": {
+        "get": {
+            "description": "Get instance status",
+            "consumes": [
+                "application\/json"
+            ],
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Get instance status",
+            "responses": {
+                "200": {
+                    "description": "Instance status",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        }
+    },
+    "\/instance\/{instanceId}\/advanced-settings": {
+        "get": {
+            "description": "Get advanced settings for a specific instance",
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Get advanced settings",
+            "parameters": [
+                {
+                    "type": "string",
+                    "description": "Instance ID",
+                    "name": "instanceId",
+                    "in": "path",
+                    "required": true
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "Advanced settings retrieved successfully",
+                    "schema": {
+                        "$ref": "#\/definitions\/github_com_EvolutionAPI_evolution-go_pkg_instance_model.AdvancedSettings"
+                    }
+                },
+                "400": {
+                    "description": "Invalid instance ID",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "404": {
+                    "description": "Instance not found",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        },
+        "put": {
+            "description": "Update advanced settings for a specific instance",
+            "consumes": [
+                "application\/json"
+            ],
+            "produces": [
+                "application\/json"
+            ],
+            "tags": [
+                "Instance"
+            ],
+            "summary": "Update advanced settings",
+            "parameters": [
+                {
+                    "type": "string",
+                    "description": "Instance ID",
+                    "name": "instanceId",
+                    "in": "path",
+                    "required": true
+                },
+                {
+                    "description": "Advanced settings data",
+                    "name": "settings",
+                    "in": "body",
+                    "required": true,
+                    "schema": {
+                        "$ref": "#\/definitions\/github_com_EvolutionAPI_evolution-go_pkg_instance_model.AdvancedSettings"
+                    }
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "Advanced settings updated successfully",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "400": {
+                    "description": "Invalid request data",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "404": {
+                    "description": "Instance not found",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                },
+                "500": {
+                    "description": "Internal server error",
+                    "schema": {
+                        "$ref": "#\/definitions\/gin.H"
+                    }
+                }
+            }
+        }
+    }
+}

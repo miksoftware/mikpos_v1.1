@@ -216,18 +216,51 @@ class EvoWhatsappConfig extends Component
         $this->ensureCanAccessSelectedBranch();
         
         try {
+            // In Evolution GO, we get the QR via GET /instance/qr using the instance token
             $response = Http::withHeaders([
-                'apikey' => $this->global_api_key,
-            ])->get($this->server_url . '/instance/connect/' . $this->instance_name);
+                'apikey' => $this->instance_token,
+            ])->get($this->server_url . '/instance/qr');
 
             if ($response->successful()) {
                 $data = $response->json();
                 if (isset($data['base64'])) {
                     $this->qr_code = $data['base64'];
                     $this->status = 'connecting';
+                } elseif (isset($data['qrcode']['base64'])) {
+                    $this->qr_code = $data['qrcode']['base64'];
+                    $this->status = 'connecting';
+                } else {
+                    // Try to trigger connection explicitly
+                    $connectResponse = Http::withHeaders([
+                        'apikey' => $this->instance_token,
+                    ])->post($this->server_url . '/instance/connect');
+                    
+                    if ($connectResponse->successful()) {
+                        $cData = $connectResponse->json();
+                        if (isset($cData['base64'])) {
+                            $this->qr_code = $cData['base64'];
+                            $this->status = 'connecting';
+                        } elseif (isset($cData['qrcode']['base64'])) {
+                            $this->qr_code = $cData['qrcode']['base64'];
+                            $this->status = 'connecting';
+                        }
+                    }
                 }
             } else {
-                $this->dispatch('notify', message: 'Error al obtener QR', type: 'error');
+                // Fallback to legacy v1 connect URL just in case
+                $legacyResponse = Http::withHeaders([
+                    'apikey' => $this->global_api_key,
+                ])->get($this->server_url . '/instance/connect/' . $this->instance_name);
+
+                if ($legacyResponse->successful()) {
+                    $data = $legacyResponse->json();
+                    if (isset($data['base64'])) {
+                        $this->qr_code = $data['base64'];
+                        $this->status = 'connecting';
+                    }
+                } else {
+                    $this->dispatch('notify', message: 'Error al obtener QR', type: 'error');
+                }
             }
         } catch (Throwable $e) {
             $this->dispatch('notify', message: 'Error de conexión', type: 'error');
@@ -239,9 +272,17 @@ class EvoWhatsappConfig extends Component
         if (empty($this->instance_name)) return;
         
         try {
+            // In Evolution GO, status is fetched via GET /instance/status with instance token
             $response = Http::withHeaders([
-                'apikey' => $this->global_api_key,
-            ])->get($this->server_url . '/instance/connectionState/' . $this->instance_name);
+                'apikey' => $this->instance_token,
+            ])->get($this->server_url . '/instance/status');
+
+            if (!$response->successful()) {
+                // Fallback to legacy v1 connectionState URL just in case
+                $response = Http::withHeaders([
+                    'apikey' => $this->global_api_key,
+                ])->get($this->server_url . '/instance/connectionState/' . $this->instance_name);
+            }
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -265,6 +306,42 @@ class EvoWhatsappConfig extends Component
         }
     }
     
+    public function logoutInstance()
+    {
+        $this->ensureCanAccessSelectedBranch();
+        
+        try {
+            // In Evolution GO, logout is DELETE /instance/logout using the instance token
+            $response = Http::withHeaders([
+                'apikey' => $this->instance_token,
+            ])->delete($this->server_url . '/instance/logout');
+
+            if (!$response->successful()) {
+                // Fallback for v1
+                $response = Http::withHeaders([
+                    'apikey' => $this->global_api_key,
+                ])->delete($this->server_url . '/instance/logout/' . $this->instance_name);
+            }
+
+            if ($response->successful()) {
+                $this->status = 'disconnected';
+                $this->qr_code = null;
+                
+                $config = EvoWhatsappConfigModel::where('branch_id', $this->branch_id)->first();
+                if ($config) {
+                    $config->status = 'disconnected';
+                    $config->save();
+                }
+                
+                $this->dispatch('notify', message: 'Sesión cerrada exitosamente', type: 'success');
+            } else {
+                $this->dispatch('notify', message: 'Error al cerrar sesión', type: 'error');
+            }
+        } catch (Throwable $e) {
+            $this->dispatch('notify', message: 'Error de conexión', type: 'error');
+        }
+    }
+
     public function deleteInstance()
     {
         $this->ensureCanAccessSelectedBranch();
