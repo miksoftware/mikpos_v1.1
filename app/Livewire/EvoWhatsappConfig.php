@@ -175,12 +175,13 @@ class EvoWhatsappConfig extends Component
         }
 
         try {
+            $rawToken = uniqid('evo_');
             $response = Http::withHeaders([
                 'apikey' => $this->global_api_key,
                 'Content-Type' => 'application/json',
             ])->post($this->server_url . '/instance/create', [
                 'name' => $this->instance_name,
-                'token' => uniqid('evo_'),
+                'token' => $rawToken,
                 'qrcode' => true
             ]);
 
@@ -189,7 +190,10 @@ class EvoWhatsappConfig extends Component
                 
                 $config = EvoWhatsappConfigModel::firstOrNew(['branch_id' => $this->branch_id]);
                 $config->instance_name = $data['instance']['name'] ?? $data['instance']['instanceName'] ?? $this->instance_name;
-                $config->instance_token = $data['hash']['apikey'] ?? $data['instance']['token'] ?? $this->global_api_key;
+                
+                // CRITICAL: We must store the raw token we generated, not the hash returned by Evolution GO
+                $config->instance_token = $rawToken;
+                
                 $config->status = $data['instance']['status'] ?? 'connecting';
                 $config->save();
 
