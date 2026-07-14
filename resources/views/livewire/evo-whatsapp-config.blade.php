@@ -73,11 +73,17 @@
                     @endif
 
                     <div class="flex flex-wrap gap-3 mt-4">
-                        @if($status === 'disconnected')
+                        @if($status === 'disconnected' || $status === 'close')
                             <button wire:click="createInstance" class="inline-flex items-center gap-2 px-5 py-2.5 bg-[#25D366] text-white font-medium rounded-xl hover:bg-[#1faa55] transition-colors">
-                                <span wire:loading.remove wire:target="createInstance">Crear Instancia y Conectar</span>
+                                <span wire:loading.remove wire:target="createInstance">Crear Instancia</span>
                                 <span wire:loading wire:target="createInstance">Conectando...</span>
                             </button>
+                            @if($instance_token)
+                            <button wire:click="connectInstance" class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors">
+                                <span wire:loading.remove wire:target="connectInstance">Obtener QR / Conectar</span>
+                                <span wire:loading wire:target="connectInstance">Obteniendo...</span>
+                            </button>
+                            @endif
                         @elseif($status === 'connecting')
                             <button wire:click="connectInstance" class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors">
                                 <span wire:loading.remove wire:target="connectInstance">Refrescar QR</span>

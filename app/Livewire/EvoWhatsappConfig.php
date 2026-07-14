@@ -208,7 +208,16 @@ class EvoWhatsappConfig extends Component
                 
                 $this->dispatch('notify', message: 'Instancia creada exitosamente', type: 'success');
             } else {
-                $this->dispatch('notify', message: 'Error al crear instancia: ' . $response->body(), type: 'error');
+                $errBody = $response->body();
+                $errJson = json_decode($errBody, true);
+                $msg = $errJson['message'] ?? $errJson['response']['message'] ?? $errBody;
+                if (is_array($msg)) $msg = json_encode($msg);
+                
+                if (stripos($msg, 'already exists') !== false || $response->status() === 409 || $response->status() === 400) {
+                    $this->dispatch('notify', message: 'La instancia ya existe en el servidor. Haz clic en "Obtener QR / Conectar" para conectarla.', type: 'warning');
+                } else {
+                    $this->dispatch('notify', message: 'Error al crear instancia: ' . substr($msg, 0, 100), type: 'error');
+                }
             }
         } catch (Throwable $e) {
             $this->dispatch('notify', message: 'Error de conexión: ' . $e->getMessage(), type: 'error');
@@ -241,11 +250,11 @@ class EvoWhatsappConfig extends Component
 
                 if ($response->successful()) {
                     $data = $response->json();
-                    $b64 = $data['base64'] ?? $data['qrcode']['base64'] ?? $data['qrcode'] ?? null;
-                    if ($b64 && is_string($b64)) {
+                    $b64 = $data['base64'] ?? $data['qrcode']['base64'] ?? $data['qrcode'] ?? $data['code'] ?? null;
+                    if ($b64 && is_string($b64) && strlen($b64) > 50) {
                         // Ensure it has data URI prefix
-                        if (strpos($b64, 'iVBOR') === 0) {
-                            $b64 = 'data:image/png;base64,' . $b64;
+                        if (strpos($b64, 'data:image') !== 0) {
+                            $b64 = 'data:image/png;base64,' . str_replace('data:image/png;base64,', '', $b64);
                         }
                         $this->qr_code = $b64;
                         $this->status = 'connecting';
