@@ -230,18 +230,29 @@ class EvoWhatsappConfig extends Component
         
         try {
             $tryEndpoints = [
+                // Evolution v1 & v2 GET /instance/connect/{{instance}}
                 ['method' => 'get', 'url' => '/instance/connect/' . $this->instance_name, 'header' => $this->global_api_key, 'body' => []],
+                ['method' => 'get', 'url' => '/instance/connect/' . $this->instance_name, 'header' => $this->instance_token, 'body' => []],
+                // Evolution v1 GET /instance/qr/{{instance}}
                 ['method' => 'get', 'url' => '/instance/qr/' . $this->instance_name, 'header' => $this->global_api_key, 'body' => []],
                 ['method' => 'get', 'url' => '/instance/qr', 'header' => $this->instance_token, 'body' => []],
+                // Fallbacks just in case
                 ['method' => 'post', 'url' => '/instance/connect', 'header' => $this->global_api_key, 'body' => ['instance' => $this->instance_name]],
                 ['method' => 'post', 'url' => '/instance/connect', 'header' => $this->instance_token, 'body' => ['instance' => $this->instance_name]],
             ];
 
             $success = false;
             $lastError = '';
+            $errorDetails = [];
 
             foreach ($tryEndpoints as $ep) {
-                $req = Http::withHeaders(['apikey' => $ep['header'], 'Content-Type' => 'application/json']);
+                // Evolution API v2 might require Bearer token or apikey header
+                $req = Http::withHeaders([
+                    'apikey' => $ep['header'], 
+                    'Authorization' => 'Bearer ' . $ep['header'],
+                    'Content-Type' => 'application/json'
+                ]);
+                
                 if ($ep['method'] === 'get') {
                     $response = $req->get($this->server_url . $ep['url']);
                 } else {
@@ -262,11 +273,13 @@ class EvoWhatsappConfig extends Component
                         break;
                     }
                 } else {
-                    $lastError = $response->status() . ' - ' . substr($response->body(), 0, 50);
+                    $errorDetails[] = $response->status();
+                    $lastError = $response->status() . ' - ' . substr($response->body(), 0, 80);
                 }
             }
 
             if (!$success) {
+                // Si todos fallaron, mostrar el último error
                 $this->dispatch('notify', message: 'Error al obtener QR: ' . $lastError, type: 'error');
             }
         } catch (Throwable $e) {
@@ -281,13 +294,17 @@ class EvoWhatsappConfig extends Component
         try {
             $endpoints = [
                 ['url' => '/instance/connectionState/' . $this->instance_name, 'header' => $this->global_api_key],
+                ['url' => '/instance/connectionState/' . $this->instance_name, 'header' => $this->instance_token],
                 ['url' => '/instance/status', 'header' => $this->instance_token],
                 ['url' => '/instance/status/' . $this->instance_name, 'header' => $this->global_api_key],
             ];
             
             $data = null;
             foreach ($endpoints as $ep) {
-                $response = Http::withHeaders(['apikey' => $ep['header']])->get($this->server_url . $ep['url']);
+                $response = Http::withHeaders([
+                    'apikey' => $ep['header'],
+                    'Authorization' => 'Bearer ' . $ep['header'],
+                ])->get($this->server_url . $ep['url']);
                 if ($response->successful()) {
                     $data = $response->json();
                     if(isset($data['instance']['state']) || isset($data['state'])) {
