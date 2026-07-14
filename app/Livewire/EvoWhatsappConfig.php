@@ -191,8 +191,9 @@ class EvoWhatsappConfig extends Component
                 $config = EvoWhatsappConfigModel::firstOrNew(['branch_id' => $this->branch_id]);
                 $config->instance_name = $data['instance']['name'] ?? $data['instance']['instanceName'] ?? $this->instance_name;
                 
-                // CRITICAL: We must store the raw token we generated, not the hash returned by Evolution GO
-                $config->instance_token = $rawToken;
+                // Use the token returned by the API if available (v2), otherwise fallback to the raw token
+                $apiToken = $data['hash']['apikey'] ?? $data['apikey'] ?? $data['instance']['token'] ?? $rawToken;
+                $config->instance_token = $apiToken;
                 
                 $config->status = $data['instance']['status'] ?? 'connecting';
                 $config->save();
@@ -246,10 +247,9 @@ class EvoWhatsappConfig extends Component
             $errorDetails = [];
 
             foreach ($tryEndpoints as $ep) {
-                // Evolution API v2 might require Bearer token or apikey header
+                // Remove Bearer since it causes 401 with Evolution v2 when it expects apikey
                 $req = Http::withHeaders([
                     'apikey' => $ep['header'], 
-                    'Authorization' => 'Bearer ' . $ep['header'],
                     'Content-Type' => 'application/json'
                 ]);
                 
@@ -303,7 +303,6 @@ class EvoWhatsappConfig extends Component
             foreach ($endpoints as $ep) {
                 $response = Http::withHeaders([
                     'apikey' => $ep['header'],
-                    'Authorization' => 'Bearer ' . $ep['header'],
                 ])->get($this->server_url . $ep['url']);
                 if ($response->successful()) {
                     $data = $response->json();
