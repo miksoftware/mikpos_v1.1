@@ -43,11 +43,13 @@ class SendWhatsappPromotionJob implements ShouldQueue
             ->first();
 
         if (!$config) {
+            echo "[SendWhatsappPromotionJob] Aborting: WhatsApp is not configured for branch ID " . $this->promotion->branch_id . "\n";
             Log::error("SendWhatsappPromotionJob failed: WhatsApp is not configured for branch ID " . $this->promotion->branch_id);
             return;
         }
 
         if (!$config->instance_name || !in_array($config->status, ['connected', 'open', 'connecting'])) {
+            echo "[SendWhatsappPromotionJob] Aborting: Instance not connected. Current status: " . $config->status . "\n";
             Log::error("SendWhatsappPromotionJob failed: WhatsApp instance is not connected for branch ID " . $this->promotion->branch_id . ". Current status: " . $config->status);
             return;
         }
@@ -67,6 +69,8 @@ class SendWhatsappPromotionJob implements ShouldQueue
         $globalApiKey = config('services.evo_whatsapp.global_api_key');
         $apiUrl = $serverUrl . '/message/sendText/' . $config->instance_name;
 
+        echo "[SendWhatsappPromotionJob] Sending to $phone via $apiUrl...\n";
+
         $response = Http::withHeaders([
             'apikey' => $globalApiKey,
             'Content-Type' => 'application/json',
@@ -76,11 +80,13 @@ class SendWhatsappPromotionJob implements ShouldQueue
         ]);
 
         if ($response->successful()) {
+            echo "[SendWhatsappPromotionJob] SUCCESS! Response: " . $response->body() . "\n";
             Log::info("Evolution API sent promotion {$this->promotion->id} to {$phone}", [
                 'api_response' => $response->json(),
                 'customer_id' => $this->customer->id
             ]);
         } else {
+            echo "[SendWhatsappPromotionJob] ERROR! Status: " . $response->status() . " Body: " . $response->body() . "\n";
             Log::error("Evolution API failed to send promotion {$this->promotion->id} to {$phone}: " . $response->body());
             
             // Retry if it's a server error
