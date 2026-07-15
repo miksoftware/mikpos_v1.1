@@ -251,7 +251,7 @@
                             <input wire:model.live="campaignChannel" type="radio" value="whatsapp" class="text-green-600 focus:ring-green-500">
                             <div>
                                 <span class="text-sm font-semibold {{ $campaignChannel === 'whatsapp' ? 'text-green-800' : 'text-slate-700' }}">WhatsApp</span>
-                                <p class="text-xs {{ $campaignChannel === 'whatsapp' ? 'text-green-600' : 'text-slate-400' }}">Usa la plantilla fija aprobada en Meta</p>
+                                <p class="text-xs {{ $campaignChannel === 'whatsapp' ? 'text-green-600' : 'text-slate-400' }}">Envía mensajes personalizados a tus clientes</p>
                             </div>
                         </label>
                     </div>
@@ -261,24 +261,7 @@
                 @if($campaignChannel === 'whatsapp')
                 <div class="rounded-2xl border border-green-200 bg-green-50 p-4 space-y-3">
                     <p class="text-sm font-semibold text-green-800">Campaña de WhatsApp</p>
-                    <p class="text-xs text-green-700">No necesitas asunto, mensaje, imagen ni botón aquí. El sistema enviará la plantilla configurada en Meta para esta sucursal.</p>
-                    <div class="max-w-xs rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-                        <div class="px-4 py-3 bg-[#e7f7ee] border-b border-slate-100">
-                            <p class="text-sm font-semibold text-slate-800">
-                                {{ $activeWhatsappConfig?->template_name ?: 'mikpos' }} · {{ $activeWhatsappConfig?->template_language ?: 'es_CO' }}
-                            </p>
-                        </div>
-                        <div class="p-4 space-y-3">
-                            <div class="rounded-xl border border-slate-200 p-3 bg-slate-50">
-                                <p class="text-sm font-semibold text-slate-800">¡Actualizamos nuestro catálogo de productos!</p>
-                                <p class="text-sm text-slate-600 mt-2">Ya puedes conocer nuestros artículos más recientes, novedades y promociones disponibles.</p>
-                                <p class="text-sm text-slate-600 mt-2">Visita nuestra tienda virtual aquí.</p>
-                            </div>
-                            <button type="button" class="w-full px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg">
-                                Tienda Virtual
-                            </button>
-                        </div>
-                    </div>
+                    <p class="text-xs text-green-700">Puedes escribir un mensaje personalizado. Si agregas la URL de tu tienda en la sección de botón, se anexará al final del mensaje.</p>
                 </div>
                 @endif
 
@@ -292,6 +275,7 @@
                         class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 outline-none @error('subject') border-red-400 @enderror">
                     @error('subject') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                 </div>
+                @endif
 
                 {{-- Message --}}
                 <div>
@@ -304,6 +288,7 @@
                     @error('message') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                 </div>
 
+                @if($campaignChannel === 'email')
                 {{-- Image --}}
                 <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1.5">Imagen promocional (opcional)</label>
@@ -337,6 +322,7 @@
                     </label>
                     @error('image') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                 </div>
+                @endif
 
                 {{-- CTA Button --}}
                 <div class="bg-slate-50 rounded-xl p-4 space-y-3">
@@ -356,7 +342,6 @@
                         </div>
                     </div>
                 </div>
-                @endif
 
             </div>
 
@@ -421,34 +406,26 @@
                 <div class="rounded-2xl border border-green-200 bg-green-50 p-4 space-y-4">
                     <div class="flex items-start justify-between gap-4">
                         <div>
-                            <p class="text-sm font-semibold text-green-800">Vista previa de la plantilla de WhatsApp</p>
-                            <p class="text-xs text-green-700 mt-1">Se enviará la plantilla `{{ $whatsappTemplateName }}` en `{{ $whatsappTemplateLanguage }}` para la sucursal de la campaña.</p>
+                            <p class="text-sm font-semibold text-green-800">Vista previa del mensaje de WhatsApp</p>
+                            <p class="text-xs text-green-700 mt-1">Así se verá el mensaje personalizado enviado a los clientes.</p>
                         </div>
-                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-white text-green-700 border border-green-200">
-                            Marketing
-                        </span>
                     </div>
 
                     <div class="max-w-xs rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-                        <div class="px-4 py-3 bg-[#e7f7ee] border-b border-slate-100">
-                            <p class="text-sm font-semibold text-slate-800">
-                                {{ $activeWhatsappConfig?->template_name ?: 'mikpos' }} · {{ $activeWhatsappConfig?->template_language ?: 'es_CO' }}
-                            </p>
-                        </div>
                         <div class="p-4 space-y-3">
                             <div class="rounded-xl border border-slate-200 p-3 bg-slate-50">
-                                <p class="text-sm font-semibold text-slate-800">¡Actualizamos nuestro catálogo de productos!</p>
-                                <p class="text-sm text-slate-600 mt-2">Ya puedes conocer nuestros artículos más recientes, novedades y promociones disponibles.</p>
-                                <p class="text-sm text-slate-600 mt-2">Visita nuestra tienda virtual aquí.</p>
+                                <p class="text-sm text-slate-800 whitespace-pre-wrap">{{ $sendingPromoMessage }}</p>
+                                @if($sendingPromoButtonUrl)
+                                <a href="{{ $sendingPromoButtonUrl }}" target="_blank" class="block mt-3 text-sm text-blue-600 hover:underline break-all">
+                                    {{ $sendingPromoButtonUrl }}
+                                </a>
+                                @endif
                             </div>
-                            <button type="button" class="w-full px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg">
-                                Tienda Virtual
-                            </button>
                         </div>
                     </div>
 
                     <p class="text-xs text-green-700">
-                        Para este canal no se usa el asunto ni el cuerpo del correo; WhatsApp enviará siempre la plantilla aprobada en Meta.
+                        El enlace aparecerá resaltado en azul en la aplicación de WhatsApp del cliente.
                     </p>
                 </div>
                 @endif

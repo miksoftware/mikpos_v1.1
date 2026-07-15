@@ -12,9 +12,9 @@
                     <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
                     Conectado
                 </span>
-            @elseif($status === 'connecting')
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-700">
-                    <span class="w-2 h-2 bg-amber-500 rounded-full mr-2 animate-pulse"></span>
+            @elseif($status === 'connecting' || $status === 'close')
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700">
+                    <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
                     Conectando / Esperando QR
                 </span>
             @else
@@ -91,7 +91,7 @@
                             </button>
                         @endif
                         
-                        @if($instance_token && $status !== 'disconnected')
+                        @if($instance_token)
                             <button wire:click="deleteInstance" class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-500 text-white font-medium rounded-xl hover:bg-red-600 transition-colors"
                                 onclick="confirm('¿Estás seguro de eliminar esta instancia?') || event.stopImmediatePropagation()">
                                 Eliminar Instancia

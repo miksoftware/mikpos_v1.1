@@ -42,6 +42,8 @@ class Promotions extends Component
     // Send modal
     public bool $isSendModalOpen = false;
     public ?int $sendingPromoId = null;
+    public ?string $sendingPromoMessage = null;
+    public ?string $sendingPromoButtonUrl = null;
     public bool $sendToAll = true;
     public string $customerSearch = '';
     public array $selectedCustomerIds = [];
@@ -129,6 +131,12 @@ class Promotions extends Component
                 'button_text' => 'nullable|max:100',
                 'button_url' => 'nullable|url|max:500',
             ]);
+        } else {
+            $rules = array_merge($rules, [
+                'message' => 'required|min:5',
+                'button_text' => 'nullable|max:100',
+                'button_url' => 'nullable|url|max:500',
+            ]);
         }
 
         $this->validate($rules, [
@@ -150,12 +158,10 @@ class Promotions extends Component
             'subject' => $this->campaignChannel === 'email'
                 ? $this->subject
                 : ('Campaña WhatsApp ' . now()->format('d/m/Y H:i')),
-            'message' => $this->campaignChannel === 'email'
-                ? $this->message
-                : 'Plantilla WhatsApp: mikpos',
+            'message' => $this->message,
             'image_path' => $this->campaignChannel === 'email' ? $imagePath : null,
-            'button_text' => $this->campaignChannel === 'email' ? ($this->button_text ?: null) : null,
-            'button_url' => $this->campaignChannel === 'email' ? ($this->button_url ?: null) : null,
+            'button_text' => $this->button_text ?: null,
+            'button_url' => $this->button_url ?: null,
         ];
 
         if (!$isNew) {
@@ -236,6 +242,8 @@ class Promotions extends Component
         }
         $this->sendingPromoId = $id;
         $promo = Promotion::find($id);
+        $this->sendingPromoMessage = $promo?->message;
+        $this->sendingPromoButtonUrl = $promo?->button_url;
         $this->sendChannel = ($promo?->channel === 'whatsapp') ? 'whatsapp' : 'email';
         $this->sendToAll = true;
         $this->customerSearch = '';
@@ -321,9 +329,27 @@ class Promotions extends Component
         }
 
         try {
-            ['count' => $count, 'lastError' => $lastError] = $this->sendChannel === 'whatsapp'
-                ? $this->sendWhatsappPromotion($promo, $customers)
-                : $this->sendEmailPromotion($promo, $customers);
+            if ($this->sendChannel === 'whatsapp') {
+                $count = 0;
+                $lastError = null;
+                $delaySeconds = 0;
+                
+                foreach ($customers as $customer) {
+                    \App\Jobs\SendWhatsappPromotionJob::dispatch($promo, $customer)
+                        ->delay(now()->addSeconds($delaySeconds));
+                        
+                    $delaySeconds += 25; // Intervalo de seguridad de 25s
+                    $count++;
+                }
+                
+                $promo->update([
+                    'status' => 'sent',
+                    'sent_at' => now(),
+                    'recipients_count' => $count
+                ]);
+            } else {
+                ['count' => $count, 'lastError' => $lastError] = $this->sendEmailPromotion($promo, $customers);
+            }
         } catch (\Throwable $e) {
             $this->dispatch('notify', message: $e->getMessage(), type: 'error');
             return;

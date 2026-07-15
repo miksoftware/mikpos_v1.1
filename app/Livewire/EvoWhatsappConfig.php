@@ -181,18 +181,21 @@ class EvoWhatsappConfig extends Component
                 'Content-Type' => 'application/json',
             ])->post($this->server_url . '/instance/create', [
                 'name' => $this->instance_name,
+                'instanceName' => $this->instance_name,
                 'token' => $rawToken,
-                'qrcode' => true
+                'qrcode' => true,
+                'integration' => 'WHATSAPP-BAILEYS'
             ]);
 
             if ($response->successful()) {
                 $data = $response->json();
+                \Illuminate\Support\Facades\Log::info('Evolution API Create Response: ' . $response->body());
                 
                 $config = EvoWhatsappConfigModel::firstOrNew(['branch_id' => $this->branch_id]);
-                $config->instance_name = $data['instance']['name'] ?? $data['instance']['instanceName'] ?? $this->instance_name;
+                $config->instance_name = $data['instance']['name'] ?? $data['instance']['instanceName'] ?? $data['data']['name'] ?? $this->instance_name;
                 
                 // Use the token returned by the API if available (v2), otherwise fallback to the raw token
-                $apiToken = $data['hash']['apikey'] ?? $data['apikey'] ?? $data['instance']['token'] ?? $rawToken;
+                $apiToken = $data['hash']['apikey'] ?? $data['apikey'] ?? $data['instance']['token'] ?? $data['data']['token'] ?? $rawToken;
                 $config->instance_token = $apiToken;
                 
                 $config->status = $data['instance']['status'] ?? 'connecting';
@@ -214,7 +217,7 @@ class EvoWhatsappConfig extends Component
                 $msg = $errJson['message'] ?? $errJson['response']['message'] ?? $errBody;
                 if (is_array($msg)) $msg = json_encode($msg);
                 
-                if (stripos($msg, 'already exists') !== false || $response->status() === 409 || $response->status() === 400) {
+                if (stripos($msg, 'already exists') !== false || $response->status() === 409) {
                     $this->dispatch('notify', message: 'La instancia ya existe en el servidor. Haz clic en "Obtener QR / Conectar" para conectarla.', type: 'warning');
                 } else {
                     $this->dispatch('notify', message: 'Error al crear instancia: ' . substr($msg, 0, 100), type: 'error');
@@ -231,6 +234,9 @@ class EvoWhatsappConfig extends Component
         
         try {
             $tryEndpoints = [
+                // Evolution GO custom API
+                ['method' => 'get', 'url' => '/instance/qr?name=' . $this->instance_name, 'header' => $this->instance_token, 'body' => []],
+                ['method' => 'post', 'url' => '/instance/connect', 'header' => $this->instance_token, 'body' => ['name' => $this->instance_name]],
                 // Evolution v1 & v2 GET /instance/connect/{{instance}}
                 ['method' => 'get', 'url' => '/instance/connect/' . $this->instance_name, 'header' => $this->global_api_key, 'body' => []],
                 ['method' => 'get', 'url' => '/instance/connect/' . $this->instance_name, 'header' => $this->instance_token, 'body' => []],
@@ -258,10 +264,20 @@ class EvoWhatsappConfig extends Component
                 } else {
                     $response = $req->post($this->server_url . $ep['url'], $ep['body']);
                 }
+                
+                \Illuminate\Support\Facades\Log::info("Evolution API Connect [{$ep['method']} {$ep['url']}] Response: " . $response->body());
 
                 if ($response->successful()) {
                     $data = $response->json();
-                    $b64 = $data['base64'] ?? $data['qrcode']['base64'] ?? $data['qrcode'] ?? $data['code'] ?? null;
+                    
+                    // Evolution GO might return eventString="MESSAGE" to indicate connection start
+                    if (isset($data['data']['eventString']) && !isset($data['data']['qrcode'])) {
+                        // Conexión iniciada, ya no esperamos aquí, dejamos que checkStatus consulte el QR
+                        $this->status = 'connecting';
+                        return;
+                    }
+                    
+                    $b64 = $data['data']['qrcode'] ?? $data['base64'] ?? $data['qrcode']['base64'] ?? $data['qrcode'] ?? $data['code'] ?? null;
                     if ($b64 && is_string($b64) && strlen($b64) > 50) {
                         // Ensure it has data URI prefix
                         if (strpos($b64, 'data:image') !== 0) {
@@ -293,6 +309,7 @@ class EvoWhatsappConfig extends Component
         
         try {
             $endpoints = [
+                ['url' => '/instance/status?name=' . $this->instance_name, 'header' => $this->instance_token],
                 ['url' => '/instance/connectionState/' . $this->instance_name, 'header' => $this->global_api_key],
                 ['url' => '/instance/connectionState/' . $this->instance_name, 'header' => $this->instance_token],
                 ['url' => '/instance/status', 'header' => $this->instance_token],
@@ -306,18 +323,40 @@ class EvoWhatsappConfig extends Component
                 ])->get($this->server_url . $ep['url']);
                 if ($response->successful()) {
                     $data = $response->json();
-                    if(isset($data['instance']['state']) || isset($data['state'])) {
+                    if(isset($data['instance']['state']) || isset($data['state']) || isset($data['data']['LoggedIn'])) {
                         break;
                     }
                 }
             }
 
             if ($data) {
-                $newStatus = $data['instance']['state'] ?? $data['state'] ?? 'disconnected';
+                if (isset($data['data']['LoggedIn'])) {
+                    $newStatus = $data['data']['LoggedIn'] ? 'open' : 'close';
+                } else {
+                    $newStatus = $data['instance']['state'] ?? $data['state'] ?? 'disconnected';
+                }
                 
                 if ($newStatus === 'open') {
                     $this->status = 'connected';
                     $this->qr_code = null;
+                } else if ($newStatus === 'close' || $this->status === 'connecting') {
+                    // Fetch the QR code if we are waiting for it
+                    if (empty($this->qr_code)) {
+                        $this->status = 'connecting'; // Keep it in connecting state so UI shows spinner
+                        $qrRes = Http::withHeaders(['apikey' => $this->instance_token])->get($this->server_url . '/instance/qr?name=' . $this->instance_name);
+                        if ($qrRes->successful()) {
+                            $qrData = $qrRes->json();
+                            $b64 = $qrData['data']['qrcode'] ?? null;
+                            if ($b64 && is_string($b64) && strlen($b64) > 50) {
+                                if (strpos($b64, 'data:image') !== 0) {
+                                    $b64 = 'data:image/png;base64,' . $b64;
+                                }
+                                $this->qr_code = $b64;
+                            }
+                        }
+                    } else {
+                        $this->status = $newStatus;
+                    }
                 } else {
                     $this->status = $newStatus;
                 }
@@ -378,10 +417,13 @@ class EvoWhatsappConfig extends Component
             Http::withHeaders(['apikey' => $this->global_api_key])->delete($this->server_url . '/instance/logout/' . $this->instance_name);
             Http::withHeaders(['apikey' => $this->instance_token])->delete($this->server_url . '/instance/logout');
 
-            // Try to delete instance
+            // Try to delete instance (Evolution GO standard)
             $res = Http::withHeaders(['apikey' => $this->global_api_key])->delete($this->server_url . '/instance/delete/' . $this->instance_name);
             if (!$res->successful()) {
                 $res = Http::withHeaders(['apikey' => $this->instance_token])->delete($this->server_url . '/instance/delete/' . $this->instance_name);
+            }
+            if (!$res->successful()) {
+                $res = Http::withHeaders(['apikey' => $this->global_api_key])->delete($this->server_url . '/instance?name=' . $this->instance_name);
             }
 
             // Regardless of API success (to prevent getting stuck), we delete locally
