@@ -23,14 +23,16 @@ class SendWhatsappPromotionJob implements ShouldQueue
 
     protected Promotion $promotion;
     protected Customer $customer;
+    protected ?int $promotionLogId;
 
     /**
      * Create a new job instance.
      */
-    public function __construct(Promotion $promotion, Customer $customer)
+    public function __construct(Promotion $promotion, Customer $customer, ?int $promotionLogId = null)
     {
         $this->promotion = $promotion;
         $this->customer = $customer;
+        $this->promotionLogId = $promotionLogId;
     }
 
     /**
@@ -38,6 +40,8 @@ class SendWhatsappPromotionJob implements ShouldQueue
      */
     public function handle(): void
     {
+        $logRecord = $this->promotionLogId ? \App\Models\PromotionLog::find($this->promotionLogId) : null;
+
         $config = EvoWhatsappConfig::where('branch_id', $this->promotion->branch_id)
             ->where('is_active', true)
             ->first();
@@ -45,12 +49,14 @@ class SendWhatsappPromotionJob implements ShouldQueue
         if (!$config) {
             echo "[SendWhatsappPromotionJob] Aborting: WhatsApp is not configured for branch ID " . $this->promotion->branch_id . "\n";
             Log::error("SendWhatsappPromotionJob failed: WhatsApp is not configured for branch ID " . $this->promotion->branch_id);
+            if ($logRecord) $logRecord->update(['status' => 'failed', 'error_message' => 'WhatsApp is not configured']);
             return;
         }
 
         if (!$config->instance_name || !in_array($config->status, ['connected', 'open', 'connecting'])) {
             echo "[SendWhatsappPromotionJob] Aborting: Instance not connected. Current status: " . $config->status . "\n";
             Log::error("SendWhatsappPromotionJob failed: WhatsApp instance is not connected for branch ID " . $this->promotion->branch_id . ". Current status: " . $config->status);
+            if ($logRecord) $logRecord->update(['status' => 'failed', 'error_message' => 'Instance not connected. Current status: ' . $config->status]);
             return;
         }
 
@@ -85,9 +91,11 @@ class SendWhatsappPromotionJob implements ShouldQueue
                 'api_response' => $response->json(),
                 'customer_id' => $this->customer->id
             ]);
+            if ($logRecord) $logRecord->update(['status' => 'sent', 'sent_at' => now()]);
         } else {
             echo "[SendWhatsappPromotionJob] ERROR! Status: " . $response->status() . " Body: " . $response->body() . "\n";
             Log::error("Evolution API failed to send promotion {$this->promotion->id} to {$phone}: " . $response->body());
+            if ($logRecord) $logRecord->update(['status' => 'failed', 'error_message' => $response->body()]);
             
             // Retry if it's a server error
             if ($response->serverError() || $response->status() == 429 || $response->status() == 400 || $response->status() == 401) {

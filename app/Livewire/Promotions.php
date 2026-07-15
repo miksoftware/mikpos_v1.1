@@ -55,6 +55,11 @@ class Promotions extends Component
     public bool $isDeleteModalOpen = false;
     public ?int $deleteId = null;
 
+    // Details modal
+    public bool $isDetailsModalOpen = false;
+    public ?int $detailsPromotionId = null;
+    public $promotionLogs = [];
+
     public function updatingSearch(): void
     {
         $this->resetPage();
@@ -232,6 +237,25 @@ class Promotions extends Component
         $this->dispatch('notify', message: 'Campaña eliminada', type: 'success');
     }
 
+    // ─── Details ─────────────────────────────────────────────────────────────
+
+    public function openDetailsModal(int $id): void
+    {
+        $this->detailsPromotionId = $id;
+        $this->promotionLogs = \App\Models\PromotionLog::with('customer')
+            ->where('promotion_id', $id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+        $this->isDetailsModalOpen = true;
+    }
+
+    public function closeDetailsModal(): void
+    {
+        $this->isDetailsModalOpen = false;
+        $this->detailsPromotionId = null;
+        $this->promotionLogs = [];
+    }
+
     // ─── Send ─────────────────────────────────────────────────────────────────
 
     public function openSendModal(int $id): void
@@ -335,7 +359,14 @@ class Promotions extends Component
                 $delaySeconds = 0;
                 
                 foreach ($customers as $customer) {
-                    \App\Jobs\SendWhatsappPromotionJob::dispatch($promo, $customer)
+                    $log = \App\Models\PromotionLog::create([
+                        'promotion_id' => $promo->id,
+                        'customer_id' => $customer->id,
+                        'channel' => 'whatsapp',
+                        'status' => 'pending',
+                    ]);
+
+                    \App\Jobs\SendWhatsappPromotionJob::dispatch($promo, $customer, $log->id)
                         ->delay(now()->addSeconds($delaySeconds));
                         
                     $delaySeconds += 25; // Intervalo de seguridad de 25s
@@ -465,11 +496,20 @@ class Promotions extends Component
         $lastError = null;
 
         foreach ($customers as $customer) {
+            $log = \App\Models\PromotionLog::create([
+                'promotion_id' => $promo->id,
+                'customer_id' => $customer->id,
+                'channel' => 'email',
+                'status' => 'pending',
+            ]);
+
             try {
                 Mail::to($customer->email)->send(new PromotionMail($promo, $customer));
+                $log->update(['status' => 'sent', 'sent_at' => now()]);
                 $count++;
             } catch (\Throwable $e) {
                 $lastError = $e->getMessage();
+                $log->update(['status' => 'failed', 'error_message' => $lastError]);
                 Log::error('PromotionMail error', [
                     'customer_id' => $customer->id,
                     'email' => $customer->email,

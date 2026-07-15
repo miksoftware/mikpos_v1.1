@@ -151,6 +151,15 @@
                                     </svg>
                                 </button>
                                 @endif
+                                @if($promo->status === 'sent')
+                                <button wire:click="openDetailsModal({{ $promo->id }})"
+                                    class="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors" title="Ver detalles">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                </button>
+                                @endif
                                 @if(auth()->user()->hasPermission('promotions.edit') && $promo->status === 'draft')
                                 <button wire:click="edit({{ $promo->id }})"
                                     class="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors" title="Editar">
@@ -561,6 +570,102 @@
                         Eliminar
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- ═══════════════════════════════════════════════════
+         MODAL: Details
+         ═══════════════════════════════════════════════════ --}}
+    @if($isDetailsModalOpen)
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" wire:click="closeDetailsModal"></div>
+        <div class="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl max-h-[90vh] flex flex-col">
+
+            {{-- Modal header --}}
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-900">Detalles de Envío</h3>
+                </div>
+                <button wire:click="closeDetailsModal" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            {{-- Modal body --}}
+            <div class="px-6 py-5 overflow-y-auto flex-1 bg-slate-50">
+                <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                    <table class="min-w-full divide-y divide-slate-200">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Contacto</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Estado</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Detalle</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            @forelse($promotionLogs as $log)
+                            <tr class="hover:bg-slate-50/60 transition-colors">
+                                <td class="px-4 py-3 text-sm font-medium text-slate-900">
+                                    {{ $log->customer->full_name ?? 'Desconocido' }}
+                                </td>
+                                <td class="px-4 py-3 text-sm text-slate-600">
+                                    {{ $log->channel === 'whatsapp' ? ($log->customer->phone ?? 'Sin teléfono') : ($log->customer->email ?? 'Sin correo') }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    @if($log->status === 'sent')
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold bg-green-100 text-green-700">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Enviado
+                                    </span>
+                                    @elseif($log->status === 'failed')
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold bg-red-100 text-red-700">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Fallido
+                                    </span>
+                                    @else
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold bg-amber-100 text-amber-700">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Pendiente
+                                    </span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3 text-sm text-slate-500 max-w-xs">
+                                    @if($log->status === 'failed')
+                                        <span class="text-red-600 truncate block" title="{{ $log->error_message }}">
+                                            {{ $log->error_message }}
+                                        </span>
+                                    @elseif($log->status === 'sent' && $log->sent_at)
+                                        <span class="text-slate-400">{{ $log->sent_at->format('d/m/Y H:i') }}</span>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="4" class="px-4 py-8 text-center text-sm text-slate-500">
+                                    No hay registros de envío para esta campaña.
+                                </td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            {{-- Modal footer --}}
+            <div class="px-6 py-4 border-t border-slate-200 flex justify-end flex-shrink-0 bg-white rounded-b-2xl">
+                <button wire:click="closeDetailsModal" type="button"
+                    class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
+                    Cerrar
+                </button>
             </div>
         </div>
     </div>
