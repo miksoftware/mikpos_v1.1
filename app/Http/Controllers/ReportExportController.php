@@ -2661,4 +2661,168 @@ class ReportExportController extends Controller
         ])->deleteFileAfterSend(true);
     }
 
+    public function purchasesExcel(Request $request)
+    {
+        $user = auth()->user();
+        $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->get('end_date', now()->format('Y-m-d'));
+        $branchId = $request->get('branch_id');
+        $supplierId = $request->get('supplier_id');
+        $paymentType = $request->get('payment_type');
+        $paymentStatus = $request->get('payment_status');
+        $search = $request->get('search', '');
+
+        if (!$user->isSuperAdmin()) {
+            $branchId = $user->branch_id;
+        }
+
+        $query = \App\Models\Purchase::with([
+            'branch',
+            'supplier',
+            'user',
+            'paymentMethod',
+            'partialPaymentMethod',
+            'items.product'
+        ])->where('status', 'completed');
+
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+        if ($startDate) {
+            $query->whereDate('created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $query->whereDate('created_at', '<=', $endDate);
+        }
+        if ($supplierId) {
+            $query->where('supplier_id', $supplierId);
+        }
+        if ($paymentType) {
+            $query->where('payment_type', $paymentType);
+        }
+        if ($paymentStatus) {
+            $query->where('payment_status', $paymentStatus);
+        }
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('purchase_number', 'like', "%{$search}%")
+                  ->orWhereHas('supplier', function ($sq) use ($search) {
+                      $sq->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $purchases = $query->orderBy('created_at', 'desc')->get();
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Compras');
+
+        $headers = [
+            'Fecha',
+            'Hora',
+            'Número de Compra',
+            'Factura Proveedor',
+            'Sucursal',
+            'Proveedor',
+            'Usuario',
+            'Estado Pago',
+            'Tipo Compra',
+            'Medio de Pago',
+            'Subtotal',
+            'Impuestos',
+            'Descuento',
+            'Total',
+            'Pagado',
+            'Pendiente'
+        ];
+
+        $sheet->fromArray([$headers], NULL, 'A1');
+        
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+            'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]],
+        ];
+        $sheet->getStyle('A1:P1')->applyFromArray($headerStyle);
+
+        $row = 2;
+        foreach ($purchases as $purchase) {
+            $paymentMethodName = $purchase->paymentMethod ? $purchase->paymentMethod->name : 'N/A';
+            if ($purchase->payment_type === 'credit' && $purchase->paid_amount > 0 && $purchase->partialPaymentMethod) {
+                 $paymentMethodName = 'Crédito (' . $purchase->partialPaymentMethod->name . ' abono)';
+            }
+            $sheet->setCellValue('A' . $row, $purchase->created_at->format('Y-m-d'));
+            $sheet->setCellValue('B' . $row, $purchase->created_at->format('H:i:s'));
+            $sheet->setCellValue('C' . $row, $purchase->purchase_number);
+            $sheet->setCellValue('D' . $row, $purchase->supplier_invoice ?? 'N/A');
+            $sheet->setCellValue('E' . $row, $purchase->branch->name ?? 'N/A');
+            $sheet->setCellValue('F' . $row, $purchase->supplier->name ?? 'N/A');
+            $sheet->setCellValue('G' . $row, $purchase->user->name ?? 'N/A');
+            $sheet->setCellValue('H' . $row, $purchase->getPaymentStatusLabel());
+            $sheet->setCellValue('I' . $row, $purchase->getPaymentTypeLabel());
+            $sheet->setCellValue('J' . $row, $paymentMethodName);
+            $sheet->setCellValue('K' . $row, $purchase->subtotal);
+            $sheet->setCellValue('L' . $row, $purchase->tax_amount);
+            $sheet->setCellValue('M' . $row, $purchase->discount_amount);
+            $sheet->setCellValue('N' . $row, $purchase->total);
+            $sheet->setCellValue('O' . $row, $purchase->paid_amount);
+            $sheet->setCellValue('P' . $row, $purchase->credit_amount - $purchase->paid_amount);
+
+            $sheet->getStyle("K$row:P$row")->getNumberFormat()->setFormatCode('#,##0.00');
+            $row++;
+        }
+        
+        foreach (range('A', 'P') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        // Sheet 2: Detalles de Compras (Items)
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Detalles de Artículos');
+        $headers2 = [
+            'Fecha',
+            'Número Compra',
+            'Proveedor',
+            'Producto',
+            'SKU',
+            'Cantidad',
+            'Costo Unitario',
+            'Impuesto',
+            'Subtotal'
+        ];
+        $sheet2->fromArray([$headers2], NULL, 'A1');
+        $sheet2->getStyle('A1:I1')->applyFromArray($headerStyle);
+        $row2 = 2;
+        foreach ($purchases as $purchase) {
+            foreach ($purchase->items as $item) {
+                $sheet2->setCellValue('A' . $row2, $purchase->created_at->format('Y-m-d'));
+                $sheet2->setCellValue('B' . $row2, $purchase->purchase_number);
+                $sheet2->setCellValue('C' . $row2, $purchase->supplier->name ?? 'N/A');
+                $sheet2->setCellValue('D' . $row2, $item->product->name ?? 'N/A');
+                $sheet2->setCellValue('E' . $row2, $item->product->sku ?? 'N/A');
+                $sheet2->setCellValue('F' . $row2, $item->quantity);
+                $sheet2->setCellValue('G' . $row2, $item->unit_cost);
+                $sheet2->setCellValue('H' . $row2, $item->tax_amount);
+                $sheet2->setCellValue('I' . $row2, $item->subtotal);
+                
+                $sheet2->getStyle("F$row2:I$row2")->getNumberFormat()->setFormatCode('#,##0.00');
+                $row2++;
+            }
+        }
+        foreach (range('A', 'I') as $col) {
+            $sheet2->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $filename = 'Reporte_Compras_' . now()->format('Ymd_His') . '.xlsx';
+        $tempFile = tempnam(sys_get_temp_dir(), 'excel');
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
 }

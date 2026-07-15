@@ -565,6 +565,10 @@ Route::middleware(['auth'])->group(function () {
             ->name('purchases')
             ->middleware('permission:reports.purchases');
 
+        Route::get('/purchases/excel', [App\Http\Controllers\ReportExportController::class, 'purchasesExcel'])
+            ->name('purchases.excel')
+            ->middleware('permission:reports.export');
+
         Route::get('/cash', App\Livewire\Reports\CashReport::class)
             ->name('cash')
             ->middleware('permission:reports.cash');

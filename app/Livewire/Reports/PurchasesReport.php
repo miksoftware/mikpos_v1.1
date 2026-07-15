@@ -406,6 +406,24 @@ class PurchasesReport extends Component
         )->orderByDesc('purchases.created_at')->paginate(20);
     }
 
+    public function exportExcel()
+    {
+        if (!auth()->user()->hasPermission('reports.export')) {
+            $this->dispatch('notify', message: 'No tienes permiso para exportar', type: 'error');
+            return;
+        }
+
+        return redirect()->route('reports.purchases.excel', [
+            'start_date' => $this->startDate,
+            'end_date' => $this->endDate,
+            'branch_id' => $this->selectedBranchId,
+            'supplier_id' => $this->selectedSupplierId,
+            'payment_type' => $this->paymentType,
+            'payment_status' => $this->paymentStatus,
+            'search' => $this->search,
+        ]);
+    }
+
     public function clearFilters()
     {
         $this->dateRange = 'month';
