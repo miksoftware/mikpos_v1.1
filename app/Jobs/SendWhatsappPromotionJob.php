@@ -47,8 +47,8 @@ class SendWhatsappPromotionJob implements ShouldQueue
             return;
         }
 
-        if (!$config->instance_name || $config->status !== 'connected') {
-            Log::error("SendWhatsappPromotionJob failed: WhatsApp instance is not connected for branch ID " . $this->promotion->branch_id);
+        if (!$config->instance_name || !in_array($config->status, ['connected', 'open', 'connecting'])) {
+            Log::error("SendWhatsappPromotionJob failed: WhatsApp instance is not connected for branch ID " . $this->promotion->branch_id . ". Current status: " . $config->status);
             return;
         }
 
