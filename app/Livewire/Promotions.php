@@ -369,7 +369,7 @@ class Promotions extends Component
                     \App\Jobs\SendWhatsappPromotionJob::dispatch($promo, $customer, $log->id)
                         ->delay(now()->addSeconds($delaySeconds));
                         
-                    $delaySeconds += 25; // Intervalo de seguridad de 25s
+                    $delaySeconds += rand(35, 80); // Intervalo aleatorio (35s - 80s) para evitar bloqueos por anti-spam
                     $count++;
                 }
                 
