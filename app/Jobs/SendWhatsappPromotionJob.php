@@ -82,7 +82,11 @@ class SendWhatsappPromotionJob implements ShouldQueue
             'Content-Type' => 'application/json',
         ])->post($apiUrl, [
             'number' => $phone,
-            'text' => $messageText
+            'text' => $messageText,
+            'options' => [
+                'delay' => rand(1500, 3500),
+                'presence' => 'composing'
+            ]
         ]);
 
         if ($response->successful()) {
@@ -93,10 +97,22 @@ class SendWhatsappPromotionJob implements ShouldQueue
             ]);
             if ($logRecord) $logRecord->update(['status' => 'sent', 'sent_at' => now()]);
         } else {
+            $responseBody = $response->json();
+            $errorMessage = data_get($responseBody, 'response.message', '');
+
             echo "[SendWhatsappPromotionJob] ERROR! Status: " . $response->status() . " Body: " . $response->body() . "\n";
             Log::error("Evolution API failed to send promotion {$this->promotion->id} to {$phone}: " . $response->body());
             if ($logRecord) $logRecord->update(['status' => 'failed', 'error_message' => $response->body()]);
             
+            // If the instance is disconnected
+            if ($response->status() == 500 && str_contains((string) $errorMessage, 'Connection Closed')) {
+                // Update config to disconnected so user knows and other jobs stop trying
+                $config->update(['status' => 'disconnected']);
+                echo "[SendWhatsappPromotionJob] Instance disconnected. Updating config and aborting.\n";
+                // Do NOT release/retry, let it fail immediately
+                return;
+            }
+
             // Retry if it's a server error
             if ($response->serverError() || $response->status() == 429 || $response->status() == 400 || $response->status() == 401) {
                 $this->release($this->backoff[$this->attempts() - 1] ?? 120);
