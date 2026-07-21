@@ -221,6 +221,7 @@ class Sales extends Component
                     'remaining_quantity' => $remaining,
                     'quantity' => $remaining,
                     'tax_rate' => (float) $item->tax_rate,
+                    'location_id' => $item->location_id,
                     'selected' => true,
                 ];
             }
@@ -368,10 +369,16 @@ class Sales extends Component
                                 (float) $item['unit_price'],
                                 "Nota Crédito {$creditNote->number} - Venta {$sale->invoice_number}",
                                 $creditNote,
-                                $sale->branch_id
+                                $sale->branch_id,
+                                $item['location_id'] ?? null
                             );
 
                             $product->increment('current_stock', (float) $item['quantity']);
+                            if (!empty($item['location_id'])) {
+                                $product->locations()->updateExistingPivot($item['location_id'], [
+                                    'quantity' => DB::raw("quantity + {$item['quantity']}")
+                                ]);
+                            }
                         }
                     } elseif (!empty($item['combo_id'])) {
                         $combo = \App\Models\Combo::with('items.product')->find($item['combo_id']);
@@ -517,6 +524,7 @@ class Sales extends Component
                     'remaining_quantity' => $remaining,
                     'quantity' => $remaining,
                     'tax_rate' => (float) $item->tax_rate,
+                    'location_id' => $item->location_id,
                     'selected' => true,
                 ];
             }
@@ -667,10 +675,16 @@ class Sales extends Component
                                 (float) $item['unit_price'],
                                 "Devolución {$refund->number} - Venta {$sale->invoice_number}",
                                 $refund,
-                                $sale->branch_id
+                                $sale->branch_id,
+                                $item['location_id'] ?? null
                             );
 
                             $product->increment('current_stock', (float) $item['quantity']);
+                            if (!empty($item['location_id'])) {
+                                $product->locations()->updateExistingPivot($item['location_id'], [
+                                    'quantity' => DB::raw("quantity + {$item['quantity']}")
+                                ]);
+                            }
                         }
                     } elseif (!empty($item['combo_id'])) {
                         // Combo: return stock for each component product

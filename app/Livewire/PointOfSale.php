@@ -1844,6 +1844,7 @@ class PointOfSale extends Component
                     'discount_amount' => $item['discount_amount'] ?? 0,
                     'discount_reason' => $item['discount_reason'] ?? null,
                     'total' => $item['subtotal'] - ($item['discount_amount'] ?? 0) + $item['tax_amount'],
+                    'location_id' => $item['location_id'] ?? null,
                 ]);
                 
                 // Update product stock (only for products, not services or combos)

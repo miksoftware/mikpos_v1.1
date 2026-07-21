@@ -33,6 +33,7 @@ class SaleItem extends Model
         'unavailable_reason',
         'original_quantity',
         'quantity_change_reason',
+        'location_id',
     ];
 
     protected function casts(): array
@@ -93,5 +94,10 @@ class SaleItem extends Model
     public function isCombo(): bool
     {
         return $this->combo_id !== null;
+    }
+
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(Location::class);
     }
 }

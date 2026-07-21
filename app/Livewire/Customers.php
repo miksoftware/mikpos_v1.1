@@ -179,7 +179,13 @@ class Customers extends Component
         $this->is_default = $item->is_default;
 
         // Load municipalities for selected department
-        $this->updatedDepartmentId();
+        if ($this->department_id) {
+            $this->municipalities = Municipality::where('department_id', $this->department_id)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+                ->toArray();
+        }
         
         $this->isModalOpen = true;
     }
