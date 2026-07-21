@@ -406,14 +406,14 @@ class Products extends Component
         $this->average_cost = $item->average_cost ? (float) $item->average_cost : null;
         $this->sale_price = (float) $item->sale_price;
         $this->special_price = $item->special_price ? (float) $item->special_price : null;
-        $this->price_includes_tax = $item->price_includes_tax;
+        $this->price_includes_tax = (bool) $item->price_includes_tax;
         $this->min_stock = $item->min_stock;
         $this->max_stock = $item->max_stock;
         $this->current_stock = $item->current_stock;
-        $this->is_active = $item->is_active;
-        $this->manages_inventory = $item->manages_inventory;
-        $this->show_in_shop = $item->show_in_shop;
-        $this->show_in_pos = $item->show_in_pos;
+        $this->is_active = (bool) $item->is_active;
+        $this->manages_inventory = (bool) $item->manages_inventory;
+        $this->show_in_shop = (bool) $item->show_in_shop;
+        $this->show_in_pos = (bool) $item->show_in_pos;
         
         // Load configurable fields
         $this->presentation_id = $item->presentation_id;
@@ -422,7 +422,7 @@ class Products extends Component
         $this->size = $item->size;
         $this->weight = $item->weight ? (float) $item->weight : null;
         $this->imei = $item->imei;
-        $this->has_commission = $item->has_commission;
+        $this->has_commission = (bool) $item->has_commission;
         $this->commission_type = $item->commission_type ?? 'percentage';
         $this->commission_value = $item->commission_value ? (float) $item->commission_value : null;
         $this->existingImage = $item->image;
@@ -836,12 +836,12 @@ class Products extends Component
         $this->childWeight = $child->weight;
         $this->childSalePrice = (float) $child->sale_price;
         $this->childSpecialPrice = $child->special_price ? (float) $child->special_price : null;
-        $this->childPriceIncludesTax = $child->price_includes_tax;
+        $this->childPriceIncludesTax = (bool) $child->price_includes_tax;
         $this->childImei = $child->imei;
-        $this->childIsActive = $child->is_active;
-        $this->childShowInShop = $child->show_in_shop;
-        $this->childShowInPos = $child->show_in_pos;
-        $this->childHasCommission = $child->has_commission;
+        $this->childIsActive = (bool) $child->is_active;
+        $this->childShowInShop = (bool) $child->show_in_shop;
+        $this->childShowInPos = (bool) $child->show_in_pos;
+        $this->childHasCommission = (bool) $child->has_commission;
         $this->childCommissionType = $child->commission_type ?? 'percentage';
         $this->childCommissionValue = $child->commission_value ? (float) $child->commission_value : null;
         $this->childExistingImage = $child->image;
