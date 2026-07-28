@@ -29,6 +29,7 @@ class CashReconciliations extends Component
     public bool $isMovementModalOpen = false;
     public bool $isEditModalOpen = false;
     public bool $isHistoryModalOpen = false;
+    public bool $isManageMovementsModalOpen = false;
 
     // Form data for opening
     public ?int $cash_register_id = null;
@@ -59,6 +60,15 @@ class CashReconciliations extends Component
 
     // History data
     public ?int $historyReconciliationId = null;
+
+    // Manage movements data
+    public ?int $manageReconciliationId = null;
+    public $manageMovements = [];
+    public ?int $editingMovementId = null;
+    public string $editing_movement_type = 'income';
+    public string $editing_movement_amount = '';
+    public string $editing_movement_concept = '';
+    public string $editing_movement_notes = '';
 
     // Branch control
     public bool $needsBranchSelection = false;
@@ -421,6 +431,134 @@ class CashReconciliations extends Component
 
         $this->isMovementModalOpen = false;
         $this->dispatch('notify', message: "{$typeLabel} registrado correctamente");
+    }
+
+    public function openManageMovementsModal(int $reconciliationId)
+    {
+        if (!auth()->user()->hasPermission('cash_movements.view')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        $reconciliation = CashReconciliation::find($reconciliationId);
+        if (!$reconciliation || $reconciliation->status !== 'open') {
+            $this->dispatch('notify', message: 'Este arqueo no está abierto o no es válido', type: 'error');
+            return;
+        }
+
+        $this->manageReconciliationId = $reconciliationId;
+        $this->loadManageMovements();
+        $this->isManageMovementsModalOpen = true;
+    }
+
+    public function closeManageMovementsModal()
+    {
+        $this->isManageMovementsModalOpen = false;
+        $this->manageReconciliationId = null;
+        $this->cancelEditMovement();
+    }
+
+    private function loadManageMovements()
+    {
+        if ($this->manageReconciliationId) {
+            $this->manageMovements = CashMovement::with('user')
+                ->where('cash_reconciliation_id', $this->manageReconciliationId)
+                ->orderByDesc('created_at')
+                ->get();
+        }
+    }
+
+    public function editMovement(int $movementId)
+    {
+        if (!auth()->user()->hasPermission('cash_movements.edit')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        $movement = CashMovement::find($movementId);
+        if (!$movement || $movement->cash_reconciliation_id !== $this->manageReconciliationId) return;
+
+        $this->editingMovementId = $movementId;
+        $this->editing_movement_type = $movement->type;
+        $this->editing_movement_amount = (string) $movement->amount;
+        $this->editing_movement_concept = $movement->concept;
+        $this->editing_movement_notes = $movement->notes ?? '';
+        $this->resetValidation();
+    }
+
+    public function cancelEditMovement()
+    {
+        $this->editingMovementId = null;
+        $this->resetValidation();
+    }
+
+    public function updateMovement()
+    {
+        if (!auth()->user()->hasPermission('cash_movements.edit')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        $this->validate([
+            'editing_movement_type' => 'required|in:income,expense',
+            'editing_movement_amount' => 'required|numeric|min:0.01',
+            'editing_movement_concept' => 'required|min:2|max:255',
+        ], [
+            'editing_movement_type.required' => 'Debe seleccionar el tipo de movimiento',
+            'editing_movement_amount.required' => 'El monto es obligatorio',
+            'editing_movement_amount.min' => 'El monto debe ser mayor a 0',
+            'editing_movement_concept.required' => 'El concepto es obligatorio',
+            'editing_movement_concept.min' => 'El concepto debe tener al menos 2 caracteres',
+        ]);
+
+        $movement = CashMovement::find($this->editingMovementId);
+        if (!$movement) return;
+
+        $oldValues = $movement->toArray();
+
+        $movement->update([
+            'type' => $this->editing_movement_type,
+            'amount' => $this->editing_movement_amount,
+            'concept' => $this->editing_movement_concept,
+            'notes' => $this->editing_movement_notes ?: null,
+        ]);
+
+        ActivityLogService::logUpdate(
+            'cash_movements',
+            $movement,
+            $oldValues,
+            "Movimiento de caja editado: {$this->editing_movement_concept} - $" . number_format($this->editing_movement_amount, 2)
+        );
+
+        $this->cancelEditMovement();
+        $this->loadManageMovements();
+        $this->dispatch('notify', message: 'Movimiento actualizado correctamente');
+    }
+
+    public function deleteMovement(int $movementId)
+    {
+        if (!auth()->user()->hasPermission('cash_movements.delete')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        $movement = CashMovement::find($movementId);
+        if (!$movement || $movement->cash_reconciliation_id !== $this->manageReconciliationId) return;
+
+        $concept = $movement->concept;
+        $amount = $movement->amount;
+        $typeLabel = $movement->type === 'income' ? 'Ingreso' : 'Egreso';
+
+        ActivityLogService::logDelete(
+            'cash_movements',
+            $movement->toArray(),
+            "{$typeLabel} de caja eliminado: {$concept} - $" . number_format($amount, 2)
+        );
+
+        $movement->delete();
+
+        $this->loadManageMovements();
+        $this->dispatch('notify', message: 'Movimiento eliminado correctamente');
     }
 
     // Edit Methods

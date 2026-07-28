@@ -64,6 +64,7 @@ class SeedPending extends Command
         'PromotionsModuleSeeder',
         'QuoteReservationSystemDocumentSeeder',
         'LocationsModuleSeeder',
+        'CashMovementsPermissionsSeeder',
         // Add new seeders here
     ];
 
