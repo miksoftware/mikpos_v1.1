@@ -36,6 +36,7 @@ class Sales extends Component
     public $filterElectronic = '';
     public $filterBranch = '';
     public $filterSource = '';
+    public $filterReturns = '';
     public $dateFrom = '';
     public $dateTo = '';
     
@@ -1418,6 +1419,11 @@ class Sales extends Component
                 } elseif ($this->filterElectronic === 'failed') {
                     $q->where('is_electronic', true)->whereNull('cufe');
                 }
+            })
+            ->when($this->filterReturns === 'with_returns', function ($q) {
+                $q->where(function ($sq) {
+                    $sq->has('creditNotes')->orHas('refunds');
+                });
             })
             ->when($this->dateFrom, fn($q) => $q->whereDate('created_at', '>=', $this->dateFrom))
             ->when($this->dateTo, fn($q) => $q->whereDate('created_at', '<=', $this->dateTo));

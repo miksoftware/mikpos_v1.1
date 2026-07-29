@@ -60,6 +60,12 @@
                     <option value="failed">Con error DIAN</option>
                 </select>
             </div>
+            <div>
+                <select wire:model.live="filterReturns" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                    <option value="">Todas las ventas</option>
+                    <option value="with_returns">Con devoluciones</option>
+                </select>
+            </div>
             @if($isSuperAdmin)
             <div>
                 <select wire:model.live="filterBranch" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
