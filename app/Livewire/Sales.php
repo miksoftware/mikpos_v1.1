@@ -414,7 +414,11 @@ class Sales extends Component
                     $factusService->createCreditNote($creditNote);
                     $this->dispatch('notify', message: 'Nota crédito creada y validada por DIAN', type: 'success');
                 } catch (\Exception $e) {
-                    $this->dispatch('notify', message: 'Nota crédito creada pero falló validación DIAN', type: 'warning');
+                    $creditNote->update([
+                        'status' => 'rejected',
+                        'dian_response' => ['error' => $e->getMessage()]
+                    ]);
+                    $this->dispatch('notify', message: 'Nota crédito creada pero falló validación DIAN: ' . $e->getMessage(), type: 'warning');
                 }
             } else {
                 $this->dispatch('notify', message: 'Nota crédito creada (facturación electrónica deshabilitada)', type: 'warning');
@@ -471,7 +475,11 @@ class Sales extends Component
             $this->dispatch('notify', message: 'Nota crédito validada por DIAN', type: 'success');
             
         } catch (\Exception $e) {
-            $this->dispatch('notify', message: 'Error de validación DIAN', type: 'error');
+            $creditNote->update([
+                'status' => 'rejected',
+                'dian_response' => ['error' => $e->getMessage()]
+            ]);
+            $this->dispatch('notify', message: 'Error de validación DIAN: ' . $e->getMessage(), type: 'error');
         }
 
         // Refresh selected sale
