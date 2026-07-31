@@ -45,17 +45,17 @@ class ProductionCreate extends Component
         }
     }
 
-    public function updatedQuantityToProduce()
-    {
-        $this->quantity_to_produce = (float) $this->quantity_to_produce;
-        if ($this->quantity_to_produce < 0.01) {
-            $this->quantity_to_produce = 1;
-        }
-    }
+
 
     public function addToCart()
     {
-        if (!$this->selectedRecipeId || $this->quantity_to_produce <= 0) {
+        if (!$this->selectedRecipeId) {
+            $this->dispatch('notify', message: 'Debe seleccionar una receta', type: 'error');
+            return;
+        }
+
+        if ((float) $this->quantity_to_produce <= 0) {
+            $this->dispatch('notify', message: 'La cantidad debe ser mayor a 0', type: 'error');
             return;
         }
 
