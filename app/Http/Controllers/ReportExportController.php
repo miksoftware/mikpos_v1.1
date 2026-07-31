@@ -1651,7 +1651,7 @@ class ReportExportController extends Controller
 
         // Build query
         $query = Sale::query()
-            ->with(['customer', 'user', 'branch', 'payments.paymentMethod', 'cashReconciliation.cashRegister']);
+            ->with(['customer', 'user', 'seller', 'branch', 'payments.paymentMethod', 'cashReconciliation.cashRegister']);
 
         if ($startDate) {
             $query->whereDate('sales.created_at', '>=', $startDate);
@@ -1667,7 +1667,7 @@ class ReportExportController extends Controller
         }
 
         if ($userId) {
-            $query->where('sales.user_id', $userId);
+            $query->where('sales.seller_id', $userId);
         }
 
         if ($paymentMethodId) {
@@ -1847,7 +1847,7 @@ class ReportExportController extends Controller
             $sheet->setCellValue('D' . $row, $sale->created_at->format('H:i'));
             $sheet->setCellValue('E' . $row, $customerName);
             $sheet->setCellValue('F' . $row, $customerDoc);
-            $sheet->setCellValue('G' . $row, $sale->user?->name ?? '-');
+            $sheet->setCellValue('G' . $row, $sale->seller?->name ?? '-');
             $sheet->setCellValue('H' . $row, $paymentMethods);
             $sheet->setCellValue('I' . $row, (float) $sale->subtotal);
             $sheet->setCellValue('J' . $row, (float) $sale->tax_total);

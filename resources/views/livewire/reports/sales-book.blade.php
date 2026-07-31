@@ -363,7 +363,7 @@
                             <p class="text-xs text-slate-500">{{ $sale->customer->document_number }}</p>
                             @endif
                         </td>
-                        <td class="px-6 py-4 text-slate-600">{{ $sale->user?->name ?? '-' }}</td>
+                        <td class="px-6 py-4 text-slate-600">{{ $sale->seller?->name ?? '-' }}</td>
                         <td class="px-6 py-4">
                             <div class="flex flex-wrap gap-1">
                                 @if($sale->payments->isNotEmpty())
@@ -459,7 +459,7 @@
                             </div>
                             <div class="p-3 bg-slate-50 rounded-xl">
                                 <p class="text-xs text-slate-500">Vendedor</p>
-                                <p class="font-medium text-slate-800">{{ $selectedSale->user?->name ?? '-' }}</p>
+                                <p class="font-medium text-slate-800">{{ $selectedSale->seller?->name ?? '-' }}</p>
                             </div>
                             <div class="p-3 bg-slate-50 rounded-xl">
                                 <p class="text-xs text-slate-500">Caja</p>

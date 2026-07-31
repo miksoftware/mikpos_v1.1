@@ -118,7 +118,7 @@ class SalesBook extends Component
         }
 
         if ($this->selectedUserId) {
-            $query->where('sales.user_id', $this->selectedUserId);
+            $query->where('sales.seller_id', $this->selectedUserId);
         }
 
         if ($this->selectedCustomerId) {
@@ -259,9 +259,9 @@ class SalesBook extends Component
             ->get()
             ->toArray();
 
-        // Sales by user
+        // Sales by user (seller)
         $this->salesByUser = (clone $baseQuery)
-            ->join('users', 'sales.user_id', '=', 'users.id')
+            ->join('users', 'sales.seller_id', '=', 'users.id')
             ->select(
                 'users.id',
                 'users.name',
@@ -315,6 +315,7 @@ class SalesBook extends Component
         $this->selectedSale = Sale::with([
             'customer',
             'user',
+            'seller',
             'branch',
             'items.product',
             'items.service',
@@ -362,7 +363,7 @@ class SalesBook extends Component
         $this->loadChartData();
 
         $sales = $this->getBaseQuery()
-            ->with(['customer', 'user', 'branch', 'payments.paymentMethod'])
+            ->with(['customer', 'user', 'seller', 'branch', 'payments.paymentMethod'])
             ->orderByDesc('created_at')
             ->paginate(15);
 
