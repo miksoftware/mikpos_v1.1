@@ -11,7 +11,7 @@ class Payroll extends Model
 {
     protected $fillable = [
         'branch_id', 'period_type', 'period_start', 'period_end',
-        'payment_date', 'status', 'notes', 'created_by',
+        'payment_date', 'status', 'payment_details', 'notes', 'created_by',
     ];
 
     protected function casts(): array
@@ -20,6 +20,7 @@ class Payroll extends Model
             'period_start' => 'date',
             'period_end' => 'date',
             'payment_date' => 'date',
+            'payment_details' => 'array',
         ];
     }
 
@@ -57,5 +58,10 @@ class Payroll extends Model
     public function getPeriodLabelAttribute(): string
     {
         return $this->period_start->format('d/m/Y') . ' - ' . $this->period_end->format('d/m/Y');
+    }
+
+    public function getTotalNetPayAttribute(): float
+    {
+        return (float) $this->details()->sum('net_pay');
     }
 }

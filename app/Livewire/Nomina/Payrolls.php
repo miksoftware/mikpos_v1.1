@@ -7,6 +7,9 @@ use App\Models\Employee;
 use App\Models\Payroll;
 use App\Models\PayrollDetail;
 use App\Models\SaleItem;
+use App\Models\PaymentMethod;
+use App\Models\CashMovement;
+use App\Models\CashReconciliation;
 use App\Services\ActivityLogService;
 use App\Services\PayrollCalculatorService;
 use Carbon\Carbon;
@@ -33,6 +36,12 @@ class Payrolls extends Component
     public $confirmPayrollId = null;
     public $confirmTitle = '';
     public $confirmMessage = '';
+
+    // Payment form
+    public $isPaymentModalOpen = false;
+    public $paymentPayrollId = null;
+    public $paymentTotal = 0;
+    public $payrollPayments = [];
 
     // Form
     public $itemId;
@@ -332,21 +341,81 @@ class Payrolls extends Component
         $this->dispatch('notify', message: 'Nómina aprobada');
     }
 
-    public function markAsPaid($id)
+    public function openPaymentModal($id)
+    {
+        $payroll = Payroll::findOrFail($id);
+        if ($payroll->status !== 'aprobada') {
+            $this->dispatch('notify', message: 'La nómina debe estar aprobada para pagar', type: 'error');
+            return;
+        }
+
+        $this->paymentPayrollId = $id;
+        $this->paymentTotal = $payroll->total_net_pay;
+        $this->payrollPayments = [['method_id' => '', 'amount' => '']];
+        $this->isPaymentModalOpen = true;
+    }
+
+    public function addPayrollPayment()
+    {
+        $this->payrollPayments[] = ['method_id' => '', 'amount' => ''];
+    }
+
+    public function removePayrollPayment(int $index)
+    {
+        if (count($this->payrollPayments) > 1) {
+            array_splice($this->payrollPayments, $index, 1);
+            $this->payrollPayments = array_values($this->payrollPayments);
+        }
+    }
+
+    public function fillRemainingPayrollPayment(int $index)
+    {
+        $total = (float) $this->paymentTotal;
+        $otherSum = 0;
+        foreach ($this->payrollPayments as $i => $p) {
+            if ($i !== $index) {
+                $otherSum += (float) ($p['amount'] ?? 0);
+            }
+        }
+        $remaining = round($total - $otherSum, 2);
+        if ($remaining > 0) {
+            $this->payrollPayments[$index]['amount'] = (string) $remaining;
+        }
+    }
+
+    public function storePayment()
     {
         if (!auth()->user()->hasPermission('payrolls.approve')) {
             $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
             return;
         }
 
-        $payroll = Payroll::findOrFail($id);
-        if ($payroll->status !== 'aprobada') {
-            $this->dispatch('notify', message: 'La nómina debe estar aprobada para marcar como pagada', type: 'error');
+        $payroll = Payroll::findOrFail($this->paymentPayrollId);
+        
+        $validPayments = collect($this->payrollPayments)
+            ->filter(fn($p) => !empty($p['method_id']) && (float) ($p['amount'] ?? 0) > 0);
+
+        if ($validPayments->isEmpty()) {
+            $this->dispatch('notify', message: 'Agrega al menos una forma de pago', type: 'error');
             return;
         }
 
+        $paymentSum = $validPayments->sum(fn($p) => (float) $p['amount']);
+        $total = (float) $this->paymentTotal;
+
+        if (abs($paymentSum - $total) > 0.01) {
+            $this->dispatch('notify', message: 'La suma de los pagos no coincide con el valor neto a pagar', type: 'error');
+            return;
+        }
+
+        $paymentDetails = $validPayments->map(fn($p) => [
+            'method_id' => (int) $p['method_id'],
+            'amount' => round((float) $p['amount'], 2),
+        ])->values()->toArray();
+
         $oldValues = $payroll->toArray();
         $payroll->status = 'pagada';
+        $payroll->payment_details = $paymentDetails;
         $payroll->save();
 
         foreach ($payroll->details as $detail) {
@@ -366,8 +435,34 @@ class Payrolls extends Component
             }
         }
 
-        ActivityLogService::logUpdate('payrolls', $payroll, $oldValues, "Nómina período {$payroll->period_label} marcada como pagada");
-        $this->dispatch('notify', message: 'Nómina marcada como pagada');
+        // Cash Register Integration
+        $user = auth()->user();
+        foreach ($paymentDetails as $payment) {
+            $method = PaymentMethod::find($payment['method_id']);
+            if ($method && $method->isCash()) {
+                $userCashRegisterId = $user->isSupervisor() && count($user->getSupervisorCashRegisterIds()) > 0 
+                    ? $user->getSupervisorCashRegisterIds()[0] 
+                    : null;
+                    
+                if ($userCashRegisterId) {
+                    $openReconciliation = CashReconciliation::getOpenReconciliation($userCashRegisterId);
+                    if ($openReconciliation) {
+                        CashMovement::create([
+                            'cash_reconciliation_id' => $openReconciliation->id,
+                            'user_id' => $user->id,
+                            'type' => 'expense',
+                            'amount' => $payment['amount'],
+                            'concept' => 'Pago de Nómina ' . $payroll->period_label,
+                            'notes' => 'Pago automático desde el módulo de nómina',
+                        ]);
+                    }
+                }
+            }
+        }
+
+        ActivityLogService::logUpdate('payrolls', $payroll, $oldValues, "Nómina período {$payroll->period_label} pagada");
+        $this->isPaymentModalOpen = false;
+        $this->dispatch('notify', message: 'Nómina marcada como pagada correctamente');
     }
 
     public function viewDetails($id)
