@@ -175,7 +175,8 @@ class PayrollCalculatorService
             + (float) $detail->loan_deduction
             + (float) $detail->cooperative_deduction
             + (float) $detail->libranza_deduction
-            + (float) $detail->other_deductions,
+            + (float) $detail->other_deductions
+            + (float) $detail->advance_deduction,
             2
         );
 

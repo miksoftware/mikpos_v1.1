@@ -137,6 +137,9 @@
                     @if((float)$detail->libranza_deduction > 0)
                     <tr><td>Libranza</td><td class="right">${{ number_format($detail->libranza_deduction, 0, ',', '.') }}</td></tr>
                     @endif
+                    @if((float)$detail->advance_deduction > 0)
+                    <tr><td>Adelantos de Nómina</td><td class="right">${{ number_format($detail->advance_deduction, 0, ',', '.') }}</td></tr>
+                    @endif
                     @if((float)$detail->other_deductions > 0)
                     <tr><td>Otras Deducciones</td><td class="right">${{ number_format($detail->other_deductions, 0, ',', '.') }}</td></tr>
                     @endif

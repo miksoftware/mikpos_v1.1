@@ -38,6 +38,7 @@ class Payrolls extends Component
     public $confirmMessage = '';
 
     // Payment form
+    public $openCashReconciliations = [];
     public $isPaymentModalOpen = false;
     public $paymentPayrollId = null;
     public $paymentTotal = 0;
@@ -71,6 +72,7 @@ class Payrolls extends Component
     public $novedad_cooperative_deduction = 0;
     public $novedad_libranza_deduction = 0;
     public $novedad_other_deductions = 0;
+    public $novedad_advances_details = [];
     public $novedadEmployeeName = '';
     public $novedadCommissions = 0; // read-only, auto from sales
 
@@ -351,13 +353,14 @@ class Payrolls extends Component
 
         $this->paymentPayrollId = $id;
         $this->paymentTotal = $payroll->total_net_pay;
-        $this->payrollPayments = [['method_id' => '', 'amount' => '']];
+        $this->openCashReconciliations = CashReconciliation::where('status', 'open')->with('cashRegister')->get();
+        $this->payrollPayments = [['method_id' => '', 'amount' => '', 'target_cash_reconciliation_id' => '']];
         $this->isPaymentModalOpen = true;
     }
 
     public function addPayrollPayment()
     {
-        $this->payrollPayments[] = ['method_id' => '', 'amount' => ''];
+        $this->payrollPayments[] = ['method_id' => '', 'amount' => '', 'target_cash_reconciliation_id' => ''];
     }
 
     public function removePayrollPayment(int $index)
@@ -411,6 +414,7 @@ class Payrolls extends Component
         $paymentDetails = $validPayments->map(fn($p) => [
             'method_id' => (int) $p['method_id'],
             'amount' => round((float) $p['amount'], 2),
+            'target_cash_reconciliation_id' => !empty($p['target_cash_reconciliation_id']) ? (int) $p['target_cash_reconciliation_id'] : null,
         ])->values()->toArray();
 
         $oldValues = $payroll->toArray();
@@ -439,23 +443,17 @@ class Payrolls extends Component
         $user = auth()->user();
         foreach ($paymentDetails as $payment) {
             $method = PaymentMethod::find($payment['method_id']);
-            if ($method && $method->isCash()) {
-                $userCashRegisterId = $user->isSupervisor() && count($user->getSupervisorCashRegisterIds()) > 0 
-                    ? $user->getSupervisorCashRegisterIds()[0] 
-                    : null;
-                    
-                if ($userCashRegisterId) {
-                    $openReconciliation = CashReconciliation::getOpenReconciliation($userCashRegisterId);
-                    if ($openReconciliation) {
-                        CashMovement::create([
-                            'cash_reconciliation_id' => $openReconciliation->id,
-                            'user_id' => $user->id,
-                            'type' => 'expense',
-                            'amount' => $payment['amount'],
-                            'concept' => 'Pago de Nómina ' . $payroll->period_label,
-                            'notes' => 'Pago automático desde el módulo de nómina',
-                        ]);
-                    }
+            if ($method && $method->isCash() && !empty($payment['target_cash_reconciliation_id'])) {
+                $openReconciliation = CashReconciliation::find($payment['target_cash_reconciliation_id']);
+                if ($openReconciliation && $openReconciliation->isOpen()) {
+                    CashMovement::create([
+                        'cash_reconciliation_id' => $openReconciliation->id,
+                        'user_id' => $user->id,
+                        'type' => 'expense',
+                        'amount' => $payment['amount'],
+                        'concept' => 'Pago de Nómina ' . $payroll->period_label,
+                        'notes' => 'Pago automático desde el módulo de nómina',
+                    ]);
                 }
             }
         }
@@ -489,8 +487,20 @@ class Payrolls extends Component
         $this->novedad_cooperative_deduction = (float) $detail->cooperative_deduction;
         $this->novedad_libranza_deduction = (float) $detail->libranza_deduction;
         $this->novedad_other_deductions = (float) $detail->other_deductions;
+        $this->novedad_advances_details = is_array($detail->advances_details) ? $detail->advances_details : [];
         $this->novedadCommissions = (float) $detail->commissions;
         $this->isNovedadModalOpen = true;
+    }
+
+    public function addAdvance()
+    {
+        $this->novedad_advances_details[] = ['date' => now()->format('Y-m-d'), 'amount' => ''];
+    }
+
+    public function removeAdvance(int $index)
+    {
+        array_splice($this->novedad_advances_details, $index, 1);
+        $this->novedad_advances_details = array_values($this->novedad_advances_details);
     }
 
     public function saveNovedad()
@@ -515,6 +525,17 @@ class Payrolls extends Component
         $detail->cooperative_deduction = (float) $this->novedad_cooperative_deduction;
         $detail->libranza_deduction = (float) $this->novedad_libranza_deduction;
         $detail->other_deductions = (float) $this->novedad_other_deductions;
+
+        $advances = collect($this->novedad_advances_details)
+            ->filter(fn($a) => !empty($a['date']) && (float) ($a['amount'] ?? 0) > 0)
+            ->map(fn($a) => [
+                'date' => $a['date'],
+                'amount' => round((float) $a['amount'], 2),
+            ])->values()->toArray();
+
+        $detail->advances_details = $advances;
+        $detail->advance_deduction = collect($advances)->sum('amount');
+        
         $detail->save();
 
         // Recalculate

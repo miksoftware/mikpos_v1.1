@@ -342,6 +342,30 @@
                                 <input type="number" wire:model="novedad_other_deductions" step="1" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                             </div>
                         </div>
+
+                        <h4 class="text-sm font-semibold text-slate-700 pt-4 border-t border-slate-100 mt-4">Adelantos de Nómina</h4>
+                        <div class="space-y-3 mt-2">
+                            @foreach($novedad_advances_details as $index => $advance)
+                            <div class="flex gap-2 items-center" wire:key="advance-{{ $index }}">
+                                <div class="w-1/3">
+                                    <input type="date" wire:model="novedad_advances_details.{{ $index }}.date" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                </div>
+                                <div class="flex-1 relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span class="text-slate-400">$</span>
+                                    </div>
+                                    <input type="number" wire:model="novedad_advances_details.{{ $index }}.amount" step="1" min="0" placeholder="0" class="w-full pl-7 pr-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                </div>
+                                <button type="button" wire:click="removeAdvance({{ $index }})" class="p-2 text-slate-400 hover:text-red-500 rounded-xl hover:bg-slate-100" title="Eliminar">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                            </div>
+                            @endforeach
+                            <button type="button" wire:click="addAdvance" class="text-sm text-[#ff7261] hover:text-[#e5594b] font-medium flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                Agregar adelanto
+                            </button>
+                        </div>
                     </div>
                     <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
                         <button wire:click="$set('isNovedadModalOpen', false)" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
@@ -390,6 +414,88 @@
                     <div class="flex justify-center gap-3">
                         <button wire:click="$set('isDeleteModalOpen', false)" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
                         <button wire:click="delete" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700">Eliminar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+    @endif
+
+    <!-- Payment Modal -->
+    @if($isPaymentModalOpen)
+    <div class="relative z-[100]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="$set('isPaymentModalOpen', false)"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-3xl bg-white rounded-2xl shadow-xl">
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-slate-900">Pagar Nómina</h3>
+                        <button wire:click="$set('isPaymentModalOpen', false)" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    <div class="px-6 py-4">
+                        <div class="mb-4 bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center">
+                            <span class="text-sm font-medium text-slate-600">Total a Pagar:</span>
+                            <span class="text-lg font-bold text-slate-900">${{ number_format($paymentTotal, 2, ',', '.') }}</span>
+                        </div>
+
+                        <div class="space-y-3">
+                            <label class="block text-sm font-medium text-slate-700">Formas de Pago</label>
+                            @foreach($payrollPayments as $index => $payment)
+                            <div class="flex gap-2 items-start" wire:key="payment-{{ $index }}">
+                                <div class="flex-1">
+                                    <select wire:model.live="payrollPayments.{{ $index }}.method_id" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                        <option value="">Seleccionar forma de pago...</option>
+                                        @foreach(\App\Models\PaymentMethod::where('is_active', true)->orderBy('name')->get() as $method)
+                                        <option value="{{ $method->id }}">{{ $method->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="w-1/4 relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span class="text-slate-400">$</span>
+                                    </div>
+                                    <input type="number" wire:model="payrollPayments.{{ $index }}.amount" step="0.01" min="0" placeholder="0.00" class="w-full pl-7 pr-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                </div>
+                                
+                                @php
+                                    $selectedMethod = \App\Models\PaymentMethod::find($payment['method_id']);
+                                @endphp
+                                @if($selectedMethod && $selectedMethod->isCash())
+                                <div class="flex-1">
+                                    <select wire:model="payrollPayments.{{ $index }}.target_cash_reconciliation_id" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                        <option value="">Seleccionar Caja a afectar...</option>
+                                        @foreach($openCashReconciliations as $rec)
+                                        <option value="{{ $rec->id }}">Caja #{{ $rec->cashRegister->id }} - {{ $rec->cashRegister->name }} (Usuario: {{ $rec->user->name }})</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                @endif
+
+                                <button type="button" wire:click="fillRemainingPayrollPayment({{ $index }})" class="p-2 mt-0.5 text-slate-400 hover:text-[#ff7261] rounded-xl hover:bg-slate-100" title="Llenar con el restante">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                </button>
+                                <button type="button" wire:click="removePayrollPayment({{ $index }})" class="p-2 mt-0.5 text-slate-400 hover:text-red-500 rounded-xl hover:bg-slate-100 {{ count($payrollPayments) === 1 ? 'invisible' : '' }}" title="Eliminar">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                            </div>
+                            @endforeach
+                            
+                            <button type="button" wire:click="addPayrollPayment" class="text-sm text-[#ff7261] hover:text-[#e5594b] font-medium flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                Agregar forma de pago
+                            </button>
+                        </div>
+                    </div>
+                    <div class="px-6 py-4 bg-slate-50 rounded-b-2xl border-t border-slate-200 flex justify-end gap-3">
+                        <button wire:click="$set('isPaymentModalOpen', false)" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200">
+                            Cancelar
+                        </button>
+                        <button wire:click="storePayment" class="px-4 py-2 text-sm font-medium text-white bg-[#ff7261] rounded-xl hover:bg-[#e5594b] focus:outline-none focus:ring-2 focus:ring-[#ff7261]/50">
+                            Confirmar Pago
+                        </button>
                     </div>
                 </div>
             </div>
