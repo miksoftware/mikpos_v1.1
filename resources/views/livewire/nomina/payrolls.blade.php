@@ -314,8 +314,12 @@
                                 <p class="text-xs text-slate-400 mt-0.5">Calculadas desde ventas</p>
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-slate-600 mb-1">Bonificaciones</label>
+                                <label class="block text-xs font-medium text-slate-600 mb-1">Bonificaciones Salariales</label>
                                 <input type="number" wire:model="novedad_bonuses" step="1" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-600 mb-1">Bonificaciones No Salariales</label>
+                                <input type="number" wire:model="novedad_non_salary_bonuses" step="1" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-slate-600 mb-1">Otros Ingresos</label>

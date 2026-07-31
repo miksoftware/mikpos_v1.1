@@ -57,6 +57,7 @@ class Payrolls extends Component
     public $novedad_night_surcharge_hours = 0;
     public $novedad_sunday_holiday_hours = 0;
     public $novedad_bonuses = 0;
+    public $novedad_non_salary_bonuses = 0;
     public $novedad_other_income = 0;
     public $novedad_cooperative_deduction = 0;
     public $novedad_libranza_deduction = 0;
@@ -388,6 +389,7 @@ class Payrolls extends Component
         $this->novedad_night_surcharge_hours = (float) $detail->night_surcharge_hours;
         $this->novedad_sunday_holiday_hours = (float) $detail->sunday_holiday_hours;
         $this->novedad_bonuses = (float) $detail->bonuses;
+        $this->novedad_non_salary_bonuses = (float) $detail->non_salary_bonuses;
         $this->novedad_other_income = (float) $detail->other_income;
         $this->novedad_cooperative_deduction = (float) $detail->cooperative_deduction;
         $this->novedad_libranza_deduction = (float) $detail->libranza_deduction;
@@ -413,6 +415,7 @@ class Payrolls extends Component
         $detail->night_surcharge_hours = (float) $this->novedad_night_surcharge_hours;
         $detail->sunday_holiday_hours = (float) $this->novedad_sunday_holiday_hours;
         $detail->bonuses = (float) $this->novedad_bonuses;
+        $detail->non_salary_bonuses = (float) $this->novedad_non_salary_bonuses;
         $detail->other_income = (float) $this->novedad_other_income;
         $detail->cooperative_deduction = (float) $this->novedad_cooperative_deduction;
         $detail->libranza_deduction = (float) $this->novedad_libranza_deduction;

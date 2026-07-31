@@ -116,6 +116,7 @@ class PayrollCalculatorService
             + (float) $detail->sunday_holiday_value
             + (float) $detail->commissions
             + (float) $detail->bonuses
+            + (float) $detail->non_salary_bonuses
             + (float) $detail->disability_value
             + (float) $detail->vacation_value
             + (float) $detail->other_income,
@@ -123,8 +124,18 @@ class PayrollCalculatorService
         );
 
         // === IBC (Ingreso Base de Cotización) ===
-        // IBC = devengado - auxilio de transporte (el auxilio NO es base para seguridad social)
-        $ibc = (float) $detail->total_earned - (float) $detail->transport_allowance_earned;
+        // Remuneración total (sin auxilio de transporte)
+        $totalRemuneration = (float) $detail->total_earned - (float) $detail->transport_allowance_earned;
+        
+        // Pagos no salariales
+        $nonSalaryPayments = (float) $detail->non_salary_bonuses;
+        
+        // Ley 1393 de 2010: pagos no salariales no pueden superar el 40% del total de la remuneración
+        $limit40 = $totalRemuneration * 0.40;
+        $excess = max(0, $nonSalaryPayments - $limit40);
+
+        // IBC = Remuneración total - Pagos no salariales + Excedente del 40%
+        $ibc = $totalRemuneration - $nonSalaryPayments + $excess;
 
         $paidDays = max(0, $totalDays - $unpaidDays);
         $minimumIbc = $paidDays > 0 ? (self::SMMLV / 30) * $paidDays : 0;

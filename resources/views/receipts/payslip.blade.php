@@ -97,6 +97,9 @@
                     @if((float)$detail->bonuses > 0)
                     <tr><td>Bonificaciones</td><td class="right">${{ number_format($detail->bonuses, 0, ',', '.') }}</td></tr>
                     @endif
+                    @if((float)$detail->non_salary_bonuses > 0)
+                    <tr><td>Bonificación No Salarial</td><td class="right">${{ number_format($detail->non_salary_bonuses, 0, ',', '.') }}</td></tr>
+                    @endif
                     @if((float)$detail->disability_value > 0)
                     <tr><td>Incapacidad ({{ $detail->disability_days }} días)</td><td class="right">${{ number_format($detail->disability_value, 0, ',', '.') }}</td></tr>
                     @endif
