@@ -150,43 +150,7 @@
             </div>
         </div>
 
-        <!-- Aportes Empleador (informativo) -->
-        <div class="employer-section">
-            <div class="section-title" style="color: #92400e; border-color: #fde68a;">Aportes del Empleador (Informativo)</div>
-            <table>
-                <tbody>
-                    <tr><td>Salud Empleador (8.5%)</td><td class="right">${{ number_format($detail->health_employer, 0, ',', '.') }}</td></tr>
-                    <tr><td>Pensión Empleador (12%)</td><td class="right">${{ number_format($detail->pension_employer, 0, ',', '.') }}</td></tr>
-                    <tr><td>ARL</td><td class="right">${{ number_format($detail->arl_employer, 0, ',', '.') }}</td></tr>
-                    @if((float)$detail->sena_employer > 0)
-                    <tr><td>SENA (2%)</td><td class="right">${{ number_format($detail->sena_employer, 0, ',', '.') }}</td></tr>
-                    @endif
-                    @if((float)$detail->icbf_employer > 0)
-                    <tr><td>ICBF (3%)</td><td class="right">${{ number_format($detail->icbf_employer, 0, ',', '.') }}</td></tr>
-                    @endif
-                    <tr><td>Caja de Compensación (4%)</td><td class="right">${{ number_format($detail->compensation_fund_employer, 0, ',', '.') }}</td></tr>
-                    <tr class="total-row"><td>Total Aportes Empleador</td><td class="right">${{ number_format($totalEmployerCost, 0, ',', '.') }}</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        @if($totalProvisions > 0)
-        <div class="section" style="background: #faf5ff;">
-            <div class="section-title" style="color: #7e22ce; border-color: #e9d5ff;">Provisiones del Período</div>
-            <table>
-                <tbody>
-                    <tr><td>Cesantías (8.33%)</td><td class="right">${{ number_format($detail->severance_provision, 0, ',', '.') }}</td></tr>
-                    <tr><td>Intereses Cesantías (1%)</td><td class="right">${{ number_format($detail->severance_interest_provision, 0, ',', '.') }}</td></tr>
-                    <tr><td>Prima de Servicios (8.33%)</td><td class="right">${{ number_format($detail->service_bonus_provision, 0, ',', '.') }}</td></tr>
-                    <tr><td>Vacaciones (4.17%)</td><td class="right">${{ number_format($detail->vacation_provision, 0, ',', '.') }}</td></tr>
-                    <tr class="total-row"><td>Total Provisiones</td><td class="right">${{ number_format($totalProvisions, 0, ',', '.') }}</td></tr>
-                </tbody>
-            </table>
-        </div>
-        @endif
-
         <div class="footer">
-            <p style="font-size: 10px; color: #94a3b8; text-align: center;">Costo total empleado para la empresa: ${{ number_format((float)$detail->net_pay + (float)$detail->total_deductions + $totalEmployerCost + $totalProvisions, 0, ',', '.') }}</p>
             <div class="signatures">
                 <div class="sig-line">Empleador</div>
                 <div class="sig-line">Empleado: {{ $employee->full_name }}</div>

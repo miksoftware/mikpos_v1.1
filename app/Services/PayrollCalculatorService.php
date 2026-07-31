@@ -126,19 +126,25 @@ class PayrollCalculatorService
         // IBC = devengado - auxilio de transporte (el auxilio NO es base para seguridad social)
         $ibc = (float) $detail->total_earned - (float) $detail->transport_allowance_earned;
 
+        $paidDays = max(0, $totalDays - $unpaidDays);
+        $minimumIbc = $paidDays > 0 ? (self::SMMLV / 30) * $paidDays : 0;
+        $maximumIbc = $paidDays > 0 ? (self::SMMLV * 25 / 30) * $paidDays : 0;
+
         // Salario integral: IBC = 70% del salario integral
         if ($employee->isIntegralSalary()) {
-            $ibc = $employee->base_salary * 0.70;
+            $ibc = ($employee->base_salary / 30 * $paidDays) * 0.70;
         }
 
-        // Salario mínimo: IBC = SMMLV
+        // Salario mínimo: IBC = SMMLV proporcional
         if ($employee->isMinimumWage()) {
-            $ibc = max($ibc, self::SMMLV);
+            $ibc = max($ibc, $minimumIbc);
         }
 
-        // IBC mínimo 1 SMMLV, máximo 25 SMMLV
-        $ibc = max($ibc, self::SMMLV);
-        $ibc = min($ibc, self::SMMLV * 25);
+        // IBC mínimo 1 SMMLV proporcional, máximo 25 SMMLV
+        if ($paidDays > 0) {
+            $ibc = max($ibc, $minimumIbc);
+            $ibc = min($ibc, $maximumIbc);
+        }
 
         // === DEDUCCIONES EMPLEADO ===
         $healthPension = $this->calculateHealthPension($ibc);
