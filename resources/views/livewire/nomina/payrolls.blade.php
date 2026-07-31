@@ -448,7 +448,7 @@
                                 <div class="flex-1">
                                     <select wire:model.live="payrollPayments.{{ $index }}.method_id" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                                         <option value="">Seleccionar forma de pago...</option>
-                                        @foreach(\App\Models\PaymentMethod::where('is_active', true)->orderBy('name')->get() as $method)
+                                        @foreach($this->paymentMethods as $method)
                                         <option value="{{ $method->id }}">{{ $method->name }}</option>
                                         @endforeach
                                     </select>
@@ -461,14 +461,14 @@
                                 </div>
                                 
                                 @php
-                                    $selectedMethod = \App\Models\PaymentMethod::find($payment['method_id']);
+                                    $selectedMethod = $this->paymentMethods->firstWhere('id', $payment['method_id']);
                                 @endphp
                                 @if($selectedMethod && $selectedMethod->isCash())
                                 <div class="flex-1">
                                     <select wire:model="payrollPayments.{{ $index }}.target_cash_reconciliation_id" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                                         <option value="">Seleccionar Caja a afectar...</option>
-                                        @foreach($openCashReconciliations as $rec)
-                                        <option value="{{ $rec->id }}">Caja #{{ $rec->cashRegister->id }} - {{ $rec->cashRegister->name }} (Usuario: {{ $rec->user->name }})</option>
+                                        @foreach($this->openCashReconciliations as $rec)
+                                        <option value="{{ $rec->id }}">Caja #{{ $rec->cashRegister->id }} - {{ $rec->cashRegister->name }} (Usuario: {{ $rec->openedByUser->name ?? 'N/A' }})</option>
                                         @endforeach
                                     </select>
                                 </div>

@@ -38,7 +38,6 @@ class Payrolls extends Component
     public $confirmMessage = '';
 
     // Payment form
-    public $openCashReconciliations = [];
     public $isPaymentModalOpen = false;
     public $paymentPayrollId = null;
     public $paymentTotal = 0;
@@ -86,6 +85,18 @@ class Payrolls extends Component
         if ($this->needsBranchSelection) {
             $this->branches = Branch::where('is_active', true)->orderBy('name')->get();
         }
+    }
+
+    #[\Livewire\Attributes\Computed]
+    public function openCashReconciliations()
+    {
+        return CashReconciliation::where('status', 'open')->with(['cashRegister', 'openedByUser'])->get();
+    }
+
+    #[\Livewire\Attributes\Computed]
+    public function paymentMethods()
+    {
+        return \App\Models\PaymentMethod::where('is_active', true)->orderBy('name')->get();
     }
 
     public function render()
@@ -353,7 +364,6 @@ class Payrolls extends Component
 
         $this->paymentPayrollId = $id;
         $this->paymentTotal = $payroll->total_net_pay;
-        $this->openCashReconciliations = CashReconciliation::where('status', 'open')->with('cashRegister')->get();
         $this->payrollPayments = [['method_id' => '', 'amount' => '', 'target_cash_reconciliation_id' => '']];
         $this->isPaymentModalOpen = true;
     }
