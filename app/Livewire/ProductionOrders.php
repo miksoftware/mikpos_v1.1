@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\ProductionOrder;
+use App\Services\ActivityLogService;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -74,5 +75,45 @@ class ProductionOrders extends Component
     {
         $this->isViewModalOpen = false;
         $this->selectedOrder = null;
+    }
+
+    public function cancelOrder(int $id)
+    {
+        if (!auth()->user()->hasPermission('production.cancel')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        $order = ProductionOrder::find($id);
+        if (!$order) {
+            $this->dispatch('notify', message: 'Orden no encontrada', type: 'error');
+            return;
+        }
+
+        if ($order->status !== 'completed') {
+            $this->dispatch('notify', message: 'Solo se pueden cancelar órdenes completadas', type: 'error');
+            return;
+        }
+
+        try {
+            if ($order->cancel()) {
+                ActivityLogService::logUpdate(
+                    'production_orders',
+                    $order,
+                    ['status' => 'completed'],
+                    "Orden de Producción #{$order->id} cancelada"
+                );
+
+                if ($this->selectedOrder && $this->selectedOrder->id === $order->id) {
+                    $this->closeViewModal();
+                }
+
+                $this->dispatch('notify', message: 'Orden de producción cancelada. El inventario fue revertido.');
+            } else {
+                $this->dispatch('notify', message: 'No se pudo cancelar la orden', type: 'error');
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('notify', message: 'Error al cancelar: ' . $e->getMessage(), type: 'error');
+        }
     }
 }
