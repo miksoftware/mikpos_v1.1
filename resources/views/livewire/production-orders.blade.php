@@ -102,7 +102,7 @@
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                 </button>
                                 @if($order->status === 'completed' && auth()->user()->hasPermission('production.cancel'))
-                                <button wire:click="cancelOrder({{ $order->id }})" wire:confirm="¿Está seguro de cancelar esta orden de producción? Se revertirá el stock del producto fabricado y se restaurarán los insumos consumidos." class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Cancelar Orden">
+                                <button type="button" x-on:click="confirmAction('Se revertirá el stock del producto fabricado y se restaurarán los insumos consumidos.', () => $wire.cancelOrder({{ $order->id }}), { title: '¿Cancelar orden de producción?' })" class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Cancelar Orden">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                 </button>
                                 @endif
@@ -143,7 +143,7 @@
                         </div>
                         <div class="flex items-center gap-2">
                             @if($selectedOrder->status === 'completed' && auth()->user()->hasPermission('production.cancel'))
-                            <button wire:click="cancelOrder({{ $selectedOrder->id }})" wire:confirm="¿Está seguro de cancelar esta orden de producción? Se revertirá el stock del producto fabricado y se restaurarán los insumos consumidos." class="inline-flex items-center px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-semibold rounded-lg transition-colors">
+                            <button type="button" x-on:click="confirmAction('Se revertirá el stock del producto fabricado y se restaurarán los insumos consumidos.', () => $wire.cancelOrder({{ $selectedOrder->id }}), { title: '¿Cancelar orden de producción?' })" class="inline-flex items-center px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-semibold rounded-lg transition-colors">
                                 Cancelar Orden
                             </button>
                             @endif
