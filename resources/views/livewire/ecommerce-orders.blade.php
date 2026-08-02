@@ -279,7 +279,13 @@
         <input type="date" wire:model.live="dateTo" class="px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
 
         @if($activeTab === 'pending' && count($selectedOrders) > 0)
-            <button type="button" x-on:click="confirmAction('Se aprobarán {{ count($selectedOrders) }} pedido(s) seleccionados.', () => $wire.bulkApprove(), { title: '¿Aprobar pedidos?', icon: 'question', confirmButtonColor: '#16a34a' })"
+            <button type="button"
+                data-confirm="Se aprobarán {{ count($selectedOrders) }} pedido(s) seleccionados."
+                data-confirm-title="¿Aprobar pedidos?"
+                data-confirm-icon="question"
+                data-confirm-color="#16a34a"
+                data-confirm-method="bulkApprove"
+                data-confirm-params="[]"
                 class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-xl hover:bg-green-700 transition-colors">
                 Aprobar seleccionados ({{ count($selectedOrders) }})
             </button>
@@ -353,7 +359,14 @@
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
                                 </a>
                                 @if($activeTab === 'pending')
-                                <button type="button" x-on:click="confirmAction('Este pedido pasará a estado aprobado.', () => $wire.approveOrder({{ $order->id }}), { title: '¿Aprobar este pedido?', icon: 'question', confirmButtonColor: '#16a34a' })" class="p-1.5 text-slate-400 hover:text-green-600 rounded-lg hover:bg-green-50" title="Aprobar">
+                                <button type="button"
+                                    data-confirm="Este pedido pasará a estado aprobado."
+                                    data-confirm-title="¿Aprobar este pedido?"
+                                    data-confirm-icon="question"
+                                    data-confirm-color="#16a34a"
+                                    data-confirm-method="approveOrder"
+                                    data-confirm-params="[{{ $order->id }}]"
+                                    class="p-1.5 text-slate-400 hover:text-green-600 rounded-lg hover:bg-green-50" title="Aprobar">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                                 </button>
                                 <button wire:click="openRejectModal({{ $order->id }})" class="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50" title="Rechazar">
