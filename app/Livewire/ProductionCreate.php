@@ -233,12 +233,14 @@ class ProductionCreate extends Component
 
                 // Add Finished Product Stock
                 $finishedProduct = Product::find($cartItem['product_id']);
-                $finishedProduct->increment('current_stock', $cartItem['quantity']);
 
-                $unitCostProd = $cartItem['estimated_cost'] / $cartItem['quantity'];
+                $unitCostProd = $cartItem['quantity'] > 0 ? $cartItem['estimated_cost'] / $cartItem['quantity'] : 0;
                 if ($unitCostProd > 0) {
+                    // Must run before incrementing stock, since it uses current_stock as the "before" quantity
                     $finishedProduct->updateAverageCost((float) $cartItem['quantity'], (float) $unitCostProd);
                 }
+
+                $finishedProduct->increment('current_stock', $cartItem['quantity']);
 
                 if ($cartItem['location_id']) {
                     $locProduct = DB::table('location_products')
