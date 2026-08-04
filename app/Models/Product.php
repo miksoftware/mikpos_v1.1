@@ -34,6 +34,8 @@ class Product extends Model
         'size',
         'weight',
         'imei',
+        'import_code',
+        'import_declaration',
         'image',
         'purchase_price',
         'sale_price',

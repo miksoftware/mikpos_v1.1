@@ -85,6 +85,20 @@ class ProductFieldSetting extends Model
             'child_visible' => false,
             'child_required' => false,
         ],
+        'import_code' => [
+            'label' => 'Código de Importación',
+            'parent_visible' => false,
+            'parent_required' => false,
+            'child_visible' => false,
+            'child_required' => false,
+        ],
+        'import_declaration' => [
+            'label' => 'Declaración de Importación (PDF)',
+            'parent_visible' => false,
+            'parent_required' => false,
+            'child_visible' => false,
+            'child_required' => false,
+        ],
     ];
 
     /**

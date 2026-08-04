@@ -600,10 +600,15 @@
                         </div>
                         {{-- Configurable Fields Section (Parent) --}}
                         @php
+                            $canManageImport = auth()->user()->hasPermission('products.manage_import');
                             $hasVisibleFields = false;
-                            foreach (['barcode', 'presentation_id', 'color_id', 'product_model_id', 'size', 'weight', 'imei'] as $fn) {
+                            foreach (['barcode', 'presentation_id', 'color_id', 'product_model_id', 'size', 'weight', 'imei', 'import_code', 'import_declaration'] as $fn) {
                                 $f = $fieldSettings[$fn] ?? null;
-                                if ($f && (is_object($f) ? $f->parent_visible : ($f['parent_visible'] ?? false))) {
+                                $isVisible = $f && (is_object($f) ? $f->parent_visible : ($f['parent_visible'] ?? false));
+                                if (in_array($fn, ['import_code', 'import_declaration']) && $isVisible && !$canManageImport) {
+                                    $isVisible = false;
+                                }
+                                if ($isVisible) {
                                     $hasVisibleFields = true;
                                     break;
                                 }
@@ -724,6 +729,42 @@
                                     <label class="block text-sm font-medium text-slate-700 mb-1">IMEI @if($imeiRequired)*@endif</label>
                                     <input wire:model="imei" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="15-17 dígitos">
                                     @error('imei')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                                </div>
+                                @endif
+
+                                @php
+                                    $importCodeField = $fieldSettings['import_code'] ?? null;
+                                    $importCodeVisible = $importCodeField ? (is_object($importCodeField) ? $importCodeField->parent_visible : ($importCodeField['parent_visible'] ?? false)) : false;
+                                    $importCodeRequired = $importCodeField ? (is_object($importCodeField) ? $importCodeField->parent_required : ($importCodeField['parent_required'] ?? false)) : false;
+                                @endphp
+                                @if($importCodeVisible && $canManageImport)
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Código de Importación @if($importCodeRequired)*@endif</label>
+                                    <input wire:model="import_code" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: IMP-2026-00123">
+                                    @error('import_code')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                                </div>
+                                @endif
+
+                                @php
+                                    $importDeclarationField = $fieldSettings['import_declaration'] ?? null;
+                                    $importDeclarationVisible = $importDeclarationField ? (is_object($importDeclarationField) ? $importDeclarationField->parent_visible : ($importDeclarationField['parent_visible'] ?? false)) : false;
+                                    $importDeclarationRequired = $importDeclarationField ? (is_object($importDeclarationField) ? $importDeclarationField->parent_required : ($importDeclarationField['parent_required'] ?? false)) : false;
+                                @endphp
+                                @if($importDeclarationVisible && $canManageImport)
+                                <div class="sm:col-span-2">
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Declaración de Importación (PDF) @if($importDeclarationRequired)*@endif</label>
+                                    @if($existingImportDeclaration && !$importDeclaration)
+                                    <div class="flex items-center gap-2 mb-2 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                                        <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                        <a href="{{ Storage::url($existingImportDeclaration) }}" target="_blank" class="text-sm text-[#ff7261] hover:underline flex-1 truncate">Ver documento actual</a>
+                                        <button type="button" wire:click="removeImportDeclaration" class="text-slate-400 hover:text-red-500" title="Quitar documento">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                        </button>
+                                    </div>
+                                    @endif
+                                    <input wire:model="importDeclaration" type="file" accept="application/pdf" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                    <div wire:loading wire:target="importDeclaration" class="text-xs text-slate-400 mt-1">Cargando archivo...</div>
+                                    @error('importDeclaration')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
                                 </div>
                                 @endif
                             </div>

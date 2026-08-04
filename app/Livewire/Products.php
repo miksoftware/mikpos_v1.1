@@ -93,6 +93,9 @@ class Products extends Component
     public ?string $size = null;
     public ?float $weight = null;
     public ?string $imei = null;
+    public ?string $import_code = null;
+    public $importDeclaration = null; // For PDF file upload
+    public ?string $existingImportDeclaration = null; // To track existing uploaded PDF path
 
     // Locations: array of [location_id => '', quantity => ''] rows
     public array $productLocations = [];
@@ -422,6 +425,9 @@ class Products extends Component
         $this->size = $item->size;
         $this->weight = $item->weight ? (float) $item->weight : null;
         $this->imei = $item->imei;
+        $this->import_code = $item->import_code;
+        $this->existingImportDeclaration = $item->import_declaration;
+        $this->importDeclaration = null;
         $this->has_commission = (bool) $item->has_commission;
         $this->commission_type = $item->commission_type ?? 'percentage';
         $this->commission_value = $item->commission_value ? (float) $item->commission_value : null;
@@ -462,6 +468,12 @@ class Products extends Component
         
         $this->validate($rules, $messages);
 
+        // Import declaration required check (existing file also satisfies the requirement)
+        if ($this->isParentFieldRequired('import_declaration') && !$this->importDeclaration && !$this->existingImportDeclaration) {
+            $this->addError('importDeclaration', 'La declaración de importación es obligatoria.');
+            return;
+        }
+
         // Validate location quantities match current stock
         if ($this->manages_inventory && !empty($this->productLocations)) {
             $totalLocationsStock = 0;
@@ -491,6 +503,17 @@ class Products extends Component
             }
             // Store new image
             $imagePath = $this->image->store('products', 'public');
+        }
+
+        // Handle import declaration (PDF) upload
+        $importDeclarationPath = $this->existingImportDeclaration;
+        if ($this->importDeclaration) {
+            // Delete old file if exists
+            if ($this->existingImportDeclaration && Storage::disk('public')->exists($this->existingImportDeclaration)) {
+                Storage::disk('public')->delete($this->existingImportDeclaration);
+            }
+            // Store new file
+            $importDeclarationPath = $this->importDeclaration->store('products/import-declarations', 'public');
         }
 
         // Determine branch_id
@@ -529,6 +552,8 @@ class Products extends Component
             'size' => $this->size ?: null,
             'weight' => $this->weight ?: null,
             'imei' => $this->imei ?: null,
+            'import_code' => $this->import_code ?: null,
+            'import_declaration' => $importDeclarationPath,
         ]);
 
         // Generate SKU if not provided
@@ -675,6 +700,11 @@ class Products extends Component
         // Delete parent image
         if ($item->image && Storage::disk('public')->exists($item->image)) {
             Storage::disk('public')->delete($item->image);
+        }
+
+        // Delete import declaration file
+        if ($item->import_declaration && Storage::disk('public')->exists($item->import_declaration)) {
+            Storage::disk('public')->delete($item->import_declaration);
         }
 
         ActivityLogService::logDelete('products', $item, "Producto '{$item->name}' eliminado");
@@ -1149,6 +1179,18 @@ class Products extends Component
                 : 'nullable|string|min:15|max:17';
         }
 
+        // Import code - configurable, alphanumeric
+        if ($this->isParentFieldVisible('import_code')) {
+            $rules['import_code'] = $this->isParentFieldRequired('import_code')
+                ? 'required|string|max:100|regex:/^[A-Za-z0-9\-_\/]+$/'
+                : 'nullable|string|max:100|regex:/^[A-Za-z0-9\-_\/]+$/';
+        }
+
+        // Import declaration (PDF) - configurable
+        if ($this->isParentFieldVisible('import_declaration')) {
+            $rules['importDeclaration'] = 'nullable|file|mimes:pdf|max:5120';
+        }
+
         return $rules;
     }
 
@@ -1185,6 +1227,11 @@ class Products extends Component
             'imei.required' => 'El IMEI es obligatorio',
             'imei.min' => 'El IMEI debe tener al menos 15 caracteres',
             'imei.max' => 'El IMEI no puede tener más de 17 caracteres',
+            'import_code.required' => 'El código de importación es obligatorio',
+            'import_code.regex' => 'El código de importación solo puede contener letras, números, guiones y barras',
+            'importDeclaration.file' => 'La declaración de importación debe ser un archivo',
+            'importDeclaration.mimes' => 'La declaración de importación debe ser un archivo PDF',
+            'importDeclaration.max' => 'La declaración de importación no debe superar 5MB',
         ];
     }
 
@@ -1354,6 +1401,15 @@ class Products extends Component
         $this->image = null;
     }
 
+    public function removeImportDeclaration()
+    {
+        if ($this->existingImportDeclaration && Storage::disk('public')->exists($this->existingImportDeclaration)) {
+            Storage::disk('public')->delete($this->existingImportDeclaration);
+        }
+        $this->existingImportDeclaration = null;
+        $this->importDeclaration = null;
+    }
+
     public function removeChildImage()
     {
         if ($this->childExistingImage && Storage::disk('public')->exists($this->childExistingImage)) {
@@ -1413,6 +1469,9 @@ class Products extends Component
         $this->size = null;
         $this->weight = null;
         $this->imei = null;
+        $this->import_code = null;
+        $this->importDeclaration = null;
+        $this->existingImportDeclaration = null;
         $this->productLocations = [];
     }
 
@@ -2747,6 +2806,11 @@ class Products extends Component
                 // Delete product image
                 if ($product->image && Storage::disk('public')->exists($product->image)) {
                     Storage::disk('public')->delete($product->image);
+                }
+
+                // Delete import declaration file
+                if ($product->import_declaration && Storage::disk('public')->exists($product->import_declaration)) {
+                    Storage::disk('public')->delete($product->import_declaration);
                 }
 
                 ActivityLogService::logDelete('products', $product, "Producto '{$product->name}' eliminado (masivo)");
