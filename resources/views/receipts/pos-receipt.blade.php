@@ -436,9 +436,15 @@
                 <span>Producto</span>
                 <span>Total</span>
             </div>
+            @php
+                $importCodeVisible = \App\Models\ProductFieldSetting::isFieldVisible('import_code', $sale->branch_id);
+            @endphp
             @foreach($sale->items->where('is_unavailable', false) as $item)
             <div class="item">
                 <div class="item-name">{{ $item->product_name }}</div>
+                @if($importCodeVisible && $item->product?->import_code)
+                <div class="customer-doc">Cód. Importación: {{ $item->product->import_code }}</div>
+                @endif
                 @php
                     $itemPriceWithTax = $item->tax_rate > 0 ? $item->unit_price * (1 + $item->tax_rate / 100) : $item->unit_price;
                     $itemTotalWithTax = $item->total;

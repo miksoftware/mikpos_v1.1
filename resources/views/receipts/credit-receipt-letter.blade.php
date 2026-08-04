@@ -231,11 +231,17 @@
                 </tr>
             </thead>
             <tbody>
+                @php
+                    $importCodeVisible = \App\Models\ProductFieldSetting::isFieldVisible('import_code', $sale->branch_id);
+                @endphp
                 @foreach($sale->items->where('is_unavailable', false)->values() as $index => $item)
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>
                         {{ $item->product_name }}
+                        @if($importCodeVisible && $item->product?->import_code)
+                            <br><small style="color: #888;">Cód. Importación: {{ $item->product->import_code }}</small>
+                        @endif
                         @if($item->discount_amount > 0)
                             @php
                                 $discLabel = $item->discount_type === 'percentage' ? $item->discount_type_value . '%' : '$' . number_format($item->discount_type_value, 0);

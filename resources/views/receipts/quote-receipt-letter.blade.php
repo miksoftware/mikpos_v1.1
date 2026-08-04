@@ -97,6 +97,9 @@
                 </tr>
             </thead>
             <tbody>
+                @php
+                    $importCodeVisible = \App\Models\ProductFieldSetting::isFieldVisible('import_code', $quote->branch_id);
+                @endphp
                 @foreach($quote->items as $item)
                 @php
                     $itemPriceWithTax = $item->tax_rate > 0 ? $item->unit_price * (1 + $item->tax_rate / 100) : $item->unit_price;
@@ -105,6 +108,7 @@
                     <td>
                         <strong>{{ $item->product_name }}</strong>
                         @if($item->product_sku)<br><span style="font-size:9px;color:#94a3b8">{{ $item->product_sku }}</span>@endif
+                        @if($importCodeVisible && $item->product?->import_code)<br><span style="font-size:9px;color:#94a3b8">Cód. Importación: {{ $item->product->import_code }}</span>@endif
                     </td>
                     <td class="right">{{ rtrim(rtrim(number_format($item->quantity, 3), '0'), '.') }}</td>
                     <td class="right">${{ number_format($itemPriceWithTax, 2) }}</td>

@@ -386,7 +386,7 @@ Route::middleware(['auth'])->group(function () {
             'customer.municipality',
             'customer.department',
             'user',
-            'items',
+            'items.product',
         ]);
 
         $format = App\Models\PrintFormatSetting::getFormat('quote');
@@ -406,7 +406,7 @@ Route::middleware(['auth'])->group(function () {
             'customer.municipality',
             'customer.department',
             'user',
-            'items',
+            'items.product',
             'payments.paymentMethod',
             'cashReconciliation.cashRegister',
             'ecommerceOrder.shippingDepartment',
@@ -431,7 +431,7 @@ Route::middleware(['auth'])->group(function () {
                 'customer.municipality',
                 'customer.department',
                 'user',
-                'items',
+                'items.product',
                 'creditPayments.paymentMethod',
                 'creditPayments.user',
                 'cashReconciliation.cashRegister',

@@ -270,6 +270,15 @@ class ProductFieldSetting extends Model
     }
 
     /**
+     * Check whether a configurable field is currently visible (parent level) for a branch.
+     */
+    public static function isFieldVisible(string $fieldName, ?int $branchId = null): bool
+    {
+        $field = static::getFieldsForBranch($branchId)->get($fieldName);
+        return (bool) ($field->parent_visible ?? false);
+    }
+
+    /**
      * Get available presets.
      */
     public static function getAvailablePresets(): array
