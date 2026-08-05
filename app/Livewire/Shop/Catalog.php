@@ -9,6 +9,7 @@ use App\Models\ProductChild;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
+use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -272,33 +273,9 @@ class Catalog extends Component
     {
         $branchId = \App\Models\Branch::getEcommerceBranchId();
 
-        $query = Product::query()
-            ->where('is_active', true)
-            ->where('show_in_shop', true)
-            ->where(function ($q) {
-                $q->where('manages_inventory', false)
-                  ->orWhere('current_stock', '>', 0);
-            })
-            ->where('branch_id', $branchId)
-            ->with(['category', 'brand', 'tax']);
+        $query = $this->getBaseProductQuery($branchId);
 
-        if ($this->search !== '') {
-            $query->where(function ($q) {
-                $q->where('name', 'like', '%' . $this->search . '%')
-                    ->orWhere('sku', 'like', '%' . $this->search . '%')
-                    ->orWhere('description', 'like', '%' . $this->search . '%');
-            });
-        }
-
-        if ($this->category !== '') {
-            $query->where('category_id', $this->category);
-        }
-
-        if ($this->brand !== '') {
-            $query->where('brand_id', $this->brand);
-        }
-
-        $products = $query->orderBy('name')->paginate($this->perPage);
+        $products = (clone $query)->orderBy('name')->paginate($this->perPage);
 
         $availableCategoryIds = Product::where('is_active', true)
             ->where('show_in_shop', true)
@@ -339,5 +316,110 @@ class Catalog extends Component
             'brands' => $brands,
             'showStockInShop' => $showStockInShop,
         ]);
+    }
+
+    private function getBaseProductQuery($branchId)
+    {
+        $query = Product::query()
+            ->where('is_active', true)
+            ->where('show_in_shop', true)
+            ->where(function ($q) {
+                $q->where('manages_inventory', false)
+                  ->orWhere('current_stock', '>', 0);
+            })
+            ->where('branch_id', $branchId)
+            ->with(['category', 'brand', 'tax']);
+
+        if ($this->search !== '') {
+            $query->where(function ($q) {
+                $q->where('name', 'like', '%' . $this->search . '%')
+                    ->orWhere('sku', 'like', '%' . $this->search . '%')
+                    ->orWhere('description', 'like', '%' . $this->search . '%');
+            });
+        }
+
+        if ($this->category !== '') {
+            $query->where('category_id', $this->category);
+        }
+
+        if ($this->brand !== '') {
+            $query->where('brand_id', $this->brand);
+        }
+
+        return $query;
+    }
+
+    #[Computed]
+    public function hasPreviousProduct()
+    {
+        if (!$this->selectedProduct) return false;
+        $branchId = \App\Models\Branch::getEcommerceBranchId();
+        return $this->getBaseProductQuery($branchId)
+            ->where(function($q) {
+                $q->where('name', '<', $this->selectedProduct->name)
+                  ->orWhere(function($q2) {
+                      $q2->where('name', '=', $this->selectedProduct->name)
+                         ->where('id', '<', $this->selectedProduct->id);
+                  });
+            })
+            ->exists();
+    }
+
+    #[Computed]
+    public function hasNextProduct()
+    {
+        if (!$this->selectedProduct) return false;
+        $branchId = \App\Models\Branch::getEcommerceBranchId();
+        return $this->getBaseProductQuery($branchId)
+            ->where(function($q) {
+                $q->where('name', '>', $this->selectedProduct->name)
+                  ->orWhere(function($q2) {
+                      $q2->where('name', '=', $this->selectedProduct->name)
+                         ->where('id', '>', $this->selectedProduct->id);
+                  });
+            })
+            ->exists();
+    }
+
+    public function previousProduct()
+    {
+        if (!$this->selectedProduct) return;
+        $branchId = \App\Models\Branch::getEcommerceBranchId();
+        $prev = $this->getBaseProductQuery($branchId)
+            ->where(function($q) {
+                $q->where('name', '<', $this->selectedProduct->name)
+                  ->orWhere(function($q2) {
+                      $q2->where('name', '=', $this->selectedProduct->name)
+                         ->where('id', '<', $this->selectedProduct->id);
+                  });
+            })
+            ->orderBy('name', 'desc')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if ($prev) {
+            $this->openProductModal($prev->id);
+        }
+    }
+
+    public function nextProduct()
+    {
+        if (!$this->selectedProduct) return;
+        $branchId = \App\Models\Branch::getEcommerceBranchId();
+        $next = $this->getBaseProductQuery($branchId)
+            ->where(function($q) {
+                $q->where('name', '>', $this->selectedProduct->name)
+                  ->orWhere(function($q2) {
+                      $q2->where('name', '=', $this->selectedProduct->name)
+                         ->where('id', '>', $this->selectedProduct->id);
+                  });
+            })
+            ->orderBy('name', 'asc')
+            ->orderBy('id', 'asc')
+            ->first();
+
+        if ($next) {
+            $this->openProductModal($next->id);
+        }
     }
 }

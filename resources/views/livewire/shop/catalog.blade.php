@@ -1,4 +1,4 @@
-<div>
+<div x-data="{ fullscreenImage: false, imageUrl: '' }">
     {{-- Search & Filters --}}
     <div class="mb-6 space-y-4">
         <div class="relative">
@@ -49,9 +49,12 @@
             @foreach($products as $product)
                 <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-md hover:border-slate-300 transition-all group flex flex-col">
                     {{-- Image (clickable to open modal) --}}
-                    <div class="aspect-[4/3] bg-slate-100 overflow-hidden cursor-pointer" wire:click="openProductModal({{ $product->id }})">
+                    <div class="aspect-[4/3] bg-slate-100 overflow-hidden cursor-pointer relative group" wire:click="openProductModal({{ $product->id }})">
                         <img src="{{ $product->getDisplayImageUrl() }}" alt="{{ $product->name }}"
                             class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300">
+                        <button @click.stop="imageUrl = '{{ $product->getDisplayImageUrl() }}'; fullscreenImage = true" class="absolute top-2 right-2 p-1.5 sm:p-2 bg-white/80 backdrop-blur rounded-full text-slate-700 hover:text-[#ff7261] hover:bg-white transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100 shadow-sm z-10">
+                            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </button>
                     </div>
 
                     {{-- Info --}}
@@ -151,10 +154,27 @@
                             </svg>
                         </button>
 
+                        {{-- Prev Button --}}
+                        @if($this->hasPreviousProduct)
+                            <button wire:click="previousProduct" wire:loading.attr="disabled" wire:target="previousProduct" class="absolute top-1/2 -left-3 sm:-left-6 -translate-y-1/2 p-2 sm:p-2.5 bg-white text-slate-700 hover:text-[#ff7261] rounded-full shadow-[0_0_15px_rgba(0,0,0,0.1)] border border-slate-100 z-20 transition-all hover:scale-110">
+                                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                            </button>
+                        @endif
+                        
+                        {{-- Next Button --}}
+                        @if($this->hasNextProduct)
+                            <button wire:click="nextProduct" wire:loading.attr="disabled" wire:target="nextProduct" class="absolute top-1/2 -right-3 sm:-right-6 -translate-y-1/2 p-2 sm:p-2.5 bg-white text-slate-700 hover:text-[#ff7261] rounded-full shadow-[0_0_15px_rgba(0,0,0,0.1)] border border-slate-100 z-20 transition-all hover:scale-110">
+                                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                            </button>
+                        @endif
+
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-0">
                             {{-- Image --}}
-                            <div class="aspect-[4/3] sm:aspect-square bg-slate-100 rounded-t-2xl sm:rounded-l-2xl sm:rounded-tr-none overflow-hidden">
+                            <div class="aspect-[4/3] sm:aspect-square bg-slate-100 rounded-t-2xl sm:rounded-l-2xl sm:rounded-tr-none overflow-hidden relative group">
                                 <img src="{{ $selectedProduct->getDisplayImageUrl() }}" alt="{{ $selectedProduct->name }}" class="w-full h-full object-contain">
+                                <button @click="imageUrl = '{{ $selectedProduct->getDisplayImageUrl() }}'; fullscreenImage = true" class="absolute top-2 left-2 p-2 bg-white/80 backdrop-blur rounded-full text-slate-700 hover:text-[#ff7261] hover:bg-white transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100 shadow-sm z-10">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                </button>
                             </div>
 
                             {{-- Info --}}
@@ -336,4 +356,16 @@
             </div>
         @endif
     @endauth
+    {{-- Fullscreen Image Modal --}}
+    <div x-show="fullscreenImage" style="display: none;" class="fixed inset-0 z-[200]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-black/90 backdrop-blur-sm z-[200]" @click="fullscreenImage = false" x-transition.opacity></div>
+        <div class="fixed inset-0 z-[201] flex items-center justify-center p-4 pointer-events-none" x-transition>
+            <div class="relative max-w-5xl w-full max-h-screen flex items-center justify-center pointer-events-auto">
+                <button @click="fullscreenImage = false" class="absolute -top-4 -right-4 sm:top-0 sm:-right-12 p-2 text-white/70 hover:text-white transition-colors bg-black/50 rounded-full sm:bg-transparent sm:rounded-none">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+                <img :src="imageUrl" class="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl">
+            </div>
+        </div>
+    </div>
 </div>
