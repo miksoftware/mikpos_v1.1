@@ -719,6 +719,7 @@ class PointOfSale extends Component
                 'price_includes_tax' => $priceIncludesTax,
                 'image' => $displayImage,
                 'max_stock' => (float) $maxStock,
+                'manages_inventory' => (bool) $product->manages_inventory,
                 'location_id' => $locationId,
                 'location_name' => $locationName,
                 // Discount fields
@@ -1214,6 +1215,7 @@ class PointOfSale extends Component
                 'price_includes_tax' => $priceIncludesTax,
                 'image' => $displayImage,
                 'max_stock' => (float) $maxStock,
+                'manages_inventory' => (bool) $product->manages_inventory,
                 'location_id' => $locationId,
                 'location_name' => $locationName,
                 // Discount fields
@@ -1305,8 +1307,9 @@ class PointOfSale extends Component
         }
         
         if (isset($this->cart[$cartKey])) {
-            // Check stock limit for products (not services)
-            if (!($this->cart[$cartKey]['is_service'] ?? false)) {
+            // Check stock limit for products (not services) that manage inventory
+            $managesInventory = $this->cart[$cartKey]['manages_inventory'] ?? true;
+            if (!($this->cart[$cartKey]['is_service'] ?? false) && $managesInventory) {
                 $maxStock = $this->cart[$cartKey]['max_stock'] ?? PHP_INT_MAX;
                 if ($quantity > $maxStock) {
                     $this->dispatch('notify', message: 'Stock insuficiente. Disponible: ' . number_format($maxStock, 3), type: 'warning');
@@ -1322,11 +1325,14 @@ class PointOfSale extends Component
     public function incrementQuantity($cartKey)
     {
         if (isset($this->cart[$cartKey])) {
-            // Check stock limit
-            $maxStock = $this->cart[$cartKey]['max_stock'] ?? PHP_INT_MAX;
-            if ($this->cart[$cartKey]['quantity'] >= $maxStock) {
-                $this->dispatch('notify', message: 'Stock insuficiente. Disponible: ' . number_format($maxStock, 3), type: 'warning');
-                return;
+            // Check stock limit only for products that manage inventory
+            $managesInventory = $this->cart[$cartKey]['manages_inventory'] ?? true;
+            if ($managesInventory) {
+                $maxStock = $this->cart[$cartKey]['max_stock'] ?? PHP_INT_MAX;
+                if ($this->cart[$cartKey]['quantity'] >= $maxStock) {
+                    $this->dispatch('notify', message: 'Stock insuficiente. Disponible: ' . number_format($maxStock, 3), type: 'warning');
+                    return;
+                }
             }
             $this->cart[$cartKey]['quantity']++;
             $this->updateCartItemTotals($cartKey);
