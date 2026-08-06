@@ -460,7 +460,27 @@
                                         <span class="text-sm font-semibold text-slate-900 ml-3">${{ number_format($item->total, 0, ',', '.') }}</span>
                                     </div>
 
+                                    @if($item->discount_amount > 0)
+                                    <div class="mt-1 flex items-center justify-between text-xs text-orange-600 font-medium">
+                                        <span>🏷 Descuento ({{ $item->discount_type === 'percentage' ? rtrim(rtrim(number_format($item->discount_type_value, 2), '0'), '.') . '%' : '$' . number_format($item->discount_type_value, 0, ',', '.') }}):</span>
+                                        <span>-${{ number_format($item->discount_amount, 0, ',', '.') }}</span>
+                                    </div>
+                                    @endif
+
                                     @if($selectedSale->status === 'pending_approval')
+                                    <div class="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-slate-100">
+                                        <button wire:click="openItemDiscountModal({{ $item->id }})"
+                                            class="inline-flex items-center gap-1 text-xs font-medium text-[#ff7261] hover:text-[#e55a4a] hover:bg-orange-50 px-2 py-1 rounded-lg transition-all">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                                            {{ $item->discount_amount > 0 ? 'Editar desc. producto' : 'Descuento a producto' }}
+                                        </button>
+                                        @if($item->discount_amount > 0)
+                                        <button wire:click="removeItemDiscount({{ $item->id }})" class="text-xs text-red-500 hover:text-red-700" title="Eliminar descuento">
+                                            Quitar desc.
+                                        </button>
+                                        @endif
+                                    </div>
+
                                     <div class="mt-2 pt-2 border-t border-slate-100">
                                         <label class="flex items-center gap-2 cursor-pointer">
                                             <input type="checkbox" wire:click="toggleItemUnavailable({{ $item->id }})"
@@ -500,29 +520,84 @@
                         @php
                             $availableItems = $selectedSale->items->where('is_unavailable', false);
                             $modalSubtotal = $availableItems->sum('subtotal');
+                            $modalItemsDiscount = $availableItems->sum('discount_amount');
+                            $modalGlobalDiscount = (float) ($selectedSale->global_discount_amount ?? 0);
                             $modalTaxTotal = $availableItems->sum('tax_amount');
-                            $modalTotal = $availableItems->sum('total');
+                            $modalTotal = (float) $selectedSale->total;
                             $hasAnyUnavailable = $selectedSale->items->where('is_unavailable', true)->count() > 0;
                         @endphp
-                        <div class="bg-slate-50 rounded-xl p-4 space-y-1">
+                        <div class="bg-slate-50 rounded-xl p-4 space-y-1.5">
                             <div class="flex justify-between text-sm">
                                 <span class="text-slate-500">Subtotal</span>
                                 <span class="text-slate-900">${{ number_format($modalSubtotal, 0, ',', '.') }}</span>
                             </div>
+                            @if($modalItemsDiscount > 0)
+                            <div class="flex justify-between text-sm text-orange-600 font-medium">
+                                <span>Descuento productos</span>
+                                <span>-${{ number_format($modalItemsDiscount, 0, ',', '.') }}</span>
+                            </div>
+                            @endif
+                            @if($modalGlobalDiscount > 0)
+                            <div class="flex justify-between text-sm text-purple-600 font-medium">
+                                <div class="flex items-center gap-1.5">
+                                    <span>Desc. general factura</span>
+                                    @if($selectedSale->global_discount_type === 'percentage')
+                                    <span class="text-xs bg-purple-100 px-1.5 py-0.5 rounded">({{ rtrim(rtrim(number_format($selectedSale->global_discount_value, 2), '0'), '.') }}%)</span>
+                                    @endif
+                                    @if($selectedSale->status === 'pending_approval')
+                                    <button wire:click="removeGlobalDiscount" class="text-xs text-red-500 hover:text-red-700 ml-1" title="Eliminar descuento general">✕</button>
+                                    @endif
+                                </div>
+                                <span>-${{ number_format($modalGlobalDiscount, 0, ',', '.') }}</span>
+                            </div>
+                            @endif
                             @if($modalTaxTotal > 0)
                             <div class="flex justify-between text-sm">
                                 <span class="text-slate-500">Impuestos</span>
                                 <span class="text-slate-900">${{ number_format($modalTaxTotal, 0, ',', '.') }}</span>
                             </div>
                             @endif
-                            <div class="flex justify-between text-base font-bold pt-2 border-t border-slate-200">
+                            <div class="flex justify-between items-center text-base font-bold pt-2 border-t border-slate-200">
                                 <span class="text-slate-900">Total</span>
-                                <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#ff7261] to-[#a855f7]">${{ number_format($modalTotal, 0, ',', '.') }}</span>
+                                <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-lg">${{ number_format($modalTotal, 0, ',', '.') }}</span>
                             </div>
-                            @if($hasAnyUnavailable)
-                            <p class="text-xs text-orange-600 pt-1">* Total ajustado excluyendo productos no disponibles</p>
+
+                            @if($selectedSale->status === 'pending_approval')
+                            <div class="pt-2 flex justify-end">
+                                <button wire:click="openGlobalDiscountModal" class="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-100 hover:bg-purple-200 px-3 py-1.5 rounded-xl transition-all">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    {{ $modalGlobalDiscount > 0 ? 'Editar desc. general factura' : 'Aplicar descuento general factura' }}
+                                </button>
+                            </div>
                             @endif
+
                         </div>
+
+                        {{-- Electronic Invoice Toggle (Only if Factus enabled & order pending) --}}
+                        @php
+                            $factusEnabled = (new \App\Services\FactusV2Service())->isEnabled();
+                        @endphp
+                        @if($factusEnabled && $selectedSale->status === 'pending_approval')
+                        <div class="p-4 rounded-xl border-2 transition-all {{ $generateElectronicInvoice ? 'border-blue-500 bg-blue-50/70' : 'border-slate-200 bg-slate-50' }}">
+                            <label class="flex items-center justify-between cursor-pointer">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full {{ $generateElectronicInvoice ? 'bg-blue-100 text-blue-600' : 'bg-slate-200 text-slate-400' }} flex items-center justify-center">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <span class="text-sm font-semibold {{ $generateElectronicInvoice ? 'text-blue-900' : 'text-slate-700' }}">Factura Electrónica</span>
+                                        <p class="text-xs {{ $generateElectronicInvoice ? 'text-blue-600' : 'text-slate-500' }}">
+                                            {{ $generateElectronicInvoice ? 'Se enviará la factura a la DIAN al aprobar' : 'Solo comprobante POS (No se enviará a la DIAN)' }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="relative">
+                                    <input wire:model.live="generateElectronicInvoice" type="checkbox" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </div>
+                            </label>
+                        </div>
+                        @endif
 
                         {{-- Payment --}}
                         @if($selectedSale->payments->isNotEmpty())
@@ -670,6 +745,106 @@
                         <button wire:click="saveEditedQuantities" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea]">
                             Guardar cambios
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Item Discount Modal --}}
+    @if($showItemDiscountModal)
+    <div class="relative z-[100]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="closeItemDiscountModal"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-6">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
+                        <h3 class="text-base font-bold text-slate-900">Descuento de Producto</h3>
+                        <button wire:click="closeItemDiscountModal" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Tipo de descuento</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="button" wire:click="$set('itemDiscountType', 'percentage')"
+                                    class="py-2 text-xs font-semibold rounded-xl border-2 transition-all {{ $itemDiscountType === 'percentage' ? 'border-[#ff7261] bg-orange-50 text-[#ff7261]' : 'border-slate-200 text-slate-600' }}">
+                                    Porcentaje (%)
+                                </button>
+                                <button type="button" wire:click="$set('itemDiscountType', 'fixed')"
+                                    class="py-2 text-xs font-semibold rounded-xl border-2 transition-all {{ $itemDiscountType === 'fixed' ? 'border-[#ff7261] bg-orange-50 text-[#ff7261]' : 'border-slate-200 text-slate-600' }}">
+                                    Valor Fijo ($)
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">
+                                {{ $itemDiscountType === 'percentage' ? 'Porcentaje de descuento (%)' : 'Monto de descuento ($ por unidad)' }}
+                            </label>
+                            <input type="number" step="0.01" min="0" wire:model="itemDiscountValue" placeholder="0.00"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Motivo (Opcional)</label>
+                            <input type="text" wire:model="itemDiscountReason" placeholder="Ej: Promoción cliente frecuente"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button wire:click="closeItemDiscountModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
+                        <button wire:click="applyItemDiscount" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea]">Guardar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Global Discount Modal --}}
+    @if($showGlobalDiscountModal)
+    <div class="relative z-[100]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="closeGlobalDiscountModal"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-6">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
+                        <h3 class="text-base font-bold text-slate-900">Descuento General de Factura</h3>
+                        <button wire:click="closeGlobalDiscountModal" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Tipo de descuento general</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="button" wire:click="$set('globalDiscountType', 'percentage')"
+                                    class="py-2 text-xs font-semibold rounded-xl border-2 transition-all {{ $globalDiscountType === 'percentage' ? 'border-purple-600 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-600' }}">
+                                    Porcentaje (%)
+                                </button>
+                                <button type="button" wire:click="$set('globalDiscountType', 'fixed')"
+                                    class="py-2 text-xs font-semibold rounded-xl border-2 transition-all {{ $globalDiscountType === 'fixed' ? 'border-purple-600 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-600' }}">
+                                    Valor Fijo ($)
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">
+                                {{ $globalDiscountType === 'percentage' ? 'Porcentaje a aplicar a toda la factura (%)' : 'Monto total a descontar de la factura ($)' }}
+                            </label>
+                            <input type="number" step="0.01" min="0" wire:model="globalDiscountValue" placeholder="0.00"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Motivo del descuento (Opcional)</label>
+                            <input type="text" wire:model="globalDiscountReason" placeholder="Ej: Convenio especial, Cupón descuento..."
+                                class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 text-sm">
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button wire:click="closeGlobalDiscountModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
+                        <button wire:click="applyGlobalDiscount" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl hover:from-purple-700 hover:to-indigo-700">Aplicar Descuento</button>
                     </div>
                 </div>
             </div>

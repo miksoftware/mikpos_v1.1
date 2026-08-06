@@ -320,18 +320,33 @@ class FactusV2Service
         $items = [];
 
         $availableItems = $sale->items()->where('is_unavailable', false)->get();
+        $grossSum = $availableItems->sum(fn($i) => (float) $i->unit_price * (float) $i->quantity);
+        $globalDiscount = (float) ($sale->global_discount_amount ?? 0);
 
         foreach ($availableItems as $item) {
             $taxRate = (float) $item->tax_rate;
-            // For v2, if standard invoice, price should be base (tax excluded if tax is added in taxes array).
-            // Let's assume unit_price is base price without tax.
-            $basePrice = $item->unit_price;
-            
+            $basePrice = (float) $item->unit_price;
+            $qty = (float) $item->quantity;
+            $itemGross = $basePrice * $qty;
+
+            $itemDiscount = (float) ($item->discount_amount ?? 0);
+
+            // Add proportional global discount if present
+            if ($globalDiscount > 0 && $grossSum > 0) {
+                $proportionalGlobal = $globalDiscount * ($itemGross / $grossSum);
+                $itemDiscount += $proportionalGlobal;
+            }
+
+            $discountRate = 0;
+            if ($itemGross > 0 && $itemDiscount > 0) {
+                $discountRate = min(100, ($itemDiscount / $itemGross) * 100);
+            }
+
             $itemData = [
                 'code_reference' => $item->product_sku ?? (string) $item->product_id,
                 'name' => $item->product_name,
-                'quantity' => number_format((float) $item->quantity, 2, '.', ''),
-                'discount_rate' => '0.00',
+                'quantity' => number_format($qty, 2, '.', ''),
+                'discount_rate' => number_format($discountRate, 2, '.', ''),
                 'price' => number_format($basePrice, 2, '.', ''),
                 'unit_measure_code' => '94', // 94 = unidad
                 'standard_code' => '999', // Estándar de adopción del contribuyente

@@ -52,6 +52,22 @@ class EcommerceOrders extends Component
     public array $editableItems = [];
     public string $quantityChangeReason = '';
 
+    // Item discount modal
+    public bool $showItemDiscountModal = false;
+    public ?int $discountItemId = null;
+    public string $itemDiscountType = 'percentage';
+    public string $itemDiscountValue = '';
+    public string $itemDiscountReason = '';
+
+    // Global discount modal
+    public bool $showGlobalDiscountModal = false;
+    public string $globalDiscountType = 'percentage';
+    public string $globalDiscountValue = '';
+    public string $globalDiscountReason = '';
+
+    // Electronic Invoicing Toggle
+    public bool $generateElectronicInvoice = true;
+
     // Report tab
     public string $reportPeriod = 'month';
     public string $reportDateFrom = '';
@@ -63,6 +79,9 @@ class EcommerceOrders extends Component
         $this->dateFrom = now()->startOfMonth()->format('Y-m-d');
         $this->dateTo = now()->format('Y-m-d');
         $this->applyReportPeriod();
+
+        $factusService = new FactusV2Service();
+        $this->generateElectronicInvoice = $factusService->isEnabled();
     }
 
     public function updatingSearch()
@@ -145,6 +164,9 @@ class EcommerceOrders extends Component
         ])->find($saleId);
 
         $this->selectedOrder = $this->selectedSale?->ecommerceOrder;
+
+        $factusService = new FactusV2Service();
+        $this->generateElectronicInvoice = $factusService->isEnabled();
 
         // Initialize unavailable items tracking
         $this->unavailableItems = [];
@@ -337,21 +359,10 @@ class EcommerceOrders extends Component
                     }
                 }
 
-                // Recalculate item totals
-                $lineTotal = $saleItem->unit_price * $newQty;
-                $taxAmount = 0;
-                if ((float) $saleItem->tax_rate > 0) {
-                    $priceWithoutTax = $saleItem->unit_price / (1 + (float) $saleItem->tax_rate / 100);
-                    $taxAmount = ($saleItem->unit_price - $priceWithoutTax) * $newQty;
-                }
-
                 $saleItem->update([
                     'original_quantity' => $saleItem->original_quantity ?? $oldQty,
                     'quantity' => $newQty,
                     'quantity_change_reason' => $this->quantityChangeReason,
-                    'tax_amount' => round($taxAmount, 2),
-                    'subtotal' => round($lineTotal - $taxAmount, 2),
-                    'total' => round($lineTotal, 2),
                 ]);
             }
 
@@ -467,7 +478,7 @@ class EcommerceOrders extends Component
             // PROCESS ELECTRONIC INVOICE (DIAN/FACTUS)
             // If the customer has electronic invoicing data or it's enabled globally
             $factusService = new FactusV2Service();
-            if ($factusService->isEnabled()) {
+            if ($this->generateElectronicInvoice && $factusService->isEnabled()) {
                 try {
                     $factusService->createInvoice($sale->fresh());
                 } catch (\Exception $e) {
@@ -513,15 +524,79 @@ class EcommerceOrders extends Component
         $sale->refresh();
         $availableItems = $sale->items()->where('is_unavailable', false)->get();
 
-        $subtotal = $availableItems->sum('subtotal');
-        $taxTotal = $availableItems->sum('tax_amount');
-        $total = $availableItems->sum('total');
+        $subtotal = 0;
+        $taxTotal = 0;
+        $itemsDiscountTotal = 0;
+        $itemsTotal = 0;
 
+        foreach ($availableItems as $item) {
+            $qty = (float) $item->quantity;
+            $unitPrice = (float) $item->unit_price;
+            $taxRate = (float) $item->tax_rate;
+
+            $grossTotal = round($unitPrice * $qty, 2);
+
+            // Recalculate item discount
+            $discountAmount = 0;
+            if ($item->discount_type && (float) $item->discount_type_value > 0) {
+                if ($item->discount_type === 'percentage') {
+                    $discountAmount = round($grossTotal * ((float) $item->discount_type_value / 100), 2);
+                } else {
+                    $discountAmount = round((float) $item->discount_type_value * $qty, 2);
+                }
+                $discountAmount = min($discountAmount, $grossTotal);
+            }
+
+            $taxableGrossTotal = $grossTotal - $discountAmount;
+            $taxAmount = 0;
+            if ($taxRate > 0) {
+                $priceWithoutTax = $taxableGrossTotal / (1 + $taxRate / 100);
+                $taxAmount = round($taxableGrossTotal - $priceWithoutTax, 2);
+            }
+
+            $lineSubtotal = round($taxableGrossTotal - $taxAmount, 2);
+            $lineTotal = round($taxableGrossTotal, 2);
+
+            $item->update([
+                'discount_amount' => $discountAmount,
+                'subtotal' => $lineSubtotal,
+                'tax_amount' => $taxAmount,
+                'total' => $lineTotal,
+            ]);
+
+            $subtotal += $lineSubtotal;
+            $taxTotal += $taxAmount;
+            $itemsDiscountTotal += $discountAmount;
+            $itemsTotal += $lineTotal;
+        }
+
+        // Reset unavailable items' totals & discounts to 0
+        $sale->items()->where('is_unavailable', true)->update([
+            'subtotal' => 0,
+            'discount_amount' => 0,
+            'tax_amount' => 0,
+            'total' => 0,
+        ]);
+
+        // Global discount calculation
+        $globalDiscountAmount = 0;
+        if ($sale->global_discount_type && (float) $sale->global_discount_value > 0) {
+            if ($sale->global_discount_type === 'percentage') {
+                $globalDiscountAmount = round($itemsTotal * ((float) $sale->global_discount_value / 100), 2);
+            } else {
+                $globalDiscountAmount = round(min((float) $sale->global_discount_value, $itemsTotal), 2);
+            }
+        }
+
+        $totalDiscount = $itemsDiscountTotal + $globalDiscountAmount;
+        $total = max(0, round($itemsTotal - $globalDiscountAmount, 2));
         $isCredit = $sale->payment_type === 'credit';
-        
+
         $sale->update([
-            'subtotal' => $subtotal,
-            'tax_total' => $taxTotal,
+            'subtotal' => round($subtotal, 2),
+            'tax_total' => round($taxTotal, 2),
+            'global_discount_amount' => $globalDiscountAmount,
+            'discount' => round($totalDiscount, 2),
             'total' => $total,
             'paid_amount' => $isCredit ? $sale->paid_amount : $total,
             'credit_amount' => $isCredit ? $total : 0,
@@ -532,6 +607,181 @@ class EcommerceOrders extends Component
         if ($payment && !$isCredit) {
             $payment->update(['amount' => $total]);
         }
+    }
+
+    public function openItemDiscountModal(int $itemId)
+    {
+        $item = SaleItem::find($itemId);
+        if (!$item) return;
+
+        $this->discountItemId = $itemId;
+        $this->itemDiscountType = $item->discount_type ?? 'percentage';
+        $this->itemDiscountValue = (float) $item->discount_type_value > 0 ? (string) $item->discount_type_value : '';
+        $this->itemDiscountReason = $item->discount_reason ?? '';
+        $this->showItemDiscountModal = true;
+    }
+
+    public function closeItemDiscountModal()
+    {
+        $this->showItemDiscountModal = false;
+        $this->discountItemId = null;
+        $this->itemDiscountType = 'percentage';
+        $this->itemDiscountValue = '';
+        $this->itemDiscountReason = '';
+    }
+
+    public function applyItemDiscount()
+    {
+        if (!$this->discountItemId || !$this->selectedSale) return;
+
+        $item = SaleItem::find($this->discountItemId);
+        if (!$item || $item->sale_id !== $this->selectedSale->id) return;
+
+        $value = (float) str_replace(',', '.', $this->itemDiscountValue);
+
+        if ($value < 0) {
+            $this->dispatch('notify', message: 'El descuento no puede ser negativo', type: 'error');
+            return;
+        }
+
+        if ($this->itemDiscountType === 'percentage' && $value > 100) {
+            $this->dispatch('notify', message: 'El porcentaje no puede ser mayor a 100%', type: 'error');
+            return;
+        }
+
+        if ($value > 0) {
+            $item->update([
+                'discount_type' => $this->itemDiscountType,
+                'discount_type_value' => $value,
+                'discount_reason' => trim($this->itemDiscountReason) ?: null,
+            ]);
+        } else {
+            $item->update([
+                'discount_type' => null,
+                'discount_type_value' => 0,
+                'discount_amount' => 0,
+                'discount_reason' => null,
+            ]);
+        }
+
+        $this->recalculateSaleTotals($this->selectedSale);
+
+        ActivityLogService::log(
+            'ecommerce_orders',
+            'update',
+            "Descuento de producto actualizado en pedido #{$this->selectedSale->invoice_number} ({$item->product_name})",
+            $this->selectedSale
+        );
+
+        $this->closeItemDiscountModal();
+        $this->selectedSale->refresh();
+        $this->selectedSale->load('items.product');
+
+        $this->dispatch('notify', message: $value > 0 ? 'Descuento aplicado al producto' : 'Descuento eliminado del producto', type: 'success');
+    }
+
+    public function removeItemDiscount(int $itemId)
+    {
+        $item = SaleItem::find($itemId);
+        if (!$item) return;
+
+        $item->update([
+            'discount_type' => null,
+            'discount_type_value' => 0,
+            'discount_amount' => 0,
+            'discount_reason' => null,
+        ]);
+
+        if ($this->selectedSale) {
+            $this->recalculateSaleTotals($this->selectedSale);
+            $this->selectedSale->refresh();
+            $this->selectedSale->load('items.product');
+        }
+
+        $this->dispatch('notify', message: 'Descuento de producto eliminado', type: 'success');
+    }
+
+    public function openGlobalDiscountModal()
+    {
+        if (!$this->selectedSale) return;
+
+        $this->globalDiscountType = $this->selectedSale->global_discount_type ?? 'percentage';
+        $this->globalDiscountValue = (float) $this->selectedSale->global_discount_value > 0 ? (string) $this->selectedSale->global_discount_value : '';
+        $this->globalDiscountReason = $this->selectedSale->global_discount_reason ?? '';
+        $this->showGlobalDiscountModal = true;
+    }
+
+    public function closeGlobalDiscountModal()
+    {
+        $this->showGlobalDiscountModal = false;
+        $this->globalDiscountType = 'percentage';
+        $this->globalDiscountValue = '';
+        $this->globalDiscountReason = '';
+    }
+
+    public function applyGlobalDiscount()
+    {
+        if (!$this->selectedSale) return;
+
+        $value = (float) str_replace(',', '.', $this->globalDiscountValue);
+
+        if ($value < 0) {
+            $this->dispatch('notify', message: 'El descuento no puede ser negativo', type: 'error');
+            return;
+        }
+
+        if ($this->globalDiscountType === 'percentage' && $value > 100) {
+            $this->dispatch('notify', message: 'El porcentaje no puede ser mayor a 100%', type: 'error');
+            return;
+        }
+
+        if ($value > 0) {
+            $this->selectedSale->update([
+                'global_discount_type' => $this->globalDiscountType,
+                'global_discount_value' => $value,
+                'global_discount_reason' => trim($this->globalDiscountReason) ?: null,
+            ]);
+        } else {
+            $this->selectedSale->update([
+                'global_discount_type' => null,
+                'global_discount_value' => 0,
+                'global_discount_amount' => 0,
+                'global_discount_reason' => null,
+            ]);
+        }
+
+        $this->recalculateSaleTotals($this->selectedSale);
+
+        ActivityLogService::log(
+            'ecommerce_orders',
+            'update',
+            "Descuento general actualizado en pedido #{$this->selectedSale->invoice_number}",
+            $this->selectedSale
+        );
+
+        $this->closeGlobalDiscountModal();
+        $this->selectedSale->refresh();
+        $this->selectedSale->load('items.product');
+
+        $this->dispatch('notify', message: $value > 0 ? 'Descuento general aplicado' : 'Descuento general eliminado', type: 'success');
+    }
+
+    public function removeGlobalDiscount()
+    {
+        if (!$this->selectedSale) return;
+
+        $this->selectedSale->update([
+            'global_discount_type' => null,
+            'global_discount_value' => 0,
+            'global_discount_amount' => 0,
+            'global_discount_reason' => null,
+        ]);
+
+        $this->recalculateSaleTotals($this->selectedSale);
+        $this->selectedSale->refresh();
+        $this->selectedSale->load('items.product');
+
+        $this->dispatch('notify', message: 'Descuento general eliminado', type: 'success');
     }
 
     public function bulkApprove()
@@ -555,6 +805,16 @@ class EcommerceOrders extends Component
                 $service = new EcommerceCheckoutService();
                 $service->approveOrder($sale);
                 $sale->ecommerceOrder->update(['status' => 'approved']);
+
+                $factusService = new FactusV2Service();
+                if ($this->generateElectronicInvoice && $factusService->isEnabled()) {
+                    try {
+                        $factusService->createInvoice($sale->fresh());
+                    } catch (\Exception $e) {
+                        Log::error('Error facturando pedido e-commerce #' . $sale->invoice_number . ': ' . $e->getMessage());
+                    }
+                }
+
                 $approved++;
             } catch (\Exception $e) {
                 $errors++;
