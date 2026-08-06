@@ -173,6 +173,11 @@
                                 <button wire:click="reprintReceipt({{ $sale->id }})" class="p-2 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded-lg transition-colors relative" title="Reimprimir">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                                 </button>
+                                @if($sale->branch?->print_qr)
+                                <button wire:click="printQrReceipt({{ $sale->id }})" class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Imprimir QR (10x10)">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-4v-3m0 0h3m-3 0h-3m-2-5h.01M12 12h.01M16 12h.01M21 12h.01M12 16h.01M12 8h.01M8 12h.01M8 16h.01M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6z"></path></svg>
+                                </button>
+                                @endif
                                 @if($sale->is_electronic && $sale->cufe)
                                 <button wire:click="openCreditNoteModal({{ $sale->id }})" class="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="Nota Crédito">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"></path></svg>
@@ -1051,6 +1056,10 @@
         document.addEventListener('livewire:init', () => {
             Livewire.on('print-receipt', (data) => {
                 window.open('/receipt/' + data.saleId, '_blank', 'width=400,height=600');
+            });
+            
+            Livewire.on('print-qr-receipt', (data) => {
+                window.open('/sale-qr-receipt/' + data.token, '_blank', 'width=450,height=500');
             });
             
             Livewire.on('print-refund', (data) => {

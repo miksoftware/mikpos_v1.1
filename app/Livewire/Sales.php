@@ -146,6 +146,37 @@ class Sales extends Component
         $this->dispatch('notify', message: 'Abriendo recibo para impresión...', type: 'success');
     }
 
+    public function printQrReceipt($saleId)
+    {
+        $sale = Sale::with([
+            'branch.department',
+            'branch.municipality',
+            'customer.taxDocument',
+            'customer.municipality',
+            'customer.department',
+            'user',
+            'items.product',
+            'payments.paymentMethod',
+            'cashReconciliation.cashRegister',
+        ])->find($saleId);
+
+        if (!$sale) {
+            $this->dispatch('notify', message: 'Venta no encontrada', type: 'error');
+            return;
+        }
+
+        if (!$sale->branch?->print_qr) {
+            $this->dispatch('notify', message: 'La impresión de QR no está habilitada para esta sucursal', type: 'error');
+            return;
+        }
+
+        // Create or retrieve permanent snapshot
+        $snapshot = \App\Models\SaleQrSnapshot::createForSale($sale);
+
+        $this->dispatch('print-qr-receipt', token: $snapshot->qr_token);
+        $this->dispatch('notify', message: 'Abriendo etiqueta QR 10x10...', type: 'success');
+    }
+
     public function viewElectronicPdf($saleId)
     {
         $sale = Sale::find($saleId);

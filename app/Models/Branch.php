@@ -33,6 +33,7 @@ class Branch extends Model
         'ecommerce_enabled',
         'show_stock_in_shop',
         'quotes_reserve_inventory',
+        'print_qr',
         'is_active',
     ];
 
@@ -44,6 +45,7 @@ class Branch extends Model
             'ecommerce_enabled' => 'boolean',
             'show_stock_in_shop' => 'boolean',
             'quotes_reserve_inventory' => 'boolean',
+            'print_qr' => 'boolean',
             'is_active' => 'boolean',
         ];
     }

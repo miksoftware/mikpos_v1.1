@@ -84,6 +84,12 @@ Route::prefix('webhooks/whatsapp')
         Route::post('/', [WhatsappWebhookController::class, 'receive'])->name('whatsapp.webhook.receive');
     });
 
+// Public sale view (scanned QR - no authentication required)
+Route::get('/sale-public/{token}', function (string $token) {
+    $snapshot = App\Models\SaleQrSnapshot::where('qr_token', $token)->firstOrFail();
+    return view('sale-public-view', compact('snapshot'));
+})->name('sale.public.view')->withoutMiddleware([\App\Http\Middleware\CheckSystemStatus::class]);
+
 // Authentication routes
 Route::get('/login', Login::class)
     ->name('login')
@@ -420,6 +426,16 @@ Route::middleware(['auth'])->group(function () {
 
         return view($view, compact('sale', 'showLogo'));
     })->name('receipt.show');
+
+    // Sale QR Receipt (10x10 label format) - uses snapshot token
+    Route::get('/sale-qr-receipt/{token}', function (string $token) {
+        $snapshot = App\Models\SaleQrSnapshot::where('qr_token', $token)->firstOrFail();
+        $sale     = $snapshot->sale()->with([
+            'branch.department',
+            'branch.municipality',
+        ])->first();
+        return view('receipts.sale-qr-receipt', compact('sale', 'snapshot'));
+    })->name('sale-qr-receipt.show');
 
     // Credit Receipt
     Route::get('/credit-receipt/{type}/{id}', function ($type, $id) {
