@@ -6,7 +6,7 @@
     <title>Etiqueta QR - {{ $sale->invoice_number }}</title>
     <style>
         @page {
-            size: auto;
+            size: 50mm 50mm;
             margin: 0;
         }
         
@@ -19,63 +19,98 @@
         html, body {
             width: 100%;
             height: 100%;
+            max-height: 48mm;
             margin: 0;
             padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             background-color: #ffffff;
             color: #000000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
             overflow: hidden;
         }
 
-        .qr-wrapper {
+        .label-container {
+            width: 100%;
+            height: 100%;
+            max-height: 48mm;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            width: 100vw;
-            height: 100vh;
-            padding: 0;
-            margin: 0;
+            justify-content: flex-start;
+            padding: 1.5mm 1mm;
+            gap: 1.5mm;
+        }
+
+        .branch-name {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #000000;
+            line-height: 1;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 95%;
         }
 
         .qr-image {
-            width: 95vw;
-            height: 95vh;
-            max-width: 95mm;
-            max-height: 95mm;
+            width: 31mm;
+            height: 31mm;
             object-fit: contain;
             image-rendering: pixelated;
         }
 
+        .badge-scan {
+            background-color: #000000 !important;
+            color: #ffffff !important;
+            padding: 2px 14px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-align: center;
+            line-height: 1.2;
+        }
+
         @media print {
             @page {
+                size: 50mm 50mm;
                 margin: 0;
             }
             html, body {
                 width: 100%;
                 height: 100%;
+                max-height: 48mm;
                 margin: 0;
                 padding: 0;
             }
-            .qr-wrapper {
-                width: 100vw;
-                height: 100vh;
+            .label-container {
+                max-height: 48mm;
             }
-            .qr-image {
-                width: 95vw;
-                height: 95vh;
+            .badge-scan {
+                background-color: #000000 !important;
+                color: #ffffff !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
         }
     </style>
 </head>
 <body>
 
-    <div class="qr-wrapper">
-        {{-- The QR encodes the permanent public URL for this sale snapshot --}}
-        <img src="https://quickchart.io/qr?text={{ urlencode(url('/sale-public/' . $snapshot->qr_token)) }}&size=500" alt="QR Venta {{ $sale->invoice_number }}" class="qr-image">
+    <div class="label-container">
+        <div class="branch-name">
+            {{ $sale->branch->name ?? 'MikPOS' }}
+        </div>
+
+        <img src="https://quickchart.io/qr?text={{ urlencode(url('/sale-public/' . $snapshot->qr_token)) }}&size=300" alt="QR Venta {{ $sale->invoice_number }}" class="qr-image">
+
+        <div class="badge-scan">
+            ¡Escanéeme!
+        </div>
     </div>
 
     <script>
