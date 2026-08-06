@@ -7,6 +7,13 @@
     <meta name="description" content="Consulta tu factura de compra y documentos de importación.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- PDF.js for cross-device inline rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -182,18 +189,6 @@
             text-decoration: none; transition: background .2s;
         }
         .pdf-toolbar-btn:hover { background: #6d28d9; }
-
-        .pdf-iframe {
-            display: block;
-            width: 100%;
-            height: 680px;
-            border: none;
-            background: #fff;
-        }
-
-        @media (max-width: 480px) {
-            .pdf-iframe { height: 480px; }
-        }
 
         .no-imports { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 20px; text-align: center; color: rgba(255,255,255,0.5); font-size: 13px; margin-bottom: 20px; }
         .page-footer { text-align: center; color: rgba(255,255,255,0.3); font-size: 11px; margin-top: 24px; }
@@ -483,7 +478,7 @@
             <button
                 type="button"
                 class="pdf-toggle-btn"
-                onclick="togglePdf({{ $importIdx }})"
+                onclick="togglePdf({{ $importIdx }}, '{{ $pdfServeUrl }}')"
                 id="btn-pdf-{{ $importIdx }}"
             >
                 <span class="pdf-icon">📄</span>
@@ -492,7 +487,7 @@
             </button>
 
             {{-- Inline PDF viewer --}}
-            <div id="pdf-viewer-{{ $importIdx }}" class="pdf-viewer-wrap" style="display:none;">
+            <div id="pdf-viewer-{{ $importIdx }}" class="pdf-viewer-wrap" style="display:none; background: #e5e7eb;">
                 <div class="pdf-viewer-toolbar">
                     <span style="font-size:12px; opacity:.8;">Declaración – {{ $importItem['import_code'] }}</span>
                     <a href="{{ $pdfServeUrl }}" download class="pdf-toolbar-btn" title="Descargar">
@@ -500,13 +495,7 @@
                         Descargar
                     </a>
                 </div>
-                <iframe
-                    id="iframe-pdf-{{ $importIdx }}"
-                    src=""
-                    data-src="{{ $pdfServeUrl }}"
-                    class="pdf-iframe"
-                    title="Declaración de importación {{ $importItem['import_code'] }}"
-                ></iframe>
+                <div id="pdf-render-{{ $importIdx }}" style="width: 100%; height: 680px; overflow-y: auto; padding: 16px 0; display:flex; flex-direction:column; align-items:center;"></div>
             </div>
 
             @else
@@ -528,11 +517,13 @@
 </div>
 
 <script>
-    function togglePdf(idx) {
+    const renderedPdfs = {};
+
+    function togglePdf(idx, pdfUrl) {
         const viewer  = document.getElementById('pdf-viewer-' + idx);
         const label   = document.getElementById('btn-label-' + idx);
         const chevron = document.getElementById('btn-chevron-' + idx);
-        const iframe  = document.getElementById('iframe-pdf-' + idx);
+        const renderContainer = document.getElementById('pdf-render-' + idx);
 
         const isOpen = viewer.style.display !== 'none';
 
@@ -544,10 +535,61 @@
             viewer.style.display = 'block';
             label.textContent = 'Cerrar visor';
             chevron.style.transform = 'rotate(180deg)';
-            // Lazy-load: only set src once
-            if (!iframe.src || iframe.src === window.location.href) {
-                iframe.src = iframe.dataset.src;
+            
+            if (!renderedPdfs[idx]) {
+                renderedPdfs[idx] = true;
+                renderPDF(pdfUrl, renderContainer);
             }
+        }
+    }
+
+    async function renderPDF(url, container) {
+        container.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--gray-500); font-weight:600;">Cargando documento...<br><small style="opacity:0.6;">Por favor espera</small></div>';
+        
+        try {
+            const loadingTask = pdfjsLib.getDocument(url);
+            const pdf = await loadingTask.promise;
+            container.innerHTML = ''; // clear loading
+            
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const containerWidth = container.clientWidth || 320;
+                
+                const unscaledViewport = page.getViewport({ scale: 1 });
+                // Target width slightly less than container for padding/scrollbar
+                const targetWidth = containerWidth - 32; 
+                const scale = targetWidth / unscaledViewport.width;
+                const viewport = page.getViewport({ scale: scale });
+
+                const canvas = document.createElement('canvas');
+                canvas.style.display = 'block';
+                canvas.style.margin = '0 auto 16px';
+                canvas.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                canvas.style.backgroundColor = '#fff';
+                
+                const outputScale = window.devicePixelRatio || 1;
+                canvas.width = Math.floor(viewport.width * outputScale);
+                canvas.height = Math.floor(viewport.height * outputScale);
+                canvas.style.width = Math.floor(viewport.width) + "px";
+                canvas.style.height =  Math.floor(viewport.height) + "px";
+
+                const transform = outputScale !== 1
+                    ? [outputScale, 0, 0, outputScale, 0, 0]
+                    : null;
+
+                const context = canvas.getContext('2d');
+                const renderContext = {
+                    canvasContext: context,
+                    transform: transform,
+                    viewport: viewport
+                };
+
+                container.appendChild(canvas);
+                await page.render(renderContext).promise;
+            }
+        } catch (error) {
+            console.error('Error rendering PDF:', error);
+            container.innerHTML = '<div style="text-align:center; padding: 20px; color: #ef4444; font-weight:600;">No se pudo cargar la vista previa del documento.<br><br><a href="'+url+'" download style="display:inline-block; padding:8px 16px; background:#6366f1; color:#fff; text-decoration:none; border-radius:8px;">Descárgalo aquí</a></div>';
         }
     }
 </script>
