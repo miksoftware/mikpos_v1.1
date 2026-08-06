@@ -6,7 +6,7 @@
     <title>Etiqueta QR - {{ $sale->invoice_number }}</title>
     <style>
         @page {
-            size: 50mm 50mm;
+            size: auto;
             margin: 0;
         }
         
@@ -19,7 +19,7 @@
         html, body {
             width: 100%;
             height: 100%;
-            max-height: 48mm;
+            max-height: 85mm;
             margin: 0;
             padding: 0;
             background-color: #ffffff;
@@ -32,18 +32,18 @@
 
         .label-container {
             width: 100%;
-            height: 100%;
-            max-height: 48mm;
+            height: 100vh;
+            max-height: 85mm;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
-            padding: 1.5mm 1mm;
-            gap: 1.5mm;
+            justify-content: center;
+            padding: 2mm;
+            gap: 2mm;
         }
 
         .branch-name {
-            font-size: 11px;
+            font-size: 14px;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -57,8 +57,8 @@
         }
 
         .qr-image {
-            width: 31mm;
-            height: 31mm;
+            width: 58mm;
+            height: 58mm;
             object-fit: contain;
             image-rendering: pixelated;
         }
@@ -66,9 +66,9 @@
         .badge-scan {
             background-color: #000000 !important;
             color: #ffffff !important;
-            padding: 2px 14px;
-            border-radius: 6px;
-            font-size: 11px;
+            padding: 4px 18px;
+            border-radius: 8px;
+            font-size: 14px;
             font-weight: 800;
             letter-spacing: 0.5px;
             text-align: center;
@@ -77,18 +77,17 @@
 
         @media print {
             @page {
-                size: 50mm 50mm;
                 margin: 0;
             }
             html, body {
                 width: 100%;
                 height: 100%;
-                max-height: 48mm;
+                max-height: 85mm;
                 margin: 0;
                 padding: 0;
             }
             .label-container {
-                max-height: 48mm;
+                max-height: 85mm;
             }
             .badge-scan {
                 background-color: #000000 !important;
@@ -106,7 +105,7 @@
             {{ $sale->branch->name ?? 'MikPOS' }}
         </div>
 
-        <img src="https://quickchart.io/qr?text={{ urlencode(url('/sale-public/' . $snapshot->qr_token)) }}&size=300" alt="QR Venta {{ $sale->invoice_number }}" class="qr-image">
+        <img src="https://quickchart.io/qr?text={{ urlencode(url('/sale-public/' . $snapshot->qr_token)) }}&size=400" alt="QR Venta {{ $sale->invoice_number }}" class="qr-image">
 
         <div class="badge-scan">
             ¡Escanéeme!
