@@ -90,6 +90,31 @@ Route::get('/sale-public/{token}', function (string $token) {
     return view('sale-public-view', compact('snapshot'));
 })->name('sale.public.view')->withoutMiddleware([\App\Http\Middleware\CheckSystemStatus::class]);
 
+// Serve import declaration PDF inline (no auth, validated via QR token)
+Route::get('/sale-public-pdf/{token}/{index}', function (string $token, int $index) {
+    $snapshot = App\Models\SaleQrSnapshot::where('qr_token', $token)->firstOrFail();
+    $imports  = $snapshot->import_declarations ?? [];
+
+    if (!isset($imports[$index]) || empty($imports[$index]['file_path'])) {
+        abort(404, 'Documento no encontrado');
+    }
+
+    $path = $imports[$index]['file_path'];
+
+    if (!\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+        abort(404, 'Archivo no encontrado');
+    }
+
+    $contents = \Illuminate\Support\Facades\Storage::disk('public')->get($path);
+    $mimeType = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($path);
+
+    return response($contents, 200)
+        ->header('Content-Type',        $mimeType ?: 'application/pdf')
+        ->header('Content-Disposition', 'inline; filename="' . basename($path) . '"')
+        ->header('Cache-Control',       'public, max-age=3600');
+})->name('sale.public.pdf')->withoutMiddleware([\App\Http\Middleware\CheckSystemStatus::class]);
+
+
 // Authentication routes
 Route::get('/login', Login::class)
     ->name('login')

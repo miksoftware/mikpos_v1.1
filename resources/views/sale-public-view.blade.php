@@ -33,12 +33,8 @@
             padding: 24px 16px 48px;
         }
 
-        .container {
-            max-width: 720px;
-            margin: 0 auto;
-        }
+        .container { max-width: 720px; margin: 0 auto; }
 
-        /* ── Brand header ── */
         .brand-header {
             text-align: center;
             margin-bottom: 32px;
@@ -48,22 +44,9 @@
             border-radius: 20px;
             backdrop-filter: blur(12px);
         }
+        .branch-name { font-size: 26px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px; margin-bottom: 4px; }
+        .branch-info { font-size: 13px; color: rgba(255,255,255,0.55); line-height: 1.6; }
 
-        .branch-name {
-            font-size: 26px;
-            font-weight: 800;
-            color: #ffffff;
-            letter-spacing: -0.5px;
-            margin-bottom: 4px;
-        }
-
-        .branch-info {
-            font-size: 13px;
-            color: rgba(255,255,255,0.55);
-            line-height: 1.6;
-        }
-
-        /* ── Invoice card ── */
         .card {
             background: #ffffff;
             border-radius: 20px;
@@ -82,394 +65,213 @@
             gap: 12px;
             flex-wrap: wrap;
         }
-
-        .card-header-title {
-            font-size: 18px;
-            font-weight: 700;
-        }
-
-        .card-header-subtitle {
-            font-size: 12px;
-            opacity: 0.8;
-        }
+        .card-header-title { font-size: 18px; font-weight: 700; }
+        .card-header-subtitle { font-size: 12px; opacity: 0.8; }
 
         .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px 12px;
-            border-radius: 999px;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 4px 12px; border-radius: 999px;
+            font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.5px;
         }
+        .badge-white     { background: rgba(255,255,255,0.2); color: white; }
+        .badge-success   { background: #d1fae5; color: #065f46; }
+        .badge-warning   { background: #fef3c7; color: #92400e; }
+        .badge-electronic{ background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
 
-        .badge-white { background: rgba(255,255,255,0.2); color: white; }
-        .badge-success { background: #d1fae5; color: #065f46; }
-        .badge-warning { background: #fef3c7; color: #92400e; }
-        .badge-electronic { background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+        .card-body { padding: 24px; }
 
-        .card-body {
-            padding: 24px;
-        }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+        @media (max-width: 480px) { .info-grid { grid-template-columns: 1fr; } }
 
-        /* ── Info grid ── */
-        .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-bottom: 24px;
-        }
+        .info-item label { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--gray-500); margin-bottom: 4px; }
+        .info-item p     { font-size: 14px; font-weight: 600; color: var(--gray-900); }
 
-        @media (max-width: 480px) {
-            .info-grid { grid-template-columns: 1fr; }
-        }
+        .divider { height: 1px; background: var(--gray-100); margin: 20px 0; }
 
-        .info-item label {
-            display: block;
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: var(--gray-500);
-            margin-bottom: 4px;
-        }
+        .section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--gray-500); margin-bottom: 12px; }
 
-        .info-item p {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--gray-900);
-        }
-
-        .info-item p.mono {
-            font-family: 'Courier New', monospace;
-            font-size: 11px;
-            word-break: break-all;
-            color: var(--gray-700);
-        }
-
-        /* ── Divider ── */
-        .divider {
-            height: 1px;
-            background: var(--gray-100);
-            margin: 20px 0;
-        }
-
-        /* ── Section title ── */
-        .section-title {
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: var(--gray-500);
-            margin-bottom: 12px;
-        }
-
-        /* ── Items table ── */
-        .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-
+        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
         .items-table th {
-            text-align: left;
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            color: var(--gray-500);
-            padding: 8px 12px;
+            text-align: left; font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.6px;
+            color: var(--gray-500); padding: 8px 12px;
             border-bottom: 2px solid var(--gray-100);
         }
-
         .items-table th:last-child { text-align: right; }
-
-        .items-table td {
-            padding: 12px;
-            border-bottom: 1px solid var(--gray-100);
-            font-size: 14px;
-            vertical-align: top;
-        }
-
-        .items-table td:last-child {
-            text-align: right;
-            font-weight: 700;
-            white-space: nowrap;
-        }
-
+        .items-table td { padding: 12px; border-bottom: 1px solid var(--gray-100); font-size: 14px; vertical-align: top; }
+        .items-table td:last-child { text-align: right; font-weight: 700; white-space: nowrap; }
         .items-table tr:last-child td { border-bottom: none; }
-
         .item-name { font-weight: 600; color: var(--gray-900); }
-
-        .item-meta {
-            font-size: 11px;
-            color: var(--gray-500);
-            margin-top: 2px;
-        }
-
+        .item-meta { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
         .import-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-            margin-top: 4px;
-            padding: 2px 8px;
-            background: #ede9fe;
-            color: #6d28d9;
-            border-radius: 999px;
-            font-size: 10px;
-            font-weight: 700;
+            display: inline-flex; align-items: center; gap: 3px;
+            margin-top: 4px; padding: 2px 8px;
+            background: #ede9fe; color: #6d28d9;
+            border-radius: 999px; font-size: 10px; font-weight: 700;
         }
 
-        /* ── Totals ── */
-        .totals {
-            background: var(--gray-50);
-            border-radius: 12px;
-            padding: 16px 20px;
-        }
+        .totals { background: var(--gray-50); border-radius: 12px; padding: 16px 20px; }
+        .total-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 14px; color: var(--gray-700); }
+        .total-row.grand { padding-top: 12px; margin-top: 8px; border-top: 2px solid var(--gray-200); font-size: 18px; font-weight: 800; color: var(--gray-900); }
 
-        .total-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 4px 0;
-            font-size: 14px;
-            color: var(--gray-700);
-        }
+        .payment-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: var(--gray-50); border-radius: 10px; margin-bottom: 8px; font-size: 14px; font-weight: 600; }
 
-        .total-row.grand {
-            padding-top: 12px;
-            margin-top: 8px;
-            border-top: 2px solid var(--gray-200);
-            font-size: 18px;
-            font-weight: 800;
-            color: var(--gray-900);
-        }
+        .dian-box { background: linear-gradient(135deg, #d1fae5, #a7f3d0); border: 1px solid #6ee7b7; border-radius: 12px; padding: 16px 20px; }
+        .dian-box .dian-title { font-size: 13px; font-weight: 800; color: #065f46; margin-bottom: 6px; }
+        .dian-box .cufe-text  { font-family: 'Courier New', monospace; font-size: 10px; word-break: break-all; color: #047857; line-height: 1.5; }
 
-        /* ── Payments ── */
-        .payment-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 16px;
-            background: var(--gray-50);
-            border-radius: 10px;
-            margin-bottom: 8px;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        /* ── DIAN section ── */
-        .dian-box {
-            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
-            border: 1px solid #6ee7b7;
-            border-radius: 12px;
-            padding: 16px 20px;
-        }
-
-        .dian-box .dian-title {
-            font-size: 13px;
-            font-weight: 800;
-            color: #065f46;
-            margin-bottom: 6px;
-        }
-
-        .dian-box .cufe-text {
-            font-family: 'Courier New', monospace;
-            font-size: 10px;
-            word-break: break-all;
-            color: #047857;
-            line-height: 1.5;
-        }
-
-        /* ── Import declarations ── */
-        .import-card {
-            background: #ffffff;
-            border: 2px solid #ddd6fe;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-            margin-bottom: 20px;
-        }
-
+        .import-card { background: #ffffff; border: 2px solid #ddd6fe; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.15); margin-bottom: 20px; }
         .import-card-header {
             background: linear-gradient(135deg, #7c3aed, #6366f1);
-            color: white;
-            padding: 16px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
+            color: white; padding: 16px 20px;
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
         }
-
-        .import-card-header .icon {
-            font-size: 24px;
-        }
-
-        .import-card-header .info h3 {
-            font-size: 15px;
-            font-weight: 700;
-        }
-
-        .import-card-header .info p {
-            font-size: 11px;
-            opacity: 0.8;
-            margin-top: 2px;
-        }
-
-        .import-code-tag {
-            background: rgba(255,255,255,0.2);
-            border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 8px;
-            padding: 4px 12px;
-            font-size: 12px;
-            font-weight: 700;
-            font-family: 'Courier New', monospace;
-            white-space: nowrap;
-        }
-
-        .import-card-body {
-            padding: 20px;
-        }
-
-        .products-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-bottom: 16px;
-        }
-
-        .product-tag {
-            background: #ede9fe;
-            color: #5b21b6;
-            border-radius: 999px;
-            padding: 4px 10px;
-            font-size: 12px;
-            font-weight: 600;
-        }
+        .import-card-header .icon { font-size: 24px; }
+        .import-card-header .info h3 { font-size: 15px; font-weight: 700; }
+        .import-card-header .info p  { font-size: 11px; opacity: 0.8; margin-top: 2px; }
+        .import-code-tag { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; padding: 4px 12px; font-size: 12px; font-weight: 700; font-family: 'Courier New', monospace; white-space: nowrap; }
+        .import-card-body { padding: 20px; }
+        .products-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+        .product-tag { background: #ede9fe; color: #5b21b6; border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 600; }
 
         .pdf-link {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            width: 100%;
-            padding: 14px 20px;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            width: 100%; padding: 14px 20px;
             background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            color: white;
-            border-radius: 12px;
-            font-size: 15px;
-            font-weight: 700;
-            text-decoration: none;
+            color: white; border-radius: 12px; font-size: 15px; font-weight: 700;
+            text-decoration: none; transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(99,102,241,0.35);
+        }
+        .pdf-link:hover { background: linear-gradient(135deg, #4f46e5, #7c3aed); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(99,102,241,0.45); }
+        .pdf-icon { width: 22px; height: 22px; background: rgba(255,255,255,0.25); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+
+        /* Inline PDF viewer */
+        .pdf-toggle-btn {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            width: 100%; padding: 14px 20px; cursor: pointer; border: none;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white; border-radius: 12px; font-size: 15px; font-weight: 700;
+            font-family: 'Inter', sans-serif;
             transition: all 0.2s ease;
             box-shadow: 0 4px 12px rgba(99,102,241,0.35);
         }
+        .pdf-toggle-btn:hover { background: linear-gradient(135deg, #4f46e5, #7c3aed); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(99,102,241,0.45); }
 
-        .pdf-link:hover {
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
-            transform: translateY(-1px);
-            box-shadow: 0 6px 18px rgba(99,102,241,0.45);
+        .pdf-viewer-wrap {
+            margin-top: 12px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #ddd6fe;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
         }
 
-        .pdf-icon {
-            width: 22px;
-            height: 22px;
-            background: rgba(255,255,255,0.25);
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 13px;
-            flex-shrink: 0;
+        .pdf-viewer-toolbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 16px;
+            background: #f5f3ff;
+            border-bottom: 1px solid #ddd6fe;
+            color: #5b21b6; font-weight: 600;
         }
 
-        /* ── No imports message ── */
-        .no-imports {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 14px;
-            padding: 20px;
-            text-align: center;
-            color: rgba(255,255,255,0.5);
-            font-size: 13px;
-            margin-bottom: 20px;
+        .pdf-toolbar-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: 8px;
+            background: #7c3aed; color: white;
+            font-size: 12px; font-weight: 700;
+            text-decoration: none; transition: background .2s;
+        }
+        .pdf-toolbar-btn:hover { background: #6d28d9; }
+
+        .pdf-iframe {
+            display: block;
+            width: 100%;
+            height: 680px;
+            border: none;
+            background: #fff;
         }
 
-        /* ── Footer ── */
-        .page-footer {
-            text-align: center;
-            color: rgba(255,255,255,0.3);
-            font-size: 11px;
-            margin-top: 24px;
+        @media (max-width: 480px) {
+            .pdf-iframe { height: 480px; }
         }
+
+        .no-imports { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 20px; text-align: center; color: rgba(255,255,255,0.5); font-size: 13px; margin-bottom: 20px; }
+        .page-footer { text-align: center; color: rgba(255,255,255,0.3); font-size: 11px; margin-top: 24px; }
     </style>
 </head>
 <body>
-
 @php
-    $snap   = $snapshot->sale_snapshot;
-    $branch = $snap['branch'] ?? [];
+    $snap     = $snapshot->sale_snapshot;
+    $branch   = $snap['branch']   ?? [];
     $customer = $snap['customer'] ?? null;
-    $items  = $snap['items'] ?? [];
+    $items    = $snap['items']    ?? [];
     $payments = $snap['payments'] ?? [];
     $imports  = $snapshot->import_declarations ?? [];
 
-    $createdAt = $snap['created_at'] ? \Carbon\Carbon::parse($snap['created_at']) : null;
-    $total     = (float) ($snap['total'] ?? 0);
-    $subtotal  = (float) ($snap['subtotal'] ?? 0);
-    $taxTotal  = (float) ($snap['tax_total'] ?? 0);
-    $discount  = (float) ($snap['discount'] ?? 0);
-    $globalDiscountAmount = (float) ($snap['global_discount_amount'] ?? 0);
-    $itemDiscount = $discount - $globalDiscountAmount;
+    $createdAt           = !empty($snap['created_at']) ? \Carbon\Carbon::parse($snap['created_at']) : null;
+    $total               = (float) ($snap['total']               ?? 0);
+    $subtotal            = (float) ($snap['subtotal']            ?? 0);
+    $taxTotal            = (float) ($snap['tax_total']           ?? 0);
+    $discount            = (float) ($snap['discount']            ?? 0);
+    $globalDiscountAmount= (float) ($snap['global_discount_amount'] ?? 0);
+    $globalDiscountValue = (float) ($snap['global_discount_value']  ?? 0);
+    $globalDiscountType  = $snap['global_discount_type'] ?? '';
+    $itemDiscount        = $discount - $globalDiscountAmount;
 @endphp
 
 <div class="container">
 
-    {{-- ── Brand Header ── --}}
+    {{-- Brand header --}}
     <div class="brand-header">
         <div class="branch-name">{{ $branch['name'] ?? 'MikPOS' }}</div>
         <div class="branch-info">
-            @if(!empty($branch['tax_id'])) NIT: {{ $branch['tax_id'] }}<br> @endif
-            @if(!empty($branch['address'])) {{ $branch['address'] }}<br> @endif
-            @if(!empty($branch['municipality']) || !empty($branch['department']))
-                {{ $branch['municipality'] ?? '' }}{{ (!empty($branch['municipality']) && !empty($branch['department'])) ? ', ' : '' }}{{ $branch['department'] ?? '' }}<br>
+            @if(!empty($branch['tax_id']))
+                NIT: {{ $branch['tax_id'] }}<br>
             @endif
-            @if(!empty($branch['phone'])) Tel: {{ $branch['phone'] }} @endif
+            @if(!empty($branch['address']))
+                {{ $branch['address'] }}<br>
+            @endif
+            @if(!empty($branch['municipality']) || !empty($branch['department']))
+                {{ $branch['municipality'] ?? '' }}
+                @if(!empty($branch['municipality']) && !empty($branch['department'])), @endif
+                {{ $branch['department'] ?? '' }}<br>
+            @endif
+            @if(!empty($branch['phone']))
+                Tel: {{ $branch['phone'] }}
+            @endif
         </div>
     </div>
 
-    {{-- ── Invoice card ── --}}
+    {{-- Invoice card --}}
     <div class="card">
         <div class="card-header">
             <div>
                 <div class="card-header-title">
                     @if(!empty($snap['is_electronic']) && !empty($snap['cufe']))
-                        <span class="badge badge-electronic">✓ FE</span>&nbsp;
-                        {{ $snap['dian_number'] ?? $snap['invoice_number'] }}
+                        <span class="badge badge-electronic">✓ FE</span>&nbsp;{{ $snap['dian_number'] ?? $snap['invoice_number'] }}
                     @else
                         {{ $snap['invoice_number'] }}
                     @endif
                 </div>
-                <div class="card-header-subtitle">
-                    @if($createdAt) {{ $createdAt->format('d/m/Y H:i:s') }} @endif
-                </div>
+                @if($createdAt)
+                <div class="card-header-subtitle">{{ $createdAt->format('d/m/Y H:i:s') }}</div>
+                @endif
             </div>
             <div>
                 @php
-                    $statusLabel = match($snap['status'] ?? '') {
+                    $statusMap = [
                         'completed'        => ['Completada', 'badge-success'],
                         'pending_approval' => ['Pendiente',  'badge-warning'],
-                        default            => ['—', 'badge-white'],
-                    };
+                    ];
+                    $statusInfo = $statusMap[$snap['status'] ?? ''] ?? ['—', 'badge-white'];
                 @endphp
-                <span class="badge {{ $statusLabel[1] }}">{{ $statusLabel[0] }}</span>
+                <span class="badge {{ $statusInfo[1] }}">{{ $statusInfo[0] }}</span>
             </div>
         </div>
 
         <div class="card-body">
 
-            {{-- Customer ── --}}
+            {{-- Customer --}}
             <div class="section-title">Cliente</div>
             @if($customer)
             <div class="info-grid">
@@ -486,7 +288,11 @@
                 @if(!empty($customer['municipality']) || !empty($customer['department']))
                 <div class="info-item">
                     <label>Ciudad</label>
-                    <p>{{ $customer['municipality'] ?? '' }}{{ (!empty($customer['municipality']) && !empty($customer['department'])) ? ', ' : '' }}{{ $customer['department'] ?? '' }}</p>
+                    <p>
+                        {{ $customer['municipality'] ?? '' }}
+                        @if(!empty($customer['municipality']) && !empty($customer['department'])), @endif
+                        {{ $customer['department'] ?? '' }}
+                    </p>
                 </div>
                 @endif
                 @if(!empty($customer['address']))
@@ -502,7 +308,7 @@
 
             <div class="divider"></div>
 
-            {{-- Items ── --}}
+            {{-- Items --}}
             <div class="section-title">Productos</div>
             <table class="items-table">
                 <thead>
@@ -514,6 +320,20 @@
                 </thead>
                 <tbody>
                     @foreach($items as $item)
+                    @php
+                        $qty        = rtrim(rtrim(number_format((float)($item['quantity'] ?? 0), 3), '0'), '.');
+                        $taxRate    = (float)($item['tax_rate'] ?? 0);
+                        $unitPrice  = (float)($item['unit_price'] ?? 0);
+                        $upWithTax  = $unitPrice * (1 + $taxRate / 100);
+                        $itemTotal  = (float)($item['total'] ?? 0);
+                        $discAmt    = (float)($item['discount_amount'] ?? 0);
+                        $discType   = $item['discount_type'] ?? '';
+                        $discVal    = $item['discount_type_value'] ?? 0;
+                        $discReason = $item['discount_reason'] ?? '';
+                        $discLabel  = $discType === 'percentage'
+                            ? $discVal . '%'
+                            : '$' . number_format((float)$discVal, 0, ',', '.');
+                    @endphp
                     <tr>
                         <td>
                             <div class="item-name">{{ $item['product_name'] }}</div>
@@ -523,29 +343,25 @@
                             @if(!empty($item['import_code']))
                             <span class="import-badge">📄 {{ $item['import_code'] }}</span>
                             @endif
-                            @if(($item['discount_amount'] ?? 0) > 0)
+                            @if($discAmt > 0)
                             <div class="item-meta" style="color:#ef4444;">
-                                Desc: {{ $item['discount_type'] === 'percentage' ? $item['discount_type_value'].'%' : '$'.number_format($item['discount_type_value'], 0, ',', '.') }}
-                                {{ !empty($item['discount_reason']) ? '('.$item['discount_reason'].')' : '' }}
-                                — -${{ number_format($item['discount_amount'], 0, ',', '.') }}
+                                Desc: {{ $discLabel }}
+                                @if($discReason) ({{ $discReason }}) @endif
+                                — -${{ number_format($discAmt, 0, ',', '.') }}
                             </div>
                             @endif
                         </td>
                         <td style="text-align:right; white-space:nowrap;">
-                            @php
-                                $qty = rtrim(rtrim(number_format((float)$item['quantity'], 3), '0'), '.');
-                                $upWithTax = (float)$item['unit_price'] * (1 + (float)$item['tax_rate'] / 100);
-                            @endphp
                             {{ $qty }}<br>
                             <span style="font-size:11px; color:var(--gray-500);">${{ number_format($upWithTax, 0, ',', '.') }}</span>
                         </td>
-                        <td>${{ number_format((float)$item['total'], 0, ',', '.') }}</td>
+                        <td>${{ number_format($itemTotal, 0, ',', '.') }}</td>
                     </tr>
                     @endforeach
                 </tbody>
             </table>
 
-            {{-- Totals ── --}}
+            {{-- Totals --}}
             <div class="totals">
                 <div class="total-row">
                     <span>Subtotal</span>
@@ -564,8 +380,13 @@
                 </div>
                 @endif
                 @if($globalDiscountAmount > 0)
+                @php
+                    $globalDiscLabel = $globalDiscountType === 'percentage'
+                        ? 'Desc. factura (' . rtrim(rtrim(number_format($globalDiscountValue, 2), '0'), '.') . '%)'
+                        : 'Desc. factura';
+                @endphp
                 <div class="total-row" style="color:#ef4444;">
-                    <span>Desc. factura@if(!empty($snap['global_discount_type']) && $snap['global_discount_type'] === 'percentage') ({{ rtrim(rtrim(number_format($snap['global_discount_value'], 2), '0'), '.') }}%) @endif</span>
+                    <span>{{ $globalDiscLabel }}</span>
                     <span>-${{ number_format($globalDiscountAmount, 0, ',', '.') }}</span>
                 </div>
                 @endif
@@ -575,7 +396,7 @@
                 </div>
             </div>
 
-            {{-- Payments ── --}}
+            {{-- Payments --}}
             @if(!empty($payments))
             <div class="divider"></div>
             <div class="section-title">Forma de Pago</div>
@@ -594,37 +415,44 @@
             @endif
             @endif
 
-            {{-- DIAN section ── --}}
+            {{-- DIAN --}}
             @if(!empty($snap['is_electronic']) && !empty($snap['cufe']))
             <div class="divider"></div>
             <div class="dian-box">
                 <div class="dian-title">✓ Validada por la DIAN</div>
                 @if(!empty($snap['dian_number']))
-                <p style="font-size:13px; color:#047857; margin-bottom:4px;">DIAN Nro: <strong>{{ $snap['dian_number'] }}</strong></p>
+                <p style="font-size:13px; color:#047857; margin-bottom:4px;">
+                    DIAN Nro: <strong>{{ $snap['dian_number'] }}</strong>
+                </p>
                 @endif
                 <div class="cufe-text">CUFE: {{ $snap['cufe'] }}</div>
             </div>
             @endif
 
-            {{-- Seller / footer info ── --}}
+            {{-- Seller --}}
             @if(!empty($snap['user_name']) || !empty($snap['cash_register_name']))
             <div class="divider"></div>
             <div style="font-size:13px; color:var(--gray-500);">
-                @if(!empty($snap['user_name'])) <span><strong>Atendido por:</strong> {{ $snap['user_name'] }}</span> &nbsp; @endif
-                @if(!empty($snap['cash_register_name'])) <span><strong>Caja:</strong> {{ $snap['cash_register_name'] }}</span> @endif
+                @if(!empty($snap['user_name']))
+                <span><strong>Atendido por:</strong> {{ $snap['user_name'] }}</span>&nbsp;
+                @endif
+                @if(!empty($snap['cash_register_name']))
+                <span><strong>Caja:</strong> {{ $snap['cash_register_name'] }}</span>
+                @endif
             </div>
             @endif
 
         </div>
     </div>
 
-    {{-- ── Import Declarations ── --}}
+    {{-- Import Declarations --}}
     @if(!empty($imports))
     <div style="margin-bottom:12px; color:rgba(255,255,255,0.7); font-size:14px; font-weight:600; letter-spacing:0.3px;">
         📄 Documentos de Importación
     </div>
 
     @foreach($imports as $importItem)
+    @php $importIdx = $loop->index; @endphp
     <div class="import-card">
         <div class="import-card-header">
             <div style="display:flex; align-items:center; gap:12px; flex:1;">
@@ -637,7 +465,6 @@
             <div class="import-code-tag">{{ $importItem['import_code'] }}</div>
         </div>
         <div class="import-card-body">
-            {{-- Products that share this import code --}}
             @if(!empty($importItem['product_names']))
             <div class="section-title" style="margin-bottom:8px;">Productos incluidos</div>
             <div class="products-list">
@@ -647,13 +474,41 @@
             </div>
             @endif
 
-            {{-- PDF download link --}}
             @if(!empty($importItem['file_path']))
-            <a href="{{ \Illuminate\Support\Facades\Storage::url($importItem['file_path']) }}" target="_blank" class="pdf-link">
+            @php
+                $pdfServeUrl = url('/sale-public-pdf/' . $snapshot->qr_token . '/' . $importIdx);
+            @endphp
+
+            {{-- Toggle button --}}
+            <button
+                type="button"
+                class="pdf-toggle-btn"
+                onclick="togglePdf({{ $importIdx }})"
+                id="btn-pdf-{{ $importIdx }}"
+            >
                 <span class="pdf-icon">📄</span>
-                Ver declaración de importación
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            </a>
+                <span id="btn-label-{{ $importIdx }}">Ver declaración de importación</span>
+                <svg id="btn-chevron-{{ $importIdx }}" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .3s;"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+
+            {{-- Inline PDF viewer --}}
+            <div id="pdf-viewer-{{ $importIdx }}" class="pdf-viewer-wrap" style="display:none;">
+                <div class="pdf-viewer-toolbar">
+                    <span style="font-size:12px; opacity:.8;">Declaración – {{ $importItem['import_code'] }}</span>
+                    <a href="{{ $pdfServeUrl }}" download class="pdf-toolbar-btn" title="Descargar">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Descargar
+                    </a>
+                </div>
+                <iframe
+                    id="iframe-pdf-{{ $importIdx }}"
+                    src=""
+                    data-src="{{ $pdfServeUrl }}"
+                    class="pdf-iframe"
+                    title="Declaración de importación {{ $importItem['import_code'] }}"
+                ></iframe>
+            </div>
+
             @else
             <p style="text-align:center; font-size:13px; color:var(--gray-500); padding:8px 0;">Documento no disponible</p>
             @endif
@@ -662,17 +517,40 @@
     @endforeach
 
     @else
-    <div class="no-imports">
-        Sin documentos de importación adjuntos
-    </div>
+    <div class="no-imports">Sin documentos de importación adjuntos</div>
     @endif
 
-    {{-- ── Page footer ── --}}
     <div class="page-footer">
         {{ $branch['name'] ?? 'MikPOS' }} &bull; Generado el {{ now()->format('d/m/Y H:i') }}<br>
-        @if(!empty($branch['receipt_header'])) {{ $branch['receipt_header'] }} @endif
+        @if(!empty($branch['receipt_header'])){{ $branch['receipt_header'] }}@endif
     </div>
 
 </div>
+
+<script>
+    function togglePdf(idx) {
+        const viewer  = document.getElementById('pdf-viewer-' + idx);
+        const label   = document.getElementById('btn-label-' + idx);
+        const chevron = document.getElementById('btn-chevron-' + idx);
+        const iframe  = document.getElementById('iframe-pdf-' + idx);
+
+        const isOpen = viewer.style.display !== 'none';
+
+        if (isOpen) {
+            viewer.style.display = 'none';
+            label.textContent = 'Ver declaración de importación';
+            chevron.style.transform = 'rotate(0deg)';
+        } else {
+            viewer.style.display = 'block';
+            label.textContent = 'Cerrar visor';
+            chevron.style.transform = 'rotate(180deg)';
+            // Lazy-load: only set src once
+            if (!iframe.src || iframe.src === window.location.href) {
+                iframe.src = iframe.dataset.src;
+            }
+        }
+    }
+</script>
+
 </body>
 </html>
