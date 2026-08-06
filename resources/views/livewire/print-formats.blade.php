@@ -226,6 +226,45 @@
                     <div class="p-6 overflow-y-auto max-h-[75vh] bg-slate-100 flex justify-center">
                         @if($previewFormat === '80mm')
                         <!-- 80mm Preview -->
+                        @if($previewDocumentType === 'refund')
+                        <div style="width: 300px; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.4; background: #fff; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <div style="text-align: center; padding-bottom: 8px; border-bottom: 1px dashed #000; margin-bottom: 8px;">
+                                <div style="font-size: 16px; font-weight: bold; text-transform: uppercase;">DROGUERÍA EL PUNTO DE TU SALUD</div>
+                                <div style="font-size: 10px;"><p>NIT: 700128834</p><p>CR 28E 122-14</p><p>Tel: 3016 966163</p></div>
+                            </div>
+                            <div style="text-align: center; padding: 6px 0; border-bottom: 1px dashed #000; margin-bottom: 6px;">
+                                <span style="display: inline-block; padding: 1px 6px; background: #dc2626; color: #fff; font-size: 9px; font-weight: bold;">DEVOLUCIÓN PARCIAL</span>
+                                <div style="font-size: 13px; font-weight: bold; margin-top: 2px;">DEV-20260806-0001</div>
+                                <div style="font-size: 10px;">06/08/2026 - 10:30:00</div>
+                            </div>
+                            <div style="padding: 4px 6px; background: #f3f4f6; margin-bottom: 6px; border-radius: 4px;">
+                                <div style="font-size: 9px; font-weight: bold; color: #374151;">FACTURA ORIGINAL: POS-20260224-0001</div>
+                                <div style="font-size: 9px; color: #6b7280;">Total orig: $63,900</div>
+                            </div>
+                            <div style="padding: 6px 0; border-bottom: 1px dashed #000; margin-bottom: 6px;">
+                                <div style="font-size: 10px; font-weight: bold;">CLIENTE</div>
+                                <div style="font-weight: bold;">Consumidor Final</div>
+                            </div>
+                            <div style="padding: 4px 6px; background: #fef2f2; border: 1px solid #fecaca; margin-bottom: 6px; border-radius: 4px;">
+                                <div style="font-size: 9px; font-weight: bold; color: #dc2626;">MOTIVO: Producto defectuoso</div>
+                            </div>
+                            <div style="margin-bottom: 6px;">
+                                <div style="font-size: 10px; font-weight: bold;">PRODUCTOS DEVUELTOS</div>
+                                <div style="display: flex; justify-content: space-between; font-size: 9px; font-weight: bold; padding-bottom: 3px; border-bottom: 1px solid #000; margin-bottom: 4px;"><span>Producto</span><span>Total</span></div>
+                                <div style="margin-bottom: 4px; padding-bottom: 3px; border-bottom: 1px dotted #999;">
+                                    <div style="font-weight: bold; font-size: 10px;">BEVEDOL EXTRA FUERTE X60</div>
+                                    <div style="display: flex; justify-content: space-between; font-size: 10px;"><span>1 x $20,000</span><span style="font-weight: bold;">$20,000</span></div>
+                                </div>
+                            </div>
+                            <div style="border-top: 1px solid #000; padding-top: 6px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;"><span>Subtotal</span><span>$20,000</span></div>
+                                <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; color: #dc2626; padding-top: 4px; border-top: 1px dashed #000; margin-top: 4px;"><span>TOTAL DEVOLUCIÓN</span><span>$20,000</span></div>
+                            </div>
+                            <div style="text-align: center; padding-top: 8px; border-top: 1px dashed #000; margin-top: 6px;">
+                                <div style="font-size: 10px; color: #666;">Comprobante de Devolución</div>
+                            </div>
+                        </div>
+                        @else
                         <div style="width: 300px; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.4; background: #fff; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                             <div style="text-align: center; padding-bottom: 8px; border-bottom: 1px dashed #000; margin-bottom: 8px;">
                                 <div style="font-size: 16px; font-weight: bold; text-transform: uppercase;">DROGUERÍA EL PUNTO DE TU SALUD</div>
@@ -260,9 +299,119 @@
                                 <div style="font-size: 14px; font-weight: bold;">¡Gracias por su compra!</div>
                             </div>
                         </div>
+                        @endif
                         @else
                         <!-- Letter Preview -->
                         @php $opts = $letterOptions[$previewDocumentType] ?? \App\Models\PrintFormatSetting::DEFAULT_LETTER_OPTIONS; @endphp
+                        @if($previewDocumentType === 'refund')
+                        <div style="width: 100%; max-width: 680px; font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5; background: #fff; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <!-- Header -->
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 2px solid #dc2626; margin-bottom: 12px;">
+                                <div>
+                                    <div style="font-size: 24px; font-weight: bold; letter-spacing: 1px; color: #dc2626;">COMPROBANTE DE DEVOLUCIÓN</div>
+                                    <span style="display: inline-block; background: #dc2626; color: #fff; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-top: 4px;">DEVOLUCIÓN PARCIAL</span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 14px; font-weight: bold; color: #111827;">DEV-20260806-0001</div>
+                                    <div style="font-size: 11px; color: #555;">06/08/2026 10:30</div>
+                                </div>
+                            </div>
+                            <!-- 3-column info row -->
+                            <div style="display: flex; gap: 20px; margin-bottom: 15px;">
+                                @if($opts['show_business'] ?? true)
+                                <div style="flex: 1;">
+                                    <div style="font-size: 10px; color: #777; text-transform: uppercase; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 2px; margin-bottom: 4px;">Negocio</div>
+                                    <div style="font-size: 11px; color: #333; line-height: 1.6;">
+                                        <strong>DROGUERÍA EL PUNTO DE TU SALUD</strong><br>
+                                        NIT: 700128834<br>
+                                        CR 28E 122-14, Tercer Milenio<br>
+                                        Tel: 3016 966163
+                                    </div>
+                                </div>
+                                @endif
+                                @if($opts['show_customer'] ?? true)
+                                <div style="flex: 1;">
+                                    <div style="font-size: 10px; color: #777; text-transform: uppercase; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 2px; margin-bottom: 4px;">Cliente</div>
+                                    <div style="font-size: 11px; color: #333; line-height: 1.6;">
+                                        <strong>ANGIE KARINA GOMEZ</strong><br>
+                                        CC: 1006208593<br>
+                                        Tel: 3154 083002<br>
+                                        Cra 15 #45-20, Cúcuta<br>
+                                        angiek@gmail.com
+                                    </div>
+                                </div>
+                                @endif
+                                @if($opts['show_sale_info'] ?? true)
+                                <div style="flex: 1;">
+                                    <div style="font-size: 10px; color: #777; text-transform: uppercase; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 2px; margin-bottom: 4px;">Factura Original</div>
+                                    <div style="font-size: 11px; color: #333; line-height: 1.6;">
+                                        <strong>Factura:</strong> POS-20260224-0001<br>
+                                        <strong>Fecha:</strong> 24/02/2026<br>
+                                        <strong>Total Factura:</strong> $63,900.00<br>
+                                        <strong>Atendido por:</strong> Admin
+                                    </div>
+                                </div>
+                                @endif
+                            </div>
+                            <!-- Motivo -->
+                            <div style="background: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #dc2626; padding: 8px 12px; margin-bottom: 15px; border-radius: 4px;">
+                                <div style="font-size: 10px; font-weight: bold; color: #dc2626;">MOTIVO DE DEVOLUCIÓN</div>
+                                <div style="font-size: 11px; color: #1f2937;">Producto defectuoso en empaque original</div>
+                            </div>
+                            <!-- Items Table -->
+                            <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                                <thead>
+                                    <tr>
+                                        <th style="background: #fef2f2; border: 1px solid #fecaca; padding: 6px 8px; font-size: 10px; font-weight: bold; text-align: center; color: #991b1b; width: 30px;">#</th>
+                                        <th style="background: #fef2f2; border: 1px solid #fecaca; padding: 6px 8px; font-size: 10px; font-weight: bold; text-align: left; color: #991b1b;">PRODUCTOS DEVUELTOS</th>
+                                        <th style="background: #fef2f2; border: 1px solid #fecaca; padding: 6px 8px; font-size: 10px; font-weight: bold; text-align: center; color: #991b1b; width: 80px;">CANT.</th>
+                                        <th style="background: #fef2f2; border: 1px solid #fecaca; padding: 6px 8px; font-size: 10px; font-weight: bold; text-align: right; color: #991b1b; width: 90px;">PRECIO</th>
+                                        <th style="background: #fef2f2; border: 1px solid #fecaca; padding: 6px 8px; font-size: 10px; font-weight: bold; text-align: right; color: #991b1b; width: 100px;">TOTAL</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style="border: 1px solid #ddd; padding: 6px 8px; font-size: 11px; text-align: center;">1</td>
+                                        <td style="border: 1px solid #ddd; padding: 6px 8px; font-size: 11px;">BEVEDOL EXTRA FUERTE X60 ABBOTT</td>
+                                        <td style="border: 1px solid #ddd; padding: 6px 8px; font-size: 11px; text-align: center;">1 (de 3 orig.)</td>
+                                        <td style="border: 1px solid #ddd; padding: 6px 8px; font-size: 11px; text-align: right;">$20,000.00</td>
+                                        <td style="border: 1px solid #ddd; padding: 6px 8px; font-size: 11px; text-align: right;">$20,000.00</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <!-- Totals -->
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                                @if($opts['show_payment_info'] ?? true)
+                                <div style="font-size: 11px; color: #444; line-height: 1.8;">
+                                    <strong>Comprobante de Devolución</strong><br>
+                                    <strong>Emitida:</strong> 06/08/2026 10:30:00<br>
+                                    <strong>Estado:</strong> Aplicado
+                                </div>
+                                @else
+                                <div></div>
+                                @endif
+                                <div style="width: 260px; background: #f8f8f8; border: 1px solid #ddd; padding: 10px 15px;">
+                                    <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 3px 0; color: #444;"><span>Subtotal:</span><span>$20,000.00</span></div>
+                                    <div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: bold; color: #dc2626; border-top: 2px solid #333; margin-top: 6px; padding-top: 8px;"><span>TOTAL DEVOLUCIÓN:</span><span>$20,000.00</span></div>
+                                </div>
+                            </div>
+                            @if($opts['show_amount_words'] ?? true)
+                            <div style="font-size: 10px; color: #555; font-style: italic; margin-bottom: 12px; padding: 6px 10px; background: #f8f8f8; border-left: 3px solid #ccc;">
+                                Monto en letras: VEINTE MIL PESOS CON 00/100
+                            </div>
+                            @endif
+                            <!-- Signatures -->
+                            <div style="display: flex; justify-content: space-around; margin-top: 30px; margin-bottom: 15px;">
+                                <div style="width: 180px; text-align: center; border-top: 1px solid #000; padding-top: 4px; font-size: 10px; font-weight: bold;">Firma del Cliente</div>
+                                <div style="width: 180px; text-align: center; border-top: 1px solid #000; padding-top: 4px; font-size: 10px; font-weight: bold;">Firma del Responsable</div>
+                            </div>
+                            @if($opts['show_footer'] ?? true)
+                            <div style="text-align: center; padding-top: 10px; border-top: 1px solid #ddd; font-size: 11px; color: #777;">
+                                <div style="font-size: 13px; font-weight: bold; color: #333;">Este documento es un comprobante de devolución</div>
+                            </div>
+                            @endif
+                        </div>
+                        @else
                         <div style="width: 100%; max-width: 680px; font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5; background: #fff; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                             <!-- Header -->
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 2px solid #333; margin-bottom: 12px;">
@@ -363,6 +512,7 @@
                             </div>
                             @endif
                         </div>
+                        @endif
                         @endif
                     </div>
                     <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end">

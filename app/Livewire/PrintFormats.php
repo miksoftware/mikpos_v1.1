@@ -24,6 +24,17 @@ class PrintFormats extends Component
 
     public function loadFormats()
     {
+        PrintFormatSetting::firstOrCreate(
+            ['document_type' => 'refund'],
+            [
+                'display_name' => 'Devoluciones',
+                'format' => '80mm',
+                'letter_options' => PrintFormatSetting::DEFAULT_LETTER_OPTIONS,
+                'open_cash_drawer_on_skip' => false,
+                'show_logo_80mm' => false,
+            ]
+        );
+
         $settings = PrintFormatSetting::all();
         $this->formats = [];
         $this->letterOptions = [];

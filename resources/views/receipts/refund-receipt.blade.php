@@ -218,6 +218,25 @@
             color: #000;
         }
         
+        .print-actions {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 8px;
+            z-index: 100;
+        }
+        .btn {
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-print { background: #dc2626; color: white; }
+        .btn-close { background: #6b7280; color: white; }
+        
         @media print {
             body {
                 width: 72mm;
@@ -226,14 +245,24 @@
             }
             
             .no-print {
-                display: none;
+                display: none !important;
             }
         }
     </style>
 </head>
 <body>
+    <div class="print-actions no-print">
+        <button class="btn btn-print" onclick="window.print()">🖨️ Imprimir</button>
+        <button class="btn btn-close" onclick="window.close()">✕ Cerrar</button>
+    </div>
+
     <!-- Header -->
     <div class="header">
+        @if(($showLogo ?? false) && $refund->sale->branch->logo)
+        <div style="text-align:center; margin-bottom:6px;">
+            <img src="{{ Storage::url($refund->sale->branch->logo) }}" alt="{{ $refund->sale->branch->name }}" style="max-width:220px; max-height:100px; width:90%; object-fit:contain; display:inline-block;">
+        </div>
+        @endif
         <div class="branch-name">{{ $refund->sale->branch->name }}</div>
         <div class="branch-info">
             @if($refund->sale->branch->address)

@@ -498,11 +498,17 @@ Route::middleware(['auth'])->group(function () {
             'sale.branch.department',
             'sale.branch.municipality',
             'sale.customer.taxDocument',
+            'sale.customer.municipality',
+            'sale.customer.department',
             'user',
-            'items',
+            'items.product',
         ]);
-        
-        return view('receipts.refund-receipt', compact('refund'));
+
+        $format = App\Models\PrintFormatSetting::getFormat('refund');
+        $view = $format === 'letter' ? 'receipts.refund-receipt-letter' : 'receipts.refund-receipt';
+        $showLogo = $format === '80mm' && App\Models\PrintFormatSetting::shouldShowLogo80mm('refund');
+
+        return view($view, compact('refund', 'showLogo'));
     })->name('refund-receipt.show');
 
     // Purchase Receipt
