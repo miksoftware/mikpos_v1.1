@@ -20,8 +20,10 @@ class ProductFieldSettingFactory extends Factory
         return [
             'branch_id' => null,
             'field_name' => $this->faker->randomElement($fieldNames),
-            'is_visible' => true,
-            'is_required' => false,
+            'parent_visible' => true,
+            'parent_required' => false,
+            'child_visible' => true,
+            'child_required' => false,
             'display_order' => $this->faker->numberBetween(0, 10),
         ];
     }
@@ -36,14 +38,16 @@ class ProductFieldSettingFactory extends Factory
     public function hidden(): static
     {
         return $this->state(fn (array $attributes) => [
-            'is_visible' => false,
+            'parent_visible' => false,
+            'child_visible' => false,
         ]);
     }
 
     public function required(): static
     {
         return $this->state(fn (array $attributes) => [
-            'is_required' => true,
+            'parent_required' => true,
+            'child_required' => true,
         ]);
     }
 

@@ -74,9 +74,18 @@
                         <h3 class="font-semibold text-slate-900 text-[10px] sm:text-sm leading-tight line-clamp-2 cursor-pointer hover:text-[#ff7261] transition-colors"
                             wire:click="openProductModal({{ $product->id }})">{{ $product->name }}</h3>
 
-                        <p class="text-xs sm:text-lg font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] bg-clip-text text-transparent">
-                            ${{ number_format($product->getSalePriceWithTax(), 0, ',', '.') }}
-                        </p>
+                        <div class="space-y-0.5">
+                            <p class="text-xs sm:text-lg font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] bg-clip-text text-transparent">
+                                ${{ number_format($product->getSalePriceWithTax(), 0, ',', '.') }}
+                            </p>
+
+                            @if($product->suggested_price > 0)
+                            <p class="text-[9px] sm:text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                                P. Sugerido: ${{ number_format($product->getSuggestedPriceWithTax(), 0, ',', '.') }}
+                            </p>
+                            @endif
+                        </div>
 
                         @if($showStockInShop && $product->manages_inventory)
                         <p class="text-[9px] sm:text-xs {{ $product->current_stock > 0 ? 'text-green-600' : 'text-red-500' }}">
@@ -196,16 +205,29 @@
 
                                 @php
                                     $displayPrice = $selectedProduct->getSalePriceWithTax();
+                                    $suggestedPrice = $selectedProduct->getSuggestedPriceWithTax();
                                     if ($selectedVariantId) {
                                         $selectedVariant = $selectedProduct->activeChildren->find($selectedVariantId);
                                         if ($selectedVariant) {
                                             $displayPrice = $selectedVariant->getSalePriceWithTax();
+                                            if ($selectedVariant->suggested_price > 0) {
+                                                $suggestedPrice = $selectedVariant->getSuggestedPriceWithTax();
+                                            }
                                         }
                                     }
                                 @endphp
-                                <p class="text-2xl font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] bg-clip-text text-transparent">
-                                    ${{ number_format($displayPrice, 0, ',', '.') }}
-                                </p>
+                                <div class="flex flex-wrap items-baseline gap-2">
+                                    <p class="text-2xl font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] bg-clip-text text-transparent">
+                                        ${{ number_format($displayPrice, 0, ',', '.') }}
+                                    </p>
+
+                                    @if($suggestedPrice > 0)
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold">
+                                            <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                            Precio sugerido: ${{ number_format($suggestedPrice, 0, ',', '.') }}
+                                        </span>
+                                    @endif
+                                </div>
 
                                 @if($showStockInShop && $selectedProduct->manages_inventory)
                                 <p class="text-xs {{ $selectedProduct->current_stock > 0 ? 'text-green-600' : 'text-red-500' }}">

@@ -24,12 +24,14 @@ return new class extends Migration
         
         // Initialize unit_cost for existing sale_items using the product's average_cost
         // If it's a child product, it multiplies by unit_quantity
-        \Illuminate\Support\Facades\DB::statement('
-            UPDATE sale_items si 
-            LEFT JOIN product_children pc ON si.product_child_id = pc.id
-            JOIN products p ON si.product_id = p.id 
-            SET si.unit_cost = p.average_cost * COALESCE(pc.unit_quantity, 1)
-        ');
+        if (\Illuminate\Support\Facades\DB::getDriverName() === 'mysql') {
+            \Illuminate\Support\Facades\DB::statement('
+                UPDATE sale_items si 
+                LEFT JOIN product_children pc ON si.product_child_id = pc.id
+                JOIN products p ON si.product_id = p.id 
+                SET si.unit_cost = p.average_cost * COALESCE(pc.unit_quantity, 1)
+            ');
+        }
     }
 
     /**

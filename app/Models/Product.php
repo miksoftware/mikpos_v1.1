@@ -40,6 +40,7 @@ class Product extends Model
         'purchase_price',
         'sale_price',
         'special_price',
+        'suggested_price',
         'price_includes_tax',
         'min_stock',
         'max_stock',
@@ -67,6 +68,7 @@ class Product extends Model
             'average_cost' => 'decimal:2',
             'sale_price' => 'decimal:2',
             'special_price' => 'decimal:2',
+            'suggested_price' => 'decimal:2',
             'commission_value' => 'decimal:2',
             'min_stock' => 'decimal:3',
             'max_stock' => 'decimal:3',
@@ -319,6 +321,23 @@ class Product extends Model
         
         $taxRate = $this->tax->value / 100;
         return $this->sale_price * (1 + $taxRate);
+    }
+
+    /**
+     * Get the suggested price with tax.
+     */
+    public function getSuggestedPriceWithTax(): ?float
+    {
+        if (!$this->suggested_price) {
+            return null;
+        }
+
+        if ($this->price_includes_tax || !$this->tax) {
+            return (float) $this->suggested_price;
+        }
+
+        $taxRate = $this->tax->value / 100;
+        return $this->suggested_price * (1 + $taxRate);
     }
 
     /**

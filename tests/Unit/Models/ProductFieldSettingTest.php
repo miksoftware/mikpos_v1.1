@@ -13,27 +13,27 @@ class ProductFieldSettingTest extends TestCase
 
     public function test_product_field_setting_has_fillable_attributes(): void
     {
-        $fillable = ['branch_id', 'field_name', 'is_visible', 'is_required', 'display_order'];
+        $fillable = ['branch_id', 'field_name', 'parent_visible', 'parent_required', 'child_visible', 'child_required', 'display_order'];
 
         $setting = new ProductFieldSetting();
 
         $this->assertEquals($fillable, $setting->getFillable());
     }
 
-    public function test_product_field_setting_casts_is_visible_to_boolean(): void
+    public function test_product_field_setting_casts_parent_visible_to_boolean(): void
     {
-        $setting = ProductFieldSetting::factory()->create(['is_visible' => 1]);
+        $setting = ProductFieldSetting::factory()->create(['parent_visible' => 1]);
 
-        $this->assertIsBool($setting->is_visible);
-        $this->assertTrue($setting->is_visible);
+        $this->assertIsBool($setting->parent_visible);
+        $this->assertTrue($setting->parent_visible);
     }
 
-    public function test_product_field_setting_casts_is_required_to_boolean(): void
+    public function test_product_field_setting_casts_parent_required_to_boolean(): void
     {
         $setting = ProductFieldSetting::factory()->required()->create();
 
-        $this->assertIsBool($setting->is_required);
-        $this->assertTrue($setting->is_required);
+        $this->assertIsBool($setting->parent_required);
+        $this->assertTrue($setting->parent_required);
     }
 
     public function test_product_field_setting_can_be_created_with_factory(): void
@@ -71,15 +71,15 @@ class ProductFieldSettingTest extends TestCase
     {
         $branch = Branch::factory()->create();
         ProductFieldSetting::factory()->forBranch($branch)->forField('barcode')->create([
-            'is_visible' => true,
-            'is_required' => true,
+            'parent_visible' => true,
+            'parent_required' => true,
         ]);
 
         $fields = ProductFieldSetting::getFieldsForBranch($branch->id);
 
         $this->assertTrue($fields->has('barcode'));
-        $this->assertTrue($fields->get('barcode')->is_visible);
-        $this->assertTrue($fields->get('barcode')->is_required);
+        $this->assertTrue($fields->get('barcode')->parent_visible);
+        $this->assertTrue($fields->get('barcode')->parent_required);
     }
 
     public function test_get_fields_for_branch_falls_back_to_global_settings(): void
@@ -87,8 +87,8 @@ class ProductFieldSettingTest extends TestCase
         $branch = Branch::factory()->create();
         ProductFieldSetting::factory()->forField('barcode')->create([
             'branch_id' => null,
-            'is_visible' => true,
-            'is_required' => false,
+            'parent_visible' => true,
+            'parent_required' => false,
         ]);
 
         $fields = ProductFieldSetting::getFieldsForBranch($branch->id);
@@ -124,9 +124,9 @@ class ProductFieldSettingTest extends TestCase
 
         $settings = ProductFieldSetting::whereNull('branch_id')->get()->keyBy('field_name');
 
-        $this->assertTrue($settings->get('presentation_id')->is_visible);
-        $this->assertTrue($settings->get('presentation_id')->is_required);
-        $this->assertFalse($settings->get('imei')->is_visible);
+        $this->assertTrue($settings->get('presentation_id')->child_visible);
+        $this->assertTrue($settings->get('presentation_id')->child_required);
+        $this->assertFalse($settings->get('imei')->child_visible);
     }
 
     public function test_apply_preset_creates_settings_for_cellphones(): void
@@ -137,11 +137,11 @@ class ProductFieldSettingTest extends TestCase
 
         $settings = ProductFieldSetting::whereNull('branch_id')->get()->keyBy('field_name');
 
-        $this->assertTrue($settings->get('product_model_id')->is_visible);
-        $this->assertTrue($settings->get('product_model_id')->is_required);
-        $this->assertTrue($settings->get('color_id')->is_visible);
-        $this->assertTrue($settings->get('imei')->is_visible);
-        $this->assertFalse($settings->get('presentation_id')->is_visible);
+        $this->assertTrue($settings->get('product_model_id')->parent_visible);
+        $this->assertTrue($settings->get('product_model_id')->parent_required);
+        $this->assertTrue($settings->get('color_id')->child_visible);
+        $this->assertTrue($settings->get('imei')->child_visible);
+        $this->assertFalse($settings->get('presentation_id')->parent_visible);
     }
 
     public function test_apply_preset_creates_settings_for_clothing(): void
@@ -152,11 +152,11 @@ class ProductFieldSettingTest extends TestCase
 
         $settings = ProductFieldSetting::whereNull('branch_id')->get()->keyBy('field_name');
 
-        $this->assertTrue($settings->get('color_id')->is_visible);
-        $this->assertTrue($settings->get('color_id')->is_required);
-        $this->assertTrue($settings->get('size')->is_visible);
-        $this->assertTrue($settings->get('size')->is_required);
-        $this->assertFalse($settings->get('imei')->is_visible);
+        $this->assertTrue($settings->get('color_id')->child_visible);
+        $this->assertTrue($settings->get('color_id')->child_required);
+        $this->assertTrue($settings->get('size')->child_visible);
+        $this->assertTrue($settings->get('size')->child_required);
+        $this->assertFalse($settings->get('imei')->child_visible);
     }
 
     public function test_apply_preset_returns_false_for_invalid_preset(): void
@@ -185,42 +185,44 @@ class ProductFieldSettingTest extends TestCase
     {
         ProductFieldSetting::factory()->forField('barcode')->create([
             'branch_id' => null,
-            'is_visible' => true,
+            'parent_visible' => true,
+            'child_visible' => true,
         ]);
         ProductFieldSetting::factory()->forField('imei')->create([
             'branch_id' => null,
-            'is_visible' => false,
+            'parent_visible' => false,
+            'child_visible' => false,
         ]);
 
-        $visibleFields = ProductFieldSetting::getVisibleFieldsForBranch(null);
+        $parentVisibleFields = ProductFieldSetting::getFieldsForBranch(null)->filter(fn($setting) => $setting->parent_visible)->keys();
 
-        $this->assertTrue($visibleFields->contains('barcode'));
-        $this->assertFalse($visibleFields->contains('imei'));
+        $this->assertTrue($parentVisibleFields->contains('barcode'));
+        $this->assertFalse($parentVisibleFields->contains('imei'));
     }
 
     public function test_get_required_fields_for_branch_returns_only_visible_and_required(): void
     {
         ProductFieldSetting::factory()->forField('barcode')->create([
             'branch_id' => null,
-            'is_visible' => true,
-            'is_required' => true,
+            'parent_visible' => true,
+            'parent_required' => true,
         ]);
         ProductFieldSetting::factory()->forField('color_id')->create([
             'branch_id' => null,
-            'is_visible' => true,
-            'is_required' => false,
+            'parent_visible' => true,
+            'parent_required' => false,
         ]);
         ProductFieldSetting::factory()->forField('imei')->create([
             'branch_id' => null,
-            'is_visible' => false,
-            'is_required' => true, // Hidden but required - should not be returned
+            'parent_visible' => false,
+            'parent_required' => true, // Hidden but required - should not be returned
         ]);
 
-        $requiredFields = ProductFieldSetting::getRequiredFieldsForBranch(null);
+        $parentRequiredFields = ProductFieldSetting::getFieldsForBranch(null)->filter(fn($setting) => $setting->parent_visible && $setting->parent_required)->keys();
 
-        $this->assertTrue($requiredFields->contains('barcode'));
-        $this->assertFalse($requiredFields->contains('color_id'));
-        $this->assertFalse($requiredFields->contains('imei'));
+        $this->assertTrue($parentRequiredFields->contains('barcode'));
+        $this->assertFalse($parentRequiredFields->contains('color_id'));
+        $this->assertFalse($parentRequiredFields->contains('imei'));
     }
 
     public function test_get_available_presets_returns_all_presets(): void
@@ -243,7 +245,8 @@ class ProductFieldSettingTest extends TestCase
     {
         $expectedFields = [
             'barcode', 'presentation_id', 'color_id', 'product_model_id',
-            'size', 'weight', 'imei', 'min_stock', 'max_stock',
+            'size', 'weight', 'imei', 'import_code', 'import_declaration',
+            'suggested_price',
         ];
 
         foreach ($expectedFields as $field) {

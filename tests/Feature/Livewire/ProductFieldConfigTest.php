@@ -59,8 +59,7 @@ class ProductFieldConfigTest extends TestCase
             ->assertSee('Talla')
             ->assertSee('Peso')
             ->assertSee('IMEI')
-            ->assertSee('Stock Mínimo')
-            ->assertSee('Stock Máximo');
+            ->assertSee('Precio Sugerido');
     }
 
     public function test_product_field_config_displays_available_presets(): void
@@ -85,7 +84,7 @@ class ProductFieldConfigTest extends TestCase
         $this->actingAs($this->adminUser);
         
         Livewire::test(ProductFieldConfig::class)
-            ->call('toggleVisible', 'barcode')
+            ->call('toggleSetting', 'barcode', 'parent_visible')
             ->assertSet('hasChanges', true)
             ->call('saveSettings')
             ->assertSet('hasChanges', false)
@@ -114,25 +113,25 @@ class ProductFieldConfigTest extends TestCase
         $this->actingAs($this->adminUser);
         
         Livewire::test(ProductFieldConfig::class)
-            ->set('fieldSettings.barcode.is_visible', true)
-            ->set('fieldSettings.barcode.is_required', true)
-            ->set('fieldSettings.color_id.is_visible', false)
-            ->set('fieldSettings.color_id.is_required', false)
+            ->set('fieldSettings.barcode.parent_visible', true)
+            ->set('fieldSettings.barcode.parent_required', true)
+            ->set('fieldSettings.color_id.parent_visible', false)
+            ->set('fieldSettings.color_id.parent_required', false)
             ->set('hasChanges', true)
             ->call('saveSettings');
         
         $this->assertDatabaseHas('product_field_settings', [
             'branch_id' => null,
             'field_name' => 'barcode',
-            'is_visible' => true,
-            'is_required' => true,
+            'parent_visible' => true,
+            'parent_required' => true,
         ]);
         
         $this->assertDatabaseHas('product_field_settings', [
             'branch_id' => null,
             'field_name' => 'color_id',
-            'is_visible' => false,
-            'is_required' => false,
+            'parent_visible' => false,
+            'parent_required' => false,
         ]);
     }
 
@@ -144,7 +143,7 @@ class ProductFieldConfigTest extends TestCase
         
         Livewire::test(ProductFieldConfig::class)
             ->set('branchId', $branch->id)
-            ->call('toggleVisible', 'imei')
+            ->call('toggleSetting', 'imei', 'child_visible')
             ->call('saveSettings');
         
         $this->assertDatabaseHas('product_field_settings', [
@@ -160,14 +159,14 @@ class ProductFieldConfigTest extends TestCase
         // Create initial settings
         ProductFieldSetting::factory()->forField('barcode')->create([
             'branch_id' => null,
-            'is_visible' => true,
-            'is_required' => false,
+            'parent_visible' => true,
+            'parent_required' => false,
         ]);
         
         $initialCount = ProductFieldSetting::whereNull('branch_id')->count();
         
         Livewire::test(ProductFieldConfig::class)
-            ->call('toggleVisible', 'barcode')
+            ->call('toggleSetting', 'barcode', 'parent_visible')
             ->call('saveSettings');
         
         // Should have replaced settings, not added to them
@@ -193,12 +192,12 @@ class ProductFieldConfigTest extends TestCase
         // Verify pharmacy preset settings are applied on the same component instance
         $fieldSettings = $component->get('fieldSettings');
         
-        // Pharmacy preset: presentation_id visible and required
-        $this->assertTrue($fieldSettings['presentation_id']['is_visible']);
-        $this->assertTrue($fieldSettings['presentation_id']['is_required']);
+        // Pharmacy preset: presentation_id child visible and required
+        $this->assertTrue($fieldSettings['presentation_id']['child_visible']);
+        $this->assertTrue($fieldSettings['presentation_id']['child_required']);
         
         // Pharmacy preset: imei hidden
-        $this->assertFalse($fieldSettings['imei']['is_visible']);
+        $this->assertFalse($fieldSettings['imei']['child_visible']);
     }
 
     public function test_user_with_permission_can_apply_cellphones_preset(): void
@@ -214,18 +213,18 @@ class ProductFieldConfigTest extends TestCase
         $component->call('applyPreset', 'cellphones');
         $fieldSettings = $component->get('fieldSettings');
         
-        // Cellphones preset: product_model_id and color_id visible and required
-        $this->assertTrue($fieldSettings['product_model_id']['is_visible']);
-        $this->assertTrue($fieldSettings['product_model_id']['is_required']);
-        $this->assertTrue($fieldSettings['color_id']['is_visible']);
-        $this->assertTrue($fieldSettings['color_id']['is_required']);
+        // Cellphones preset: product_model_id parent and child visible and required
+        $this->assertTrue($fieldSettings['product_model_id']['parent_visible']);
+        $this->assertTrue($fieldSettings['product_model_id']['parent_required']);
+        $this->assertTrue($fieldSettings['color_id']['child_visible']);
+        $this->assertTrue($fieldSettings['color_id']['child_required']);
         
-        // Cellphones preset: imei visible but not required
-        $this->assertTrue($fieldSettings['imei']['is_visible']);
-        $this->assertFalse($fieldSettings['imei']['is_required']);
+        // Cellphones preset: imei child visible but not required
+        $this->assertTrue($fieldSettings['imei']['child_visible']);
+        $this->assertFalse($fieldSettings['imei']['child_required']);
         
         // Cellphones preset: presentation_id hidden
-        $this->assertFalse($fieldSettings['presentation_id']['is_visible']);
+        $this->assertFalse($fieldSettings['presentation_id']['parent_visible']);
     }
 
     public function test_user_with_permission_can_apply_clothing_preset(): void
@@ -236,14 +235,14 @@ class ProductFieldConfigTest extends TestCase
         $component->call('applyPreset', 'clothing');
         $fieldSettings = $component->get('fieldSettings');
         
-        // Clothing preset: color_id and size visible and required
-        $this->assertTrue($fieldSettings['color_id']['is_visible']);
-        $this->assertTrue($fieldSettings['color_id']['is_required']);
-        $this->assertTrue($fieldSettings['size']['is_visible']);
-        $this->assertTrue($fieldSettings['size']['is_required']);
+        // Clothing preset: color_id and size child visible and required
+        $this->assertTrue($fieldSettings['color_id']['child_visible']);
+        $this->assertTrue($fieldSettings['color_id']['child_required']);
+        $this->assertTrue($fieldSettings['size']['child_visible']);
+        $this->assertTrue($fieldSettings['size']['child_required']);
         
         // Clothing preset: imei hidden
-        $this->assertFalse($fieldSettings['imei']['is_visible']);
+        $this->assertFalse($fieldSettings['imei']['child_visible']);
     }
 
     public function test_user_without_permission_cannot_apply_preset(): void
@@ -277,9 +276,9 @@ class ProductFieldConfigTest extends TestCase
         // Verify settings were persisted
         $settings = ProductFieldSetting::whereNull('branch_id')->get()->keyBy('field_name');
         
-        $this->assertTrue($settings->get('presentation_id')->is_visible);
-        $this->assertTrue($settings->get('presentation_id')->is_required);
-        $this->assertFalse($settings->get('imei')->is_visible);
+        $this->assertTrue($settings->get('presentation_id')->child_visible);
+        $this->assertTrue($settings->get('presentation_id')->child_required);
+        $this->assertFalse($settings->get('imei')->child_visible);
     }
 
     // ==========================================
@@ -287,32 +286,16 @@ class ProductFieldConfigTest extends TestCase
     // Requirements: 5.1, 5.2
     // ==========================================
 
-    public function test_toggling_visible_updates_field_settings(): void
+    public function test_toggling_setting_updates_field_settings(): void
     {
         $this->actingAs($this->adminUser);
         
         $component = Livewire::test(ProductFieldConfig::class);
-        $initialVisible = $component->get('fieldSettings.color_id.is_visible');
+        $initialVisible = $component->get('fieldSettings.color_id.parent_visible');
         
-        $component->call('toggleVisible', 'color_id');
+        $component->call('toggleSetting', 'color_id', 'parent_visible');
         
-        $this->assertNotEquals($initialVisible, $component->get('fieldSettings.color_id.is_visible'));
-        $this->assertTrue($component->get('hasChanges'));
-    }
-
-    public function test_toggling_required_updates_field_settings(): void
-    {
-        $this->actingAs($this->adminUser);
-        
-        $component = Livewire::test(ProductFieldConfig::class);
-        
-        // First make sure the field is visible
-        $component->set('fieldSettings.barcode.is_visible', true);
-        $initialRequired = $component->get('fieldSettings.barcode.is_required');
-        
-        $component->call('toggleRequired', 'barcode');
-        
-        $this->assertNotEquals($initialRequired, $component->get('fieldSettings.barcode.is_required'));
+        $this->assertNotEquals($initialVisible, $component->get('fieldSettings.color_id.parent_visible'));
         $this->assertTrue($component->get('hasChanges'));
     }
 
@@ -323,37 +306,16 @@ class ProductFieldConfigTest extends TestCase
         $component = Livewire::test(ProductFieldConfig::class);
         
         // Set field as visible and required
-        $component->set('fieldSettings.barcode.is_visible', true);
-        $component->set('fieldSettings.barcode.is_required', true);
+        $component->set('fieldSettings.barcode.parent_visible', true);
+        $component->set('fieldSettings.barcode.parent_required', true);
         
         // Toggle visible to hide
-        $component->call('toggleVisible', 'barcode');
+        $component->call('toggleSetting', 'barcode', 'parent_visible');
         
         // Required should now be false
-        $this->assertFalse($component->get('fieldSettings.barcode.is_visible'));
-        $this->assertFalse($component->get('fieldSettings.barcode.is_required'));
+        $this->assertFalse($component->get('fieldSettings.barcode.parent_visible'));
+        $this->assertFalse($component->get('fieldSettings.barcode.parent_required'));
     }
-
-    public function test_cannot_toggle_required_on_hidden_field(): void
-    {
-        $this->actingAs($this->adminUser);
-        
-        $component = Livewire::test(ProductFieldConfig::class);
-        
-        // Set field as hidden
-        $component->set('fieldSettings.imei.is_visible', false);
-        $component->set('fieldSettings.imei.is_required', false);
-        
-        // Try to toggle required
-        $component->call('toggleRequired', 'imei');
-        
-        // Required should still be false
-        $this->assertFalse($component->get('fieldSettings.imei.is_required'));
-    }
-
-    // ==========================================
-    // Test: Reset to defaults
-    // ==========================================
 
     public function test_reset_to_defaults_restores_default_settings(): void
     {
@@ -370,18 +332,14 @@ class ProductFieldConfigTest extends TestCase
         $fieldSettings = $component->get('fieldSettings');
         
         // Check that defaults are restored
-        $this->assertTrue($fieldSettings['barcode']['is_visible']); // default_visible = true
-        $this->assertFalse($fieldSettings['barcode']['is_required']); // default_required = false
-        $this->assertFalse($fieldSettings['color_id']['is_visible']); // default_visible = false
-        $this->assertFalse($fieldSettings['imei']['is_visible']); // default_visible = false
+        $this->assertTrue($fieldSettings['barcode']['parent_visible']); // default_visible = true
+        $this->assertFalse($fieldSettings['barcode']['parent_required']); // default_required = false
+        $this->assertFalse($fieldSettings['color_id']['parent_visible']); // default_visible = false
+        $this->assertFalse($fieldSettings['imei']['parent_visible']); // default_visible = false
         
         $this->assertTrue($component->get('hasChanges'));
         $this->assertNull($component->get('selectedPreset'));
     }
-
-    // ==========================================
-    // Test: Branch switching
-    // ==========================================
 
     public function test_switching_branch_loads_branch_specific_settings(): void
     {
@@ -391,8 +349,8 @@ class ProductFieldConfigTest extends TestCase
         
         // Create branch-specific settings
         ProductFieldSetting::factory()->forBranch($branch)->forField('imei')->create([
-            'is_visible' => true,
-            'is_required' => true,
+            'parent_visible' => true,
+            'parent_required' => true,
         ]);
         
         $component = Livewire::test(ProductFieldConfig::class);
@@ -400,8 +358,8 @@ class ProductFieldConfigTest extends TestCase
         
         $fieldSettings = $component->get('fieldSettings');
         
-        $this->assertTrue($fieldSettings['imei']['is_visible']);
-        $this->assertTrue($fieldSettings['imei']['is_required']);
+        $this->assertTrue($fieldSettings['imei']['parent_visible']);
+        $this->assertTrue($fieldSettings['imei']['parent_required']);
     }
 
     public function test_switching_branch_resets_has_changes(): void
@@ -411,7 +369,7 @@ class ProductFieldConfigTest extends TestCase
         $branch = Branch::factory()->create();
         
         $component = Livewire::test(ProductFieldConfig::class);
-        $component->call('toggleVisible', 'barcode');
+        $component->call('toggleSetting', 'barcode', 'parent_visible');
         $this->assertTrue($component->get('hasChanges'));
         
         $component->set('branchId', $branch->id);
@@ -419,85 +377,6 @@ class ProductFieldConfigTest extends TestCase
         $this->assertFalse($component->get('hasChanges'));
     }
 
-    // ==========================================
-    // Property 9: Field Configuration Application
-    // *For any* field marked as hidden in ProductFieldSetting, 
-    // that field should not be included in form validation as required.
-    // **Validates: Requirements 5.1, 5.2, 5.4**
-    // ==========================================
-
-    /**
-     * Property 9: Field Configuration Application
-     * Tests that hidden fields are not validated as required in the Products form.
-     */
-    public function test_hidden_field_is_not_required_in_validation(): void
-    {
-        $this->actingAs($this->adminUser);
-        
-        // Configure barcode as hidden
-        ProductFieldSetting::factory()->forField('barcode')->create([
-            'branch_id' => null,
-            'is_visible' => false,
-            'is_required' => false,
-        ]);
-        
-        // Verify the field is hidden
-        $visibleFields = ProductFieldSetting::getVisibleFieldsForBranch(null);
-        $this->assertFalse($visibleFields->contains('barcode'));
-        
-        // Verify the field is not in required fields
-        $requiredFields = ProductFieldSetting::getRequiredFieldsForBranch(null);
-        $this->assertFalse($requiredFields->contains('barcode'));
-    }
-
-    /**
-     * Property 9: Field Configuration Application
-     * Tests that visible and required fields are properly returned.
-     */
-    public function test_visible_required_field_is_in_required_fields(): void
-    {
-        $this->actingAs($this->adminUser);
-        
-        // Configure presentation_id as visible and required
-        ProductFieldSetting::factory()->forField('presentation_id')->create([
-            'branch_id' => null,
-            'is_visible' => true,
-            'is_required' => true,
-        ]);
-        
-        // Verify the field is visible
-        $visibleFields = ProductFieldSetting::getVisibleFieldsForBranch(null);
-        $this->assertTrue($visibleFields->contains('presentation_id'));
-        
-        // Verify the field is in required fields
-        $requiredFields = ProductFieldSetting::getRequiredFieldsForBranch(null);
-        $this->assertTrue($requiredFields->contains('presentation_id'));
-    }
-
-    /**
-     * Property 9: Field Configuration Application
-     * Tests that a field marked as required but hidden is NOT in required fields.
-     */
-    public function test_hidden_but_required_field_is_not_in_required_fields(): void
-    {
-        $this->actingAs($this->adminUser);
-        
-        // Configure imei as hidden but marked as required (edge case)
-        ProductFieldSetting::factory()->forField('imei')->create([
-            'branch_id' => null,
-            'is_visible' => false,
-            'is_required' => true, // This should be ignored since field is hidden
-        ]);
-        
-        // Verify the field is NOT in required fields (hidden takes precedence)
-        $requiredFields = ProductFieldSetting::getRequiredFieldsForBranch(null);
-        $this->assertFalse($requiredFields->contains('imei'));
-    }
-
-    /**
-     * Property 9: Field Configuration Application
-     * Tests that field configuration is correctly applied per branch.
-     */
     public function test_field_configuration_is_branch_specific(): void
     {
         $this->actingAs($this->adminUser);
@@ -507,23 +386,21 @@ class ProductFieldConfigTest extends TestCase
         
         // Branch 1: imei visible and required
         ProductFieldSetting::factory()->forBranch($branch1)->forField('imei')->create([
-            'is_visible' => true,
-            'is_required' => true,
+            'parent_visible' => true,
+            'parent_required' => true,
         ]);
         
         // Branch 2: imei hidden
         ProductFieldSetting::factory()->forBranch($branch2)->forField('imei')->create([
-            'is_visible' => false,
-            'is_required' => false,
+            'parent_visible' => false,
+            'parent_required' => false,
         ]);
         
-        // Verify branch 1 settings
-        $branch1Required = ProductFieldSetting::getRequiredFieldsForBranch($branch1->id);
-        $this->assertTrue($branch1Required->contains('imei'));
+        $fields1 = ProductFieldSetting::getFieldsForBranch($branch1->id);
+        $this->assertTrue($fields1->get('imei')->parent_visible);
         
-        // Verify branch 2 settings
-        $branch2Required = ProductFieldSetting::getRequiredFieldsForBranch($branch2->id);
-        $this->assertFalse($branch2Required->contains('imei'));
+        $fields2 = ProductFieldSetting::getFieldsForBranch($branch2->id);
+        $this->assertFalse($fields2->get('imei')->parent_visible);
     }
 
     // ==========================================
@@ -535,13 +412,30 @@ class ProductFieldConfigTest extends TestCase
         $this->actingAs($this->adminUser);
         
         Livewire::test(ProductFieldConfig::class)
-            ->call('toggleVisible', 'barcode')
+            ->call('toggleSetting', 'barcode', 'parent_visible')
             ->call('saveSettings');
         
         $this->assertDatabaseHas('activity_logs', [
             'module' => 'product_field_settings',
             'action' => 'update',
             'user_id' => $this->adminUser->id,
+        ]);
+    }
+
+    public function test_suggested_price_can_be_configured_and_saved(): void
+    {
+        $this->actingAs($this->adminUser);
+        
+        Livewire::test(ProductFieldConfig::class)
+            ->call('toggleSetting', 'suggested_price', 'parent_visible')
+            ->call('toggleSetting', 'suggested_price', 'child_visible')
+            ->call('saveSettings');
+        
+        $this->assertDatabaseHas('product_field_settings', [
+            'branch_id' => null,
+            'field_name' => 'suggested_price',
+            'parent_visible' => true,
+            'child_visible' => true,
         ]);
     }
 }

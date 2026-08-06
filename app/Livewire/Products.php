@@ -96,6 +96,7 @@ class Products extends Component
     public ?string $import_code = null;
     public $importDeclaration = null; // For PDF file upload
     public ?string $existingImportDeclaration = null; // To track existing uploaded PDF path
+    public ?float $suggested_price = null;
 
     // Locations: array of [location_id => '', quantity => ''] rows
     public array $productLocations = [];
@@ -114,6 +115,7 @@ class Products extends Component
     public ?float $childWeight = null;
     public float $childSalePrice = 0;
     public ?float $childSpecialPrice = null;
+    public ?float $childSuggestedPrice = null;
     public bool $childPriceIncludesTax = false;
     public ?string $childImei = null;
     public bool $childIsActive = true;
@@ -409,6 +411,7 @@ class Products extends Component
         $this->average_cost = $item->average_cost ? (float) $item->average_cost : null;
         $this->sale_price = (float) $item->sale_price;
         $this->special_price = $item->special_price ? (float) $item->special_price : null;
+        $this->suggested_price = $item->suggested_price ? (float) $item->suggested_price : null;
         $this->price_includes_tax = (bool) $item->price_includes_tax;
         $this->min_stock = $item->min_stock;
         $this->max_stock = $item->max_stock;
@@ -533,6 +536,7 @@ class Products extends Component
             'purchase_price' => $this->purchase_price,
             'sale_price' => $this->sale_price,
             'special_price' => $this->special_price ?: null,
+            'suggested_price' => $this->suggested_price ?: null,
             'price_includes_tax' => $this->price_includes_tax,
             'min_stock' => $this->min_stock,
             'max_stock' => $this->max_stock ?: null,
@@ -866,6 +870,7 @@ class Products extends Component
         $this->childWeight = $child->weight;
         $this->childSalePrice = (float) $child->sale_price;
         $this->childSpecialPrice = $child->special_price ? (float) $child->special_price : null;
+        $this->childSuggestedPrice = $child->suggested_price ? (float) $child->suggested_price : null;
         $this->childPriceIncludesTax = (bool) $child->price_includes_tax;
         $this->childImei = $child->imei;
         $this->childIsActive = (bool) $child->is_active;
@@ -929,6 +934,7 @@ class Products extends Component
             'weight' => $this->childWeight ?: null,
             'sale_price' => $this->childSalePrice,
             'special_price' => $this->childSpecialPrice ?: null,
+            'suggested_price' => $this->childSuggestedPrice ?: null,
             'price_includes_tax' => $this->childPriceIncludesTax,
             'imei' => $this->childImei ?: null,
             'is_active' => $this->childIsActive,
@@ -1191,6 +1197,13 @@ class Products extends Component
             $rules['importDeclaration'] = 'nullable|file|mimes:pdf|max:5120';
         }
 
+        // Suggested price - configurable
+        if ($this->isParentFieldVisible('suggested_price')) {
+            $rules['suggested_price'] = $this->isParentFieldRequired('suggested_price')
+                ? 'required|numeric|min:0'
+                : 'nullable|numeric|min:0';
+        }
+
         return $rules;
     }
 
@@ -1210,6 +1223,9 @@ class Products extends Component
             'purchase_price.numeric' => 'El precio de compra debe ser numérico',
             'sale_price.required' => 'El precio de venta es obligatorio',
             'sale_price.numeric' => 'El precio de venta debe ser numérico',
+            'suggested_price.required' => 'El precio sugerido es obligatorio',
+            'suggested_price.numeric' => 'El precio sugerido debe ser numérico',
+            'suggested_price.min' => 'El precio sugerido no puede ser negativo',
             'current_stock.required' => 'El stock inicial es obligatorio',
             'current_stock.integer' => 'El stock debe ser un número entero',
             'image.image' => 'El archivo debe ser una imagen',
@@ -1304,6 +1320,13 @@ class Products extends Component
                 : 'nullable|string|min:15|max:17';
         }
 
+        // Add suggested price validation
+        if ($this->isChildFieldVisible('suggested_price')) {
+            $rules['childSuggestedPrice'] = $this->isChildFieldRequired('suggested_price')
+                ? 'required|numeric|min:0'
+                : 'nullable|numeric|min:0';
+        }
+
         return $rules;
     }
 
@@ -1323,6 +1346,9 @@ class Products extends Component
             'childSalePrice.required' => 'El precio de venta es obligatorio',
             'childSalePrice.numeric' => 'El precio de venta debe ser numérico',
             'childSalePrice.min' => 'El precio de venta no puede ser negativo',
+            'childSuggestedPrice.required' => 'El precio sugerido es obligatorio',
+            'childSuggestedPrice.numeric' => 'El precio sugerido debe ser numérico',
+            'childSuggestedPrice.min' => 'El precio sugerido no puede ser negativo',
             'childPresentationId.required' => 'La presentación es obligatoria',
             'childPresentationId.exists' => 'La presentación seleccionada no existe',
             'childColorId.required' => 'El color es obligatorio',
@@ -1354,6 +1380,7 @@ class Products extends Component
         $this->childWeight = null;
         $this->childSalePrice = 0;
         $this->childSpecialPrice = null;
+        $this->childSuggestedPrice = null;
         $this->childPriceIncludesTax = false;
         $this->childImei = null;
         $this->childIsActive = true;
@@ -1448,6 +1475,7 @@ class Products extends Component
         $this->average_cost = null;
         $this->sale_price = 0;
         $this->special_price = null;
+        $this->suggested_price = null;
         $this->price_includes_tax = false;
         $this->min_stock = 0;
         $this->max_stock = null;

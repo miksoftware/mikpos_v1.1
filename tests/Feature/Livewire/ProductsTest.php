@@ -729,7 +729,7 @@ class ProductsTest extends TestCase
         
         $this->assertDatabaseHas('product_children', [
             'product_id' => $product->id,
-            'name' => 'Child Variant',
+            'name' => 'CHILD VARIANT',
             'unit_quantity' => 6,
             'sale_price' => 75,
         ]);
@@ -759,7 +759,7 @@ class ProductsTest extends TestCase
         
         $this->assertDatabaseHas('product_children', [
             'id' => $child->id,
-            'name' => 'Updated Child',
+            'name' => 'UPDATED CHILD',
         ]);
     }
 
@@ -809,6 +809,11 @@ class ProductsTest extends TestCase
     {
         $this->actingAs($this->adminUser);
         
+        ProductFieldSetting::factory()->forField('barcode')->create([
+            'branch_id' => null,
+            'child_visible' => true,
+        ]);
+        
         $product = Product::factory()->create([
             'category_id' => $this->category->id,
             'unit_id' => $this->unit->id,
@@ -821,7 +826,7 @@ class ProductsTest extends TestCase
         
         Livewire::test(Products::class)
             ->call('createChild', $product->id)
-            ->set('childName', 'New Child')
+            ->set('childName', 'New Child Barcode Test')
             ->set('childBarcode', '1234567890123')
             ->set('childUnitQuantity', 1)
             ->set('childSalePrice', 75)
@@ -858,7 +863,7 @@ class ProductsTest extends TestCase
             ->set('childSalePrice', 75)
             ->call('storeChild');
         
-        $child = ProductChild::where('name', 'Inherited Child')->first();
+        $child = ProductChild::where('name', 'INHERITED CHILD')->first();
         
         // Verify inheritance through accessors
         $this->assertEquals($this->category->id, $child->category_id);
@@ -901,7 +906,7 @@ class ProductsTest extends TestCase
         
         $this->assertDatabaseHas('product_children', [
             'product_id' => $product->id,
-            'name' => 'Full Featured Child',
+            'name' => 'FULL FEATURED CHILD',
             'presentation_id' => $presentation->id,
             'color_id' => $color->id,
             'product_model_id' => $productModel->id,
@@ -928,7 +933,7 @@ class ProductsTest extends TestCase
         
         $this->assertDatabaseHas('product_children', [
             'product_id' => $product->id,
-            'name' => 'Minimal Child',
+            'name' => 'MINIMAL CHILD',
             'presentation_id' => null,
             'color_id' => null,
             'product_model_id' => null,

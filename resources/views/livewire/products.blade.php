@@ -276,6 +276,9 @@
                                 @endif
                                 @endif
                             </div>
+                            @if($item->suggested_price > 0)
+                            <div class="text-xs font-semibold text-emerald-600">Sugerido: ${{ number_format($item->suggested_price, 0, ',', '.') }}</div>
+                            @endif
                             @if($item->brand)
                             <div class="text-xs text-slate-500">{{ $item->brand->name }}</div>
                             @endif
@@ -402,6 +405,9 @@
                                 @endif
                                 @endif
                             </div>
+                            @if($child->suggested_price > 0)
+                            <div class="text-xs font-semibold text-emerald-600">Sugerido: ${{ number_format($child->suggested_price, 0, ',', '.') }}</div>
+                            @endif
                         </td>
                         <td class="px-6 py-3 text-center">
                             <span class="text-sm text-slate-500" title="Stock del producto padre">
@@ -602,7 +608,7 @@
                         @php
                             $canManageImport = auth()->user()->hasPermission('products.manage_import');
                             $hasVisibleFields = false;
-                            foreach (['barcode', 'presentation_id', 'color_id', 'product_model_id', 'size', 'weight', 'imei', 'import_code', 'import_declaration'] as $fn) {
+                            foreach (['barcode', 'presentation_id', 'color_id', 'product_model_id', 'size', 'weight', 'imei', 'import_code', 'import_declaration', 'suggested_price'] as $fn) {
                                 $f = $fieldSettings[$fn] ?? null;
                                 $isVisible = $f && (is_object($f) ? $f->parent_visible : ($f['parent_visible'] ?? false));
                                 if (in_array($fn, ['import_code', 'import_declaration']) && $isVisible && !$canManageImport) {
@@ -765,6 +771,23 @@
                                     <input wire:model="importDeclaration" type="file" accept="application/pdf" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                                     <div wire:loading wire:target="importDeclaration" class="text-xs text-slate-400 mt-1">Cargando archivo...</div>
                                     @error('importDeclaration')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                                </div>
+                                @endif
+
+                                @php
+                                    $suggestedPriceField = $fieldSettings['suggested_price'] ?? null;
+                                    $suggestedPriceVisible = $suggestedPriceField ? (is_object($suggestedPriceField) ? $suggestedPriceField->parent_visible : ($suggestedPriceField['parent_visible'] ?? false)) : false;
+                                    $suggestedPriceRequired = $suggestedPriceField ? (is_object($suggestedPriceField) ? $suggestedPriceField->parent_required : ($suggestedPriceField['parent_required'] ?? false)) : false;
+                                @endphp
+                                @if($suggestedPriceVisible)
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Precio Sugerido @if($suggestedPriceRequired)*@endif</label>
+                                    <div class="relative">
+                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-emerald-600 font-semibold">$</span>
+                                        <input wire:model="suggested_price" type="number" step="0.01" min="0" class="w-full pl-7 pr-3 py-2 border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 bg-emerald-50/50 text-emerald-900 font-semibold" placeholder="0.00">
+                                    </div>
+                                    <p class="text-xs text-emerald-600 mt-1">Precio sugerido informativo</p>
+                                    @error('suggested_price')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
                                 </div>
                                 @endif
                             </div>
@@ -1320,6 +1343,23 @@
                                     <label class="block text-sm font-medium text-slate-700 mb-1">IMEI @if($imeiRequired)*@endif</label>
                                     <input wire:model="childImei" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="15-17 dígitos">
                                     @error('childImei')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
+                                </div>
+                                @endif
+
+                                @php
+                                    $childSuggestedPriceField = $fieldSettings['suggested_price'] ?? null;
+                                    $childSuggestedPriceVisible = $childSuggestedPriceField ? (is_object($childSuggestedPriceField) ? $childSuggestedPriceField->child_visible : ($childSuggestedPriceField['child_visible'] ?? false)) : false;
+                                    $childSuggestedPriceRequired = $childSuggestedPriceField ? (is_object($childSuggestedPriceField) ? $childSuggestedPriceField->child_required : ($childSuggestedPriceField['child_required'] ?? false)) : false;
+                                @endphp
+                                @if($childSuggestedPriceVisible)
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Precio Sugerido @if($childSuggestedPriceRequired)*@endif</label>
+                                    <div class="relative">
+                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-emerald-600 font-semibold">$</span>
+                                        <input wire:model="childSuggestedPrice" type="number" step="0.01" min="0" class="w-full pl-7 pr-3 py-2 border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 bg-emerald-50/50 text-emerald-900 font-semibold" placeholder="0.00">
+                                    </div>
+                                    <p class="text-xs text-emerald-600 mt-1">Precio sugerido informativo</p>
+                                    @error('childSuggestedPrice')<span class="text-red-500 text-sm">{{ $message }}</span>@enderror
                                 </div>
                                 @endif
                             </div>

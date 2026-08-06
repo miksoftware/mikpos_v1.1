@@ -25,6 +25,7 @@ class ProductChild extends Model
         'weight',
         'sale_price',
         'special_price',
+        'suggested_price',
         'price_includes_tax',
         'image',
         'imei',
@@ -42,6 +43,7 @@ class ProductChild extends Model
             'weight' => 'decimal:3',
             'sale_price' => 'decimal:2',
             'special_price' => 'decimal:2',
+            'suggested_price' => 'decimal:2',
             'commission_value' => 'decimal:2',
             'price_includes_tax' => 'boolean',
             'is_active' => 'boolean',
@@ -194,6 +196,25 @@ class ProductChild extends Model
         
         $taxRate = $tax->value / 100;
         return $this->sale_price * (1 + $taxRate);
+    }
+
+    /**
+     * Get the suggested price with tax.
+     */
+    public function getSuggestedPriceWithTax(): ?float
+    {
+        if (!$this->suggested_price) {
+            return null;
+        }
+
+        $tax = $this->getTax();
+
+        if ($this->price_includes_tax || !$tax) {
+            return (float) $this->suggested_price;
+        }
+
+        $taxRate = $tax->value / 100;
+        return $this->suggested_price * (1 + $taxRate);
     }
 
     /**

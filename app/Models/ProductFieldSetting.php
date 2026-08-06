@@ -99,6 +99,13 @@ class ProductFieldSetting extends Model
             'child_visible' => false,
             'child_required' => false,
         ],
+        'suggested_price' => [
+            'label' => 'Precio Sugerido',
+            'parent_visible' => false,
+            'parent_required' => false,
+            'child_visible' => false,
+            'child_required' => false,
+        ],
     ];
 
     /**

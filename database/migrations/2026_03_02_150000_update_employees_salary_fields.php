@@ -16,14 +16,15 @@ return new class extends Migration
             });
         }
 
-        // Update salary_type enum to new values if needed
-        // Check current enum values
-        $currentType = DB::selectOne("SHOW COLUMNS FROM employees WHERE Field = 'salary_type'");
-        if ($currentType && !str_contains($currentType->Type, 'minimo')) {
-            // Old enum was 'ordinario','integral' — change to 'minimo','otro','integral'
-            DB::statement("ALTER TABLE employees MODIFY COLUMN salary_type ENUM('minimo','otro','integral') NOT NULL DEFAULT 'minimo'");
-            // Convert old 'ordinario' values to 'otro'
-            DB::table('employees')->where('salary_type', 'ordinario')->update(['salary_type' => 'otro']);
+        // Update salary_type enum to new values if needed (MySQL only)
+        if (DB::getDriverName() === 'mysql') {
+            $currentType = DB::selectOne("SHOW COLUMNS FROM employees WHERE Field = 'salary_type'");
+            if ($currentType && !str_contains($currentType->Type, 'minimo')) {
+                // Old enum was 'ordinario','integral' — change to 'minimo','otro','integral'
+                DB::statement("ALTER TABLE employees MODIFY COLUMN salary_type ENUM('minimo','otro','integral') NOT NULL DEFAULT 'minimo'");
+                // Convert old 'ordinario' values to 'otro'
+                DB::table('employees')->where('salary_type', 'ordinario')->update(['salary_type' => 'otro']);
+            }
         }
     }
 

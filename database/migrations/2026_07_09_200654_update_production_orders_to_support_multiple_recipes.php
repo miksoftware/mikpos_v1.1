@@ -45,14 +45,13 @@ return new class extends Migration
         }
 
         // 4. Drop columns from production_orders
-        Schema::table('production_orders', function (Blueprint $table) {
-            // Drop foreign keys first if any (Laravel convention assumes foreign keys)
-            if (DB::getDriverName() !== 'sqlite') {
+        if (DB::getDriverName() !== 'sqlite') {
+            Schema::table('production_orders', function (Blueprint $table) {
                 $table->dropForeign(['product_id']);
                 $table->dropForeign(['recipe_id']);
-            }
-            $table->dropColumn(['product_id', 'recipe_id', 'quantity_to_produce', 'total_cost']);
-        });
+                $table->dropColumn(['product_id', 'recipe_id', 'quantity_to_produce', 'total_cost']);
+            });
+        }
     }
 
     public function down(): void

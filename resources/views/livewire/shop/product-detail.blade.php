@@ -41,16 +41,28 @@
             <div>
                 @php
                     $displayPrice = $product->getSalePriceWithTax();
+                    $suggestedPrice = $product->getSuggestedPriceWithTax();
                     if ($selectedVariantId) {
                         $selectedVariant = $product->activeChildren->find($selectedVariantId);
                         if ($selectedVariant) {
                             $displayPrice = $selectedVariant->getSalePriceWithTax();
+                            if ($selectedVariant->suggested_price > 0) {
+                                $suggestedPrice = $selectedVariant->getSuggestedPriceWithTax();
+                            }
                         }
                     }
                 @endphp
-                <p class="text-3xl font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] bg-clip-text text-transparent">
-                    ${{ number_format($displayPrice, 0, ',', '.') }}
-                </p>
+                <div class="flex flex-wrap items-baseline gap-3">
+                    <p class="text-3xl font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] bg-clip-text text-transparent">
+                        ${{ number_format($displayPrice, 0, ',', '.') }}
+                    </p>
+                    @if($suggestedPrice > 0)
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-semibold">
+                            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Precio sugerido: ${{ number_format($suggestedPrice, 0, ',', '.') }}
+                        </span>
+                    @endif
+                </div>
             </div>
 
             {{-- Stock & Unit --}}
