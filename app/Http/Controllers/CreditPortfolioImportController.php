@@ -58,7 +58,6 @@ class CreditPortfolioImportController extends Controller
         // Headers
         $headers = [
             'Documento Cliente',
-            'Nombre Cliente',
             'Número Factura',
             'Monto Total Crédito',
             'Monto Pagado',
@@ -73,14 +72,13 @@ class CreditPortfolioImportController extends Controller
             $sheet->setCellValue($col . '1', $header);
             $col++;
         }
-        $sheet->getStyle('A1:I1')->applyFromArray($headerStyle);
+        $sheet->getStyle('A1:H1')->applyFromArray($headerStyle);
         $sheet->getRowDimension(1)->setRowHeight(28);
 
         // Sample Data Rows
         $samples = [
             [
                 '1098765432',
-                'Juan Carlos Pérez',
                 'FACT-10045',
                 2500000,
                 500000,
@@ -91,7 +89,6 @@ class CreditPortfolioImportController extends Controller
             ],
             [
                 '900123456-7',
-                'Distribuidora Nacional SAS',
                 'FACT-10088',
                 8200000,
                 0,
@@ -109,15 +106,15 @@ class CreditPortfolioImportController extends Controller
                 $sheet->setCellValue($c . $rowNum, $value);
                 $c++;
             }
-            $sheet->getStyle('A' . $rowNum . ':I' . $rowNum)->applyFromArray($dataStyle);
+            $sheet->getStyle('A' . $rowNum . ':H' . $rowNum)->applyFromArray($dataStyle);
+            $sheet->getStyle('C' . $rowNum)->getNumberFormat()->setFormatCode('$#,##0');
             $sheet->getStyle('D' . $rowNum)->getNumberFormat()->setFormatCode('$#,##0');
-            $sheet->getStyle('E' . $rowNum)->getNumberFormat()->setFormatCode('$#,##0');
             $sheet->getRowDimension($rowNum)->setRowHeight(22);
             $rowNum++;
         }
 
         // Auto-size columns
-        foreach (range('A', 'I') as $columnID) {
+        foreach (range('A', 'H') as $columnID) {
             $sheet->getColumnDimension($columnID)->setAutoSize(true);
         }
 

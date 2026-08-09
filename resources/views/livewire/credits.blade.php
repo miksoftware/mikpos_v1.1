@@ -666,8 +666,8 @@
                         <!-- Import info list -->
                         <div class="bg-slate-50 rounded-xl p-4 text-xs text-slate-600 space-y-1.5 border border-slate-200">
                             <span class="font-semibold text-slate-700 block mb-1">Estructura esperada del archivo:</span>
-                            <p>• <strong class="text-slate-800">Documento Cliente</strong> (requerido): Cédula o NIT del cliente.</p>
-                            <p>• <strong class="text-slate-800">Nombre Cliente</strong> (opcional): Si el cliente no existe, se creará automáticamente.</p>
+                            <p>• <strong class="text-slate-800">Documento Cliente</strong> (requerido): Cédula o NIT del cliente registrado en el sistema.</p>
+                            <p>• <strong class="text-slate-800">Nota sobre NIT / Documento</strong>: Puedes ingresarlo con o sin guion (ej. <code class="bg-white px-1 py-0.5 rounded border">900123456-1</code> o <code class="bg-white px-1 py-0.5 rounded border">9001234561</code>). El sistema buscará y asociará al cliente coincidente.</p>
                             <p>• <strong class="text-slate-800">Monto Total Crédito</strong> (requerido): Valor total del crédito.</p>
                             <p>• <strong class="text-slate-800">Monto Pagado</strong> (opcional): Saldo ya abonado previamente (0 por defecto).</p>
                             <p>• <strong class="text-slate-800">Número Factura, Fecha y Vencimiento</strong> (opcionales).</p>

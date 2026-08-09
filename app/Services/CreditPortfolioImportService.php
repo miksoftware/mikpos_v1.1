@@ -79,7 +79,6 @@ class CreditPortfolioImportService
                 continue;
             }
 
-            $customerName = trim((string) $this->getCellValue($row, $columnMap, 'customer_name'));
             $invoiceNumber = trim((string) $this->getCellValue($row, $columnMap, 'invoice_number'));
             
             $totalRaw = $this->getCellValue($row, $columnMap, 'total');
@@ -112,48 +111,14 @@ class CreditPortfolioImportService
             try {
                 DB::beginTransaction();
 
-                // Find or auto-create customer
-                $customer = Customer::where('document_number', $customerDoc)->first();
+                // Find customer by exact or stripped document number
+                $customer = $this->findCustomer($customerDoc);
 
                 if (!$customer) {
-                    if ($customerName === '') {
-                        DB::rollBack();
-                        $errors[] = "Fila {$rowIndex}: El cliente con documento '{$customerDoc}' no existe en el sistema. Incluya su nombre en la columna 'Nombre Cliente' para crearlo automáticamente.";
-                        $rowIndex++;
-                        continue;
-                    }
-
-                    // Auto-create customer
-                    $isJuridico = preg_match('/(sas|s\.a\.s|ltda|inc|corp|s\.a|euyu)/i', $customerName);
-                    $first = $customerName;
-                    $last = '.';
-                    $biz = null;
-
-                    if ($isJuridico) {
-                        $biz = $customerName;
-                    } elseif (str_contains($customerName, ' ')) {
-                        $parts = explode(' ', $customerName, 2);
-                        $first = $parts[0];
-                        $last = $parts[1];
-                    }
-
-                    $customer = Customer::create([
-                        'branch_id' => $branchId,
-                        'customer_type' => $isJuridico ? 'juridico' : 'natural',
-                        'tax_document_id' => $defaultTaxDoc?->id ?: 1,
-                        'document_number' => $customerDoc,
-                        'first_name' => $first,
-                        'last_name' => $last,
-                        'business_name' => $biz,
-                        'department_id' => $defaultDepartment?->id ?: 1,
-                        'municipality_id' => $defaultMunicipality?->id ?: 1,
-                        'address' => 'Sin dirección',
-                        'has_credit' => true,
-                        'credit_limit' => max(5000000, $totalAmount),
-                        'is_active' => true,
-                    ]);
-
-                    ActivityLogService::logCreate('customers', $customer, "Cliente '{$customer->full_name}' creado automáticamente al importar cartera");
+                    DB::rollBack();
+                    $errors[] = "Fila {$rowIndex}: El cliente con número de documento '{$customerDoc}' no está registrado en el sistema. Debe crearlo previamente en el módulo de Clientes.";
+                    $rowIndex++;
+                    continue;
                 }
 
                 // If invoice number is empty, generate next sequential invoice number
@@ -219,6 +184,23 @@ class CreditPortfolioImportService
         ];
     }
 
+    private function findCustomer(string $docNumber): ?Customer
+    {
+        $cleanDoc = trim($docNumber);
+        if ($cleanDoc === '') return null;
+
+        // 1. Exact match
+        $customer = Customer::where('document_number', $cleanDoc)->first();
+        if ($customer) return $customer;
+
+        // 2. Stripped match (ignore hyphens, dots, spaces)
+        $strippedInput = preg_replace('/[^a-zA-Z0-9]/', '', $cleanDoc);
+        if ($strippedInput === '') return null;
+
+        return Customer::whereRaw("REPLACE(REPLACE(REPLACE(document_number, '-', ''), '.', ''), ' ', '') = ?", [$strippedInput])
+            ->first();
+    }
+
     private function mapHeaders(array $headerRow): array
     {
         $map = [];
@@ -229,8 +211,6 @@ class CreditPortfolioImportService
 
             if (in_array($normalized, ['documentocliente', 'cedula', 'nit', 'documento', 'documentnumber', 'numdoc', 'doccliente'])) {
                 $map['customer_doc'] = $colKey;
-            } elseif (in_array($normalized, ['nombrecliente', 'cliente', 'customername', 'nombre', 'razonsocial', 'nombres'])) {
-                $map['customer_name'] = $colKey;
             } elseif (in_array($normalized, ['numerofactura', 'factura', 'numfactura', 'invoicenumber', 'documentonum', 'nrofactura', 'nofactura'])) {
                 $map['invoice_number'] = $colKey;
             } elseif (in_array($normalized, ['montototalcredito', 'montototal', 'total', 'montocredito', 'saldoinicial', 'monto', 'creditamount', 'valorfactura', 'montofactura', 'valor', 'saldo', 'saldocredito', 'valorcredito'])) {
