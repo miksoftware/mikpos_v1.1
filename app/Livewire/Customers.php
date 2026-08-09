@@ -8,15 +8,17 @@ use App\Models\Department;
 use App\Models\Municipality;
 use App\Models\TaxDocument;
 use App\Services\ActivityLogService;
+use App\Services\CustomerImportService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Livewire\WithFileUploads;
 
 #[Layout('layouts.app')]
 class Customers extends Component
 {
-    use WithPagination;
+    use WithPagination, WithFileUploads;
 
     public $search = '';
     public $filterCustomerType = '';
@@ -24,6 +26,12 @@ class Customers extends Component
     public $isModalOpen = false;
     public $isDeleteModalOpen = false;
     public $itemIdToDelete = null;
+
+    // Import properties
+    public $importFile;
+    public $importBranchId;
+    public $isImportModalOpen = false;
+    public $importResults = null;
 
     // Form properties
     public $itemId;
@@ -308,6 +316,63 @@ class Customers extends Component
         $item->save();
         ActivityLogService::logUpdate('customers', $item, $oldValues, "Cliente '{$item->full_name}' " . ($item->is_active ? 'activado' : 'desactivado'));
         $this->dispatch('notify', message: $item->is_active ? 'Activado' : 'Desactivado');
+    }
+
+    public function openImportModal()
+    {
+        if (!auth()->user()->hasPermission('customers.create')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+        $this->resetValidation();
+        $this->importFile = null;
+        $this->importResults = null;
+        $this->importBranchId = $this->needsBranchSelection ? '' : auth()->user()->branch_id;
+        $this->isImportModalOpen = true;
+    }
+
+    public function closeImportModal()
+    {
+        $this->isImportModalOpen = false;
+        $this->importFile = null;
+        $this->importResults = null;
+    }
+
+    public function importCustomers(CustomerImportService $importService)
+    {
+        if (!auth()->user()->hasPermission('customers.create')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        $rules = [
+            'importFile' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
+        ];
+
+        if ($this->needsBranchSelection) {
+            $rules['importBranchId'] = 'required|exists:branches,id';
+        }
+
+        $this->validate($rules, [
+            'importFile.required' => 'Debes seleccionar un archivo Excel o CSV',
+            'importFile.mimes' => 'El archivo debe tener extensión .xlsx, .xls o .csv',
+            'importBranchId.required' => 'Debe seleccionar una sucursal para la importación',
+        ]);
+
+        $path = $this->importFile->getRealPath();
+        $targetBranchId = $this->needsBranchSelection ? (int) $this->importBranchId : auth()->user()->branch_id;
+
+        $results = $importService->import($path, $targetBranchId);
+        $this->importResults = $results;
+
+        if (($results['created'] ?? 0) > 0 || ($results['updated'] ?? 0) > 0) {
+            $msg = "Importación finalizada: {$results['created']} creados, {$results['updated']} actualizados.";
+            $this->dispatch('notify', message: $msg, type: 'success');
+        } elseif (empty($results['errors'])) {
+            $this->dispatch('notify', message: 'No se procesaron registros del archivo.', type: 'info');
+        } else {
+            $this->dispatch('notify', message: 'Ocurrieron errores al procesar el archivo.', type: 'error');
+        }
     }
 
     private function resetForm()

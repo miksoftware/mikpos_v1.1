@@ -237,6 +237,10 @@ Route::middleware(['auth'])->group(function () {
         ->name('customers')
         ->middleware('permission:customers.view');
 
+    Route::get('/customers/download-template', [App\Http\Controllers\CustomerImportController::class, 'downloadTemplate'])
+        ->name('customers.download-template')
+        ->middleware('permission:customers.create');
+
     Route::get('/suppliers', App\Livewire\Suppliers::class)
         ->name('suppliers')
         ->middleware('permission:suppliers.view');
