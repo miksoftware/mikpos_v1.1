@@ -12,15 +12,17 @@ use App\Models\Purchase;
 use App\Models\Sale;
 use App\Models\Supplier;
 use App\Services\ActivityLogService;
+use App\Services\CreditPortfolioImportService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Livewire\WithFileUploads;
 
 #[Layout('layouts.app')]
 class Credits extends Component
 {
-    use WithPagination;
+    use WithPagination, WithFileUploads;
 
     // Filters
     public string $search = '';
@@ -59,6 +61,12 @@ class Credits extends Component
     public array $bulkInvoices = [];          // each: ['id','document_number','date','total','paid','remaining','allocated','lines'=>[...]]
     public bool $bulkAffectsCash = false;
     public string $bulkNotes = '';
+
+    // Portfolio import properties
+    public $portfolioFile;
+    public $portfolioBranchId;
+    public bool $isPortfolioModalOpen = false;
+    public $portfolioResults = null;
 
     // Branch control
     public bool $needsBranchSelection = false;
@@ -951,5 +959,62 @@ class Credits extends Component
     public function updatingFilterStatus()
     {
         $this->resetPage();
+    }
+
+    public function openPortfolioModal(): void
+    {
+        if (!auth()->user()->hasPermission('credits.pay')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+        $this->resetValidation();
+        $this->portfolioFile = null;
+        $this->portfolioResults = null;
+        $this->portfolioBranchId = $this->needsBranchSelection ? '' : auth()->user()->branch_id;
+        $this->isPortfolioModalOpen = true;
+    }
+
+    public function closePortfolioModal(): void
+    {
+        $this->isPortfolioModalOpen = false;
+        $this->portfolioFile = null;
+        $this->portfolioResults = null;
+    }
+
+    public function importPortfolio(CreditPortfolioImportService $importService): void
+    {
+        if (!auth()->user()->hasPermission('credits.pay')) {
+            $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
+            return;
+        }
+
+        $rules = [
+            'portfolioFile' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
+        ];
+
+        if ($this->needsBranchSelection) {
+            $rules['portfolioBranchId'] = 'required|exists:branches,id';
+        }
+
+        $this->validate($rules, [
+            'portfolioFile.required' => 'Debes seleccionar un archivo Excel o CSV',
+            'portfolioFile.mimes' => 'El archivo debe tener extensión .xlsx, .xls o .csv',
+            'portfolioBranchId.required' => 'Debe seleccionar una sucursal para la importación',
+        ]);
+
+        $path = $this->portfolioFile->getRealPath();
+        $targetBranchId = $this->needsBranchSelection ? (int) $this->portfolioBranchId : auth()->user()->branch_id;
+
+        $results = $importService->import($path, $targetBranchId);
+        $this->portfolioResults = $results;
+
+        if (($results['created'] ?? 0) > 0 || ($results['updated'] ?? 0) > 0) {
+            $msg = "Importación de cartera finalizada: {$results['created']} facturas cargadas, {$results['updated']} actualizadas.";
+            $this->dispatch('notify', message: $msg, type: 'success');
+        } elseif (empty($results['errors'])) {
+            $this->dispatch('notify', message: 'No se procesaron facturas del archivo.', type: 'info');
+        } else {
+            $this->dispatch('notify', message: 'Ocurrieron errores al procesar la cartera.', type: 'error');
+        }
     }
 }

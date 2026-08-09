@@ -7,6 +7,11 @@
         </div>
         @if(auth()->user()->hasPermission('credits.pay'))
         <div class="flex flex-wrap items-center gap-2">
+            <button wire:click="openPortfolioModal"
+                class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl hover:from-emerald-600 hover:to-teal-700 transition-all shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                Importar Cartera (Excel/CSV)
+            </button>
             <button wire:click="openBulkPaymentModal('receivable')"
                 class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all shadow-sm">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -569,6 +574,138 @@
                     </div>
                     <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end rounded-b-2xl">
                         <button wire:click="$set('isHistoryModalOpen', false)" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Import Credit Portfolio Modal -->
+    @if($isPortfolioModalOpen)
+    <div class="relative z-[100]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="closePortfolioModal"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-xl bg-white rounded-2xl shadow-xl overflow-hidden">
+                    <!-- Modal Header -->
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900">Importar Cartera de Créditos</h3>
+                                <p class="text-xs text-slate-500">Cargar cuentas por cobrar masivamente (Excel/CSV)</p>
+                            </div>
+                        </div>
+                        <button wire:click="closePortfolioModal" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+                        <!-- Informative Alert -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3 text-xs text-blue-800">
+                            <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <div>
+                                <h4 class="font-semibold text-blue-900 mb-0.5">Información sobre la Carga de Cartera</h4>
+                                <p>Las facturas cargadas son puramente <strong class="font-bold">financieras y para cobro</strong> a clientes. <strong class="underline">No generan salidas ni movimientos en el inventario</strong> de productos.</p>
+                            </div>
+                        </div>
+
+                        <!-- Template Download banner -->
+                        <div class="bg-purple-50 border border-purple-200 rounded-xl p-4 flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-5 h-5 text-purple-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                <div>
+                                    <h4 class="text-sm font-semibold text-purple-900">Plantilla de Ejemplo</h4>
+                                    <p class="text-xs text-purple-700">Descarga el formato exacto de columnas para preparar tus datos.</p>
+                                </div>
+                            </div>
+                            <a href="{{ route('credits.download-template') }}" target="_blank" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg shadow transition-colors flex-shrink-0 inline-flex items-center gap-1.5">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                Descargar (.xlsx)
+                            </a>
+                        </div>
+
+                        <!-- Branch Selection if required -->
+                        @if($needsBranchSelection)
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Sucursal Objetivo *</label>
+                            <select wire:model="portfolioBranchId" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-sm">
+                                <option value="">Seleccionar sucursal...</option>
+                                @foreach($branches as $branch)
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('portfolioBranchId') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+                        @endif
+
+                        <!-- File Input -->
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Archivo Excel o CSV *</label>
+                            <div class="relative border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-6 text-center transition-colors bg-slate-50/50">
+                                <input type="file" wire:model="portfolioFile" accept=".xlsx,.xls,.csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                                <div class="flex flex-col items-center justify-center">
+                                    <svg class="w-10 h-10 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                    @if($portfolioFile)
+                                    <p class="text-sm font-semibold text-blue-600 break-all">{{ $portfolioFile->getClientOriginalName() }}</p>
+                                    <p class="text-xs text-slate-400 mt-1">{{ number_format($portfolioFile->getSize() / 1024, 1) }} KB</p>
+                                    @else
+                                    <p class="text-sm text-slate-600 font-medium">Haz clic o arrastra un archivo aquí</p>
+                                    <p class="text-xs text-slate-400 mt-1">Soporta formatos .xlsx, .xls y .csv (Máx. 10MB)</p>
+                                    @endif
+                                </div>
+                            </div>
+                            @error('portfolioFile') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+
+                        <!-- Import info list -->
+                        <div class="bg-slate-50 rounded-xl p-4 text-xs text-slate-600 space-y-1.5 border border-slate-200">
+                            <span class="font-semibold text-slate-700 block mb-1">Estructura esperada del archivo:</span>
+                            <p>• <strong class="text-slate-800">Documento Cliente</strong> (requerido): Cédula o NIT del cliente.</p>
+                            <p>• <strong class="text-slate-800">Nombre Cliente</strong> (opcional): Si el cliente no existe, se creará automáticamente.</p>
+                            <p>• <strong class="text-slate-800">Monto Total Crédito</strong> (requerido): Valor total del crédito.</p>
+                            <p>• <strong class="text-slate-800">Monto Pagado</strong> (opcional): Saldo ya abonado previamente (0 por defecto).</p>
+                            <p>• <strong class="text-slate-800">Número Factura, Fecha y Vencimiento</strong> (opcionales).</p>
+                        </div>
+
+                        <!-- Processing Results -->
+                        @if($portfolioResults)
+                        <div class="p-4 rounded-xl space-y-3 {{ !empty($portfolioResults['errors']) ? 'bg-amber-50 border border-amber-200' : 'bg-emerald-50 border border-emerald-200' }}">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 {{ !empty($portfolioResults['errors']) ? 'text-amber-600' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span class="font-bold text-sm text-slate-800">Resumen del procesamiento:</span>
+                            </div>
+                            <div class="flex gap-4 text-xs">
+                                <span class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-semibold text-emerald-700">Facturas Creadas: {{ $portfolioResults['created'] }}</span>
+                                <span class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-semibold text-blue-700">Actualizadas: {{ $portfolioResults['updated'] }}</span>
+                                <span class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-semibold text-red-700">Errores: {{ count($portfolioResults['errors']) }}</span>
+                            </div>
+
+                            @if(!empty($portfolioResults['errors']))
+                            <div class="mt-2 max-h-36 overflow-y-auto space-y-1 text-xs text-red-600 font-mono bg-white p-2 rounded-lg border border-red-200">
+                                @foreach($portfolioResults['errors'] as $err)
+                                <div>• {{ $err }}</div>
+                                @endforeach
+                            </div>
+                            @endif
+                        </div>
+                        @endif
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                        <button wire:click="closePortfolioModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cerrar</button>
+                        <button wire:click="importPortfolio" wire:loading.attr="disabled" class="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 shadow-md">
+                            <span wire:loading wire:target="importPortfolio" class="inline-block animate-spin -ml-1 mr-2 h-4 w-4 text-white">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            </span>
+                            Procesar Cartera
+                        </button>
                     </div>
                 </div>
             </div>

@@ -378,6 +378,10 @@ Route::middleware(['auth'])->group(function () {
         ->name('credits')
         ->middleware('permission:credits.view');
 
+    Route::get('/credits/download-template', [App\Http\Controllers\CreditPortfolioImportController::class, 'downloadTemplate'])
+        ->name('credits.download-template')
+        ->middleware('permission:credits.view|credits.pay');
+
     // Expenses
     Route::get('/expenses', App\Livewire\Expenses::class)
         ->name('expenses')
