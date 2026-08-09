@@ -255,50 +255,70 @@ class CustomerImportService
         return $row[$colKey] ?? null;
     }
 
+    private function normalizeString(string $value): string
+    {
+        $clean = strtolower(trim($value));
+        $clean = str_replace(
+            ['á', 'é', 'í', 'ó', 'ú', 'ñ', 'ä', 'ë', 'ï', 'ö', 'ü', 'à', 'è', 'ì', 'ò', 'ù'],
+            ['a', 'e', 'i', 'o', 'u', 'n', 'a', 'e', 'i', 'o', 'u', 'a', 'e', 'i', 'o', 'u'],
+            $clean
+        );
+        return preg_replace('/[^a-z0-9]/', '', $clean);
+    }
+
     private function findTaxDocument(string $value, $taxDocuments)
     {
         if ($value === '') return null;
-        $valUpper = strtoupper($value);
+        $valClean = $this->normalizeString($value);
+        $valRawUpper = strtoupper(trim($value));
 
-        return $taxDocuments->first(function ($doc) use ($valUpper) {
-            return strtoupper($doc->abbreviation) === $valUpper
-                || (string)$doc->dian_code === $valUpper
-                || strcasecmp($doc->description, $valUpper) === 0;
+        return $taxDocuments->first(function ($doc) use ($valClean, $valRawUpper) {
+            return strtoupper($doc->abbreviation) === $valRawUpper
+                || (string)$doc->dian_code === $valRawUpper
+                || $this->normalizeString($doc->abbreviation) === $valClean
+                || $this->normalizeString($doc->description) === $valClean;
         });
     }
 
     private function findDepartment(string $value, $departments)
     {
         if ($value === '') return null;
-        $valClean = strtolower(trim($value));
+        $valClean = $this->normalizeString($value);
+        $valRaw = strtolower(trim($value));
 
-        return $departments->first(function ($dept) use ($valClean) {
-            return strtolower($dept->name) === $valClean
-                || (string)$dept->dian_code === $valClean
-                || str_contains(strtolower($dept->name), $valClean);
+        return $departments->first(function ($dept) use ($valClean, $valRaw) {
+            $deptNorm = $this->normalizeString($dept->name);
+            return $deptNorm === $valClean
+                || (string)$dept->dian_code === $valRaw
+                || str_contains($deptNorm, $valClean)
+                || str_contains($valClean, $deptNorm);
         });
     }
 
     private function findMunicipality(string $value, ?Department $department)
     {
         if ($value === '' || !$department) return null;
-        $valClean = strtolower(trim($value));
+        $valClean = $this->normalizeString($value);
+        $valRaw = strtolower(trim($value));
 
-        return $department->activeMunicipalities->first(function ($muni) use ($valClean) {
-            return strtolower($muni->name) === $valClean
-                || (string)$muni->dian_code === $valClean
-                || str_contains(strtolower($muni->name), $valClean);
+        return $department->activeMunicipalities->first(function ($muni) use ($valClean, $valRaw) {
+            $muniNorm = $this->normalizeString($muni->name);
+            return $muniNorm === $valClean
+                || (string)$muni->dian_code === $valRaw
+                || str_contains($muniNorm, $valClean)
+                || str_contains($valClean, $muniNorm);
         });
     }
 
     private function findBranchId(string $value, $branches): ?int
     {
         if ($value === '') return null;
-        $valClean = strtolower(trim($value));
+        $valClean = $this->normalizeString($value);
+        $valRaw = strtolower(trim($value));
 
-        $branch = $branches->first(function ($b) use ($valClean) {
-            return strtolower($b->name) === $valClean
-                || (string)$b->id === $valClean;
+        $branch = $branches->first(function ($b) use ($valClean, $valRaw) {
+            return $this->normalizeString($b->name) === $valClean
+                || (string)$b->id === $valRaw;
         });
 
         return $branch?->id;
