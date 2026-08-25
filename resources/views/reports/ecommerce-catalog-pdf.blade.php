@@ -321,31 +321,31 @@
                     <img src="{{ $branchLogoBase64 }}" alt="Logo" class="header-logo">
                 @else
                     <div class="logo-placeholder">
-                        {{ strtoupper(substr($branch->name ?? 'POS', 0, 4)) }}
+                        {{ strtoupper(substr($branch?->name ?? 'POS', 0, 4)) }}
                     </div>
                 @endif
             </td>
 
             <!-- Company Info -->
             <td class="header-info-col">
-                <div class="company-name">{{ $branch->name ?? 'Mi Empresa' }}</div>
+                <div class="company-name">{{ $branch?->name ?? 'Mi Empresa' }}</div>
                 <div class="company-meta">
-                    @if(!empty($branch->tax_id))
+                    @if(!empty($branch?->tax_id))
                         <span><strong>NIT/RUT:</strong> {{ $branch->tax_id }}</span> · 
                     @endif
-                    @if(!empty($branch->phone))
+                    @if(!empty($branch?->phone))
                         <span><strong>Tel/WhatsApp:</strong> {{ $branch->phone }}</span>
                     @endif
                 </div>
                 <div class="company-meta">
-                    @if(!empty($branch->address))
+                    @if(!empty($branch?->address))
                         <span><strong>Dirección:</strong> {{ $branch->address }}</span>
                     @endif
-                    @if(!empty($branch->city) || !empty($branch->municipality))
-                        <span> · {{ $branch->municipality?->name ?? $branch->city }}{{ !empty($branch->department) ? ', ' . $branch->department->name : '' }}</span>
+                    @if(!empty($branch?->city) || !empty($branch?->municipality))
+                        <span> · {{ $branch?->municipality?->name ?? $branch?->city }}{{ !empty($branch?->department) ? ', ' . $branch->department->name : '' }}</span>
                     @endif
                 </div>
-                @if(!empty($branch->email))
+                @if(!empty($branch?->email))
                     <div class="company-meta">
                         <span><strong>Email:</strong> {{ $branch->email }}</span>
                     </div>
@@ -488,14 +488,18 @@
     <!-- Footer Note -->
     <div class="catalog-footer">
         <p class="footer-note">Precios y disponibilidad sujetos a cambios sin previo aviso. Para pedidos y consultas, contáctanos a través de nuestra tienda virtual o WhatsApp.</p>
-        <p>© {{ date('Y') }} {{ $branch->name ?? 'MikPOS' }} · Todos los derechos reservados · Generado automáticamente</p>
+        <p>© {{ date('Y') }} {{ $branch?->name ?? 'MikPOS' }} · Todos los derechos reservados · Generado automáticamente</p>
     </div>
 
     <!-- Script for DomPDF page numbers -->
     <script type="text/php">
         if (isset($pdf)) {
             $text = "Página {PAGE_NUM} de {PAGE_COUNT}";
-            $font = $fontMetrics->get_font("DejaVu Sans", "normal");
+            try {
+                $font = $fontMetrics->get_font("DejaVu Sans", "normal") ?: $fontMetrics->get_font("Helvetica", "normal");
+            } catch (\Throwable $e) {
+                $font = $fontMetrics->get_font("Helvetica", "normal");
+            }
             $size = 7.5;
             $color = array(0.4, 0.45, 0.5);
             $y = $pdf->get_height() - 20;

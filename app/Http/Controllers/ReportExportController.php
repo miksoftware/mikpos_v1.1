@@ -2831,142 +2831,305 @@ class ReportExportController extends Controller
      */
     public function ecommerceCatalogPdf(Request $request)
     {
-        // 1. Resolve Ecommerce Branch
-        $branchId = $request->get('branch_id') ?: Branch::getEcommerceBranchId();
-        $branch = null;
-        if ($branchId) {
-            $branch = Branch::with(['department', 'municipality'])->find($branchId);
-        }
-        if (!$branch) {
-            $branch = Branch::getEcommerceBranch();
-            if ($branch) {
-                $branch->load(['department', 'municipality']);
-            }
-        }
+        @ini_set('memory_limit', '512M');
+        @ini_set('max_execution_time', '300');
+        @set_time_limit(300);
 
-        // 2. Base64 encode branch logo if available
-        $branchLogoBase64 = null;
-        if ($branch && $branch->logo && \Illuminate\Support\Facades\Storage::disk('public')->exists($branch->logo)) {
-            $logoContent = \Illuminate\Support\Facades\Storage::disk('public')->get($branch->logo);
-            $logoMime = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($branch->logo) ?: 'image/png';
-            $branchLogoBase64 = 'data:' . $logoMime . ';base64,' . base64_encode($logoContent);
-        }
-
-        // 3. Query active products for shop
-        $query = Product::query()
-            ->where('is_active', true)
-            ->where('show_in_shop', true)
-            ->where(function ($q) {
-                $q->where('manages_inventory', false)
-                  ->orWhere('current_stock', '>', 0);
-            });
-
-        if ($branch) {
-            $query->where('branch_id', $branch->id);
-        }
-
-        // Filters if provided
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->get('category_id'));
-        }
-        if ($request->filled('brand_id')) {
-            $query->where('brand_id', $request->get('brand_id'));
-        }
-        if ($request->filled('search')) {
-            $search = $request->get('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', '%' . $search . '%')
-                  ->orWhere('sku', 'like', '%' . $search . '%')
-                  ->orWhere('description', 'like', '%' . $search . '%');
-            });
-        }
-
-        $rawProducts = $query->with([
-            'category',
-            'brand',
-            'unit',
-            'tax',
-            'activeChildren' => function ($q) {
-                $q->where('show_in_shop', true);
-            }
-        ])
-        ->orderBy('category_id')
-        ->orderBy('name')
-        ->get();
-
-        // 4. Structure products grouped by category with base64 images & calculated prices
-        $categorizedProducts = [];
-        $totalProducts = 0;
-
-        foreach ($rawProducts as $product) {
-            $catName = $product->category ? $product->category->name : 'General';
-            if (!isset($categorizedProducts[$catName])) {
-                $categorizedProducts[$catName] = [];
+        try {
+            // 0. Ensure fonts cache directory exists
+            $fontDir = storage_path('fonts');
+            if (!is_dir($fontDir)) {
+                @mkdir($fontDir, 0775, true);
             }
 
-            // Convert product image to base64
-            $imageBase64 = null;
-            if ($product->image && \Illuminate\Support\Facades\Storage::disk('public')->exists($product->image)) {
-                $imgContent = \Illuminate\Support\Facades\Storage::disk('public')->get($product->image);
-                $imgMime = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($product->image) ?: 'image/jpeg';
-                $imageBase64 = 'data:' . $imgMime . ';base64,' . base64_encode($imgContent);
+            // 1. Resolve Ecommerce Branch
+            $branchId = $request->get('branch_id') ?: Branch::getEcommerceBranchId();
+            $branch = null;
+            if ($branchId) {
+                $branch = Branch::with(['department', 'municipality'])->find($branchId);
             }
-
-            // Tax label
-            $taxRate = $product->tax ? (float) $product->tax->value : 0;
-            $taxLabel = $taxRate > 0 ? 'IVA ' . rtrim(rtrim(number_format($taxRate, 2), '0'), '.') . '%' : 'Exento';
-
-            // Variants list
-            $variants = [];
-            if ($product->activeChildren && $product->activeChildren->count() > 0) {
-                foreach ($product->activeChildren as $child) {
-                    $variants[] = [
-                        'name' => $child->full_name ?: $child->name,
-                        'price' => (float) $child->getSalePriceWithTax(),
-                        'sku' => $child->sku,
-                    ];
+            if (!$branch) {
+                $branch = Branch::getEcommerceBranch();
+                if ($branch) {
+                    $branch->load(['department', 'municipality']);
                 }
             }
 
-            $categorizedProducts[$catName][] = [
-                'id' => $product->id,
-                'name' => $product->name,
-                'sku' => $product->sku,
-                'description' => $product->description,
-                'brand_name' => $product->brand?->name,
-                'unit_name' => $product->unit?->name,
-                'price_with_tax' => (float) $product->getSalePriceWithTax(),
-                'suggested_price' => (float) $product->getSuggestedPriceWithTax(),
-                'tax_label' => $taxLabel,
-                'manages_inventory' => (bool) $product->manages_inventory,
-                'current_stock' => (float) $product->current_stock,
-                'image_base64' => $imageBase64,
-                'variants' => $variants,
+            // 2. Base64 encode branch logo if available
+            $branchLogoBase64 = null;
+            if ($branch && $branch->logo) {
+                $branchLogoBase64 = $this->safeImageToBase64($branch->logo);
+            }
+
+            // 3. Query active products for shop
+            $query = Product::query()
+                ->where('is_active', true)
+                ->where('show_in_shop', true)
+                ->where(function ($q) {
+                    $q->where('manages_inventory', false)
+                      ->orWhere('current_stock', '>', 0);
+                });
+
+            if ($branch) {
+                $query->where('branch_id', $branch->id);
+            }
+
+            // Filters if provided
+            if ($request->filled('category_id')) {
+                $query->where('category_id', $request->get('category_id'));
+            }
+            if ($request->filled('brand_id')) {
+                $query->where('brand_id', $request->get('brand_id'));
+            }
+            if ($request->filled('search')) {
+                $search = $request->get('search');
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', '%' . $search . '%')
+                      ->orWhere('sku', 'like', '%' . $search . '%')
+                      ->orWhere('description', 'like', '%' . $search . '%');
+                });
+            }
+
+            $rawProducts = $query->with([
+                'category',
+                'brand',
+                'unit',
+                'tax',
+                'activeChildren' => function ($q) {
+                    $q->where('show_in_shop', true);
+                },
+                'activeChildren.tax'
+            ])
+            ->orderBy('category_id')
+            ->orderBy('name')
+            ->get();
+
+            // 4. Structure products grouped by category with safe base64 images & calculated prices
+            $categorizedProducts = [];
+            $totalProducts = 0;
+
+            foreach ($rawProducts as $product) {
+                $catName = $product->category ? $product->category->name : 'General';
+                if (!isset($categorizedProducts[$catName])) {
+                    $categorizedProducts[$catName] = [];
+                }
+
+                // Convert product image to base64 safely
+                $imageBase64 = null;
+                if (!empty($product->image)) {
+                    $imageBase64 = $this->safeImageToBase64($product->image);
+                }
+
+                // Tax label
+                $taxRate = $product->tax ? (float) $product->tax->value : 0;
+                $taxLabel = $taxRate > 0 ? 'IVA ' . rtrim(rtrim(number_format($taxRate, 2), '0'), '.') . '%' : 'Exento';
+
+                // Variants list
+                $variants = [];
+                if ($product->activeChildren && $product->activeChildren->count() > 0) {
+                    foreach ($product->activeChildren as $child) {
+                        try {
+                            $variants[] = [
+                                'name' => $child->full_name ?: $child->name,
+                                'price' => (float) $child->getSalePriceWithTax(),
+                                'sku' => $child->sku,
+                            ];
+                        } catch (\Throwable $e) {
+                            // ignore individual variant calculation errors
+                        }
+                    }
+                }
+
+                try {
+                    $priceWithTax = (float) $product->getSalePriceWithTax();
+                } catch (\Throwable $e) {
+                    $priceWithTax = (float) ($product->sale_price ?? 0);
+                }
+
+                try {
+                    $suggestedPrice = (float) $product->getSuggestedPriceWithTax();
+                } catch (\Throwable $e) {
+                    $suggestedPrice = (float) ($product->suggested_price ?? 0);
+                }
+
+                $categorizedProducts[$catName][] = [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'sku' => $product->sku,
+                    'description' => $product->description,
+                    'brand_name' => $product->brand?->name,
+                    'unit_name' => $product->unit?->name,
+                    'price_with_tax' => $priceWithTax,
+                    'suggested_price' => $suggestedPrice,
+                    'tax_label' => $taxLabel,
+                    'manages_inventory' => (bool) $product->manages_inventory,
+                    'current_stock' => (float) $product->current_stock,
+                    'image_base64' => $imageBase64,
+                    'variants' => $variants,
+                ];
+
+                $totalProducts++;
+            }
+
+            $data = [
+                'branch' => $branch,
+                'branchLogoBase64' => $branchLogoBase64,
+                'categorizedProducts' => $categorizedProducts,
+                'totalProducts' => $totalProducts,
+                'totalCategories' => count($categorizedProducts),
+                'currencySymbol' => '$',
+                'showStockInShop' => $branch ? (bool) $branch->show_stock_in_shop : false,
+                'generatedDate' => now()->translatedFormat('d \d\e F \d\e Y, h:i A'),
             ];
 
-            $totalProducts++;
+            $pdf = Pdf::loadView('reports.ecommerce-catalog-pdf', $data);
+            $pdf->setPaper('letter', 'portrait');
+            $pdf->setOptions([
+                'isHtml5ParserEnabled' => true,
+                'isRemoteEnabled' => true,
+                'isPhpEnabled' => true,
+                'chroot' => [public_path(), storage_path('app/public'), storage_path('app'), base_path()],
+                'tempDir' => storage_path('framework/cache'),
+                'fontDir' => storage_path('fonts'),
+                'fontCache' => storage_path('fonts'),
+            ]);
+
+            $branchSlug = \Illuminate\Support\Str::slug($branch?->name ?? 'tienda');
+            $filename = 'catalogo-productos-' . $branchSlug . '-' . now()->format('Y-m-d') . '.pdf';
+
+            return $pdf->download($filename);
+
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Error generando catálogo PDF: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            $isAjax = $request->expectsJson() 
+                || $request->ajax() 
+                || $request->header('X-Requested-With') === 'XMLHttpRequest'
+                || $request->get('format') === 'json';
+
+            $diagnostics = [
+                'php_version' => PHP_VERSION,
+                'memory_limit' => ini_get('memory_limit'),
+                'max_execution_time' => ini_get('max_execution_time'),
+                'storage_fonts_writable' => is_writable(storage_path('fonts')),
+                'storage_public_exists' => is_dir(storage_path('app/public')),
+            ];
+
+            if ($isAjax) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error al generar el catálogo PDF: ' . $e->getMessage(),
+                    'error' => [
+                        'class' => get_class($e),
+                        'message' => $e->getMessage(),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
+                        'trace' => $e->getTraceAsString(),
+                    ],
+                    'diagnostics' => $diagnostics,
+                ], 500);
+            }
+
+            // If normal browser navigation and user is authenticated
+            if (auth()->check()) {
+                return response()->view('errors.catalog-pdf-error', [
+                    'exception' => $e,
+                    'diagnostics' => $diagnostics,
+                    'branch' => $branch ?? null,
+                ], 500);
+            }
+
+            // Fallback for unauthenticated
+            return response()->view('errors.catalog-pdf-error', [
+                'exception' => $e,
+                'diagnostics' => $diagnostics,
+                'branch' => $branch ?? null,
+            ], 500);
+        }
+    }
+
+    /**
+     * Safely convert an image path or URL to base64 data URI.
+     */
+    protected function safeImageToBase64(?string $imagePath): ?string
+    {
+        if (empty($imagePath)) {
+            return null;
         }
 
-        $data = [
-            'branch' => $branch,
-            'branchLogoBase64' => $branchLogoBase64,
-            'categorizedProducts' => $categorizedProducts,
-            'totalProducts' => $totalProducts,
-            'totalCategories' => count($categorizedProducts),
-            'currencySymbol' => '$',
-            'showStockInShop' => $branch ? (bool) $branch->show_stock_in_shop : false,
-            'generatedDate' => now()->translatedFormat('d \d\e F \d\e Y, h:i A'),
-        ];
+        try {
+            // Check if already data URI
+            if (str_starts_with($imagePath, 'data:image')) {
+                return $imagePath;
+            }
 
-        $pdf = Pdf::loadView('reports.ecommerce-catalog-pdf', $data);
-        $pdf->setPaper('letter', 'portrait');
-        $pdf->getDomPDF()->set_option('isPhpEnabled', true);
-        $pdf->getDomPDF()->set_option('isRemoteEnabled', true);
+            // If external URL
+            if (filter_var($imagePath, FILTER_VALIDATE_URL)) {
+                $ctx = stream_context_create(['http' => ['timeout' => 3]]);
+                $content = @file_get_contents($imagePath, false, $ctx);
+                if ($content && strlen($content) > 0 && strlen($content) <= 5 * 1024 * 1024) {
+                    $mime = 'image/jpeg';
+                    return 'data:' . $mime . ';base64,' . base64_encode($content);
+                }
+                return null;
+            }
 
-        $branchSlug = \Illuminate\Support\Str::slug($branch?->name ?? 'tienda');
-        $filename = 'catalogo-productos-' . $branchSlug . '-' . now()->format('Y-m-d') . '.pdf';
+            // Normalize path (remove leading slashes, storage/ prefix if present)
+            $cleanPath = ltrim($imagePath, '/\\');
+            if (str_starts_with($cleanPath, 'storage/')) {
+                $cleanPath = substr($cleanPath, 8);
+            }
+            if (str_starts_with($cleanPath, 'public/')) {
+                $cleanPath = substr($cleanPath, 7);
+            }
 
-        return $pdf->download($filename);
+            $storageDisk = \Illuminate\Support\Facades\Storage::disk('public');
+            
+            // Check in Storage public disk
+            if ($storageDisk->exists($cleanPath)) {
+                $fullPath = $storageDisk->path($cleanPath);
+                if (file_exists($fullPath) && is_readable($fullPath)) {
+                    $size = @filesize($fullPath);
+                    if ($size && $size > 5 * 1024 * 1024) {
+                        // Skip excessively large images to save memory in DomPDF
+                        return null;
+                    }
+                    $content = @file_get_contents($fullPath);
+                    if ($content) {
+                        $mime = @mime_content_type($fullPath) ?: 'image/jpeg';
+                        return 'data:' . $mime . ';base64,' . base64_encode($content);
+                    }
+                }
+            }
+
+            // Check in public_path directly
+            $publicFile = public_path($imagePath);
+            if (file_exists($publicFile) && is_readable($publicFile)) {
+                $content = @file_get_contents($publicFile);
+                if ($content) {
+                    $mime = @mime_content_type($publicFile) ?: 'image/jpeg';
+                    return 'data:' . $mime . ';base64,' . base64_encode($content);
+                }
+            }
+
+            // Check in public/storage
+            $publicStorageFile = public_path('storage/' . $cleanPath);
+            if (file_exists($publicStorageFile) && is_readable($publicStorageFile)) {
+                $content = @file_get_contents($publicStorageFile);
+                if ($content) {
+                    $mime = @mime_content_type($publicStorageFile) ?: 'image/jpeg';
+                    return 'data:' . $mime . ';base64,' . base64_encode($content);
+                }
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Error converting image to base64 ({$imagePath}): " . $e->getMessage());
+        }
+
+        return null;
     }
 }
 

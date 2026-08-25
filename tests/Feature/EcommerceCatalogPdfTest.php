@@ -112,4 +112,20 @@ class EcommerceCatalogPdfTest extends TestCase
 
         $response->assertStatus(200);
     }
+
+    public function test_admin_can_request_catalog_pdf_via_ajax(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $response = $this->withHeaders([
+            'X-Requested-With' => 'XMLHttpRequest',
+            'Accept' => 'application/json, application/pdf',
+        ])->get(route('ecommerce-orders.catalog-pdf'));
+
+        $response->assertStatus(200);
+        $this->assertTrue(
+            str_contains($response->headers->get('content-type'), 'application/pdf') ||
+            str_contains($response->headers->get('content-disposition'), 'catalogo-productos')
+        );
+    }
 }

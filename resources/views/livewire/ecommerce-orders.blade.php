@@ -1,4 +1,4 @@
-<div>
+<div x-data="catalogPdfDownloader()">
     {{-- Header --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
@@ -6,13 +6,23 @@
             <p class="text-sm text-slate-500 mt-1">Gestiona los pedidos realizados desde la tienda en línea.</p>
         </div>
         <div class="flex items-center gap-3">
-            <a href="{{ route('ecommerce-orders.catalog-pdf') }}"
-                class="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow-md transition-all duration-200 group">
-                <svg class="w-4 h-4 transition-transform group-hover:-translate-y-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                <span>Descargar Catálogo</span>
-            </a>
+            <button type="button"
+                @click="downloadPdf('{{ route('ecommerce-orders.catalog-pdf') }}')"
+                :disabled="isDownloading"
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow-md transition-all duration-200 group">
+                <template x-if="!isDownloading">
+                    <svg class="w-4 h-4 transition-transform group-hover:-translate-y-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                </template>
+                <template x-if="isDownloading">
+                    <svg class="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </template>
+                <span x-text="isDownloading ? 'Generando PDF...' : 'Descargar Catálogo'"></span>
+            </button>
         </div>
     </div>
 
@@ -860,4 +870,243 @@
         </div>
     </div>
     @endif
+
+    {{-- Modal de Error para Administradores al Descargar Catálogo PDF --}}
+    <div x-show="showErrorModal"
+        x-cloak
+        class="fixed inset-0 z-50 overflow-y-auto"
+        role="dialog" aria-modal="true">
+        
+        <!-- Backdrop -->
+        <div x-show="showErrorModal"
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm"
+            @click="showErrorModal = false"></div>
+
+        <div class="min-h-screen px-4 text-center flex items-center justify-center py-6 sm:py-10">
+            <div x-show="showErrorModal"
+                x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                x-transition:leave="transition ease-in duration-200"
+                x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                class="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden text-left p-6 sm:p-7 z-10">
+
+                <!-- Header -->
+                <div class="flex items-start justify-between gap-4 pb-4 border-b border-slate-800">
+                    <div class="flex items-start gap-3.5">
+                        <div class="w-11 h-11 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 flex-shrink-0 mt-0.5">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">Error en Servidor</span>
+                                <span class="text-xs text-slate-400 font-medium">Diagnóstico de Administrador</span>
+                            </div>
+                            <h3 class="text-lg font-bold text-white mt-1">Error al Generar Catálogo PDF</h3>
+                            <p class="text-xs text-slate-400 mt-0.5">Ocurrió un problema en el servidor durante la generación del documento.</p>
+                        </div>
+                    </div>
+                    <button type="button" @click="showErrorModal = false" class="p-1.5 text-slate-400 hover:text-slate-200 rounded-xl hover:bg-slate-800 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <!-- Body -->
+                <div class="space-y-4 my-5">
+                    <!-- Error Message Box -->
+                    <div class="bg-rose-950/40 border border-rose-900/60 rounded-2xl p-4">
+                        <div class="text-[11px] font-semibold text-rose-400 uppercase tracking-wider mb-1">Mensaje del Error</div>
+                        <div class="text-xs sm:text-sm font-mono text-rose-200 break-words" x-text="errorMessage"></div>
+                        <template x-if="errorDetails && errorDetails.file">
+                            <div class="text-[11px] text-rose-300/70 mt-2 font-mono break-all">
+                                <span x-text="errorDetails.class || 'Exception'"></span> en <span class="text-slate-300" x-text="(errorDetails.file || '') + ':' + (errorDetails.line || '')"></span>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Diagnostics Grid -->
+                    <template x-if="diagnostics">
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                            <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-2.5">
+                                <div class="text-[10px] text-slate-400 uppercase font-medium">PHP</div>
+                                <div class="text-xs font-bold text-slate-200 mt-0.5 font-mono" x-text="diagnostics.php_version"></div>
+                            </div>
+                            <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-2.5">
+                                <div class="text-[10px] text-slate-400 uppercase font-medium">Límite Memoria</div>
+                                <div class="text-xs font-bold text-slate-200 mt-0.5 font-mono" x-text="diagnostics.memory_limit"></div>
+                            </div>
+                            <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-2.5">
+                                <div class="text-[10px] text-slate-400 uppercase font-medium">Tiempo Máx</div>
+                                <div class="text-xs font-bold text-slate-200 mt-0.5 font-mono" x-text="diagnostics.max_execution_time + 's'"></div>
+                            </div>
+                            <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-2.5">
+                                <div class="text-[10px] text-slate-400 uppercase font-medium">Permiso Fuentes</div>
+                                <div class="text-xs font-bold mt-0.5" :class="diagnostics.storage_fonts_writable ? 'text-emerald-400' : 'text-amber-400'" x-text="diagnostics.storage_fonts_writable ? '✓ Escribible' : '⚠ Revisar'"></div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Stack Trace Collapsible -->
+                    <template x-if="errorDetails && errorDetails.trace">
+                        <div class="bg-slate-950/70 border border-slate-800 rounded-2xl overflow-hidden">
+                            <button type="button" @click="showStackTrace = !showStackTrace"
+                                class="w-full flex items-center justify-between p-3 text-left text-xs font-semibold text-slate-300 hover:text-white transition-colors">
+                                <span>Ver Traza Completa (Stack Trace)</span>
+                                <svg class="w-4 h-4 transition-transform text-slate-400" :class="showStackTrace ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                </svg>
+                            </button>
+                            <div x-show="showStackTrace" x-cloak class="p-3 pt-0 border-t border-slate-800/60">
+                                <pre class="text-[10px] font-mono text-slate-400 bg-slate-900/90 p-3 rounded-xl overflow-x-auto max-h-48 border border-slate-800 whitespace-pre-wrap leading-relaxed" x-text="errorDetails.trace"></pre>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Recommendations box -->
+                    <div class="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-3.5 flex items-start gap-2.5 text-xs text-slate-300">
+                        <svg class="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <div class="space-y-1 text-[11px] text-slate-400">
+                            <p><strong class="text-slate-300">Sugerencias habituales:</strong></p>
+                            <p>• Si el error menciona memoria agotada, incrementa <code class="text-slate-200">memory_limit</code> en PHP o filtra por categorías.</p>
+                            <p>• Copia los detalles con el botón de abajo para revisarlos o compartirlos.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Actions -->
+                <div class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-800">
+                    <div class="flex items-center gap-2">
+                        <button type="button" @click="showErrorModal = false"
+                            class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-all">
+                            Cerrar
+                        </button>
+                        <button type="button" @click="downloadPdf('{{ route('ecommerce-orders.catalog-pdf') }}')"
+                            class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-all inline-flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            <span>Reintentar</span>
+                        </button>
+                    </div>
+
+                    <button type="button" @click="copyError()"
+                        class="px-4 py-2 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] text-white text-xs font-semibold rounded-xl transition-all shadow-sm inline-flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+                        </svg>
+                        <span x-text="copied ? '¡Copiado!' : 'Copiar Diagnóstico'"></span>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function catalogPdfDownloader() {
+            return {
+                isDownloading: false,
+                showErrorModal: false,
+                errorMessage: '',
+                errorDetails: null,
+                diagnostics: null,
+                copied: false,
+                showStackTrace: false,
+
+                async downloadPdf(url) {
+                    this.isDownloading = true;
+                    try {
+                        const response = await fetch(url, {
+                            method: 'GET',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'application/json, application/pdf'
+                            }
+                        });
+
+                        const contentType = response.headers.get('content-type') || '';
+
+                        if (response.ok && contentType.includes('application/pdf')) {
+                            const blob = await response.blob();
+                            const downloadUrl = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = downloadUrl;
+                            
+                            const disposition = response.headers.get('content-disposition');
+                            let filename = 'catalogo-productos.pdf';
+                            if (disposition && disposition.includes('filename=')) {
+                                const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                                if (matches && matches[1]) {
+                                    filename = matches[1].replace(/['"]/g, '');
+                                }
+                            }
+                            a.download = filename;
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
+                            window.URL.revokeObjectURL(downloadUrl);
+                            this.isDownloading = false;
+                            return;
+                        }
+
+                        let data = null;
+                        if (contentType.includes('application/json')) {
+                            data = await response.json();
+                        } else {
+                            const text = await response.text();
+                            data = {
+                                message: 'El servidor respondió con código ' + response.status + ' (' + response.statusText + ')',
+                                error: {
+                                    message: 'Respuesta no válida del servidor. Código HTTP ' + response.status,
+                                    file: 'Servidor Web (Nginx / PHP-FPM)',
+                                    line: response.status,
+                                    class: 'HttpException'
+                                }
+                            };
+                        }
+
+                        this.errorMessage = data?.message || data?.error?.message || 'Ocurrió un error inesperado al generar el PDF.';
+                        this.errorDetails = data?.error || null;
+                        this.diagnostics = data?.diagnostics || null;
+                        this.showErrorModal = true;
+
+                    } catch (err) {
+                        console.error('Error al descargar catálogo:', err);
+                        this.errorMessage = 'Error de red o conexión: ' + err.message;
+                        this.errorDetails = {
+                            message: err.message,
+                            class: 'Network/ClientError',
+                            file: 'Navegador Web',
+                            line: 0
+                        };
+                        this.diagnostics = null;
+                        this.showErrorModal = true;
+                    } finally {
+                        this.isDownloading = false;
+                    }
+                },
+
+                copyError() {
+                    const text = "=== ERROR GENERANDO CATÁLOGO PDF ===\n" +
+                        "Mensaje: " + (this.errorDetails?.message || this.errorMessage) + "\n" +
+                        "Clase: " + (this.errorDetails?.class || 'N/A') + "\n" +
+                        "Archivo: " + (this.errorDetails?.file ? (this.errorDetails.file + ':' + this.errorDetails.line) : 'N/A') + "\n\n" +
+                        (this.diagnostics ? "=== DIAGNÓSTICO ===\n" + JSON.stringify(this.diagnostics, null, 2) + "\n\n" : "") +
+                        (this.errorDetails?.trace ? "=== STACK TRACE ===\n" + this.errorDetails.trace : "");
+
+                    navigator.clipboard.writeText(text).then(() => {
+                        this.copied = true;
+                        setTimeout(() => { this.copied = false; }, 2500);
+                    });
+                }
+            };
+        }
+    </script>
 </div>
