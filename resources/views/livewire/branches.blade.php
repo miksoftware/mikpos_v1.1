@@ -300,6 +300,10 @@
                                 <input wire:model="print_qr" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
                                 <span class="text-sm text-slate-700">Imprimir QR</span>
                             </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input wire:model="enable_costo_fe" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                                <span class="text-sm text-slate-700">Costo FE / Costo RE en Compras</span>
+                            </label>
                             @if(str_contains(auth()->user()->email ?? '', 'softwaremik'))
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input wire:model="ecommerce_enabled" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#a855f7] focus:ring-[#a855f7]">

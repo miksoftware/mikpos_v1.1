@@ -34,6 +34,7 @@ class Branch extends Model
         'show_stock_in_shop',
         'quotes_reserve_inventory',
         'print_qr',
+        'enable_costo_fe',
         'is_active',
     ];
 
@@ -46,6 +47,7 @@ class Branch extends Model
             'show_stock_in_shop' => 'boolean',
             'quotes_reserve_inventory' => 'boolean',
             'print_qr' => 'boolean',
+            'enable_costo_fe' => 'boolean',
             'is_active' => 'boolean',
         ];
     }

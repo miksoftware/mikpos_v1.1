@@ -137,6 +137,25 @@
                             </button>
                         </div>
 
+                        @if($hasCostoFe)
+                        {{-- Costo FE --}}
+                        <div class="w-24">
+                            <label class="text-xs font-semibold text-purple-600 block mb-1" title="Costo Factura (cálculo de factura de compra)">Costo FE</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-purple-400 text-sm">$</span>
+                                <input type="number" wire:change="updateUnitCostFe({{ $index }}, $event.target.value)" value="{{ $item['unit_cost_fe'] ?? $item['unit_cost'] }}" step="0.01" min="0" class="w-full pl-6 pr-1 py-1.5 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 text-right text-sm bg-purple-50/50 font-medium">
+                            </div>
+                        </div>
+
+                        {{-- Costo RE --}}
+                        <div class="w-24">
+                            <label class="text-xs font-semibold text-slate-600 block mb-1" title="Costo Real (costo del producto y costo promedio)">Costo RE</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-slate-400 text-sm">$</span>
+                                <input type="number" wire:change="updateUnitCost({{ $index }}, $event.target.value)" value="{{ $item['unit_cost'] }}" step="0.01" min="0" class="w-full pl-6 pr-1 py-1.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-right text-sm">
+                            </div>
+                        </div>
+                        @else
                         {{-- Unit Cost --}}
                         <div class="w-24">
                             <label class="text-xs text-slate-500 block mb-1">Costo</label>
@@ -145,6 +164,7 @@
                                 <input type="number" wire:change="updateUnitCost({{ $index }}, $event.target.value)" value="{{ $item['unit_cost'] }}" step="0.01" min="0" class="w-full pl-6 pr-1 py-1.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-right text-sm">
                             </div>
                         </div>
+                        @endif
 
                         {{-- Sale Price --}}
                         <div class="w-24">

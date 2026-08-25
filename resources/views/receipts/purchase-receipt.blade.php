@@ -467,7 +467,7 @@
                             <div class="product-sku">{{ $item->product->sku ?? '' }}</div>
                         </td>
                         <td class="text-center">{{ number_format($item->quantity, 0) }} {{ $item->product->unit->abbreviation ?? '' }}</td>
-                        <td class="text-right">${{ number_format($item->unit_cost, 2) }}</td>
+                        <td class="text-right">${{ number_format($item->unit_cost_fe ?? $item->unit_cost, 2) }}</td>
                         <td class="text-right">${{ number_format($item->subtotal, 2) }}</td>
                     </tr>
                     @endforeach

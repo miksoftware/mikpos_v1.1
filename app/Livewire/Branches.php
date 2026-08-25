@@ -78,6 +78,7 @@ class Branches extends Component
     public $show_stock_in_shop = false;
     public $quotes_reserve_inventory = false;
     public $print_qr = false;
+    public $enable_costo_fe = false;
     public $is_active = true;
 
     // Logo upload
@@ -187,6 +188,7 @@ class Branches extends Component
         $this->show_stock_in_shop = $branch->show_stock_in_shop;
         $this->quotes_reserve_inventory = $branch->quotes_reserve_inventory;
         $this->print_qr = $branch->print_qr ?? false;
+        $this->enable_costo_fe = $branch->enable_costo_fe ?? false;
         $this->is_active = $branch->is_active;
         $this->existingLogo = $branch->logo;
         $this->logo = null;
@@ -251,6 +253,7 @@ class Branches extends Component
             'show_stock_in_shop' => $this->show_stock_in_shop,
             'quotes_reserve_inventory' => $this->quotes_reserve_inventory,
             'print_qr' => $this->print_qr,
+            'enable_costo_fe' => $this->enable_costo_fe,
             'is_active' => $this->is_active,
         ];
 
@@ -829,6 +832,7 @@ class Branches extends Component
         $this->show_stock_in_shop = false;
         $this->quotes_reserve_inventory = false;
         $this->print_qr = false;
+        $this->enable_costo_fe = false;
         $this->is_active = true;
     }
 }

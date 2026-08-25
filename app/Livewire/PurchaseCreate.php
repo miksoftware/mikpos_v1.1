@@ -64,6 +64,7 @@ class PurchaseCreate extends Component
 
     // Branch control
     public bool $needsBranchSelection = false;
+    public bool $hasCostoFe = false;
 
     // Totals
     public float $subtotal = 0;
@@ -144,10 +145,23 @@ class PurchaseCreate extends Component
             $this->locations = \App\Models\Location::where('branch_id', $this->branch_id)->where('is_active', true)->orderBy('name')->get();
         }
 
+        $this->checkBranchCostoFe();
+
         if ($id) {
             $this->loadPurchase($id);
         } else {
             $this->purchasePayments = [['method_id' => '', 'amount' => '']];
+        }
+    }
+
+    public function checkBranchCostoFe(): void
+    {
+        $branchId = $this->needsBranchSelection ? $this->branch_id : auth()->user()->branch_id;
+        if ($branchId) {
+            $branch = Branch::find($branchId);
+            $this->hasCostoFe = (bool) ($branch?->enable_costo_fe ?? false);
+        } else {
+            $this->hasCostoFe = false;
         }
     }
 
@@ -209,6 +223,8 @@ class PurchaseCreate extends Component
                 : [['method_id' => '', 'amount' => '']];
         }
 
+        $this->checkBranchCostoFe();
+
         // Load items
         foreach ($this->purchase->items as $item) {
             $this->cartItems[] = [
@@ -220,6 +236,7 @@ class PurchaseCreate extends Component
                 'unit' => $item->product?->unit?->abbreviation ?? 'und',
                 'quantity' => $item->quantity,
                 'unit_cost' => (float) $item->unit_cost,
+                'unit_cost_fe' => (float) ($item->unit_cost_fe !== null ? $item->unit_cost_fe : $item->unit_cost),
                 'sale_price' => (float) ($item->product?->sale_price ?? 0),
                 'tax_rate' => (float) $item->tax_rate,
                 'tax_amount' => (float) $item->tax_amount,
@@ -312,6 +329,7 @@ class PurchaseCreate extends Component
             'unit' => $product->unit?->abbreviation ?? 'und',
             'quantity' => 1,
             'unit_cost' => (float) $product->purchase_price,
+            'unit_cost_fe' => (float) $product->purchase_price,
             'sale_price' => (float) $product->sale_price,
             'tax_rate' => (float) ($product->tax?->value ?? 0),
             'tax_amount' => 0,
@@ -375,12 +393,27 @@ class PurchaseCreate extends Component
         $this->calculateTotals();
     }
 
-    public function updateUnitCost(int $index, float $cost)
+    public function updateUnitCost(int $index, $cost)
     {
+        $cost = (float) $cost;
         if ($cost < 0) {
             $cost = 0;
         }
         $this->cartItems[$index]['unit_cost'] = $cost;
+        if (!$this->hasCostoFe) {
+            $this->cartItems[$index]['unit_cost_fe'] = $cost;
+            $this->calculateItemTotal($index);
+            $this->calculateTotals();
+        }
+    }
+
+    public function updateUnitCostFe(int $index, $cost)
+    {
+        $cost = (float) $cost;
+        if ($cost < 0) {
+            $cost = 0;
+        }
+        $this->cartItems[$index]['unit_cost_fe'] = $cost;
         $this->calculateItemTotal($index);
         $this->calculateTotals();
     }
@@ -401,7 +434,8 @@ class PurchaseCreate extends Component
         $item['discount_type_value'] = $discount;
 
         // Calculate actual discount amount
-        $subtotal = $item['quantity'] * $item['unit_cost'];
+        $costForTotal = ($this->hasCostoFe && isset($item['unit_cost_fe'])) ? (float) $item['unit_cost_fe'] : (float) $item['unit_cost'];
+        $subtotal = $item['quantity'] * $costForTotal;
         if ($type === 'percentage') {
             $item['discount'] = round($subtotal * ($discount / 100), 2);
         } else {
@@ -462,7 +496,8 @@ class PurchaseCreate extends Component
     private function calculateItemTotal(int $index): void
     {
         $item = &$this->cartItems[$index];
-        $item['subtotal'] = $item['quantity'] * $item['unit_cost'];
+        $costForTotal = ($this->hasCostoFe && isset($item['unit_cost_fe'])) ? (float) $item['unit_cost_fe'] : (float) $item['unit_cost'];
+        $item['subtotal'] = $item['quantity'] * $costForTotal;
 
         // Recalculate discount based on type
         $discountTypeValue = (float) ($item['discount_type_value'] ?? 0);
@@ -515,6 +550,11 @@ class PurchaseCreate extends Component
         // Clear search results when branch changes
         $this->productSearch = '';
         $this->searchResults = [];
+        $this->checkBranchCostoFe();
+        foreach ($this->cartItems as $index => $item) {
+            $this->calculateItemTotal($index);
+        }
+        $this->calculateTotals();
     }
 
     public function updatedPaymentType()
@@ -1014,6 +1054,7 @@ class PurchaseCreate extends Component
                 'product_id' => $item['product_id'],
                 'quantity' => $item['quantity'],
                 'unit_cost' => $item['unit_cost'],
+                'unit_cost_fe' => $this->hasCostoFe ? ($item['unit_cost_fe'] ?? $item['unit_cost']) : null,
                 'tax_rate' => $item['tax_rate'],
                 'tax_amount' => $item['tax_amount'],
                 'discount' => $item['discount'],
@@ -1101,6 +1142,7 @@ class PurchaseCreate extends Component
                 'product_id' => $item['product_id'],
                 'quantity' => $item['quantity'],
                 'unit_cost' => $item['unit_cost'],
+                'unit_cost_fe' => $this->hasCostoFe ? ($item['unit_cost_fe'] ?? $item['unit_cost']) : null,
                 'tax_rate' => $item['tax_rate'],
                 'tax_amount' => $item['tax_amount'],
                 'discount' => $item['discount'],

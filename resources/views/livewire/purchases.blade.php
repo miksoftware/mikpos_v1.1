@@ -305,13 +305,21 @@
 
                         {{-- Items --}}
                         <h4 class="font-semibold text-slate-800 mb-3">Productos</h4>
+                        @php
+                            $hasFeInPurchase = $viewingPurchase->branch?->enable_costo_fe || $viewingPurchase->items->contains(fn($i) => $i->unit_cost_fe !== null);
+                        @endphp
                         <div class="border border-slate-200 rounded-xl overflow-hidden mb-4">
                             <table class="min-w-full divide-y divide-slate-200">
                                 <thead class="bg-slate-50">
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Producto</th>
                                         <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Cant.</th>
+                                        @if($hasFeInPurchase)
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-purple-600 uppercase">Costo FE</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase">Costo RE</th>
+                                        @else
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase">Costo</th>
+                                        @endif
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase">Subtotal</th>
                                     </tr>
                                 </thead>
@@ -323,7 +331,12 @@
                                             <p class="text-xs text-slate-500">{{ $pitem->product?->sku ?? '' }}</p>
                                         </td>
                                         <td class="px-4 py-3 text-center">{{ $pitem->quantity }} {{ $pitem->product?->unit?->abbreviation ?? 'und' }}</td>
+                                        @if($hasFeInPurchase)
+                                        <td class="px-4 py-3 text-right font-medium text-purple-700">${{ number_format($pitem->unit_cost_fe ?? $pitem->unit_cost, 2) }}</td>
+                                        <td class="px-4 py-3 text-right text-slate-500">${{ number_format($pitem->unit_cost, 2) }}</td>
+                                        @else
                                         <td class="px-4 py-3 text-right">${{ number_format($pitem->unit_cost, 2) }}</td>
+                                        @endif
                                         <td class="px-4 py-3 text-right font-medium">${{ number_format($pitem->subtotal, 2) }}</td>
                                     </tr>
                                     @endforeach

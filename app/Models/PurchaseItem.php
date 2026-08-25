@@ -15,6 +15,7 @@ class PurchaseItem extends Model
         'product_id',
         'quantity',
         'unit_cost',
+        'unit_cost_fe',
         'tax_rate',
         'tax_amount',
         'discount',
@@ -30,6 +31,7 @@ class PurchaseItem extends Model
         return [
             'quantity' => 'integer',
             'unit_cost' => 'decimal:2',
+            'unit_cost_fe' => 'decimal:2',
             'tax_rate' => 'decimal:2',
             'tax_amount' => 'decimal:2',
             'discount' => 'decimal:2',
@@ -63,8 +65,9 @@ class PurchaseItem extends Model
      */
     public function calculateTotals(): void
     {
-        $this->subtotal = $this->quantity * $this->unit_cost;
-        $this->tax_amount = $this->subtotal * ($this->tax_rate / 100);
+        $cost = $this->unit_cost_fe !== null && $this->unit_cost_fe > 0 ? (float) $this->unit_cost_fe : (float) $this->unit_cost;
+        $this->subtotal = $this->quantity * $cost;
+        $this->tax_amount = ($this->subtotal - $this->discount) * ($this->tax_rate / 100);
         $this->total = $this->subtotal + $this->tax_amount - $this->discount;
     }
 }
