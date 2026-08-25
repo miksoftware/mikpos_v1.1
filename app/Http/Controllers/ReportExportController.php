@@ -3058,10 +3058,10 @@ class ReportExportController extends Controller
     }
 
     /**
-     * Safely convert and downscale an image to a compact JPEG base64 thumbnail (max 120x120px)
+     * Safely convert and downscale an image to a compact JPEG base64 thumbnail (max 260x260px)
      * to prevent DomPDF memory explosion and WebP incompatibility on servers.
      */
-    protected function safeImageToBase64(?string $imagePath, int $maxDimension = 120): ?string
+    protected function safeImageToBase64(?string $imagePath, int $maxDimension = 260): ?string
     {
         if (empty($imagePath)) {
             return null;

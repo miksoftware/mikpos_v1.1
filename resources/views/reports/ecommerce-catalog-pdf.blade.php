@@ -7,7 +7,7 @@
     <style>
         @page {
             size: letter portrait;
-            margin: 10mm 12mm 12mm 12mm;
+            margin: 8mm 9mm 8mm 9mm;
         }
         * {
             margin: 0;
@@ -26,8 +26,8 @@
         .header-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 8px;
-            padding-bottom: 6px;
+            margin-bottom: 6px;
+            padding-bottom: 5px;
             border-bottom: 2px solid #7c3aed;
         }
         .header-table td {
@@ -39,29 +39,29 @@
         }
         .header-logo {
             max-width: 75px;
-            max-height: 42px;
+            max-height: 40px;
         }
         .logo-placeholder {
             width: 65px;
-            height: 38px;
+            height: 36px;
             background: #7c3aed;
             color: #ffffff;
             font-weight: bold;
-            font-size: 12px;
+            font-size: 11px;
             text-align: center;
-            line-height: 38px;
+            line-height: 36px;
             border-radius: 4px;
             letter-spacing: 1px;
         }
         .company-name {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: bold;
             color: #0f172a;
             margin-bottom: 1px;
             text-transform: uppercase;
         }
         .company-meta {
-            font-size: 7px;
+            font-size: 6.5px;
             color: #64748b;
             line-height: 1.2;
         }
@@ -69,7 +69,7 @@
             color: #334155;
         }
         .header-badge-col {
-            width: 150px;
+            width: 140px;
             text-align: right;
         }
         .catalog-badge-box {
@@ -77,11 +77,11 @@
             background: #f5f3ff;
             border: 1px solid #ddd6fe;
             border-radius: 4px;
-            padding: 4px 6px;
+            padding: 3px 6px;
             text-align: right;
         }
         .catalog-title {
-            font-size: 10px;
+            font-size: 9.5px;
             font-weight: bold;
             color: #6d28d9;
             text-transform: uppercase;
@@ -89,36 +89,19 @@
             margin-bottom: 1px;
         }
         .catalog-subtitle {
-            font-size: 6.5px;
+            font-size: 6px;
             color: #7c3aed;
             font-weight: bold;
         }
         .catalog-date {
-            font-size: 6px;
+            font-size: 5.5px;
             color: #64748b;
             margin-top: 1px;
         }
 
-        /* Stats Bar */
-        .stats-bar {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 8px;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-        }
-        .stats-bar td {
-            padding: 3px 6px;
-            font-size: 7px;
-            color: #475569;
-        }
-        .stats-bar td strong {
-            color: #0f172a;
-        }
-
         /* Category Banner */
         .category-header-wrap {
-            margin-top: 8px;
+            margin-top: 6px;
             margin-bottom: 4px;
             page-break-after: avoid;
         }
@@ -132,7 +115,7 @@
             padding: 3px 6px;
             color: #ffffff;
             font-weight: bold;
-            font-size: 8.5px;
+            font-size: 8px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -142,53 +125,82 @@
             font-weight: normal;
         }
 
-        /* Flat Product Items Table (Ultra fast for DomPDF) */
-        .products-table {
+        /* Grid Table (2 Columns x 4 Rows = 8 Products per Page) */
+        .grid-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 6px;
+            margin-bottom: 2px;
         }
-        .product-row {
-            border-bottom: 1px solid #e2e8f0;
+        .grid-row {
             page-break-inside: avoid;
         }
-        .product-row td {
-            padding: 4px 3px;
+        .grid-cell {
+            width: 50%;
+            vertical-align: top;
+            padding: 3px;
+        }
+
+        /* Product Box / Card */
+        .product-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 5px;
+            background: #ffffff;
+            padding: 5px;
+            height: 82px;
+            box-sizing: border-box;
+        }
+        .card-inner-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .card-inner-table td {
             vertical-align: top;
         }
-        .img-cell {
-            width: 48px;
+
+        /* Large Image Cell */
+        .card-img-td {
+            width: 78px;
+            padding-right: 6px;
             text-align: center;
         }
-        .img-box {
-            width: 44px;
-            height: 44px;
+        .card-img-box {
+            width: 74px;
+            height: 74px;
             border: 1px solid #e2e8f0;
             border-radius: 4px;
             background: #f8fafc;
             text-align: center;
-            line-height: 42px;
+            line-height: 72px;
+            overflow: hidden;
         }
-        .prod-img {
-            max-width: 40px;
-            max-height: 40px;
+        .card-img {
+            max-width: 70px;
+            max-height: 70px;
             vertical-align: middle;
         }
         .no-img-text {
             color: #cbd5e1;
-            font-size: 12px;
+            font-size: 8px;
+            font-weight: bold;
+            line-height: 72px;
         }
-        .info-cell {
+
+        /* Info Cell */
+        .card-info-td {
             text-align: left;
-            padding-left: 6px;
-            padding-right: 6px;
+            vertical-align: top;
         }
-        .prod-title {
+        .card-title {
             font-size: 8px;
             font-weight: bold;
             color: #0f172a;
             line-height: 1.15;
-            margin-bottom: 1px;
+            margin-bottom: 2px;
+            max-height: 20px;
+            overflow: hidden;
+        }
+        .card-badges {
+            margin-bottom: 2px;
         }
         .badge-sku {
             display: inline-block;
@@ -197,7 +209,7 @@
             border: 1px solid #cbd5e1;
             font-size: 5.5px;
             font-weight: bold;
-            padding: 1px 2px;
+            padding: 1px 3px;
             border-radius: 2px;
             margin-right: 2px;
         }
@@ -207,83 +219,54 @@
             color: #5b21b6;
             font-size: 5.5px;
             font-weight: bold;
-            padding: 1px 2px;
+            padding: 1px 3px;
             border-radius: 2px;
-            margin-right: 2px;
         }
-        .badge-unit {
-            display: inline-block;
-            background: #e0f2fe;
-            color: #0369a1;
+        .card-desc {
             font-size: 5.5px;
-            font-weight: bold;
-            padding: 1px 2px;
-            border-radius: 2px;
-        }
-        .prod-desc {
-            font-size: 6px;
             color: #64748b;
             line-height: 1.1;
-            margin-top: 2px;
             margin-bottom: 2px;
             font-style: italic;
         }
-        .variants-box {
-            margin-top: 2px;
-            font-size: 5.5px;
+        .card-variants {
+            font-size: 5px;
             color: #475569;
             background: #f8fafc;
-            padding: 2px 3px;
+            padding: 1px 3px;
             border-left: 2px solid #a855f7;
+            margin-bottom: 2px;
         }
-        .variant-line {
-            margin-bottom: 1px;
+        .card-price-box {
+            margin-top: 3px;
+            padding-top: 2px;
+            border-top: 1px dashed #e2e8f0;
         }
-        .price-cell {
-            width: 95px;
-            text-align: right;
-            padding-right: 4px;
-        }
-        .main-price {
-            font-size: 9.5px;
+        .card-main-price {
+            font-size: 10px;
             font-weight: bold;
             color: #6d28d9;
             line-height: 1;
         }
-        .sugg-price {
+        .card-sugg-price {
             font-size: 6.5px;
             color: #94a3b8;
             text-decoration: line-through;
-            margin-top: 1px;
+            margin-left: 2px;
         }
-        .tax-indicator {
+        .card-tax-label {
             font-size: 5.5px;
             color: #64748b;
-            margin-top: 1px;
-        }
-        .stock-tag {
-            display: inline-block;
-            font-size: 5.5px;
-            font-weight: bold;
-            color: #059669;
-            background: #ecfdf5;
-            padding: 1px 3px;
-            border-radius: 2px;
-            margin-top: 2px;
-        }
-        .stock-qty {
-            font-size: 5.5px;
-            color: #64748b;
-            margin-top: 1px;
+            margin-left: 2px;
         }
 
         /* Footer */
         .catalog-footer {
-            margin-top: 12px;
-            padding-top: 5px;
+            margin-top: 10px;
+            padding-top: 4px;
             border-top: 1px solid #e2e8f0;
             text-align: center;
-            font-size: 6px;
+            font-size: 5.5px;
             color: #94a3b8;
         }
         .footer-note {
@@ -351,21 +334,6 @@
         </tr>
     </table>
 
-    <!-- Quick Stats Bar -->
-    <table class="stats-bar">
-        <tr>
-            <td style="width: 33%;">
-                <strong>Categorías:</strong> {{ $totalCategories }}
-            </td>
-            <td style="width: 33%; text-align: center;">
-                <strong>Total Productos:</strong> {{ $totalProducts }}
-            </td>
-            <td style="width: 34%; text-align: right;">
-                <strong>Moneda:</strong> {{ $currencySymbol }}
-            </td>
-        </tr>
-    </table>
-
     @if(count($categorizedProducts) > 0)
         @foreach($categorizedProducts as $categoryName => $products)
             <!-- Category Banner -->
@@ -378,78 +346,77 @@
                 </table>
             </div>
 
-            <!-- Products Flat Table -->
-            <table class="products-table">
-                @foreach($products as $prod)
-                    <tr class="product-row">
-                        <!-- Product Image -->
-                        <td class="img-cell">
-                            <div class="img-box">
-                                @if(!empty($prod['image_base64']))
-                                    <img src="{{ $prod['image_base64'] }}" alt="" class="prod-img">
-                                @else
-                                    <span class="no-img-text">■</span>
-                                @endif
-                            </div>
-                        </td>
+            <!-- 8 Products per Page (2 Columns Grid) -->
+            <table class="grid-table">
+                @foreach(array_chunk($products, 2) as $row)
+                    <tr class="grid-row">
+                        @foreach($row as $prod)
+                            <td class="grid-cell">
+                                <div class="product-card">
+                                    <table class="card-inner-table">
+                                        <tr>
+                                            <!-- Large Product Image -->
+                                            <td class="card-img-td">
+                                                <div class="card-img-box">
+                                                    @if(!empty($prod['image_base64']))
+                                                        <img src="{{ $prod['image_base64'] }}" alt="" class="card-img">
+                                                    @else
+                                                        <span class="no-img-text">SIN FOTO</span>
+                                                    @endif
+                                                </div>
+                                            </td>
 
-                        <!-- Product Info -->
-                        <td class="info-cell">
-                            <div class="prod-title">{{ $prod['name'] }}</div>
+                                            <!-- Product Info -->
+                                            <td class="card-info-td">
+                                                <div class="card-title">{{ $prod['name'] }}</div>
 
-                            <div>
-                                @if(!empty($prod['sku']))
-                                    <span class="badge-sku">{{ $prod['sku'] }}</span>
-                                @endif
-                                @if(!empty($prod['brand_name']))
-                                    <span class="badge-brand">{{ $prod['brand_name'] }}</span>
-                                @endif
-                                @if(!empty($prod['unit_name']))
-                                    <span class="badge-unit">{{ $prod['unit_name'] }}</span>
-                                @endif
-                            </div>
+                                                <div class="card-badges">
+                                                    @if(!empty($prod['sku']))
+                                                        <span class="badge-sku">{{ $prod['sku'] }}</span>
+                                                    @endif
+                                                    @if(!empty($prod['brand_name']))
+                                                        <span class="badge-brand">{{ $prod['brand_name'] }}</span>
+                                                    @endif
+                                                </div>
 
-                            @if(!empty($prod['description']))
-                                <div class="prod-desc">
-                                    {{ \Illuminate\Support\Str::limit($prod['description'], 100) }}
+                                                @if(!empty($prod['description']))
+                                                    <div class="card-desc">
+                                                        {{ \Illuminate\Support\Str::limit($prod['description'], 55) }}
+                                                    </div>
+                                                @endif
+
+                                                <!-- Variants (if any) -->
+                                                @if(!empty($prod['variants']) && count($prod['variants']) > 0)
+                                                    <div class="card-variants">
+                                                        @foreach(array_slice($prod['variants'], 0, 2) as $var)
+                                                            <div>· {{ $var['name'] }}: <strong>${{ number_format($var['price'], 0, ',', '.') }}</strong></div>
+                                                        @endforeach
+                                                        @if(count($prod['variants']) > 2)
+                                                            <div style="color: #7c3aed; font-weight: bold;">+ {{ count($prod['variants']) - 2 }} más</div>
+                                                        @endif
+                                                    </div>
+                                                @endif
+
+                                                <!-- Pricing -->
+                                                <div class="card-price-box">
+                                                    <span class="card-main-price">${{ number_format($prod['price_with_tax'], 0, ',', '.') }}</span>
+
+                                                    @if(!empty($prod['suggested_price']) && $prod['suggested_price'] > $prod['price_with_tax'])
+                                                        <span class="card-sugg-price">${{ number_format($prod['suggested_price'], 0, ',', '.') }}</span>
+                                                    @endif
+
+                                                    <span class="card-tax-label">({{ $prod['tax_label'] }})</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </table>
                                 </div>
-                            @endif
+                            </td>
+                        @endforeach
 
-                            <!-- Variants (if any) -->
-                            @if(!empty($prod['variants']) && count($prod['variants']) > 0)
-                                <div class="variants-box">
-                                    @foreach(array_slice($prod['variants'], 0, 3) as $var)
-                                        <div class="variant-line">
-                                            · {{ $var['name'] }}: <strong>${{ number_format($var['price'], 0, ',', '.') }}</strong>
-                                        </div>
-                                    @endforeach
-                                    @if(count($prod['variants']) > 3)
-                                        <div class="variant-line" style="color: #7c3aed; font-weight: bold;">
-                                            + {{ count($prod['variants']) - 3 }} variante(s) más
-                                        </div>
-                                    @endif
-                                </div>
-                            @endif
-                        </td>
-
-                        <!-- Pricing & Stock -->
-                        <td class="price-cell">
-                            <div class="main-price">${{ number_format($prod['price_with_tax'], 0, ',', '.') }}</div>
-
-                            @if(!empty($prod['suggested_price']) && $prod['suggested_price'] > $prod['price_with_tax'])
-                                <div class="sugg-price">${{ number_format($prod['suggested_price'], 0, ',', '.') }}</div>
-                            @endif
-
-                            <div class="tax-indicator">({{ $prod['tax_label'] }})</div>
-
-                            <div>
-                                <span class="stock-tag">✓ Disponible</span>
-                            </div>
-
-                            @if($showStockInShop && $prod['manages_inventory'])
-                                <div class="stock-qty">{{ rtrim(rtrim(number_format($prod['current_stock'], 3), '0'), '.') }} en stock</div>
-                            @endif
-                        </td>
+                        @if(count($row) === 1)
+                            <td class="grid-cell"></td>
+                        @endif
                     </tr>
                 @endforeach
             </table>
@@ -476,10 +443,10 @@
                 $font = null;
             }
             if ($font) {
-                $size = 7;
+                $size = 6.5;
                 $color = array(0.4, 0.45, 0.5);
-                $y = $pdf->get_height() - 18;
-                $x = $pdf->get_width() - 80;
+                $y = $pdf->get_height() - 16;
+                $x = $pdf->get_width() - 75;
                 $pdf->text($x, $y, $text, $font, $size, $color);
             }
         }
