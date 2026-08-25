@@ -2898,7 +2898,9 @@ class ReportExportController extends Controller
                 'activeChildren' => function ($q) {
                     $q->where('show_in_shop', true);
                 },
-                'activeChildren.tax'
+                'activeChildren.presentation',
+                'activeChildren.color',
+                'activeChildren.productModel',
             ])
             ->orderBy('category_id')
             ->orderBy('name')
@@ -2929,6 +2931,7 @@ class ReportExportController extends Controller
                 if ($product->activeChildren && $product->activeChildren->count() > 0) {
                     foreach ($product->activeChildren as $child) {
                         try {
+                            $child->setRelation('product', $product);
                             $variants[] = [
                                 'name' => $child->full_name ?: $child->name,
                                 'price' => (float) $child->getSalePriceWithTax(),

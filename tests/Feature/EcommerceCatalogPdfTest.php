@@ -128,4 +128,36 @@ class EcommerceCatalogPdfTest extends TestCase
             str_contains($response->headers->get('content-disposition'), 'catalogo-productos')
         );
     }
+
+    public function test_catalog_pdf_includes_products_with_variants(): void
+    {
+        $this->actingAs($this->adminUser);
+
+        $category = Category::factory()->create(['name' => 'Calzado']);
+        $product = Product::factory()->create([
+            'name' => 'Zapatos Deportivos',
+            'category_id' => $category->id,
+            'branch_id' => $this->branch->id,
+            'is_active' => true,
+            'show_in_shop' => true,
+            'manages_inventory' => false,
+        ]);
+
+        \App\Models\ProductChild::factory()->create([
+            'product_id' => $product->id,
+            'name' => 'Talla 40 - Negro',
+            'sku' => 'ZAP-40-BLK',
+            'sale_price' => 120000,
+            'is_active' => true,
+            'show_in_shop' => true,
+        ]);
+
+        $response = $this->get(route('ecommerce-orders.catalog-pdf'));
+
+        $response->assertStatus(200);
+        $this->assertTrue(
+            str_contains($response->headers->get('content-type'), 'application/pdf') ||
+            str_contains($response->headers->get('content-disposition'), 'catalogo-productos')
+        );
+    }
 }
