@@ -3058,10 +3058,10 @@ class ReportExportController extends Controller
     }
 
     /**
-     * Safely convert and downscale an image to a compact JPEG base64 thumbnail (max 260x260px)
+     * Safely convert and downscale an image to a compact JPEG base64 thumbnail (max 600x600px)
      * to prevent DomPDF memory explosion and WebP incompatibility on servers.
      */
-    protected function safeImageToBase64(?string $imagePath, int $maxDimension = 260): ?string
+    protected function safeImageToBase64(?string $imagePath, int $maxDimension = 600): ?string
     {
         if (empty($imagePath)) {
             return null;
@@ -3160,7 +3160,7 @@ class ReportExportController extends Controller
                             imagecopyresampled($thumb, $src, 0, 0, 0, 0, $newW, $newH, $w, $h);
 
                             ob_start();
-                            imagejpeg($thumb, null, 65);
+                            imagejpeg($thumb, null, 75);
                             $thumbData = ob_get_clean();
 
                             imagedestroy($thumb);
@@ -3176,7 +3176,7 @@ class ReportExportController extends Controller
             }
 
             // 3. Fallback for raw JPEG/PNG (never WebP, never unsupported formats)
-            if (!$isWebp && strlen($rawContent) <= 150 * 1024) {
+            if (!$isWebp && strlen($rawContent) <= 200 * 1024) {
                 if (str_starts_with($rawContent, "\xFF\xD8\xFF")) {
                     return 'data:image/jpeg;base64,' . base64_encode($rawContent);
                 }
