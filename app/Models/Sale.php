@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class Sale extends Model
 {
@@ -209,9 +210,16 @@ class Sale extends Model
         // Find the highest sequence across ALL invoices (continuous numbering, no per-day reset).
         // Works with both old (FAC-YYYYMMDD-XXXX) and new (FAC-XXXX) formats by extracting
         // the last hyphen-separated segment as the numeric sequence.
-        $lastSale = static::where('invoice_number', 'like', "{$prefix}-%")
-            ->orderByRaw("CAST(SUBSTRING_INDEX(invoice_number, '-', -1) AS UNSIGNED) DESC")
-            ->first();
+        $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+        if ($isSqlite) {
+            $lastSale = static::where('invoice_number', 'like', "{$prefix}-%")
+                ->orderBy('id', 'desc')
+                ->first();
+        } else {
+            $lastSale = static::where('invoice_number', 'like', "{$prefix}-%")
+                ->orderByRaw("CAST(SUBSTRING_INDEX(invoice_number, '-', -1) AS UNSIGNED) DESC")
+                ->first();
+        }
 
         $sequence = 1;
         if ($lastSale) {

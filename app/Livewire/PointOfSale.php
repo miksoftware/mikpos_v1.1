@@ -266,7 +266,10 @@ class PointOfSale extends Component
                 'quantity' => (float) $qItem->quantity,
                 'subtotal' => (float) $qItem->subtotal,
                 'tax_id' => null,
+                'original_tax_id' => null,
                 'tax_rate' => $taxRate,
+                'original_tax_rate' => $taxRate,
+                'tax_exempt' => false,
                 'tax_amount' => (float) $qItem->tax_amount,
                 'price_includes_tax' => false, // unit_price is base price (without tax)
                 'image' => null,
@@ -719,7 +722,10 @@ class PointOfSale extends Component
                 'quantity' => 1,
                 'subtotal' => round($basePrice, 2), // Subtotal is base price * quantity
                 'tax_id' => $product->tax_id,
+                'original_tax_id' => $product->tax_id,
                 'tax_rate' => $taxRate,
+                'original_tax_rate' => $taxRate,
+                'tax_exempt' => false,
                 'tax_amount' => round($priceWithTax - $basePrice, 2), // Tax for 1 unit
                 'price_includes_tax' => $priceIncludesTax,
                 'image' => $displayImage,
@@ -765,9 +771,11 @@ class PointOfSale extends Component
         if ($item['using_special_price']) {
             // Switch to special price
             $specialPrice = $item['special_price'];
-            $taxRate = $item['tax_rate'];
+            $origTaxRate = (float) ($item['original_tax_rate'] ?? $item['tax_rate']);
+            $isExempt = $item['tax_exempt'] ?? false;
+            $taxRate = $isExempt ? 0 : $origTaxRate;
             
-            if ($item['price_includes_tax']) {
+            if ($item['price_includes_tax'] && !$isExempt) {
                 $priceWithTax = $specialPrice;
                 $basePrice = $taxRate > 0 ? $specialPrice / (1 + ($taxRate / 100)) : $specialPrice;
             } else {
@@ -779,8 +787,9 @@ class PointOfSale extends Component
             $item['base_price'] = round($basePrice, 2);
         } else {
             // Switch back to original price
-            $item['price'] = $item['original_price'];
+            $isExempt = $item['tax_exempt'] ?? false;
             $item['base_price'] = $item['original_base_price'];
+            $item['price'] = $isExempt ? $item['original_base_price'] : $item['original_price'];
         }
         
         $this->updateCartItemTotals($cartKey);
@@ -808,9 +817,11 @@ class PointOfSale extends Component
             // Apply special price
             $item['using_special_price'] = true;
             $specialPrice = $item['special_price'];
-            $taxRate = $item['tax_rate'];
+            $origTaxRate = (float) ($item['original_tax_rate'] ?? $item['tax_rate']);
+            $isExempt = $item['tax_exempt'] ?? false;
+            $taxRate = $isExempt ? 0 : $origTaxRate;
             
-            if ($item['price_includes_tax']) {
+            if ($item['price_includes_tax'] && !$isExempt) {
                 $priceWithTax = $specialPrice;
                 $basePrice = $taxRate > 0 ? $specialPrice / (1 + ($taxRate / 100)) : $specialPrice;
             } else {
@@ -829,6 +840,97 @@ class PointOfSale extends Component
         } else {
             $this->dispatch('notify', message: 'No hay productos con precio especial disponible', type: 'info');
         }
+    }
+
+    /**
+     * Toggle tax exemption for a single cart item.
+     */
+    public function toggleItemTax($cartKey)
+    {
+        if (!isset($this->cart[$cartKey])) return;
+
+        $item = &$this->cart[$cartKey];
+
+        $originalTaxRate = (float) ($item['original_tax_rate'] ?? $item['tax_rate'] ?? 0);
+        if ($originalTaxRate <= 0) {
+            $this->dispatch('notify', message: 'Este producto no tiene IVA configurado', type: 'info');
+            return;
+        }
+
+        $item['tax_exempt'] = !($item['tax_exempt'] ?? false);
+
+        if ($item['tax_exempt']) {
+            $item['tax_rate'] = 0;
+            $item['price'] = round($item['base_price'], 2);
+        } else {
+            $item['tax_rate'] = $originalTaxRate;
+            $item['price'] = round($item['base_price'] * (1 + ($originalTaxRate / 100)), 2);
+        }
+
+        $this->updateCartItemTotals($cartKey);
+
+        $msg = $item['tax_exempt'] 
+            ? "IVA removido de: {$item['name']}" 
+            : "IVA restaurado para: {$item['name']}";
+        $this->dispatch('notify', message: $msg, type: 'success');
+    }
+
+    /**
+     * Toggle tax for all cart items that have an original tax rate.
+     * Triggered by F8 shortcut or toolbar button.
+     */
+    public function toggleAllTaxes()
+    {
+        if (empty($this->cart)) {
+            $this->dispatch('notify', message: 'Agrega productos al carrito', type: 'warning');
+            return;
+        }
+
+        $hasTaxableItems = false;
+        $currentlyHasActiveTax = false;
+
+        foreach ($this->cart as $item) {
+            $origRate = (float) ($item['original_tax_rate'] ?? $item['tax_rate'] ?? 0);
+            if ($origRate > 0) {
+                $hasTaxableItems = true;
+                if (!($item['tax_exempt'] ?? false)) {
+                    $currentlyHasActiveTax = true;
+                    break;
+                }
+            }
+        }
+
+        if (!$hasTaxableItems) {
+            $this->dispatch('notify', message: 'Ningún producto en el carrito tiene IVA configurado', type: 'info');
+            return;
+        }
+
+        // If currently any taxable item has tax active -> Remove tax from all
+        // If all taxable items are already exempt -> Restore tax on all
+        $newExemptState = $currentlyHasActiveTax;
+        $modifiedCount = 0;
+
+        foreach ($this->cart as $cartKey => &$item) {
+            $origRate = (float) ($item['original_tax_rate'] ?? $item['tax_rate'] ?? 0);
+            if ($origRate > 0) {
+                $item['tax_exempt'] = $newExemptState;
+                if ($newExemptState) {
+                    $item['tax_rate'] = 0;
+                    $item['price'] = round($item['base_price'], 2);
+                } else {
+                    $item['tax_rate'] = $origRate;
+                    $item['price'] = round($item['base_price'] * (1 + ($origRate / 100)), 2);
+                }
+                $this->updateCartItemTotals($cartKey);
+                $modifiedCount++;
+            }
+        }
+
+        $message = $newExemptState
+            ? "IVA removido de {$modifiedCount} producto(s)"
+            : "IVA restaurado en {$modifiedCount} producto(s)";
+
+        $this->dispatch('notify', message: $message, type: 'success');
     }
 
     public function addServiceToCart($serviceId)
@@ -869,7 +971,10 @@ class PointOfSale extends Component
                 'quantity' => 1,
                 'subtotal' => round($basePrice, 2),
                 'tax_id' => $service->tax_id,
+                'original_tax_id' => $service->tax_id,
                 'tax_rate' => $taxRate,
+                'original_tax_rate' => $taxRate,
+                'tax_exempt' => false,
                 'tax_amount' => round($priceWithTax - $basePrice, 2),
                 'price_includes_tax' => $priceIncludesTax,
                 'image' => $service->image,
@@ -942,7 +1047,10 @@ class PointOfSale extends Component
                 'quantity' => 1,
                 'subtotal' => $comboPrice,
                 'tax_id' => null,
+                'original_tax_id' => null,
                 'tax_rate' => 0,
+                'original_tax_rate' => 0,
+                'tax_exempt' => false,
                 'tax_amount' => 0,
                 'price_includes_tax' => true,
                 'image' => $combo->image,
@@ -1215,7 +1323,10 @@ class PointOfSale extends Component
                 'quantity' => round($quantity, 3),
                 'subtotal' => round($basePrice * $quantity, 2),
                 'tax_id' => $product->tax_id,
+                'original_tax_id' => $product->tax_id,
                 'tax_rate' => $taxRate,
+                'original_tax_rate' => $taxRate,
+                'tax_exempt' => false,
                 'tax_amount' => round(($priceWithTax - $basePrice) * $quantity, 2),
                 'price_includes_tax' => $priceIncludesTax,
                 'image' => $displayImage,
@@ -1266,8 +1377,9 @@ class PointOfSale extends Component
         $item['discount_reason'] = $discount->name;
 
         // Recalculate tax after discount
+        $effectiveTaxRate = ($item['tax_exempt'] ?? false) ? 0 : (float) ($item['tax_rate'] ?? 0);
         $taxableAmount = $item['subtotal'] - $item['discount_amount'];
-        $item['tax_amount'] = round($taxableAmount * ($item['tax_rate'] / 100), 2);
+        $item['tax_amount'] = round($taxableAmount * ($effectiveTaxRate / 100), 2);
     }
 
     protected function updateCartItemTotals($cartKey)
@@ -1290,8 +1402,9 @@ class PointOfSale extends Component
         }
         
         // Tax is calculated on subtotal after discount
+        $effectiveTaxRate = ($item['tax_exempt'] ?? false) ? 0 : (float) ($item['tax_rate'] ?? 0);
         $taxableAmount = $item['subtotal'] - $item['discount_amount'];
-        $item['tax_amount'] = round($taxableAmount * ($item['tax_rate'] / 100), 2);
+        $item['tax_amount'] = round($taxableAmount * ($effectiveTaxRate / 100), 2);
     }
 
     public function getPrice($product, $child = null)
@@ -1437,8 +1550,9 @@ class PointOfSale extends Component
         }
 
         // Recalculate tax after discount
+        $effectiveTaxRate = ($item['tax_exempt'] ?? false) ? 0 : (float) ($item['tax_rate'] ?? 0);
         $taxableAmount = $item['subtotal'] - $item['discount_amount'];
-        $item['tax_amount'] = round($taxableAmount * ($item['tax_rate'] / 100), 2);
+        $item['tax_amount'] = round($taxableAmount * ($effectiveTaxRate / 100), 2);
 
         $this->closeDiscountModal();
         $this->dispatch('notify', message: $value > 0 ? 'Descuento aplicado' : 'Descuento eliminado');
@@ -1455,7 +1569,8 @@ class PointOfSale extends Component
         $item['discount_reason'] = null;
         
         // Recalculate tax
-        $item['tax_amount'] = round($item['subtotal'] * ($item['tax_rate'] / 100), 2);
+        $effectiveTaxRate = ($item['tax_exempt'] ?? false) ? 0 : (float) ($item['tax_rate'] ?? 0);
+        $item['tax_amount'] = round($item['subtotal'] * ($effectiveTaxRate / 100), 2);
         
         $this->dispatch('notify', message: 'Descuento eliminado');
     }
@@ -1562,14 +1677,15 @@ class PointOfSale extends Component
         }
 
         $item = &$this->cart[$cartKey];
-        $taxRate = $item['tax_rate'];
+        $isExempt = $item['tax_exempt'] ?? false;
+        $taxRate = $isExempt ? 0 : (float) ($item['tax_rate'] ?? 0);
 
         // The entered price is the price WITH tax (what the customer sees)
-        if ($item['price_includes_tax']) {
+        if ($item['price_includes_tax'] && !$isExempt) {
             $priceWithTax = $newPrice;
             $basePrice = $taxRate > 0 ? $newPrice / (1 + ($taxRate / 100)) : $newPrice;
         } else {
-            // If original price doesn't include tax, the override is still entered as final price
+            // If original price doesn't include tax or is exempt, the override is still entered as final price
             $basePrice = $newPrice;
             $priceWithTax = $taxRate > 0 ? $newPrice * (1 + ($taxRate / 100)) : $newPrice;
         }
@@ -1590,10 +1706,11 @@ class PointOfSale extends Component
         if (!isset($this->cart[$cartKey])) return;
 
         $item = &$this->cart[$cartKey];
+        $isExempt = $item['tax_exempt'] ?? false;
 
         // Restore original price
-        $item['price'] = $item['original_price'] ?? $item['price'];
         $item['base_price'] = $item['original_base_price'] ?? $item['base_price'];
+        $item['price'] = $isExempt ? $item['base_price'] : ($item['original_price'] ?? $item['price']);
         $item['price_overridden'] = false;
         $item['using_special_price'] = false;
 
@@ -1847,7 +1964,7 @@ class PointOfSale extends Component
                     'unit_price' => $item['base_price'], // Price without tax
                     'unit_cost' => $unitCost, // Cost at the time of sale
                     'quantity' => $item['quantity'],
-                    'tax_rate' => $item['tax_rate'],
+                    'tax_rate' => ($item['tax_exempt'] ?? false) ? 0 : $item['tax_rate'],
                     'tax_amount' => $item['tax_amount'],
                     'subtotal' => $item['subtotal'],
                     'discount_type' => $item['discount_type'] ?? null,

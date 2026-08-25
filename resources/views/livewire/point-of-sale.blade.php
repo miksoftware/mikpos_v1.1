@@ -3,6 +3,7 @@
     @keydown.f3.window.prevent="$wire.applyAllSpecialPrices()"
     @keydown.f4.window.prevent="$wire.openGlobalDiscountModal()"
     @keydown.f6.window.prevent="$wire.togglePriceOverride()"
+    @keydown.f8.window.prevent="$wire.toggleAllTaxes()"
     @close-customer-modal.window="showCustomerSearch = false">
     <!-- Top Header Bar -->
     <header class="h-14 bg-gradient-to-r from-[#1a1225] to-[#2d1f3d] flex items-center justify-between px-4 flex-shrink-0">
@@ -168,7 +169,7 @@
                 @if(count($cart) > 0)
                 <div class="space-y-1">
                     @foreach($cart as $key => $item)
-                    <div class="bg-slate-50 rounded-lg p-2 border {{ ($item['price_overridden'] ?? false) ? 'border-blue-300 bg-blue-50/50' : (($item['discount_amount'] ?? 0) > 0 ? 'border-amber-300 bg-amber-50/50' : (($item['using_special_price'] ?? false) ? 'border-green-300 bg-green-50/50' : 'border-slate-100')) }} hover:border-slate-200 transition">
+                    <div class="bg-slate-50 rounded-lg p-2 border {{ ($item['price_overridden'] ?? false) ? 'border-blue-300 bg-blue-50/50' : (($item['discount_amount'] ?? 0) > 0 ? 'border-amber-300 bg-amber-50/50' : (($item['using_special_price'] ?? false) ? 'border-green-300 bg-green-50/50' : (($item['tax_exempt'] ?? false) ? 'border-indigo-300 bg-indigo-50/40' : 'border-slate-100'))) }} hover:border-slate-200 transition">
                         <div class="flex items-center gap-2">
                             <div class="w-10 h-10 rounded-md bg-white border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                                 @if($item['image'])
@@ -200,8 +201,11 @@
                                     {{ $item['location_name'] }}
                                 </p>
                                 @endif
-                                <div class="flex items-center gap-1 text-[10px]">
+                                <div class="flex items-center gap-1 text-[10px] flex-wrap">
                                     <span class="text-slate-500">{{ $item['sku'] }}</span>
+                                    @if($item['tax_exempt'] ?? false)
+                                    <span class="px-1 py-0.2 rounded text-[9px] font-bold text-red-600 bg-red-100 border border-red-200">Sin IVA</span>
+                                    @endif
                                     @if(($item['discount_amount'] ?? 0) > 0)
                                     <span class="text-amber-600 font-medium">-${{ number_format($item['discount_amount'], 0) }}</span>
                                     @elseif($item['using_special_price'] ?? false)
@@ -224,6 +228,14 @@
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                     </svg>
+                                </button>
+                                @endif
+                                {{-- Tax exemption button (Quitar / Poner IVA por producto) --}}
+                                @if(($item['original_tax_rate'] ?? $item['tax_rate'] ?? 0) > 0)
+                                <button wire:click="toggleItemTax('{{ $key }}')" 
+                                    class="px-1.5 py-0.5 rounded text-[10px] font-black uppercase transition {{ ($item['tax_exempt'] ?? false) ? 'text-red-700 bg-red-100 hover:bg-red-200 border border-red-300' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200' }}" 
+                                    title="{{ ($item['tax_exempt'] ?? false) ? 'Restaurar IVA (' . ($item['original_tax_rate'] ?? $item['tax_rate']) . '%)' : 'Quitar IVA (' . ($item['original_tax_rate'] ?? $item['tax_rate']) . '%)' }}">
+                                    {{ ($item['tax_exempt'] ?? false) ? 'Sin IVA' : 'IVA' }}
                                 </button>
                                 @endif
                                 <div class="flex items-center bg-white rounded-md border border-slate-200">
@@ -345,29 +357,40 @@
                     </div>
                 </div>
                 
-                {{-- Special Price, Price Override & Discount Buttons --}}
+                {{-- Special Price, Price Override, Tax Toggle & Discount Buttons --}}
                 @if(count($cart) > 0)
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    <button wire:click="applyAllSpecialPrices" class="px-3 py-2 text-[11px] sm:text-sm font-bold text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl transition flex items-center justify-center gap-1 uppercase tracking-tight">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                @php
+                    $taxableCount = collect($cart)->filter(fn($i) => ($i['original_tax_rate'] ?? $i['tax_rate'] ?? 0) > 0)->count();
+                    $allTaxExempt = $taxableCount > 0 && collect($cart)->filter(fn($i) => ($i['original_tax_rate'] ?? $i['tax_rate'] ?? 0) > 0)->every(fn($i) => $i['tax_exempt'] ?? false);
+                @endphp
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
+                    <button wire:click="applyAllSpecialPrices" class="px-2 py-2 text-[10px] sm:text-xs font-bold text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl transition flex items-center justify-center gap-1 uppercase tracking-tight">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                         P. Especial
-                        <span class="hidden sm:inline text-[10px] px-1 py-0.5 rounded bg-green-200 text-green-800">F3</span>
+                        <span class="hidden sm:inline text-[9px] px-1 py-0.5 rounded bg-green-200 text-green-800">F3</span>
                     </button>
-                    <button wire:click="togglePriceOverride" class="px-3 py-2 text-[11px] sm:text-sm font-bold rounded-xl transition flex items-center justify-center gap-1 uppercase tracking-tight {{ $showPriceOverride ? 'text-white bg-blue-600 border border-blue-600 ring-2 ring-blue-400' : 'text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200' }}">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button wire:click="togglePriceOverride" class="px-2 py-2 text-[10px] sm:text-xs font-bold rounded-xl transition flex items-center justify-center gap-1 uppercase tracking-tight {{ $showPriceOverride ? 'text-white bg-blue-600 border border-blue-600 ring-2 ring-blue-400' : 'text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200' }}">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                         </svg>
                         Precio
-                        <span class="hidden sm:inline text-[10px] px-1 py-0.5 rounded {{ $showPriceOverride ? 'bg-blue-500 text-white' : 'bg-blue-200 text-blue-800' }}">F6</span>
+                        <span class="hidden sm:inline text-[9px] px-1 py-0.5 rounded {{ $showPriceOverride ? 'bg-blue-500 text-white' : 'bg-blue-200 text-blue-800' }}">F6</span>
                     </button>
-                    <button wire:click="openGlobalDiscountModal" class="col-span-2 sm:col-span-1 px-3 py-2 text-[11px] sm:text-sm font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl transition flex items-center justify-center gap-1 uppercase tracking-tight {{ $globalDiscountApplied ? 'ring-2 ring-purple-400' : '' }}">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button wire:click="toggleAllTaxes" class="px-2 py-2 text-[10px] sm:text-xs font-bold rounded-xl transition flex items-center justify-center gap-1 uppercase tracking-tight {{ $allTaxExempt ? 'text-red-700 bg-red-50 hover:bg-red-100 border border-red-300 ring-2 ring-red-400' : 'text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200' }}" {{ $taxableCount === 0 ? 'disabled opacity-50' : '' }} title="{{ $allTaxExempt ? 'Restaurar IVA en todos los productos (F8)' : 'Quitar IVA de todos los productos (F8)' }}">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span>{{ $allTaxExempt ? 'Sin IVA' : 'IVA' }}</span>
+                        <span class="hidden sm:inline text-[9px] px-1 py-0.5 rounded {{ $allTaxExempt ? 'bg-red-200 text-red-800' : 'bg-indigo-200 text-indigo-800' }}">F8</span>
+                    </button>
+                    <button wire:click="openGlobalDiscountModal" class="px-2 py-2 text-[10px] sm:text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl transition flex items-center justify-center gap-1 uppercase tracking-tight {{ $globalDiscountApplied ? 'ring-2 ring-purple-400' : '' }}">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
                         </svg>
                         Descuento
-                        <span class="hidden sm:inline text-[10px] px-1 py-0.5 rounded bg-purple-200 text-purple-800">F4</span>
+                        <span class="hidden sm:inline text-[9px] px-1 py-0.5 rounded bg-purple-200 text-purple-800">F4</span>
                     </button>
                 </div>
                 @endif
