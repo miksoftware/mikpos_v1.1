@@ -2825,4 +2825,148 @@ class ReportExportController extends Controller
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ])->deleteFileAfterSend(true);
     }
+
+    /**
+     * Generate and download the PDF Catalog of store products.
+     */
+    public function ecommerceCatalogPdf(Request $request)
+    {
+        // 1. Resolve Ecommerce Branch
+        $branchId = $request->get('branch_id') ?: Branch::getEcommerceBranchId();
+        $branch = null;
+        if ($branchId) {
+            $branch = Branch::with(['department', 'municipality'])->find($branchId);
+        }
+        if (!$branch) {
+            $branch = Branch::getEcommerceBranch();
+            if ($branch) {
+                $branch->load(['department', 'municipality']);
+            }
+        }
+
+        // 2. Base64 encode branch logo if available
+        $branchLogoBase64 = null;
+        if ($branch && $branch->logo && \Illuminate\Support\Facades\Storage::disk('public')->exists($branch->logo)) {
+            $logoContent = \Illuminate\Support\Facades\Storage::disk('public')->get($branch->logo);
+            $logoMime = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($branch->logo) ?: 'image/png';
+            $branchLogoBase64 = 'data:' . $logoMime . ';base64,' . base64_encode($logoContent);
+        }
+
+        // 3. Query active products for shop
+        $query = Product::query()
+            ->where('is_active', true)
+            ->where('show_in_shop', true)
+            ->where(function ($q) {
+                $q->where('manages_inventory', false)
+                  ->orWhere('current_stock', '>', 0);
+            });
+
+        if ($branch) {
+            $query->where('branch_id', $branch->id);
+        }
+
+        // Filters if provided
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->get('category_id'));
+        }
+        if ($request->filled('brand_id')) {
+            $query->where('brand_id', $request->get('brand_id'));
+        }
+        if ($request->filled('search')) {
+            $search = $request->get('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhere('sku', 'like', '%' . $search . '%')
+                  ->orWhere('description', 'like', '%' . $search . '%');
+            });
+        }
+
+        $rawProducts = $query->with([
+            'category',
+            'brand',
+            'unit',
+            'tax',
+            'activeChildren' => function ($q) {
+                $q->where('show_in_shop', true);
+            }
+        ])
+        ->orderBy('category_id')
+        ->orderBy('name')
+        ->get();
+
+        // 4. Structure products grouped by category with base64 images & calculated prices
+        $categorizedProducts = [];
+        $totalProducts = 0;
+
+        foreach ($rawProducts as $product) {
+            $catName = $product->category ? $product->category->name : 'General';
+            if (!isset($categorizedProducts[$catName])) {
+                $categorizedProducts[$catName] = [];
+            }
+
+            // Convert product image to base64
+            $imageBase64 = null;
+            if ($product->image && \Illuminate\Support\Facades\Storage::disk('public')->exists($product->image)) {
+                $imgContent = \Illuminate\Support\Facades\Storage::disk('public')->get($product->image);
+                $imgMime = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($product->image) ?: 'image/jpeg';
+                $imageBase64 = 'data:' . $imgMime . ';base64,' . base64_encode($imgContent);
+            }
+
+            // Tax label
+            $taxRate = $product->tax ? (float) $product->tax->value : 0;
+            $taxLabel = $taxRate > 0 ? 'IVA ' . rtrim(rtrim(number_format($taxRate, 2), '0'), '.') . '%' : 'Exento';
+
+            // Variants list
+            $variants = [];
+            if ($product->activeChildren && $product->activeChildren->count() > 0) {
+                foreach ($product->activeChildren as $child) {
+                    $variants[] = [
+                        'name' => $child->full_name ?: $child->name,
+                        'price' => (float) $child->getSalePriceWithTax(),
+                        'sku' => $child->sku,
+                    ];
+                }
+            }
+
+            $categorizedProducts[$catName][] = [
+                'id' => $product->id,
+                'name' => $product->name,
+                'sku' => $product->sku,
+                'description' => $product->description,
+                'brand_name' => $product->brand?->name,
+                'unit_name' => $product->unit?->name,
+                'price_with_tax' => (float) $product->getSalePriceWithTax(),
+                'suggested_price' => (float) $product->getSuggestedPriceWithTax(),
+                'tax_label' => $taxLabel,
+                'manages_inventory' => (bool) $product->manages_inventory,
+                'current_stock' => (float) $product->current_stock,
+                'image_base64' => $imageBase64,
+                'variants' => $variants,
+            ];
+
+            $totalProducts++;
+        }
+
+        $data = [
+            'branch' => $branch,
+            'branchLogoBase64' => $branchLogoBase64,
+            'categorizedProducts' => $categorizedProducts,
+            'totalProducts' => $totalProducts,
+            'totalCategories' => count($categorizedProducts),
+            'currencySymbol' => '$',
+            'showStockInShop' => $branch ? (bool) $branch->show_stock_in_shop : false,
+            'generatedDate' => now()->translatedFormat('d \d\e F \d\e Y, h:i A'),
+        ];
+
+        $pdf = Pdf::loadView('reports.ecommerce-catalog-pdf', $data);
+        $pdf->setPaper('letter', 'portrait');
+        $pdf->getDomPDF()->set_option('isPhpEnabled', true);
+        $pdf->getDomPDF()->set_option('isRemoteEnabled', true);
+
+        $branchSlug = \Illuminate\Support\Str::slug($branch?->name ?? 'tienda');
+        $filename = 'catalogo-productos-' . $branchSlug . '-' . now()->format('Y-m-d') . '.pdf';
+
+        return $pdf->download($filename);
+    }
 }
+

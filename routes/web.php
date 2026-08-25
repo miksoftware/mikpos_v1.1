@@ -138,6 +138,7 @@ Route::prefix('shop')->middleware(['guest:customer', 'ecommerce.check'])->group(
 // E-commerce routes (authenticated - customer guard)
 Route::prefix('shop')->middleware('ecommerce.auth')->group(function () {
     Route::get('/', App\Livewire\Shop\Catalog::class)->name('shop.catalog');
+    Route::get('/catalog-pdf', [App\Http\Controllers\ReportExportController::class, 'ecommerceCatalogPdf'])->name('shop.catalog.pdf');
     Route::get('/product/{product}', App\Livewire\Shop\ProductDetail::class)->name('shop.product');
     Route::get('/cart', App\Livewire\Shop\Cart::class)->name('shop.cart');
     Route::get('/checkout', App\Livewire\Shop\Checkout::class)->name('shop.checkout');
@@ -348,6 +349,10 @@ Route::middleware(['auth'])->group(function () {
     // Ecommerce Orders
     Route::get('/ecommerce-orders', App\Livewire\EcommerceOrders::class)
         ->name('ecommerce-orders')
+        ->middleware('permission:ecommerce_orders.view');
+
+    Route::get('/ecommerce-orders/catalog-pdf', [App\Http\Controllers\ReportExportController::class, 'ecommerceCatalogPdf'])
+        ->name('ecommerce-orders.catalog-pdf')
         ->middleware('permission:ecommerce_orders.view');
 
     Route::get('/ecommerce-orders/report-pdf', [App\Http\Controllers\ReportExportController::class, 'ecommerceOrdersReportPdf'])
