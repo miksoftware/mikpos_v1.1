@@ -434,6 +434,45 @@
                         </div>
                         @endif
 
+                        <!-- Parámetros DIAN - Nómina Electrónica -->
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                Parámetros DIAN (Nómina Electrónica)
+                            </h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Tipo de Trabajador DIAN</label>
+                                    <select wire:model="dian_worker_type_code" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                        <option value="01">01 - Dependiente</option>
+                                        <option value="02">02 - Servicio Doméstico</option>
+                                        <option value="18">18 - Funcionario Público</option>
+                                        <option value="19">19 - Aprendiz Lectivo</option>
+                                        <option value="21">21 - Aprendiz Práctico</option>
+                                        <option value="51">51 - Trabajador Tiempo Parcial</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Subtipo de Trabajador DIAN</label>
+                                    <select wire:model="dian_worker_subtype_code" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                        <option value="00">00 - No aplica</option>
+                                        <option value="01">01 - Dependiente Pensionado</option>
+                                        <option value="02">02 - Subtipo no pensionado por edad</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Código DANE Municipio</label>
+                                    <input type="text" wire:model="dian_municipality_code" placeholder="Ej: 05001 (Medellín), 11001 (Bogotá)..." class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                </div>
+                                <div class="flex items-center pt-6">
+                                    <label class="inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" wire:model="dian_high_risk" class="rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                                        <span class="ml2 text-sm text-slate-700 font-medium">Actividad de Alto Riesgo (Dec. 2090/03)</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Datos Bancarios -->
                         <div>
                             <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">

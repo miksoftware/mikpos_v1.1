@@ -556,6 +556,10 @@ Route::middleware(['auth'])->group(function () {
             ->name('payrolls')
             ->middleware('permission:payrolls.view');
 
+        Route::get('/configuracion-electronica', App\Livewire\ElectronicPayrollSettings::class)
+            ->name('electronic-settings')
+            ->middleware('permission:electronic_payroll.view');
+
         Route::get('/desprendible/{detail}', function (App\Models\PayrollDetail $detail) {
             $detail->load(['employee.branch', 'payroll']);
             return view('receipts.payslip', ['detail' => $detail]);

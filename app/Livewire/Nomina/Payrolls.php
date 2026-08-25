@@ -12,6 +12,7 @@ use App\Models\CashMovement;
 use App\Models\CashReconciliation;
 use App\Services\ActivityLogService;
 use App\Services\PayrollCalculatorService;
+use App\Services\FactusPayrollService;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -74,6 +75,12 @@ class Payrolls extends Component
     public $novedad_advances_details = [];
     public $novedadEmployeeName = '';
     public $novedadCommissions = 0; // read-only, auto from sales
+
+    // Adjustment modal
+    public $isAdjustmentModalOpen = false;
+    public $adjustmentDetailId = null;
+    public $adjustmentMode = 'replacement'; // 'replacement' or 'elimination'
+    public $adjustmentReason = '';
 
     public bool $needsBranchSelection = false;
     public $branches = [];
@@ -581,6 +588,111 @@ class Payrolls extends Component
         $payroll->delete();
         $this->isDeleteModalOpen = false;
         $this->dispatch('notify', message: 'Nómina eliminada');
+    }
+
+    public function transmitDetailToDian($detailId)
+    {
+        if (!auth()->user()->hasPermission('electronic_payroll.transmit')) {
+            $this->dispatch('notify', message: 'No tienes permiso para transmitir nómina electrónica', type: 'error');
+            return;
+        }
+
+        $detail = PayrollDetail::with(['employee', 'payroll'])->findOrFail($detailId);
+
+        try {
+            $service = new FactusPayrollService();
+            $service->createPayroll($detail);
+            $this->dispatch('notify', message: "Nómina de {$detail->employee->full_name} transmitida exitosamente a la DIAN");
+            if ($this->selectedPayroll) {
+                $this->viewDetails($this->selectedPayroll->id);
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('notify', message: "Error DIAN: " . $e->getMessage(), type: 'error');
+        }
+    }
+
+    public function transmitPayrollToDian($payrollId)
+    {
+        if (!auth()->user()->hasPermission('electronic_payroll.transmit')) {
+            $this->dispatch('notify', message: 'No tienes permiso para transmitir nómina electrónica', type: 'error');
+            return;
+        }
+
+        $payroll = Payroll::with('details.employee')->findOrFail($payrollId);
+        $service = new FactusPayrollService();
+        $successCount = 0;
+        $failCount = 0;
+        $lastError = '';
+
+        foreach ($payroll->details as $detail) {
+            if ($detail->dian_status === 'validado') {
+                continue;
+            }
+
+            try {
+                $service->createPayroll($detail);
+                $successCount++;
+            } catch (\Exception $e) {
+                $failCount++;
+                $lastError = $e->getMessage();
+            }
+        }
+
+        if ($successCount > 0) {
+            $this->dispatch('notify', message: "Se transmitieron {$successCount} empleados a la DIAN correctamente");
+        }
+        if ($failCount > 0) {
+            $this->dispatch('notify', message: "Fallaron {$failCount} envíos. Último error: {$lastError}", type: 'error');
+        }
+
+        if ($this->selectedPayroll) {
+            $this->viewDetails($payrollId);
+        }
+    }
+
+    public function openAdjustmentModal($detailId, $mode = 'replacement')
+    {
+        if (!auth()->user()->hasPermission('electronic_payroll.adjust')) {
+            $this->dispatch('notify', message: 'No tienes permiso para emitir notas de ajuste', type: 'error');
+            return;
+        }
+
+        $this->adjustmentDetailId = $detailId;
+        $this->adjustmentMode = $mode;
+        $this->adjustmentReason = '';
+        $this->isAdjustmentModalOpen = true;
+    }
+
+    public function submitAdjustment()
+    {
+        if (!auth()->user()->hasPermission('electronic_payroll.adjust')) {
+            $this->dispatch('notify', message: 'No tienes permiso para emitir notas de ajuste', type: 'error');
+            return;
+        }
+
+        $this->validate([
+            'adjustmentReason' => 'required|string|min:5',
+        ]);
+
+        $detail = PayrollDetail::with(['employee', 'payroll'])->findOrFail($this->adjustmentDetailId);
+        $service = new FactusPayrollService();
+
+        try {
+            if ($this->adjustmentMode === 'replacement') {
+                $service->createAdjustmentReplacement($detail, $this->adjustmentReason);
+                $this->dispatch('notify', message: 'Nota de Ajuste (Reemplazo) transmitida a la DIAN exitosamente');
+            } else {
+                $service->createAdjustmentElimination($detail, $this->adjustmentReason);
+                $this->dispatch('notify', message: 'Nota de Ajuste (Eliminación) transmitida a la DIAN exitosamente');
+            }
+
+            $this->isAdjustmentModalOpen = false;
+            if ($this->selectedPayroll) {
+                $this->viewDetails($this->selectedPayroll->id);
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('notify', message: 'Error DIAN: ' . $e->getMessage(), type: 'error');
+        }
     }
 
     private function resetForm()

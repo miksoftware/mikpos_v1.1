@@ -19,6 +19,7 @@ class Employee extends Model
         'hire_date', 'position', 'department', 'contract_type', 'salary_type',
         'base_salary', 'transport_allowance', 'transport_included_in_salary', 'risk_level',
         'payment_frequency',
+        'dian_worker_type_code', 'dian_worker_subtype_code', 'dian_municipality_code', 'dian_high_risk',
         'health_fund', 'pension_fund', 'severance_fund', 'compensation_fund',
         'bank_name', 'bank_account_type', 'bank_account_number',
         'status', 'termination_date', 'termination_reason',
@@ -33,6 +34,7 @@ class Employee extends Model
             'base_salary' => 'decimal:2',
             'transport_allowance' => 'boolean',
             'transport_included_in_salary' => 'boolean',
+            'dian_high_risk' => 'boolean',
         ];
     }
 

@@ -41,6 +41,10 @@ class Employees extends Component
     public $transport_included_in_salary = false;
     public $risk_level = 'I';
     public $payment_frequency = 'mensual';
+    public $dian_worker_type_code = '01';
+    public $dian_worker_subtype_code = '00';
+    public $dian_municipality_code = '05001';
+    public bool $dian_high_risk = false;
     public $health_fund, $pension_fund, $severance_fund, $compensation_fund;
     public $bank_name, $bank_account_type, $bank_account_number;
     public $status = 'activo';
@@ -250,6 +254,10 @@ class Employees extends Component
         $this->transport_included_in_salary = $item->transport_included_in_salary;
         $this->risk_level = $item->risk_level;
         $this->payment_frequency = $item->payment_frequency ?? 'mensual';
+        $this->dian_worker_type_code = $item->dian_worker_type_code ?? '01';
+        $this->dian_worker_subtype_code = $item->dian_worker_subtype_code ?? '00';
+        $this->dian_municipality_code = $item->dian_municipality_code ?? '05001';
+        $this->dian_high_risk = (bool) $item->dian_high_risk;
         $this->health_fund = $item->health_fund;
         $this->pension_fund = $item->pension_fund;
         $this->severance_fund = $item->severance_fund;
@@ -358,6 +366,10 @@ class Employees extends Component
             'transport_included_in_salary' => $this->transport_included_in_salary,
             'risk_level' => $this->risk_level,
             'payment_frequency' => $this->payment_frequency,
+            'dian_worker_type_code' => $this->dian_worker_type_code ?: '01',
+            'dian_worker_subtype_code' => $this->dian_worker_subtype_code ?: '00',
+            'dian_municipality_code' => $this->dian_municipality_code ?: null,
+            'dian_high_risk' => $this->dian_high_risk,
             'health_fund' => $this->health_fund ?: null,
             'pension_fund' => $this->pension_fund ?: null,
             'severance_fund' => $this->severance_fund ?: null,
@@ -429,6 +441,10 @@ class Employees extends Component
         $this->transport_included_in_salary = false;
         $this->risk_level = 'I';
         $this->payment_frequency = 'mensual';
+        $this->dian_worker_type_code = '01';
+        $this->dian_worker_subtype_code = '00';
+        $this->dian_municipality_code = '05001';
+        $this->dian_high_risk = false;
         $this->health_fund = '';
         $this->pension_fund = '';
         $this->severance_fund = '';

@@ -26,6 +26,8 @@ class PayrollDetail extends Model
         'severance_provision', 'severance_interest_provision',
         'service_bonus_provision', 'vacation_provision',
         'net_pay',
+        'dian_status', 'cune', 'electronic_number', 'dian_response',
+        'xml_url', 'pdf_url', 'qr_code', 'reference_cune', 'transmitted_at',
     ];
 
     protected function casts(): array
@@ -59,6 +61,8 @@ class PayrollDetail extends Model
             'severance_interest_provision' => 'decimal:2',
             'service_bonus_provision' => 'decimal:2',
             'vacation_provision' => 'decimal:2',
+            'dian_response' => 'array',
+            'transmitted_at' => 'datetime',
         ];
     }
 

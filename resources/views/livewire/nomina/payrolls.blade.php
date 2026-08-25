@@ -186,9 +186,17 @@
                             <h3 class="text-lg font-bold text-slate-900">Detalle Nómina: {{ $selectedPayroll->period_label }}</h3>
                             <p class="text-sm text-slate-500">{{ $selectedPayroll->branch?->name }} — {{ ucfirst($selectedPayroll->period_type) }}</p>
                         </div>
-                        <button wire:click="$set('isDetailModalOpen', false)" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                        </button>
+                        <div class="flex items-center gap-3">
+                            @if(auth()->user()->hasPermission('electronic_payroll.transmit') && in_array($selectedPayroll->status, ['aprobada', 'pagada']))
+                            <button wire:click="transmitPayrollToDian({{ $selectedPayroll->id }})" class="px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                                Transmitir Período a la DIAN
+                            </button>
+                            @endif
+                            <button wire:click="$set('isDetailModalOpen', false)" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
                     </div>
                     <div class="overflow-x-auto max-h-[70vh] overflow-y-auto">
                         <table class="w-full text-sm">
@@ -205,6 +213,7 @@
                                     <th class="px-3 py-2 text-right font-semibold text-slate-500">Pensión</th>
                                     <th class="px-3 py-2 text-right font-semibold text-slate-500">Total Ded.</th>
                                     <th class="px-3 py-2 text-right font-semibold text-green-700">Neto</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-slate-500">DIAN</th>
                                     <th class="px-3 py-2 text-center font-semibold text-slate-500">Acc.</th>
                                 </tr>
                             </thead>
@@ -226,16 +235,52 @@
                                     <td class="px-3 py-2 text-right text-red-600 font-medium">${{ number_format($detail->total_deductions, 0, ',', '.') }}</td>
                                     <td class="px-3 py-2 text-right font-bold text-green-700">${{ number_format($detail->net_pay, 0, ',', '.') }}</td>
                                     <td class="px-3 py-2 text-center">
-                                        @if(in_array($selectedPayroll->status, ['borrador', 'calculada']))
-                                        <button wire:click="editNovedad({{ $detail->id }})" class="p-1 text-slate-400 hover:text-amber-600 rounded hover:bg-amber-50" title="Editar novedades">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                        </button>
+                                        <span class="inline-flex px-2 py-0.5 text-[10px] font-semibold rounded-full
+                                            {{ $detail->dian_status === 'validado' ? 'bg-green-100 text-green-700' : '' }}
+                                            {{ $detail->dian_status === 'rechazado' ? 'bg-red-100 text-red-700' : '' }}
+                                            {{ $detail->dian_status === 'reemplazado' ? 'bg-amber-100 text-amber-700' : '' }}
+                                            {{ $detail->dian_status === 'eliminado' ? 'bg-slate-200 text-slate-700' : '' }}
+                                            {{ $detail->dian_status === 'sin_emitir' ? 'bg-slate-100 text-slate-500' : '' }}
+                                        ">
+                                            {{ ucfirst($detail->dian_status ?: 'sin_emitir') }}
+                                        </span>
+                                        @if($detail->electronic_number)
+                                        <div class="text-[10px] text-slate-400 font-mono mt-0.5">{{ $detail->electronic_number }}</div>
                                         @endif
-                                        @if(in_array($selectedPayroll->status, ['calculada', 'aprobada', 'pagada']))
-                                        <a href="{{ route('nomina.payslip', $detail->id) }}" target="_blank" class="p-1 text-slate-400 hover:text-blue-600 rounded hover:bg-blue-50 inline-block" title="Imprimir desprendible">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-                                        </a>
-                                        @endif
+                                    </td>
+                                    <td class="px-3 py-2 text-center">
+                                        <div class="flex items-center justify-center gap-1">
+                                            @if(in_array($selectedPayroll->status, ['borrador', 'calculada']))
+                                            <button wire:click="editNovedad({{ $detail->id }})" class="p-1 text-slate-400 hover:text-amber-600 rounded hover:bg-amber-50" title="Editar novedades">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                            </button>
+                                            @endif
+                                            @if(in_array($selectedPayroll->status, ['calculada', 'aprobada', 'pagada']))
+                                            <a href="{{ route('nomina.payslip', $detail->id) }}" target="_blank" class="p-1 text-slate-400 hover:text-blue-600 rounded hover:bg-blue-50 inline-block" title="Imprimir desprendible">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                                            </a>
+                                            @endif
+                                            @if(auth()->user()->hasPermission('electronic_payroll.transmit') && in_array($selectedPayroll->status, ['aprobada', 'pagada']) && $detail->dian_status !== 'validado')
+                                            <button wire:click="transmitDetailToDian({{ $detail->id }})" class="p-1 text-slate-400 hover:text-purple-600 rounded hover:bg-purple-50" title="Transmitir a la DIAN">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                                            </button>
+                                            @endif
+                                            @if($detail->dian_status === 'validado')
+                                                @if($detail->pdf_url)
+                                                <a href="{{ $detail->pdf_url }}" target="_blank" class="p-1 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 inline-block" title="Descargar PDF DIAN">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                                </a>
+                                                @endif
+                                                @if(auth()->user()->hasPermission('electronic_payroll.adjust'))
+                                                <button wire:click="openAdjustmentModal({{ $detail->id }}, 'replacement')" class="p-1 text-slate-400 hover:text-amber-600 rounded hover:bg-amber-50" title="Nota de Ajuste (Reemplazo)">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                                </button>
+                                                <button wire:click="openAdjustmentModal({{ $detail->id }}, 'elimination')" class="p-1 text-slate-400 hover:text-red-600 rounded hover:bg-red-50" title="Nota de Ajuste (Eliminación)">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                </button>
+                                                @endif
+                                            @endif
+                                        </div>
                                     </td>
                                 </tr>
                                 @endforeach
@@ -497,6 +542,49 @@
                             Confirmar Pago
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Adjustment Note Modal -->
+    @if($isAdjustmentModalOpen)
+    <div class="relative z-[110]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[110]" wire:click="$set('isAdjustmentModalOpen', false)"></div>
+        <div class="fixed inset-0 z-[111] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl">
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <h3 class="text-base font-bold text-slate-900">
+                            {{ $adjustmentMode === 'replacement' ? 'Nota de Ajuste (Reemplazo)' : 'Nota de Ajuste (Eliminación)' }}
+                        </h3>
+                        <button wire:click="$set('isAdjustmentModalOpen', false)" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    <form wire:submit="submitAdjustment" class="p-6 space-y-4">
+                        <p class="text-xs text-slate-600">
+                            @if($adjustmentMode === 'replacement')
+                            Esta acción transmitirá una **Nota de Reemplazo** a la DIAN conservando la referencia del CUNE anterior y enviando los datos recalculados.
+                            @else
+                            Esta acción transmitirá una **Nota de Eliminación** a la DIAN anulando por completo el documento numérico transmitido previamente.
+                            @endif
+                        </p>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Motivo / Razón del Ajuste *</label>
+                            <textarea wire:model="adjustmentReason" rows="3" placeholder="Ingresa el motivo detallado..." class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]"></textarea>
+                            @error('adjustmentReason') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                        </div>
+
+                        <div class="flex justify-end gap-3 pt-2">
+                            <button type="button" wire:click="$set('isAdjustmentModalOpen', false)" class="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200">Cancelar</button>
+                            <button type="submit" class="px-4 py-2 text-xs font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:opacity-90">
+                                Transmitir Nota a la DIAN
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
