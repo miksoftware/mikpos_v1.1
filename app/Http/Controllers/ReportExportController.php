@@ -2989,12 +2989,14 @@ class ReportExportController extends Controller
             $pdf->setPaper('letter', 'portrait');
             $pdf->setOptions([
                 'isHtml5ParserEnabled' => true,
-                'isRemoteEnabled' => true,
+                'isRemoteEnabled' => false,
                 'isPhpEnabled' => true,
-                'chroot' => [public_path(), storage_path('app/public'), storage_path('app'), base_path()],
+                'defaultFont' => 'Helvetica',
+                'dpi' => 96,
                 'tempDir' => storage_path('framework/cache'),
                 'fontDir' => storage_path('fonts'),
                 'fontCache' => storage_path('fonts'),
+                'chroot' => [public_path(), storage_path('app/public'), storage_path('app'), base_path()],
             ]);
 
             $branchSlug = \Illuminate\Support\Str::slug($branch?->name ?? 'tienda');
@@ -3056,83 +3058,104 @@ class ReportExportController extends Controller
     }
 
     /**
-     * Safely convert an image path or URL to base64 data URI.
+     * Safely convert and downscale an image to a compact base64 thumbnail (max 120x120px)
+     * to prevent DomPDF memory explosion on servers with many/large images.
      */
-    protected function safeImageToBase64(?string $imagePath): ?string
+    protected function safeImageToBase64(?string $imagePath, int $maxDimension = 120): ?string
     {
         if (empty($imagePath)) {
             return null;
         }
 
         try {
-            // Check if already data URI
             if (str_starts_with($imagePath, 'data:image')) {
                 return $imagePath;
             }
 
-            // If external URL
+            $rawContent = null;
+
             if (filter_var($imagePath, FILTER_VALIDATE_URL)) {
-                $ctx = stream_context_create(['http' => ['timeout' => 3]]);
-                $content = @file_get_contents($imagePath, false, $ctx);
-                if ($content && strlen($content) > 0 && strlen($content) <= 5 * 1024 * 1024) {
-                    $mime = 'image/jpeg';
-                    return 'data:' . $mime . ';base64,' . base64_encode($content);
+                $ctx = stream_context_create(['http' => ['timeout' => 2]]);
+                $rawContent = @file_get_contents($imagePath, false, $ctx);
+            } else {
+                $cleanPath = ltrim($imagePath, '/\\');
+                if (str_starts_with($cleanPath, 'storage/')) {
+                    $cleanPath = substr($cleanPath, 8);
                 }
+                if (str_starts_with($cleanPath, 'public/')) {
+                    $cleanPath = substr($cleanPath, 7);
+                }
+
+                $storageDisk = \Illuminate\Support\Facades\Storage::disk('public');
+                if ($storageDisk->exists($cleanPath)) {
+                    $fullPath = $storageDisk->path($cleanPath);
+                    if (file_exists($fullPath) && is_readable($fullPath)) {
+                        $rawContent = @file_get_contents($fullPath);
+                    }
+                }
+
+                if (!$rawContent) {
+                    $publicFile = public_path($imagePath);
+                    if (file_exists($publicFile) && is_readable($publicFile)) {
+                        $rawContent = @file_get_contents($publicFile);
+                    }
+                }
+
+                if (!$rawContent) {
+                    $publicStorageFile = public_path('storage/' . $cleanPath);
+                    if (file_exists($publicStorageFile) && is_readable($publicStorageFile)) {
+                        $rawContent = @file_get_contents($publicStorageFile);
+                    }
+                }
+            }
+
+            if (!$rawContent || strlen($rawContent) === 0) {
                 return null;
             }
 
-            // Normalize path (remove leading slashes, storage/ prefix if present)
-            $cleanPath = ltrim($imagePath, '/\\');
-            if (str_starts_with($cleanPath, 'storage/')) {
-                $cleanPath = substr($cleanPath, 8);
-            }
-            if (str_starts_with($cleanPath, 'public/')) {
-                $cleanPath = substr($cleanPath, 7);
-            }
+            // Downscale to tiny thumbnail using GD if available
+            if (extension_loaded('gd') && function_exists('imagecreatefromstring')) {
+                $src = @imagecreatefromstring($rawContent);
+                if ($src !== false) {
+                    $w = imagesx($src);
+                    $h = imagesy($src);
 
-            $storageDisk = \Illuminate\Support\Facades\Storage::disk('public');
-            
-            // Check in Storage public disk
-            if ($storageDisk->exists($cleanPath)) {
-                $fullPath = $storageDisk->path($cleanPath);
-                if (file_exists($fullPath) && is_readable($fullPath)) {
-                    $size = @filesize($fullPath);
-                    if ($size && $size > 5 * 1024 * 1024) {
-                        // Skip excessively large images to save memory in DomPDF
-                        return null;
+                    if ($w > 0 && $h > 0) {
+                        $ratio = min($maxDimension / $w, $maxDimension / $h, 1.0);
+                        $newW = max(1, (int) round($w * $ratio));
+                        $newH = max(1, (int) round($h * $ratio));
+
+                        $thumb = imagecreatetruecolor($newW, $newH);
+                        $white = imagecolorallocate($thumb, 255, 255, 255);
+                        imagefill($thumb, 0, 0, $white);
+
+                        imagecopyresampled($thumb, $src, 0, 0, 0, 0, $newW, $newH, $w, $h);
+
+                        ob_start();
+                        imagejpeg($thumb, null, 65);
+                        $thumbData = ob_get_clean();
+
+                        imagedestroy($thumb);
+                        imagedestroy($src);
+
+                        if ($thumbData) {
+                            return 'data:image/jpeg;base64,' . base64_encode($thumbData);
+                        }
                     }
-                    $content = @file_get_contents($fullPath);
-                    if ($content) {
-                        $mime = @mime_content_type($fullPath) ?: 'image/jpeg';
-                        return 'data:' . $mime . ';base64,' . base64_encode($content);
-                    }
+                    imagedestroy($src);
                 }
             }
 
-            // Check in public_path directly
-            $publicFile = public_path($imagePath);
-            if (file_exists($publicFile) && is_readable($publicFile)) {
-                $content = @file_get_contents($publicFile);
-                if ($content) {
-                    $mime = @mime_content_type($publicFile) ?: 'image/jpeg';
-                    return 'data:' . $mime . ';base64,' . base64_encode($content);
-                }
+            // Fallback for small raw images
+            if (strlen($rawContent) < 150 * 1024) {
+                return 'data:image/jpeg;base64,' . base64_encode($rawContent);
             }
 
-            // Check in public/storage
-            $publicStorageFile = public_path('storage/' . $cleanPath);
-            if (file_exists($publicStorageFile) && is_readable($publicStorageFile)) {
-                $content = @file_get_contents($publicStorageFile);
-                if ($content) {
-                    $mime = @mime_content_type($publicStorageFile) ?: 'image/jpeg';
-                    return 'data:' . $mime . ';base64,' . base64_encode($content);
-                }
-            }
+            return null;
+
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning("Error converting image to base64 ({$imagePath}): " . $e->getMessage());
+            return null;
         }
-
-        return null;
     }
 }
 
