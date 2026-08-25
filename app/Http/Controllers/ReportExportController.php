@@ -3058,8 +3058,8 @@ class ReportExportController extends Controller
     }
 
     /**
-     * Safely convert and downscale an image to a compact base64 thumbnail (max 120x120px)
-     * to prevent DomPDF memory explosion on servers with many/large images.
+     * Safely convert and downscale an image to a compact JPEG base64 thumbnail (max 120x120px)
+     * to prevent DomPDF memory explosion and WebP incompatibility on servers.
      */
     protected function safeImageToBase64(?string $imagePath, int $maxDimension = 120): ?string
     {
@@ -3069,6 +3069,10 @@ class ReportExportController extends Controller
 
         try {
             if (str_starts_with($imagePath, 'data:image')) {
+                // If it's already a webp data URI and imagecreatefromwebp doesn't exist, ignore it
+                if (str_starts_with($imagePath, 'data:image/webp') && !function_exists('imagecreatefromwebp')) {
+                    return null;
+                }
                 return $imagePath;
             }
 
@@ -3113,44 +3117,75 @@ class ReportExportController extends Controller
                 return null;
             }
 
-            // Downscale to tiny thumbnail using GD if available
-            if (extension_loaded('gd') && function_exists('imagecreatefromstring')) {
-                $src = @imagecreatefromstring($rawContent);
-                if ($src !== false) {
-                    $w = imagesx($src);
-                    $h = imagesy($src);
+            // Check if image is WebP format
+            $isWebp = (strlen($rawContent) >= 12 && substr($rawContent, 0, 4) === 'RIFF' && substr($rawContent, 8, 4) === 'WEBP')
+                || str_ends_with(strtolower($imagePath), '.webp');
 
-                    if ($w > 0 && $h > 0) {
-                        $ratio = min($maxDimension / $w, $maxDimension / $h, 1.0);
-                        $newW = max(1, (int) round($w * $ratio));
-                        $newH = max(1, (int) round($h * $ratio));
-
-                        $thumb = imagecreatetruecolor($newW, $newH);
-                        $white = imagecolorallocate($thumb, 255, 255, 255);
-                        imagefill($thumb, 0, 0, $white);
-
-                        imagecopyresampled($thumb, $src, 0, 0, 0, 0, $newW, $newH, $w, $h);
-
-                        ob_start();
-                        imagejpeg($thumb, null, 65);
-                        $thumbData = ob_get_clean();
-
-                        imagedestroy($thumb);
-                        imagedestroy($src);
-
-                        if ($thumbData) {
-                            return 'data:image/jpeg;base64,' . base64_encode($thumbData);
-                        }
+            // 1. Try Imagick first (converts WebP to JPEG seamlessly if installed)
+            if (extension_loaded('imagick') && class_exists('\Imagick')) {
+                try {
+                    $imagick = new \Imagick();
+                    $imagick->readImageBlob($rawContent);
+                    $imagick->setImageFormat('jpeg');
+                    $imagick->thumbnailImage($maxDimension, $maxDimension, true);
+                    $thumbData = $imagick->getImageBlob();
+                    $imagick->clear();
+                    $imagick->destroy();
+                    if ($thumbData) {
+                        return 'data:image/jpeg;base64,' . base64_encode($thumbData);
                     }
-                    imagedestroy($src);
+                } catch (\Throwable $e) {
+                    // fall through to GD
                 }
             }
 
-            // Fallback for small raw images
-            if (strlen($rawContent) < 150 * 1024) {
-                return 'data:image/jpeg;base64,' . base64_encode($rawContent);
+            // 2. Try GD (if GD can decode the image)
+            if (extension_loaded('gd') && function_exists('imagecreatefromstring')) {
+                // If webp and imagecreatefromwebp is not available in GD, skip GD
+                if (!($isWebp && !function_exists('imagecreatefromwebp'))) {
+                    $src = @imagecreatefromstring($rawContent);
+                    if ($src !== false) {
+                        $w = imagesx($src);
+                        $h = imagesy($src);
+
+                        if ($w > 0 && $h > 0) {
+                            $ratio = min($maxDimension / $w, $maxDimension / $h, 1.0);
+                            $newW = max(1, (int) round($w * $ratio));
+                            $newH = max(1, (int) round($h * $ratio));
+
+                            $thumb = imagecreatetruecolor($newW, $newH);
+                            $white = imagecolorallocate($thumb, 255, 255, 255);
+                            imagefill($thumb, 0, 0, $white);
+
+                            imagecopyresampled($thumb, $src, 0, 0, 0, 0, $newW, $newH, $w, $h);
+
+                            ob_start();
+                            imagejpeg($thumb, null, 65);
+                            $thumbData = ob_get_clean();
+
+                            imagedestroy($thumb);
+                            imagedestroy($src);
+
+                            if ($thumbData) {
+                                return 'data:image/jpeg;base64,' . base64_encode($thumbData);
+                            }
+                        }
+                        imagedestroy($src);
+                    }
+                }
             }
 
+            // 3. Fallback for raw JPEG/PNG (never WebP, never unsupported formats)
+            if (!$isWebp && strlen($rawContent) <= 150 * 1024) {
+                if (str_starts_with($rawContent, "\xFF\xD8\xFF")) {
+                    return 'data:image/jpeg;base64,' . base64_encode($rawContent);
+                }
+                if (str_starts_with($rawContent, "\x89PNG\r\n\x1a\n")) {
+                    return 'data:image/png;base64,' . base64_encode($rawContent);
+                }
+            }
+
+            // If it's WebP or unrecognized and couldn't be converted to JPEG:
             return null;
 
         } catch (\Throwable $e) {
