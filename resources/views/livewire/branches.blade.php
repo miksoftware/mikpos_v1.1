@@ -5,12 +5,20 @@
             <h1 class="text-2xl font-bold text-slate-800">Gestión de Sucursales</h1>
             <p class="text-slate-500 mt-1">Administra las sucursales del sistema</p>
         </div>
-        @if(auth()->user()->hasPermission('branches.create'))
-        <button wire:click="create" class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] text-white text-sm font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-            Nueva Sucursal
-        </button>
-        @endif
+        <div class="flex items-center gap-3">
+            @if(auth()->user()->hasPermission('branches.copy_products'))
+            <button wire:click="openCopyModal" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200">
+                <svg class="w-5 h-5 mr-2 text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                Copiar Productos
+            </button>
+            @endif
+            @if(auth()->user()->hasPermission('branches.create'))
+            <button wire:click="create" class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] text-white text-sm font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                Nueva Sucursal
+            </button>
+            @endif
+        </div>
     </div>
 
     <!-- Search -->
@@ -86,6 +94,11 @@
                                 <button wire:click="view({{ $branch->id }})" class="p-2 text-slate-400 hover:text-[#a855f7] hover:bg-purple-50 rounded-lg transition-colors" title="Ver">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                 </button>
+                                @if(auth()->user()->hasPermission('branches.copy_products'))
+                                <button wire:click="openCopyModal({{ $branch->id }})" class="p-2 text-slate-400 hover:text-[#a855f7] hover:bg-purple-50 rounded-lg transition-colors" title="Copiar productos desde esta sucursal">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                                </button>
+                                @endif
                                 @if(auth()->user()->hasPermission('branches.edit'))
                                 <button wire:click="edit({{ $branch->id }})" class="p-2 text-slate-400 hover:text-[#ff7261] hover:bg-orange-50 rounded-lg transition-colors" title="Editar">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
@@ -418,6 +431,198 @@
                     <div class="flex justify-center gap-3">
                         <button wire:click="$set('isCleanModalOpen', false)" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
                         <button wire:click="cleanBranch" class="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-xl hover:bg-amber-700">Limpiar Sucursal</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Copy Products Modal -->
+    @if($isCopyModalOpen)
+    <div class="relative z-[100]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="closeCopyModal"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-xl overflow-hidden">
+                    <!-- Modal Header -->
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-slate-50 to-purple-50/30">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ff7261] to-[#a855f7] flex items-center justify-center text-white shadow-sm flex-shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900">Copiar Catálogo de Productos</h3>
+                                <p class="text-xs text-slate-500">Clona productos de una sucursal a otra sin afectar los datos originales</p>
+                            </div>
+                        </div>
+                        <button wire:click="closeCopyModal" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="px-6 py-5 max-h-[72vh] overflow-y-auto space-y-5">
+                        <!-- Branch Selection Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/80 p-4 rounded-2xl border border-slate-200">
+                            <!-- Source Branch -->
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-[#ff7261]"></span>
+                                    Sucursal Origen (Copiar desde) *
+                                </label>
+                                <select wire:model.live="copyFromBranchId" class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                                    <option value="">Selecciona sucursal origen...</option>
+                                    @foreach($allBranches as $ab)
+                                        <option value="{{ $ab->id }}">{{ $ab->name }} ({{ $ab->code }})</option>
+                                    @endforeach
+                                </select>
+                                @error('copyFromBranchId') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+
+                                @if($copyFromBranchId)
+                                <div class="mt-2 flex items-center gap-1.5 text-xs text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                                    <svg class="w-3.5 h-3.5 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                    <span><strong>{{ $copySourceCount }}</strong> productos disponibles para copiar</span>
+                                </div>
+                                @endif
+                            </div>
+
+                            <!-- Destination Branch -->
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-[#a855f7]"></span>
+                                    Sucursal Destino (Copiar hacia) *
+                                </label>
+                                <select wire:model.live="copyToBranchId" class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#a855f7]/50 focus:border-[#a855f7] text-sm">
+                                    <option value="">Selecciona sucursal destino...</option>
+                                    @foreach($allBranches as $ab)
+                                        @if($ab->id != $copyFromBranchId)
+                                            <option value="{{ $ab->id }}">{{ $ab->name }} ({{ $ab->code }})</option>
+                                        @endif
+                                    @endforeach
+                                </select>
+                                @error('copyToBranchId') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+
+                                @if($copyToBranchId)
+                                <div class="mt-2 flex items-center gap-1.5 text-xs text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                                    <svg class="w-3.5 h-3.5 text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                    <span><strong>{{ $copyTargetCount }}</strong> productos registrados actualmente</span>
+                                </div>
+                                @endif
+                            </div>
+                        </div>
+
+                        <!-- Configuration Options -->
+                        <div class="space-y-4">
+                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Opciones de Copiado</h4>
+
+                            <!-- Filter: All vs Active only -->
+                            <div class="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2">
+                                <label class="block text-xs font-semibold text-slate-700">Filtro de Productos de Origen</label>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <label class="flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all {{ $copyFilter === 'all' ? 'border-[#a855f7] bg-purple-50/40 text-purple-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                        <input type="radio" wire:model.live="copyFilter" value="all" class="text-[#a855f7] focus:ring-[#a855f7]">
+                                        <div class="text-xs">
+                                            <p class="font-semibold">Todos los productos</p>
+                                            <p class="text-slate-500">Incluye activos e inactivos</p>
+                                        </div>
+                                    </label>
+                                    <label class="flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all {{ $copyFilter === 'active_only' ? 'border-[#a855f7] bg-purple-50/40 text-purple-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                        <input type="radio" wire:model.live="copyFilter" value="active_only" class="text-[#a855f7] focus:ring-[#a855f7]">
+                                        <div class="text-xs">
+                                            <p class="font-semibold">Solo productos activos</p>
+                                            <p class="text-slate-500">Omite productos desactivados</p>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Duplicates handling -->
+                            <div class="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2">
+                                <label class="block text-xs font-semibold text-slate-700">Si un producto ya existe en la sucursal destino (mismo nombre)</label>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <label class="flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all {{ $copyDuplicateHandling === 'skip' ? 'border-[#ff7261] bg-orange-50/40 text-orange-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                        <input type="radio" wire:model="copyDuplicateHandling" value="skip" class="text-[#ff7261] focus:ring-[#ff7261]">
+                                        <div class="text-xs">
+                                            <p class="font-semibold">Omitir existentes (Recomendado)</p>
+                                            <p class="text-slate-500">No altera productos ya creados</p>
+                                        </div>
+                                    </label>
+                                    <label class="flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all {{ $copyDuplicateHandling === 'overwrite' ? 'border-[#ff7261] bg-orange-50/40 text-orange-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                        <input type="radio" wire:model="copyDuplicateHandling" value="overwrite" class="text-[#ff7261] focus:ring-[#ff7261]">
+                                        <div class="text-xs">
+                                            <p class="font-semibold">Actualizar existentes</p>
+                                            <p class="text-slate-500">Sobrescribe precios y atributos</p>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Initial stock mode -->
+                            <div class="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2">
+                                <label class="block text-xs font-semibold text-slate-700">Inventario / Stock Inicial en Destino</label>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <label class="flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all {{ $copyStockMode === 'zero' ? 'border-[#a855f7] bg-purple-50/40 text-purple-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                        <input type="radio" wire:model="copyStockMode" value="zero" class="text-[#a855f7] focus:ring-[#a855f7]">
+                                        <div class="text-xs">
+                                            <p class="font-semibold">Iniciar con Stock en 0 (Recomendado)</p>
+                                            <p class="text-slate-500">Para ingresar nuevo inventario físico</p>
+                                        </div>
+                                    </label>
+                                    <label class="flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all {{ $copyStockMode === 'copy' ? 'border-[#a855f7] bg-purple-50/40 text-purple-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                        <input type="radio" wire:model="copyStockMode" value="copy" class="text-[#a855f7] focus:ring-[#a855f7]">
+                                        <div class="text-xs">
+                                            <p class="font-semibold">Copiar stock actual de origen</p>
+                                            <p class="text-slate-500">Clona las cantidades actuales</p>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Variants option -->
+                            <div class="bg-white p-3.5 rounded-xl border border-slate-200">
+                                <label class="flex items-center gap-2.5 cursor-pointer">
+                                    <input type="checkbox" wire:model="copyVariants" class="w-4 h-4 rounded border-slate-300 text-[#a855f7] focus:ring-[#a855f7]">
+                                    <div class="text-xs">
+                                        <span class="font-semibold text-slate-800">Copiar variantes y presentaciones</span>
+                                        <p class="text-slate-500">Copia también las variantes (hijos), tallas, colores y precios asociados a cada producto.</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Important Security Notice -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-3.5 flex items-start gap-3">
+                            <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <div class="text-xs text-blue-800">
+                                <p class="font-semibold">Protección del Catálogo Original</p>
+                                <p class="text-blue-700 mt-0.5">Los productos de la sucursal de origen <strong>no se borrarán ni se modificarán</strong>. Se crearán copias independientes en la sucursal de destino con sus propios códigos SKU correlativos.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                        <span class="text-xs text-slate-500">
+                            @if($copyFromBranchId && $copyToBranchId)
+                                Copiando de <strong>{{ $allBranches->find($copyFromBranchId)?->name }}</strong> hacia <strong>{{ $allBranches->find($copyToBranchId)?->name }}</strong>
+                            @else
+                                Selecciona origen y destino para continuar
+                            @endif
+                        </span>
+                        <div class="flex items-center gap-3">
+                            <button type="button" wire:click="closeCopyModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors">
+                                Cancelar
+                            </button>
+                            <button type="button" wire:click="executeCopyProducts" wire:loading.attr="disabled" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                                <svg wire:loading wire:target="executeCopyProducts" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span wire:loading.remove wire:target="executeCopyProducts">Copiar Productos</span>
+                                <span wire:loading wire:target="executeCopyProducts">Copiando productos...</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

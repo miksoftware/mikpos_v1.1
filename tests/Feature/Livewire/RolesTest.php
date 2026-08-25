@@ -191,7 +191,10 @@ class RolesTest extends TestCase
             'name' => 'test.view',
         ]);
         
-        $role = Role::factory()->create();
+        $role = Role::factory()->create([
+            'name' => 'test_role',
+            'display_name' => 'Test Role',
+        ]);
         
         Livewire::test(Roles::class)
             ->call('edit', $role->id)

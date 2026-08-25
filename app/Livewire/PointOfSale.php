@@ -447,7 +447,12 @@ class PointOfSale extends Component
         }
 
         // Search in product_barcodes table (case-insensitive for safety)
-        $barcodeRecord = ProductBarcode::where(DB::raw('LOWER(barcode)'), strtolower($barcode))->first();
+        $barcodeRecord = ProductBarcode::where(DB::raw('LOWER(barcode)'), strtolower($barcode))
+            ->where(function ($q) {
+                $q->whereHas('product', fn($p) => $p->where('is_active', true)->where('show_in_pos', true)->forBranch($this->branchId))
+                  ->orWhereHas('productChild.product', fn($p) => $p->where('is_active', true)->where('show_in_pos', true)->forBranch($this->branchId));
+            })
+            ->first();
 
         if ($barcodeRecord) {
             // Found a barcode - check if it's for a product child

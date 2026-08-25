@@ -32,6 +32,7 @@ class RolesAndPermissionsSeeder extends Seeder
                     ['name' => 'branches.create', 'display_name' => 'Crear Sucursales'],
                     ['name' => 'branches.edit', 'display_name' => 'Editar Sucursales'],
                     ['name' => 'branches.delete', 'display_name' => 'Eliminar Sucursales'],
+                    ['name' => 'branches.copy_products', 'display_name' => 'Copiar Productos'],
                 ],
             ],
             [

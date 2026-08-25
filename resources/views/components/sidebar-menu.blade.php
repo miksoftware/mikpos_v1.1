@@ -548,6 +548,7 @@
         </svg>
         <span>Períodos de Nómina</span>
     </a>
+    @endif
     @if (auth()->user()->hasPermission('electronic_payroll.view'))
     <a href="{{ route('nomina.electronic-settings') }}" @click="mobileMenuOpen = false" class="{{ $linkClass }} {{ request()->routeIs('nomina.electronic-settings') ? $activeClass : $inactiveClass }}">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -587,6 +588,7 @@
             </svg>
             <span class="text-sm">Períodos de Nómina</span>
         </a>
+        @endif
         @if (auth()->user()->hasPermission('electronic_payroll.view'))
         <a href="{{ route('nomina.electronic-settings') }}" class="{{ $linkClass }} {{ request()->routeIs('nomina.electronic-settings') ? $activeClass : $inactiveClass }}">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

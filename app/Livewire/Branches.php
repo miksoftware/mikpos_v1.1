@@ -14,6 +14,7 @@ use App\Models\InventoryMovement;
 use App\Models\ActivityLog;
 use App\Models\Product;
 use App\Models\ProductChild;
+use App\Models\ProductBarcode;
 use App\Services\ActivityLogService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -38,6 +39,17 @@ class Branches extends Component
     public $branchIdToClean = null;
     public $cleanConfirmText = '';
     public $viewingBranch = null;
+
+    // Copy Products Modal properties
+    public bool $isCopyModalOpen = false;
+    public $copyFromBranchId = '';
+    public $copyToBranchId = '';
+    public string $copyFilter = 'all'; // 'all', 'active_only'
+    public string $copyDuplicateHandling = 'skip'; // 'skip', 'overwrite'
+    public string $copyStockMode = 'zero'; // 'zero', 'copy'
+    public bool $copyVariants = true;
+    public int $copySourceCount = 0;
+    public int $copyTargetCount = 0;
 
     // Form properties
     public $branchId;
@@ -114,8 +126,11 @@ class Branches extends Component
             ->latest()
             ->paginate(10);
 
+        $allBranches = Branch::where('is_active', true)->orderBy('name')->get();
+
         return view('livewire.branches', [
             'branches' => $branches,
+            'allBranches' => $allBranches,
         ]);
     }
 
@@ -385,6 +400,406 @@ class Branches extends Component
         } catch (\Exception $e) {
             DB::rollBack();
             $this->dispatch('notify', message: 'Error al limpiar: ' . $e->getMessage(), type: 'error');
+        }
+    }
+
+    public function openCopyModal(?int $sourceBranchId = null)
+    {
+        if (!auth()->user()->hasPermission('branches.copy_products')) {
+            $this->dispatch('notify', message: 'No tienes permiso para copiar productos entre sucursales', type: 'error');
+            return;
+        }
+
+        $this->resetValidation();
+        $this->copyFromBranchId = $sourceBranchId ? (string) $sourceBranchId : '';
+        $this->copyToBranchId = '';
+        $this->copyFilter = 'all';
+        $this->copyDuplicateHandling = 'skip';
+        $this->copyStockMode = 'zero';
+        $this->copyVariants = true;
+        $this->updateCopyCounts();
+        $this->isCopyModalOpen = true;
+    }
+
+    public function closeCopyModal()
+    {
+        $this->isCopyModalOpen = false;
+        $this->resetValidation();
+    }
+
+    public function updatedCopyFromBranchId()
+    {
+        $this->updateCopyCounts();
+    }
+
+    public function updatedCopyToBranchId()
+    {
+        $this->updateCopyCounts();
+    }
+
+    public function updatedCopyFilter()
+    {
+        $this->updateCopyCounts();
+    }
+
+    private function updateCopyCounts()
+    {
+        if ($this->copyFromBranchId) {
+            $query = Product::where('branch_id', $this->copyFromBranchId);
+            if ($this->copyFilter === 'active_only') {
+                $query->where('is_active', true);
+            }
+            $this->copySourceCount = $query->count();
+        } else {
+            $this->copySourceCount = 0;
+        }
+
+        if ($this->copyToBranchId) {
+            $this->copyTargetCount = Product::where('branch_id', $this->copyToBranchId)->count();
+        } else {
+            $this->copyTargetCount = 0;
+        }
+    }
+
+    public function executeCopyProducts()
+    {
+        if (!auth()->user()->hasPermission('branches.copy_products')) {
+            $this->dispatch('notify', message: 'No tienes permiso para copiar productos entre sucursales', type: 'error');
+            return;
+        }
+
+        $this->copyFromBranchId = $this->copyFromBranchId !== '' ? (string) $this->copyFromBranchId : '';
+        $this->copyToBranchId = $this->copyToBranchId !== '' ? (string) $this->copyToBranchId : '';
+
+        $this->validate([
+            'copyFromBranchId' => 'required|exists:branches,id',
+            'copyToBranchId' => 'required|exists:branches,id|different:copyFromBranchId',
+            'copyFilter' => 'required|in:all,active_only',
+            'copyDuplicateHandling' => 'required|in:skip,overwrite',
+            'copyStockMode' => 'required|in:zero,copy',
+        ], [
+            'copyFromBranchId.required' => 'Selecciona la sucursal de origen',
+            'copyFromBranchId.exists' => 'La sucursal de origen no existe',
+            'copyToBranchId.required' => 'Selecciona la sucursal de destino',
+            'copyToBranchId.exists' => 'La sucursal de destino no existe',
+            'copyToBranchId.different' => 'La sucursal de destino debe ser diferente a la de origen',
+        ]);
+
+        $fromBranch = Branch::find($this->copyFromBranchId);
+        $toBranch = Branch::find($this->copyToBranchId);
+
+        if (!$fromBranch || !$toBranch) {
+            $this->dispatch('notify', message: 'Sucursales no válidas', type: 'error');
+            return;
+        }
+
+        $sourceProductsQuery = Product::where('branch_id', $fromBranch->id)
+            ->with(['children.barcodes', 'barcodes']);
+
+        if ($this->copyFilter === 'active_only') {
+            $sourceProductsQuery->where('is_active', true);
+        }
+
+        $sourceProducts = $sourceProductsQuery->get();
+
+        if ($sourceProducts->isEmpty()) {
+            $this->dispatch('notify', message: 'No hay productos para copiar en la sucursal de origen', type: 'warning');
+            return;
+        }
+
+        $copiedCount = 0;
+        $updatedCount = 0;
+        $skippedCount = 0;
+        $variantsCount = 0;
+
+        DB::beginTransaction();
+        try {
+            $initialStockDoc = null;
+            if ($this->copyStockMode === 'copy') {
+                $initialStockDoc = \App\Models\SystemDocument::findByCode('initial_stock');
+            }
+
+            foreach ($sourceProducts as $sourceProduct) {
+                // Check if product with same name already exists in destination branch
+                $existingProduct = Product::where('branch_id', $toBranch->id)
+                    ->where('name', $sourceProduct->name)
+                    ->first();
+
+                if ($existingProduct) {
+                    if ($this->copyDuplicateHandling === 'skip') {
+                        $skippedCount++;
+                        continue;
+                    }
+
+                    // Overwrite mode: update fields of existing product
+                    $stockToSet = $this->copyStockMode === 'copy' ? (float) $sourceProduct->current_stock : (float) $existingProduct->current_stock;
+
+                    $existingProduct->update([
+                        'type' => $sourceProduct->type ?? Product::TYPE_STANDARD,
+                        'barcode' => $sourceProduct->barcode,
+                        'description' => $sourceProduct->description,
+                        'category_id' => $sourceProduct->category_id,
+                        'subcategory_id' => $sourceProduct->subcategory_id,
+                        'brand_id' => $sourceProduct->brand_id,
+                        'unit_id' => $sourceProduct->unit_id,
+                        'tax_id' => $sourceProduct->tax_id,
+                        'purchase_price' => $sourceProduct->purchase_price,
+                        'average_cost' => $sourceProduct->average_cost,
+                        'sale_price' => $sourceProduct->sale_price,
+                        'special_price' => $sourceProduct->special_price,
+                        'suggested_price' => $sourceProduct->suggested_price,
+                        'price_includes_tax' => $sourceProduct->price_includes_tax,
+                        'min_stock' => $sourceProduct->min_stock,
+                        'max_stock' => $sourceProduct->max_stock,
+                        'current_stock' => $stockToSet,
+                        'is_active' => $sourceProduct->is_active,
+                        'manages_inventory' => $sourceProduct->manages_inventory,
+                        'show_in_shop' => $sourceProduct->show_in_shop,
+                        'show_in_pos' => $sourceProduct->show_in_pos,
+                        'has_commission' => $sourceProduct->has_commission,
+                        'commission_type' => $sourceProduct->commission_type,
+                        'commission_value' => $sourceProduct->commission_value,
+                        'image' => $sourceProduct->image,
+                        'presentation_id' => $sourceProduct->presentation_id,
+                        'color_id' => $sourceProduct->color_id,
+                        'product_model_id' => $sourceProduct->product_model_id,
+                        'size' => $sourceProduct->size,
+                        'weight' => $sourceProduct->weight,
+                        'import_code' => $sourceProduct->import_code,
+                        'import_declaration' => $sourceProduct->import_declaration,
+                    ]);
+
+                    // Sync product barcodes
+                    if ($sourceProduct->barcodes->isNotEmpty()) {
+                        foreach ($sourceProduct->barcodes as $sourceBarcode) {
+                            ProductBarcode::firstOrCreate(
+                                [
+                                    'product_id' => $existingProduct->id,
+                                    'product_child_id' => null,
+                                    'barcode' => $sourceBarcode->barcode,
+                                ],
+                                [
+                                    'description' => $sourceBarcode->description,
+                                    'is_primary' => $sourceBarcode->is_primary,
+                                ]
+                            );
+                        }
+                    }
+
+                    // Copy variants if enabled
+                    if ($this->copyVariants && $sourceProduct->children->isNotEmpty()) {
+                        foreach ($sourceProduct->children as $sourceChild) {
+                            $existingChild = ProductChild::where('product_id', $existingProduct->id)
+                                ->where('name', $sourceChild->name)
+                                ->first();
+
+                            $childData = [
+                                'barcode' => $sourceChild->barcode,
+                                'unit_quantity' => $sourceChild->unit_quantity,
+                                'presentation_id' => $sourceChild->presentation_id,
+                                'color_id' => $sourceChild->color_id,
+                                'product_model_id' => $sourceChild->product_model_id,
+                                'size' => $sourceChild->size,
+                                'weight' => $sourceChild->weight,
+                                'sale_price' => $sourceChild->sale_price,
+                                'special_price' => $sourceChild->special_price,
+                                'suggested_price' => $sourceChild->suggested_price,
+                                'price_includes_tax' => $sourceChild->price_includes_tax,
+                                'is_active' => $sourceChild->is_active,
+                                'show_in_shop' => $sourceChild->show_in_shop,
+                                'show_in_pos' => $sourceChild->show_in_pos ?? true,
+                                'has_commission' => $sourceChild->has_commission,
+                                'commission_type' => $sourceChild->commission_type,
+                                'commission_value' => $sourceChild->commission_value,
+                                'image' => $sourceChild->image,
+                            ];
+
+                            if ($existingChild) {
+                                $existingChild->update($childData);
+                                $targetChild = $existingChild;
+                            } else {
+                                $childData['product_id'] = $existingProduct->id;
+                                $childData['name'] = $sourceChild->name;
+                                $targetChild = ProductChild::create($childData);
+                                $variantsCount++;
+                            }
+
+                            // Sync variant barcodes
+                            if ($sourceChild->barcodes->isNotEmpty()) {
+                                foreach ($sourceChild->barcodes as $childBarcode) {
+                                    ProductBarcode::firstOrCreate(
+                                        [
+                                            'product_id' => null,
+                                            'product_child_id' => $targetChild->id,
+                                            'barcode' => $childBarcode->barcode,
+                                        ],
+                                        [
+                                            'description' => $childBarcode->description,
+                                            'is_primary' => $childBarcode->is_primary,
+                                        ]
+                                    );
+                                }
+                            }
+                        }
+                    }
+
+                    $updatedCount++;
+                    continue;
+                }
+
+                // Create new cloned product in target branch
+                $initialStock = $this->copyStockMode === 'copy' ? (float) $sourceProduct->current_stock : 0;
+
+                $newProduct = Product::create([
+                    'branch_id' => $toBranch->id,
+                    'type' => $sourceProduct->type ?? Product::TYPE_STANDARD,
+                    'barcode' => $sourceProduct->barcode,
+                    'name' => $sourceProduct->name,
+                    'description' => $sourceProduct->description,
+                    'category_id' => $sourceProduct->category_id,
+                    'subcategory_id' => $sourceProduct->subcategory_id,
+                    'brand_id' => $sourceProduct->brand_id,
+                    'unit_id' => $sourceProduct->unit_id,
+                    'tax_id' => $sourceProduct->tax_id,
+                    'purchase_price' => $sourceProduct->purchase_price,
+                    'average_cost' => $sourceProduct->average_cost,
+                    'sale_price' => $sourceProduct->sale_price,
+                    'special_price' => $sourceProduct->special_price,
+                    'suggested_price' => $sourceProduct->suggested_price,
+                    'price_includes_tax' => $sourceProduct->price_includes_tax,
+                    'min_stock' => $sourceProduct->min_stock,
+                    'max_stock' => $sourceProduct->max_stock,
+                    'current_stock' => $initialStock,
+                    'is_active' => $sourceProduct->is_active,
+                    'manages_inventory' => $sourceProduct->manages_inventory,
+                    'show_in_shop' => $sourceProduct->show_in_shop,
+                    'show_in_pos' => $sourceProduct->show_in_pos,
+                    'has_commission' => $sourceProduct->has_commission,
+                    'commission_type' => $sourceProduct->commission_type,
+                    'commission_value' => $sourceProduct->commission_value,
+                    'image' => $sourceProduct->image,
+                    'presentation_id' => $sourceProduct->presentation_id,
+                    'color_id' => $sourceProduct->color_id,
+                    'product_model_id' => $sourceProduct->product_model_id,
+                    'size' => $sourceProduct->size,
+                    'weight' => $sourceProduct->weight,
+                    'imei' => null,
+                    'import_code' => $sourceProduct->import_code,
+                    'import_declaration' => $sourceProduct->import_declaration,
+                ]);
+
+                // Generate unique SKU
+                $newProduct->generateSku();
+                $newProduct->save();
+
+                // Copy parent barcodes
+                if ($sourceProduct->barcodes->isNotEmpty()) {
+                    foreach ($sourceProduct->barcodes as $sourceBarcode) {
+                        ProductBarcode::create([
+                            'product_id' => $newProduct->id,
+                            'product_child_id' => null,
+                            'barcode' => $sourceBarcode->barcode,
+                            'description' => $sourceBarcode->description,
+                            'is_primary' => $sourceBarcode->is_primary,
+                        ]);
+                    }
+                }
+
+                // Create initial stock movement if stock copied and > 0
+                if ($initialStock > 0 && $initialStockDoc) {
+                    try {
+                        InventoryMovement::create([
+                            'system_document_id' => $initialStockDoc->id,
+                            'document_number' => $initialStockDoc->generateNextNumber(),
+                            'product_id' => $newProduct->id,
+                            'branch_id' => $toBranch->id,
+                            'user_id' => auth()->id(),
+                            'movement_type' => 'in',
+                            'quantity' => $initialStock,
+                            'stock_before' => 0,
+                            'stock_after' => $initialStock,
+                            'unit_cost' => $newProduct->purchase_price,
+                            'total_cost' => $newProduct->purchase_price * $initialStock,
+                            'notes' => "Stock inicial copiado desde '{$fromBranch->name}'",
+                            'movement_date' => now(),
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::warning("No se pudo registrar movimiento de stock inicial al copiar producto: " . $e->getMessage());
+                    }
+                }
+
+                // Copy variants if enabled
+                if ($this->copyVariants && $sourceProduct->children->isNotEmpty()) {
+                    foreach ($sourceProduct->children as $sourceChild) {
+                        $newChild = ProductChild::create([
+                            'product_id' => $newProduct->id,
+                            'name' => $sourceChild->name,
+                            'barcode' => $sourceChild->barcode,
+                            'unit_quantity' => $sourceChild->unit_quantity,
+                            'presentation_id' => $sourceChild->presentation_id,
+                            'color_id' => $sourceChild->color_id,
+                            'product_model_id' => $sourceChild->product_model_id,
+                            'size' => $sourceChild->size,
+                            'weight' => $sourceChild->weight,
+                            'sale_price' => $sourceChild->sale_price,
+                            'special_price' => $sourceChild->special_price,
+                            'suggested_price' => $sourceChild->suggested_price,
+                            'price_includes_tax' => $sourceChild->price_includes_tax,
+                            'imei' => null,
+                            'is_active' => $sourceChild->is_active,
+                            'show_in_shop' => $sourceChild->show_in_shop,
+                            'show_in_pos' => $sourceChild->show_in_pos ?? true,
+                            'has_commission' => $sourceChild->has_commission,
+                            'commission_type' => $sourceChild->commission_type,
+                            'commission_value' => $sourceChild->commission_value,
+                            'image' => $sourceChild->image,
+                        ]);
+
+                        // Copy variant barcodes
+                        if ($sourceChild->barcodes->isNotEmpty()) {
+                            foreach ($sourceChild->barcodes as $childBarcode) {
+                                ProductBarcode::create([
+                                    'product_id' => null,
+                                    'product_child_id' => $newChild->id,
+                                    'barcode' => $childBarcode->barcode,
+                                    'description' => $childBarcode->description,
+                                    'is_primary' => $childBarcode->is_primary,
+                                ]);
+                            }
+                        }
+
+                        $variantsCount++;
+                    }
+                }
+
+                $copiedCount++;
+            }
+
+            DB::commit();
+
+            // Log activity
+            $summaryMsg = "Copia de productos: {$copiedCount} creados, {$updatedCount} actualizados, {$skippedCount} omitidos, {$variantsCount} variantes desde '{$fromBranch->name}' a '{$toBranch->name}'";
+            ActivityLogService::logCreate('branches', $toBranch, $summaryMsg);
+
+            $this->isCopyModalOpen = false;
+
+            $message = "Se copiaron {$copiedCount} productos nuevos";
+            if ($variantsCount > 0) {
+                $message .= " con {$variantsCount} variantes";
+            }
+            if ($updatedCount > 0) {
+                $message .= ", {$updatedCount} actualizados";
+            }
+            if ($skippedCount > 0) {
+                $message .= " ({$skippedCount} omitidos por ya existir)";
+            }
+            $message .= " a '{$toBranch->name}' exitosamente.";
+
+            $this->dispatch('notify', message: $message);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->dispatch('notify', message: 'Error al copiar productos: ' . $e->getMessage(), type: 'error');
         }
     }
 

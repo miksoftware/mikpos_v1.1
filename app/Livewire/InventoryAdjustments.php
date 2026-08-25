@@ -174,7 +174,12 @@ class InventoryAdjustments extends Component
         $branchId = $this->branch_id ?? $user->branch_id;
 
         // Search in product_barcodes table first
-        $barcodeRecord = ProductBarcode::where('barcode', $barcode)->first();
+        $barcodeRecord = ProductBarcode::where('barcode', $barcode)
+            ->where(function ($q) use ($branchId) {
+                $q->whereHas('product', fn($p) => $p->where('is_active', true)->forBranch($branchId))
+                  ->orWhereHas('productChild.product', fn($p) => $p->where('is_active', true)->forBranch($branchId));
+            })
+            ->first();
 
         if ($barcodeRecord) {
             if ($barcodeRecord->product_child_id) {

@@ -278,7 +278,12 @@ class QuoteCreate extends Component
             return;
         }
 
-        $barcodeRecord = ProductBarcode::where('barcode', $barcode)->first();
+        $barcodeRecord = ProductBarcode::where('barcode', $barcode)
+            ->where(function ($q) {
+                $q->whereHas('product', fn($p) => $p->where('is_active', true)->forBranch($this->branchId))
+                  ->orWhereHas('productChild.product', fn($p) => $p->where('is_active', true)->forBranch($this->branchId));
+            })
+            ->first();
 
         if ($barcodeRecord) {
             if ($barcodeRecord->product_child_id) {
