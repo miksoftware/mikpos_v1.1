@@ -59,6 +59,10 @@ class SeedMarkExecuted extends Command
         'RefundsReportPermissionSeeder',
         'QuoteReservationSystemDocumentSeeder',
         'LocationsModuleSeeder',
+        'CashMovementsPermissionsSeeder',
+        'ProductImportFieldsPermissionSeeder',
+        'ElectronicPayrollModuleSeeder',
+        'ProductMergePermissionSeeder',
     ];
 
     public function handle(): int

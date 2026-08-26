@@ -13,6 +13,12 @@
                 <span wire:loading wire:target="exportProducts">Exportando...</span>
             </button>
             @endif
+            @if(auth()->user()->hasPermission('products.merge'))
+            <button wire:click="openMergeModal" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200">
+                <svg class="w-5 h-5 mr-2 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                Unificar Productos
+            </button>
+            @endif
             @if(auth()->user()->hasPermission('products.delete'))
             <button wire:click="openBulkDeleteModal" class="inline-flex items-center px-4 py-2 bg-white border border-red-300 hover:bg-red-50 text-red-600 text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
@@ -331,6 +337,11 @@
                                 </button>
                                 <button wire:click="edit({{ $item->id }})" class="p-2 text-slate-400 hover:text-[#ff7261] hover:bg-orange-50 rounded-lg transition-colors" title="Editar">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                </button>
+                                @endif
+                                @if(auth()->user()->hasPermission('products.merge'))
+                                <button wire:click="openMergeModal({{ $item->id }})" class="p-2 text-slate-400 hover:text-[#a855f7] hover:bg-purple-50 rounded-lg transition-colors" title="Unificar con otro producto">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
                                 </button>
                                 @endif
                                 @if(auth()->user()->hasPermission('products.delete'))
@@ -2223,4 +2234,409 @@
         </div>
     </div>
     @endif
+
+    {{-- Merge / Unify Products Modal --}}
+    @if($isMergeModalOpen)
+    <div class="relative z-[100]">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="closeMergeModal"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-100">
+                    {{-- Header --}}
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-r from-[#ff7261] to-[#a855f7] flex items-center justify-center text-white shadow-sm shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900">Unificar Productos Duplicados</h3>
+                                <p class="text-xs text-slate-500 mt-0.5">Fusiona dos productos en uno. Todos los movimientos se consolidarán y el secundario será eliminado.</p>
+                            </div>
+                        </div>
+                        <button wire:click="closeMergeModal" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    {{-- Body --}}
+                    <div class="p-6 space-y-6 max-h-[70vh] overflow-y-auto bg-white">
+                        {{-- Instructions alert --}}
+                        <div class="bg-orange-50/60 border border-orange-200/80 rounded-xl p-4 flex items-start gap-3">
+                            <div class="p-2 bg-[#ff7261]/10 text-[#ff7261] rounded-lg mt-0.5 shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div class="text-xs text-slate-700 space-y-1">
+                                <p class="font-bold text-slate-900 text-sm">¿Cómo funciona la unificación?</p>
+                                <p><span class="font-semibold text-slate-800">1.</span> Selecciona los dos productos que deseas fusionar (Producto 1 y Producto 2).</p>
+                                <p><span class="font-semibold text-slate-800">2.</span> Marca cuál producto deseas <strong class="text-[#ff7261]">CONSERVAR</strong>. El otro se eliminará automáticamente.</p>
+                                <p><span class="font-semibold text-slate-800">3.</span> Todas las ventas, compras, notas de crédito, cotizaciones, códigos de barra y kardex pasarán al producto conservado.</p>
+                            </div>
+                        </div>
+
+                        {{-- Products Selection Grid --}}
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+                            {{-- Slot 1: Producto A --}}
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                        <span class="w-6 h-6 rounded-full bg-[#ff7261] text-white text-xs flex items-center justify-center font-bold">1</span>
+                                        Primer Producto
+                                    </label>
+                                    @if($this->mergeProduct1)
+                                    <button wire:click="removeMergeProduct(1)" class="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        Cambiar
+                                    </button>
+                                    @endif
+                                </div>
+
+                                @if(!$this->mergeProduct1)
+                                {{-- Search Box 1 --}}
+                                <div class="relative">
+                                    <div class="relative">
+                                        <input
+                                            type="text"
+                                            wire:model.live.debounce.250ms="mergeSearch1"
+                                            placeholder="Buscar por nombre, SKU o código..."
+                                            class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] transition-all placeholder:text-slate-400"
+                                        />
+                                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                        </div>
+                                    </div>
+
+                                    {{-- Search Results Dropdown 1 --}}
+                                    @if(count($this->mergeSearchResults1) > 0)
+                                    <div class="absolute z-30 mt-1.5 w-full bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                                        @foreach($this->mergeSearchResults1 as $p)
+                                        <button
+                                            type="button"
+                                            wire:click="selectMergeProduct(1, {{ $p->id }})"
+                                            class="w-full px-4 py-2.5 text-left hover:bg-orange-50/50 transition-colors flex items-center justify-between group"
+                                        >
+                                            <div class="truncate mr-3">
+                                                <div class="text-sm font-semibold text-slate-800 group-hover:text-[#ff7261] truncate">{{ $p->name }}</div>
+                                                <div class="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+                                                    @if($p->sku)<span>SKU: {{ $p->sku }}</span>@endif
+                                                    @if($p->barcode)<span>· Cod: {{ $p->barcode }}</span>@endif
+                                                    @if($p->category)<span>· {{ $p->category->name }}</span>@endif
+                                                </div>
+                                            </div>
+                                            <div class="text-right shrink-0">
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ $p->current_stock > 0 ? 'bg-emerald-100 text-emerald-800' : ($p->current_stock == 0 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800') }}">
+                                                    Stock: {{ rtrim(rtrim(number_format($p->current_stock, 3), '0'), '.') }}
+                                                </span>
+                                                <div class="text-xs text-slate-500 mt-0.5">${{ number_format($p->sale_price, 0, ',', '.') }}</div>
+                                            </div>
+                                        </button>
+                                        @endforeach
+                                    </div>
+                                    @elseif(strlen(trim($mergeSearch1)) >= 2)
+                                    <div class="absolute z-30 mt-1.5 w-full bg-white rounded-xl p-3 text-center shadow-lg border border-slate-200 text-xs text-slate-500">
+                                        No se encontraron productos coincidentes
+                                    </div>
+                                    @endif
+                                </div>
+                                @else
+                                {{-- Selected Product Card 1 --}}
+                                @php $p1 = $this->mergeProduct1; $isTarget1 = ($mergeTargetId === $p1->id); @endphp
+                                <div class="p-4 rounded-xl border-2 transition-all cursor-pointer {{ $isTarget1 ? 'border-[#ff7261] bg-orange-50/20 ring-2 ring-[#ff7261]/15 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300' }}" wire:click="setMergeTarget({{ $p1->id }})">
+                                    <div class="flex items-start justify-between gap-3 mb-3">
+                                        <div class="flex items-center gap-3">
+                                            @if($p1->image)
+                                            <img src="{{ Storage::url($p1->image) }}" class="w-11 h-11 rounded-lg object-cover border border-slate-200" alt="{{ $p1->name }}">
+                                            @else
+                                            <div class="w-11 h-11 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                            </div>
+                                            @endif
+                                            <div>
+                                                <h4 class="font-bold text-slate-900 text-sm">{{ $p1->name }}</h4>
+                                                <div class="text-xs text-slate-500 mt-0.5">
+                                                    <span>SKU: {{ $p1->sku ?? '-' }}</span>
+                                                    @if($p1->barcode) · <span>Cod: {{ $p1->barcode }}</span>@endif
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="shrink-0">
+                                            @if($isTarget1)
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-sm">
+                                                ★ CONSERVAR
+                                            </span>
+                                            @else
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                                Se eliminará
+                                            </span>
+                                            @endif
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100 text-xs">
+                                        <div>
+                                            <span class="text-slate-400 block font-medium">Stock Actual</span>
+                                            <span class="font-bold {{ $p1->current_stock > 0 ? 'text-emerald-700' : ($p1->current_stock == 0 ? 'text-amber-600' : 'text-red-600') }}">
+                                                {{ rtrim(rtrim(number_format($p1->current_stock, 3), '0'), '.') }} {{ $p1->unit?->abbreviation ?? 'und' }}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span class="text-slate-400 block font-medium">P. Venta</span>
+                                            <span class="font-semibold text-slate-800">${{ number_format($p1->sale_price, 0, ',', '.') }}</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-slate-400 block font-medium">P. Compra</span>
+                                            <span class="font-semibold text-slate-800">${{ number_format($p1->purchase_price, 0, ',', '.') }}</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-3 pt-2 text-center text-xs font-semibold {{ $isTarget1 ? 'text-[#ff7261]' : 'text-slate-500 hover:text-slate-800' }}">
+                                        @if($isTarget1)
+                                        ✓ Este producto mantendrá todos los datos consolidados
+                                        @else
+                                        Haz clic aquí para conservar este producto en su lugar
+                                        @endif
+                                    </div>
+                                </div>
+                                @endif
+                            </div>
+
+                            {{-- Slot 2: Producto B --}}
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                        <span class="w-6 h-6 rounded-full bg-[#a855f7] text-white text-xs flex items-center justify-center font-bold">2</span>
+                                        Segundo Producto
+                                    </label>
+                                    @if($this->mergeProduct2)
+                                    <button wire:click="removeMergeProduct(2)" class="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        Cambiar
+                                    </button>
+                                    @endif
+                                </div>
+
+                                @if(!$this->mergeProduct2)
+                                {{-- Search Box 2 --}}
+                                <div class="relative">
+                                    <div class="relative">
+                                        <input
+                                            type="text"
+                                            wire:model.live.debounce.250ms="mergeSearch2"
+                                            placeholder="Buscar por nombre, SKU o código..."
+                                            class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#a855f7]/50 focus:border-[#a855f7] transition-all placeholder:text-slate-400"
+                                        />
+                                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                        </div>
+                                    </div>
+
+                                    {{-- Search Results Dropdown 2 --}}
+                                    @if(count($this->mergeSearchResults2) > 0)
+                                    <div class="absolute z-30 mt-1.5 w-full bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                                        @foreach($this->mergeSearchResults2 as $p)
+                                        <button
+                                            type="button"
+                                            wire:click="selectMergeProduct(2, {{ $p->id }})"
+                                            class="w-full px-4 py-2.5 text-left hover:bg-purple-50/50 transition-colors flex items-center justify-between group"
+                                        >
+                                            <div class="truncate mr-3">
+                                                <div class="text-sm font-semibold text-slate-800 group-hover:text-[#a855f7] truncate">{{ $p->name }}</div>
+                                                <div class="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+                                                    @if($p->sku)<span>SKU: {{ $p->sku }}</span>@endif
+                                                    @if($p->barcode)<span>· Cod: {{ $p->barcode }}</span>@endif
+                                                    @if($p->category)<span>· {{ $p->category->name }}</span>@endif
+                                                </div>
+                                            </div>
+                                            <div class="text-right shrink-0">
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ $p->current_stock > 0 ? 'bg-emerald-100 text-emerald-800' : ($p->current_stock == 0 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800') }}">
+                                                    Stock: {{ rtrim(rtrim(number_format($p->current_stock, 3), '0'), '.') }}
+                                                </span>
+                                                <div class="text-xs text-slate-500 mt-0.5">${{ number_format($p->sale_price, 0, ',', '.') }}</div>
+                                            </div>
+                                        </button>
+                                        @endforeach
+                                    </div>
+                                    @elseif(strlen(trim($mergeSearch2)) >= 2)
+                                    <div class="absolute z-30 mt-1.5 w-full bg-white rounded-xl p-3 text-center shadow-lg border border-slate-200 text-xs text-slate-500">
+                                        No se encontraron productos coincidentes
+                                    </div>
+                                    @endif
+                                </div>
+                                @else
+                                {{-- Selected Product Card 2 --}}
+                                @php $p2 = $this->mergeProduct2; $isTarget2 = ($mergeTargetId === $p2->id); @endphp
+                                <div class="p-4 rounded-xl border-2 transition-all cursor-pointer {{ $isTarget2 ? 'border-[#ff7261] bg-orange-50/20 ring-2 ring-[#ff7261]/15 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300' }}" wire:click="setMergeTarget({{ $p2->id }})">
+                                    <div class="flex items-start justify-between gap-3 mb-3">
+                                        <div class="flex items-center gap-3">
+                                            @if($p2->image)
+                                            <img src="{{ Storage::url($p2->image) }}" class="w-11 h-11 rounded-lg object-cover border border-slate-200" alt="{{ $p2->name }}">
+                                            @else
+                                            <div class="w-11 h-11 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                            </div>
+                                            @endif
+                                            <div>
+                                                <h4 class="font-bold text-slate-900 text-sm">{{ $p2->name }}</h4>
+                                                <div class="text-xs text-slate-500 mt-0.5">
+                                                    <span>SKU: {{ $p2->sku ?? '-' }}</span>
+                                                    @if($p2->barcode) · <span>Cod: {{ $p2->barcode }}</span>@endif
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="shrink-0">
+                                            @if($isTarget2)
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-sm">
+                                                ★ CONSERVAR
+                                            </span>
+                                            @else
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                                Se eliminará
+                                            </span>
+                                            @endif
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100 text-xs">
+                                        <div>
+                                            <span class="text-slate-400 block font-medium">Stock Actual</span>
+                                            <span class="font-bold {{ $p2->current_stock > 0 ? 'text-emerald-700' : ($p2->current_stock == 0 ? 'text-amber-600' : 'text-red-600') }}">
+                                                {{ rtrim(rtrim(number_format($p2->current_stock, 3), '0'), '.') }} {{ $p2->unit?->abbreviation ?? 'und' }}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span class="text-slate-400 block font-medium">P. Venta</span>
+                                            <span class="font-semibold text-slate-800">${{ number_format($p2->sale_price, 0, ',', '.') }}</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-slate-400 block font-medium">P. Compra</span>
+                                            <span class="font-semibold text-slate-800">${{ number_format($p2->purchase_price, 0, ',', '.') }}</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-3 pt-2 text-center text-xs font-semibold {{ $isTarget2 ? 'text-[#ff7261]' : 'text-slate-500 hover:text-slate-800' }}">
+                                        @if($isTarget2)
+                                        ✓ Este producto mantendrá todos los datos consolidados
+                                        @else
+                                        Haz clic aquí para conservar este producto en su lugar
+                                        @endif
+                                    </div>
+                                </div>
+                                @endif
+                            </div>
+                        </div>
+
+                        {{-- Stock Consolidation Preview & Validation Section --}}
+                        @if($this->mergeProduct1 && $this->mergeProduct2)
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h4 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                    Cálculo del Stock Consolidado
+                                </h4>
+                                <button wire:click="swapMergeProducts" class="text-xs text-slate-700 hover:text-slate-900 bg-white border border-slate-300 px-3 py-1.5 rounded-lg font-medium shadow-sm transition-all hover:bg-slate-50 flex items-center gap-1.5">
+                                    <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                                    Intercambiar Posición
+                                </button>
+                            </div>
+
+                            {{-- Calculation Breakdown Box --}}
+                            <div class="flex flex-wrap items-center justify-center gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm text-sm">
+                                <div class="text-center px-3">
+                                    <span class="text-xs text-slate-400 block font-medium">Stock Prod. 1</span>
+                                    <span class="font-bold text-slate-800 text-base">{{ rtrim(rtrim(number_format($this->mergeProduct1->current_stock, 3), '0'), '.') }}</span>
+                                </div>
+                                <span class="text-slate-400 font-bold text-lg">+</span>
+                                <div class="text-center px-3">
+                                    <span class="text-xs text-slate-400 block font-medium">Stock Prod. 2</span>
+                                    <span class="font-bold text-slate-800 text-base">{{ rtrim(rtrim(number_format($this->mergeProduct2->current_stock, 3), '0'), '.') }}</span>
+                                </div>
+                                <span class="text-slate-400 font-bold text-lg">=</span>
+                                <div class="text-center px-4 py-1.5 rounded-xl {{ $this->mergeStockIsNegative ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-emerald-50 border border-emerald-200 text-emerald-800' }}">
+                                    <span class="text-xs block font-medium opacity-80">Stock Final Unificado</span>
+                                    <span class="font-extrabold text-base">{{ rtrim(rtrim(number_format($this->mergeCombinedStock, 3), '0'), '.') }} {{ $this->mergeProduct1->unit?->abbreviation ?? 'und' }}</span>
+                                </div>
+                            </div>
+
+                            {{-- Negative Stock Warning Banner --}}
+                            @if($this->mergeStockIsNegative)
+                            <div class="bg-red-50 border-2 border-red-300 rounded-xl p-4 flex items-start gap-3.5 shadow-sm">
+                                <div class="p-2 bg-red-600 text-white rounded-lg shrink-0 mt-0.5">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                    </svg>
+                                </div>
+                                <div class="text-xs text-red-900 space-y-1">
+                                    <p class="font-bold text-red-700 text-sm">⚠️ BLOQUEADO: El stock resultante quedaría en NEGATIVO ({{ $this->mergeCombinedStock }} unidades)</p>
+                                    <p class="leading-relaxed">
+                                        No es posible unificar estos dos productos porque la sumatoria de sus movimientos deja un saldo en negativo. El producto no se podrá usar en ventas u operaciones mientras su existencia sea menor a cero.
+                                    </p>
+                                    <p class="font-semibold pt-1">
+                                        Solución: Realice primero un ajuste de inventario positivo o registre las compras correspondientes para nivelar las existencias antes de unificar.
+                                    </p>
+                                </div>
+                            </div>
+                            @else
+                            {{-- Valid Stock Info --}}
+                            <div class="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3.5 flex items-center gap-3">
+                                <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                </div>
+                                <div class="text-xs text-emerald-900">
+                                    <span class="font-bold">Stock consolidado válido.</span> Al confirmar, el producto <strong>{{ $this->mergeTargetId === $this->mergeProduct1Id ? $this->mergeProduct1->name : $this->mergeProduct2->name }}</strong> quedará con <strong>{{ $this->mergeCombinedStock }} {{ $this->mergeProduct1->unit?->abbreviation ?? 'und' }}</strong> y se registrará la unificación en su Kardex.
+                                </div>
+                            </div>
+                            @endif
+                        </div>
+                        @endif
+                    </div>
+
+                    {{-- Footer --}}
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <p class="text-xs text-slate-500 text-center sm:text-left">
+                            Esta acción es irreversible y quedará registrada en el historial del Kardex y auditoría.
+                        </p>
+                        <div class="flex items-center gap-3 w-full sm:w-auto">
+                            <button
+                                type="button"
+                                wire:click="closeMergeModal"
+                                class="w-full sm:w-auto px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                wire:click="executeMerge"
+                                wire:loading.attr="disabled"
+                                wire:target="executeMerge"
+                                @if(!$this->mergeProduct1Id || !$this->mergeProduct2Id || $this->mergeStockIsNegative || $isMerging) disabled @endif
+                                class="w-full sm:w-auto px-6 py-2 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] text-white text-sm font-semibold rounded-xl shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                            >
+                                <span wire:loading.remove wire:target="executeMerge">
+                                    @if($this->mergeStockIsNegative)
+                                        Stock Negativo (Bloqueado)
+                                    @else
+                                        Confirmar y Unificar
+                                    @endif
+                                </span>
+                                <span wire:loading wire:target="executeMerge" class="flex items-center gap-2">
+                                    <svg class="animate-spin w-4 h-4 text-white" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                    </svg>
+                                    Unificando...
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 </div>
+

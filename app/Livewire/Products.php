@@ -18,6 +18,7 @@ use App\Models\Subcategory;
 use App\Models\Tax;
 use App\Models\Unit;
 use App\Services\ActivityLogService;
+use App\Services\ProductMergeService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
@@ -175,6 +176,15 @@ class Products extends Component
     // Bulk shop toggle
     public array $selectedShopProducts = [];
     public bool $selectAllShop = false;
+
+    // Product Unification / Merge properties
+    public bool $isMergeModalOpen = false;
+    public ?int $mergeProduct1Id = null;
+    public ?int $mergeProduct2Id = null;
+    public ?int $mergeTargetId = null; // ID of the product to KEEP
+    public string $mergeSearch1 = '';
+    public string $mergeSearch2 = '';
+    public bool $isMerging = false;
 
     public function mount()
     {
@@ -2921,6 +2931,207 @@ class Products extends Component
         }
 
         $this->isBulkDeleting = false;
+    }
+
+    // ==========================================
+    // Product Merge / Unification Methods
+    // ==========================================
+
+    public function openMergeModal(?int $productId = null)
+    {
+        if (!auth()->user()->hasPermission('products.merge')) {
+            $this->dispatch('notify', message: 'No tienes permiso para unificar productos', type: 'error');
+            return;
+        }
+
+        $this->mergeProduct1Id = $productId;
+        $this->mergeProduct2Id = null;
+        $this->mergeTargetId = $productId;
+        $this->mergeSearch1 = '';
+        $this->mergeSearch2 = '';
+        $this->isMerging = false;
+        $this->isMergeModalOpen = true;
+    }
+
+    public function closeMergeModal()
+    {
+        $this->isMergeModalOpen = false;
+        $this->mergeProduct1Id = null;
+        $this->mergeProduct2Id = null;
+        $this->mergeTargetId = null;
+        $this->mergeSearch1 = '';
+        $this->mergeSearch2 = '';
+        $this->isMerging = false;
+    }
+
+    public function selectMergeProduct(int $slot, int $productId)
+    {
+        if ($slot === 1) {
+            $this->mergeProduct1Id = $productId;
+            $this->mergeSearch1 = '';
+            if ($this->mergeTargetId === null) {
+                $this->mergeTargetId = $productId;
+            }
+        } elseif ($slot === 2) {
+            $this->mergeProduct2Id = $productId;
+            $this->mergeSearch2 = '';
+            if ($this->mergeTargetId === null) {
+                $this->mergeTargetId = $productId;
+            }
+        }
+    }
+
+    public function removeMergeProduct(int $slot)
+    {
+        if ($slot === 1) {
+            $this->mergeProduct1Id = null;
+            if ($this->mergeTargetId === $this->mergeProduct1Id) {
+                $this->mergeTargetId = $this->mergeProduct2Id;
+            }
+        } elseif ($slot === 2) {
+            $this->mergeProduct2Id = null;
+            if ($this->mergeTargetId === $this->mergeProduct2Id) {
+                $this->mergeTargetId = $this->mergeProduct1Id;
+            }
+        }
+    }
+
+    public function setMergeTarget(int $productId)
+    {
+        $this->mergeTargetId = $productId;
+    }
+
+    public function swapMergeProducts()
+    {
+        $temp = $this->mergeProduct1Id;
+        $this->mergeProduct1Id = $this->mergeProduct2Id;
+        $this->mergeProduct2Id = $temp;
+    }
+
+    public function getMergeProduct1Property(): ?Product
+    {
+        if (!$this->mergeProduct1Id) {
+            return null;
+        }
+        return Product::with(['category', 'brand', 'unit'])->find($this->mergeProduct1Id);
+    }
+
+    public function getMergeProduct2Property(): ?Product
+    {
+        if (!$this->mergeProduct2Id) {
+            return null;
+        }
+        return Product::with(['category', 'brand', 'unit'])->find($this->mergeProduct2Id);
+    }
+
+    public function getMergeSearchResults1Property(): \Illuminate\Database\Eloquent\Collection|array
+    {
+        $search = trim($this->mergeSearch1);
+        if (mb_strlen($search) < 2) {
+            return [];
+        }
+
+        $branchId = $this->needsBranchSelection ? $this->filterBranch : auth()->user()?->branch_id;
+
+        return Product::query()
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->when($this->mergeProduct2Id, fn($q) => $q->where('id', '!=', $this->mergeProduct2Id))
+            ->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('sku', 'like', "%{$search}%")
+                  ->orWhere('barcode', 'like', "%{$search}%");
+            })
+            ->with(['category', 'brand', 'unit'])
+            ->limit(8)
+            ->get();
+    }
+
+    public function getMergeSearchResults2Property(): \Illuminate\Database\Eloquent\Collection|array
+    {
+        $search = trim($this->mergeSearch2);
+        if (mb_strlen($search) < 2) {
+            return [];
+        }
+
+        $branchId = $this->needsBranchSelection ? $this->filterBranch : auth()->user()?->branch_id;
+
+        return Product::query()
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->when($this->mergeProduct1Id, fn($q) => $q->where('id', '!=', $this->mergeProduct1Id))
+            ->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('sku', 'like', "%{$search}%")
+                  ->orWhere('barcode', 'like', "%{$search}%");
+            })
+            ->with(['category', 'brand', 'unit'])
+            ->limit(8)
+            ->get();
+    }
+
+    public function getMergeCombinedStockProperty(): ?float
+    {
+        if (!$this->mergeProduct1 || !$this->mergeProduct2) {
+            return null;
+        }
+
+        return (float) $this->mergeProduct1->current_stock + (float) $this->mergeProduct2->current_stock;
+    }
+
+    public function getMergeStockIsNegativeProperty(): bool
+    {
+        $combined = $this->mergeCombinedStock;
+        return $combined !== null && $combined < 0;
+    }
+
+    public function executeMerge(ProductMergeService $mergeService)
+    {
+        if (!auth()->user()->hasPermission('products.merge')) {
+            $this->dispatch('notify', message: 'No tienes permiso para unificar productos', type: 'error');
+            return;
+        }
+
+        if (!$this->mergeProduct1Id || !$this->mergeProduct2Id) {
+            $this->dispatch('notify', message: 'Debes seleccionar los dos productos a unificar', type: 'warning');
+            return;
+        }
+
+        if ($this->mergeProduct1Id === $this->mergeProduct2Id) {
+            $this->dispatch('notify', message: 'Los dos productos seleccionados deben ser diferentes', type: 'error');
+            return;
+        }
+
+        if (!$this->mergeTargetId || !in_array($this->mergeTargetId, [$this->mergeProduct1Id, $this->mergeProduct2Id])) {
+            $this->dispatch('notify', message: 'Debes seleccionar cuál producto deseas conservar', type: 'warning');
+            return;
+        }
+
+        $targetProduct = $this->mergeTargetId === $this->mergeProduct1Id ? $this->mergeProduct1 : $this->mergeProduct2;
+        $sourceProduct = $this->mergeTargetId === $this->mergeProduct1Id ? $this->mergeProduct2 : $this->mergeProduct1;
+
+        if (!$targetProduct || !$sourceProduct) {
+            $this->dispatch('notify', message: 'No se encontraron los productos a unificar', type: 'error');
+            return;
+        }
+
+        $this->isMerging = true;
+
+        try {
+            $result = $mergeService->merge($targetProduct, $sourceProduct, auth()->id());
+
+            $this->dispatch('notify', 
+                message: "Productos unificados con éxito. Se conservó '{$targetProduct->name}' con un stock final de {$result['stock_final']}.", 
+                type: 'success'
+            );
+
+            $this->closeMergeModal();
+            $this->resetPage();
+        } catch (\InvalidArgumentException $e) {
+            $this->dispatch('notify', message: $e->getMessage(), type: 'error');
+        } catch (\Exception $e) {
+            $this->dispatch('notify', message: 'Error al unificar productos: ' . $e->getMessage(), type: 'error');
+        } finally {
+            $this->isMerging = false;
+        }
     }
 
 }
