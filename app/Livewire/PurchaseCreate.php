@@ -849,6 +849,11 @@ class PurchaseCreate extends Component
 
         $branchId = $this->needsBranchSelection ? $this->branch_id : auth()->user()->branch_id;
 
+        if ($this->quickBarcode && ProductBarcode::barcodeExistsInBranch($this->quickBarcode, $branchId ? (int) $branchId : null)) {
+            $this->addError('quickBarcode', 'El código de barras ya existe en esta sucursal');
+            return;
+        }
+
         // Handle image upload
         $imagePath = null;
         if ($this->quickImage) {

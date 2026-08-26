@@ -7,6 +7,7 @@ use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductChild;
+use App\Models\ProductFieldSetting;
 use App\Models\Role;
 use App\Models\Unit;
 use App\Models\User;

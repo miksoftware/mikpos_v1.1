@@ -615,18 +615,25 @@ class Products extends Component
                 ->first();
             
             if (!$existingBarcode) {
-                // Check if product has any barcodes to determine if this should be primary
-                $hasBarcodes = ProductBarcode::where('product_id', $item->id)
+                // Ensure other barcodes for this parent product are not primary
+                ProductBarcode::where('product_id', $item->id)
                     ->whereNull('product_child_id')
-                    ->exists();
+                    ->update(['is_primary' => false]);
                 
                 ProductBarcode::create([
                     'product_id' => $item->id,
                     'product_child_id' => null,
                     'barcode' => $this->barcode,
-                    'description' => $isNew ? 'Código principal' : null,
-                    'is_primary' => !$hasBarcodes, // Primary if no other barcodes exist
+                    'description' => $isNew ? 'Código principal' : 'Código editado',
+                    'is_primary' => true,
                 ]);
+            } else {
+                if (!$existingBarcode->is_primary) {
+                    ProductBarcode::where('product_id', $item->id)
+                        ->whereNull('product_child_id')
+                        ->update(['is_primary' => false]);
+                    $existingBarcode->update(['is_primary' => true]);
+                }
             }
         }
 
@@ -955,16 +962,23 @@ class Products extends Component
                 ->first();
             
             if (!$existingBarcode) {
-                // Check if child has any barcodes to determine if this should be primary
-                $hasBarcodes = ProductBarcode::where('product_child_id', $child->id)->exists();
+                // Ensure other barcodes for this child are not primary
+                ProductBarcode::where('product_child_id', $child->id)
+                    ->update(['is_primary' => false]);
                 
                 ProductBarcode::create([
                     'product_id' => $this->childProductId,
                     'product_child_id' => $child->id,
                     'barcode' => $this->childBarcode,
-                    'description' => $isNew ? 'Código principal' : null,
-                    'is_primary' => !$hasBarcodes, // Primary if no other barcodes exist
+                    'description' => $isNew ? 'Código principal' : 'Código editado',
+                    'is_primary' => true,
                 ]);
+            } else {
+                if (!$existingBarcode->is_primary) {
+                    ProductBarcode::where('product_child_id', $child->id)
+                        ->update(['is_primary' => false]);
+                    $existingBarcode->update(['is_primary' => true]);
+                }
             }
         }
 
@@ -1125,22 +1139,26 @@ class Products extends Component
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ];
 
-        // Barcode - configurable, validate against product_barcodes table
+        // Barcode - configurable, validate against product_barcodes table scoped to branch
         if ($this->isParentFieldVisible('barcode')) {
-            $barcodeRule = 'unique:product_barcodes,barcode';
-            // When editing, exclude the current product's existing barcode
-            if ($this->itemId && $this->barcode) {
-                $existingBarcode = ProductBarcode::where('product_id', $this->itemId)
-                    ->whereNull('product_child_id')
-                    ->where('barcode', $this->barcode)
-                    ->first();
-                if ($existingBarcode) {
-                    $barcodeRule = 'unique:product_barcodes,barcode,' . $existingBarcode->id;
-                }
+            $branchId = $this->branch_id ?: ($this->needsBranchSelection ? $this->branch_id : auth()->user()?->branch_id);
+            if ($this->itemId) {
+                $branchId = Product::where('id', $this->itemId)->value('branch_id') ?: $branchId;
             }
-            $rules['barcode'] = $this->isParentFieldRequired('barcode') 
-                ? "required|{$barcodeRule}"
-                : "nullable|{$barcodeRule}";
+
+            $rules['barcode'] = [
+                $this->isParentFieldRequired('barcode') ? 'required' : 'nullable',
+                'string',
+                'max:100',
+                function ($attribute, $value, $fail) use ($branchId) {
+                    if (empty($value)) {
+                        return;
+                    }
+                    if (ProductBarcode::barcodeExistsInBranch($value, $branchId ? (int) $branchId : null, excludeProductId: $this->itemId)) {
+                        $fail('El código de barras ya existe en esta sucursal');
+                    }
+                },
+            ];
         }
 
         // Presentation - configurable
@@ -1261,21 +1279,24 @@ class Products extends Component
             'childSalePrice' => 'required|numeric|min:0',
         ];
 
-        // Add barcode validation against product_barcodes table
+        // Add barcode validation against product_barcodes table scoped to branch
         if ($this->isChildFieldVisible('barcode')) {
-            $barcodeRule = 'unique:product_barcodes,barcode';
-            // When editing, exclude the current child's existing barcode
-            if ($this->childId && $this->childBarcode) {
-                $existingBarcode = ProductBarcode::where('product_child_id', $this->childId)
-                    ->where('barcode', $this->childBarcode)
-                    ->first();
-                if ($existingBarcode) {
-                    $barcodeRule = 'unique:product_barcodes,barcode,' . $existingBarcode->id;
-                }
-            }
-            $rules['childBarcode'] = $this->isChildFieldRequired('barcode')
-                ? "required|{$barcodeRule}"
-                : "nullable|{$barcodeRule}";
+            $parentProduct = $this->childProductId ? Product::find($this->childProductId) : null;
+            $branchId = $parentProduct?->branch_id ?? ($this->branch_id ?: auth()->user()?->branch_id);
+
+            $rules['childBarcode'] = [
+                $this->isChildFieldRequired('barcode') ? 'required' : 'nullable',
+                'string',
+                'max:100',
+                function ($attribute, $value, $fail) use ($branchId) {
+                    if (empty($value)) {
+                        return;
+                    }
+                    if (ProductBarcode::barcodeExistsInBranch($value, $branchId ? (int) $branchId : null, excludeChildId: $this->childId)) {
+                        $fail('El código de barras ya existe en esta sucursal');
+                    }
+                },
+            ];
         }
 
         // Add presentation validation
@@ -2184,15 +2205,15 @@ class Products extends Component
             }
         }
 
-        // Validate barcode - check for duplicates (warning, not error)
+        // Validate barcode - check for duplicates in branch (warning, not error)
         if (!empty($data['codigo_barras'])) {
             $barcode = $data['codigo_barras'];
+            $branchId = $this->needsBranchSelection ? $this->filterBranch : auth()->user()?->branch_id;
             
-            // Check if barcode exists in database
-            $barcodeExistsInDb = Product::where('barcode', $barcode)->exists() ||
-                                 ProductChild::where('barcode', $barcode)->exists();
+            // Check if barcode exists in database for this branch
+            $barcodeExistsInDb = ProductBarcode::barcodeExistsInBranch($barcode, $branchId ? (int) $branchId : null);
             if ($barcodeExistsInDb) {
-                $warnings[] = "Código de barras '{$barcode}' ya existe en el sistema (se omitirá)";
+                $warnings[] = "Código de barras '{$barcode}' ya existe en esta sucursal (se omitirá)";
             }
             
             // Check if barcode is duplicated within the file
@@ -2588,12 +2609,50 @@ class Products extends Component
             return;
         }
 
+        $branchId = null;
+        if ($this->barcodeProductId) {
+            $branchId = Product::where('id', $this->barcodeProductId)->value('branch_id');
+        } elseif ($this->barcodeProductChildId) {
+            $branchId = ProductChild::where('id', $this->barcodeProductChildId)
+                ->with('product')
+                ->first()?->product?->branch_id;
+        }
+        $branchId = $branchId ?: ($this->branch_id ?: auth()->user()?->branch_id);
+
         $this->validate([
-            'newBarcode' => 'required|min:3|unique:product_barcodes,barcode',
+            'newBarcode' => [
+                'required',
+                'min:3',
+                'max:100',
+                function ($attribute, $value, $fail) use ($branchId) {
+                    $trimmed = trim($value);
+                    if ($this->barcodeProductId && !$this->barcodeProductChildId) {
+                        $alreadyOnThis = ProductBarcode::where('product_id', $this->barcodeProductId)
+                            ->whereNull('product_child_id')
+                            ->where('barcode', $trimmed)
+                            ->exists();
+                        if ($alreadyOnThis) {
+                            $fail('Este código de barras ya está registrado para este producto');
+                            return;
+                        }
+                    } elseif ($this->barcodeProductChildId) {
+                        $alreadyOnThis = ProductBarcode::where('product_child_id', $this->barcodeProductChildId)
+                            ->where('barcode', $trimmed)
+                            ->exists();
+                        if ($alreadyOnThis) {
+                            $fail('Este código de barras ya está registrado para esta variante');
+                            return;
+                        }
+                    }
+
+                    if (ProductBarcode::barcodeExistsInBranch($trimmed, $branchId ? (int) $branchId : null)) {
+                        $fail('Este código de barras ya está en uso por otro producto en esta sucursal');
+                    }
+                },
+            ],
         ], [
             'newBarcode.required' => 'El código de barras es obligatorio',
             'newBarcode.min' => 'El código de barras debe tener al menos 3 caracteres',
-            'newBarcode.unique' => 'Este código de barras ya existe en el sistema',
         ]);
 
         // Determine if this is the first barcode (make it primary)
