@@ -16,6 +16,7 @@ use App\Models\CashMovement;
 use App\Models\Expense;
 use App\Models\Customer;
 use App\Models\CreditPayment;
+use App\Models\Payroll;
 use App\Models\PaymentMethod;
 use App\Models\CashRegister;
 use Illuminate\Http\Request;
@@ -1174,7 +1175,8 @@ class ReportExportController extends Controller
         $cashRegisterId = $request->get('cash_register_id');
         $paymentMethodId = $request->get('payment_method_id');
         $userId = $request->get('user_id');
-        $operationType = $request->get('operation_type', 'all');
+        $flowType = $request->get('flow_type', 'all');
+        $conceptType = $request->get('concept_type', 'all');
         $cashAffectation = $request->get('cash_affectation', 'all');
         $user = auth()->user();
 
@@ -1186,206 +1188,274 @@ class ReportExportController extends Controller
             $branchName = Branch::find($branchId)?->name ?? '';
         }
 
-        // Sales Query
-        $salesQuery = SalePayment::join('sales', 'sale_payments.sale_id', '=', 'sales.id')
-            ->join('payment_methods', 'sale_payments.payment_method_id', '=', 'payment_methods.id')
-            ->join('users', 'sales.user_id', '=', 'users.id')
-            ->leftJoin('branches', 'sales.branch_id', '=', 'branches.id')
-            ->leftJoin('customers', 'sales.customer_id', '=', 'customers.id')
-            ->where('sales.status', 'completed')
-            ->whereDate('sales.created_at', '>=', $startDate)
-            ->whereDate('sales.created_at', '<=', $endDate);
+        $shouldInclude = function(string $flow, string $concept) use ($flowType, $conceptType): bool {
+            if ($flowType !== 'all' && $flowType !== $flow) return false;
+            if ($conceptType !== 'all' && $conceptType !== $concept) return false;
+            return true;
+        };
 
-        if ($branchId) $salesQuery->where('sales.branch_id', $branchId);
-        if ($cashRegisterId) {
-            $salesQuery->whereHas('sale.cashReconciliation', fn($q) => $q->where('cash_register_id', $cashRegisterId));
-        }
-        if ($paymentMethodId) $salesQuery->where('sale_payments.payment_method_id', $paymentMethodId);
-        if ($userId) $salesQuery->where('sales.user_id', $userId);
-        if ($cashAffectation === 'with_cash') {
-            $salesQuery->whereNotNull('sales.cash_reconciliation_id');
-        } elseif ($cashAffectation === 'without_cash') {
-            $salesQuery->whereNull('sales.cash_reconciliation_id');
-        }
-
-        // Credits Query
-        $creditsQuery = CreditPayment::join('payment_methods', 'credit_payments.payment_method_id', '=', 'payment_methods.id')
-            ->join('users', 'credit_payments.user_id', '=', 'users.id')
-            ->leftJoin('branches', 'credit_payments.branch_id', '=', 'branches.id')
-            ->leftJoin('sales', 'credit_payments.sale_id', '=', 'sales.id')
-            ->leftJoin('customers', function ($join) {
-                $join->on('credit_payments.customer_id', '=', 'customers.id')
-                    ->orWhere(function ($q) {
-                        $q->whereNull('credit_payments.customer_id')
-                            ->whereColumn('sales.customer_id', 'customers.id');
-                    });
-            })
-            ->where('credit_payments.credit_type', 'receivable')
-            ->whereDate('credit_payments.created_at', '>=', $startDate)
-            ->whereDate('credit_payments.created_at', '<=', $endDate);
-
-        if ($branchId) $creditsQuery->where('credit_payments.branch_id', $branchId);
-        if ($cashRegisterId) {
-            $creditsQuery->whereHas('cashReconciliation', fn($q) => $q->where('cash_register_id', $cashRegisterId));
-        }
-        if ($paymentMethodId) $creditsQuery->where('credit_payments.payment_method_id', $paymentMethodId);
-        if ($userId) $creditsQuery->where('credit_payments.user_id', $userId);
-        if ($cashAffectation === 'with_cash') {
-            $creditsQuery->where('credit_payments.affects_cash', true);
-        } elseif ($cashAffectation === 'without_cash') {
-            $creditsQuery->where('credit_payments.affects_cash', false);
-        }
-
-        // Summary calculation
-        $salesSummary = collect();
-        $creditsSummary = collect();
-
-        if ($operationType === 'all' || $operationType === 'sales') {
-            $salesSummary = (clone $salesQuery)->select(
-                'payment_methods.id',
-                'payment_methods.name',
-                DB::raw('SUM(sale_payments.amount) as sales_total'),
-                DB::raw('COUNT(DISTINCT sales.id) as sales_count')
-            )->groupBy('payment_methods.id', 'payment_methods.name')->get()->keyBy('id');
-        }
-
-        if ($operationType === 'all' || $operationType === 'credits') {
-            $creditsSummary = (clone $creditsQuery)->select(
-                'payment_methods.id',
-                'payment_methods.name',
-                DB::raw('SUM(credit_payments.amount) as credits_total'),
-                DB::raw('COUNT(DISTINCT credit_payments.id) as credits_count')
-            )->groupBy('payment_methods.id', 'payment_methods.name')->get()->keyBy('id');
-        }
-
-        $allMethodIds = $salesSummary->keys()->merge($creditsSummary->keys())->unique();
-        $summary = collect();
-
-        foreach ($allMethodIds as $mId) {
-            $saleItem = $salesSummary->get($mId);
-            $creditItem = $creditsSummary->get($mId);
-
-            $name = $saleItem->name ?? $creditItem->name ?? 'Desconocido';
-            $sTotal = (float) ($saleItem->sales_total ?? 0);
-            $sCount = (int) ($saleItem->sales_count ?? 0);
-            $cTotal = (float) ($creditItem->credits_total ?? 0);
-            $cCount = (int) ($creditItem->credits_count ?? 0);
-
-            $summary->push((object) [
-                'name' => $name,
-                'sales_total' => $sTotal,
-                'sales_count' => $sCount,
-                'credits_total' => $cTotal,
-                'credits_count' => $cCount,
-                'transaction_count' => $sCount + $cCount,
-                'total' => $sTotal + $cTotal,
-            ]);
-        }
-
-        $summary = $summary->sortByDesc('total')->values();
-        $grandTotal = $summary->sum('total');
-
-        // Summary by User
-        $salesByUser = collect();
-        $creditsByUser = collect();
-
-        if ($operationType === 'all' || $operationType === 'sales') {
-            $salesByUser = (clone $salesQuery)->select(
-                'users.name as user_name',
-                'payment_methods.name as payment_method_name',
-                DB::raw('SUM(sale_payments.amount) as sales_total'),
-                DB::raw('COUNT(DISTINCT sales.id) as sales_count')
-            )->groupBy('users.id', 'users.name', 'payment_methods.name')->get();
-        }
-
-        if ($operationType === 'all' || $operationType === 'credits') {
-            $creditsByUser = (clone $creditsQuery)->select(
-                'users.name as user_name',
-                'payment_methods.name as payment_method_name',
-                DB::raw('SUM(credit_payments.amount) as credits_total'),
-                DB::raw('COUNT(DISTINCT credit_payments.id) as credits_count')
-            )->groupBy('users.id', 'users.name', 'payment_methods.name')->get();
-        }
-
-        $userGroups = [];
-        foreach ($salesByUser as $sbu) {
-            $key = $sbu->user_name . '|' . $sbu->payment_method_name;
-            $userGroups[$key] = (object) [
-                'user_name' => $sbu->user_name,
-                'payment_method_name' => $sbu->payment_method_name,
-                'sales_total' => (float) $sbu->sales_total,
-                'credits_total' => 0.0,
-                'transaction_count' => (int) $sbu->sales_count,
-                'total' => (float) $sbu->sales_total,
-            ];
-        }
-        foreach ($creditsByUser as $cbu) {
-            $key = $cbu->user_name . '|' . $cbu->payment_method_name;
-            if (isset($userGroups[$key])) {
-                $userGroups[$key]->credits_total += (float) $cbu->credits_total;
-                $userGroups[$key]->transaction_count += (int) $cbu->credits_count;
-                $userGroups[$key]->total += (float) $cbu->credits_total;
-            } else {
-                $userGroups[$key] = (object) [
-                    'user_name' => $cbu->user_name,
-                    'payment_method_name' => $cbu->payment_method_name,
-                    'sales_total' => 0.0,
-                    'credits_total' => (float) $cbu->credits_total,
-                    'transaction_count' => (int) $cbu->credits_count,
-                    'total' => (float) $cbu->credits_total,
-                ];
-            }
-        }
-        $byUser = collect($userGroups)->sortBy('user_name')->values();
-
-        // Detail items
+        // Queries
         $customerSql = "COALESCE(CASE WHEN customers.customer_type = 'juridico' AND customers.business_name IS NOT NULL AND customers.business_name != '' THEN customers.business_name ELSE TRIM(CONCAT(COALESCE(customers.first_name, ''), ' ', COALESCE(customers.last_name, ''))) END, 'Cliente General')";
 
-        $salesDetail = null;
-        $creditsDetail = null;
+        $allMethods = PaymentMethod::where('is_active', true)->orderBy('name')->get()->keyBy('id');
+        $methodsMap = [];
+        foreach ($allMethods as $id => $pm) {
+            $methodsMap[$id] = [
+                'id' => $id,
+                'name' => $pm->name,
+                'sales_total' => 0.0,
+                'receivables_total' => 0.0,
+                'expenses_total' => 0.0,
+                'payrolls_total' => 0.0,
+                'payables_total' => 0.0,
+                'purchases_total' => 0.0,
+                'total_income' => 0.0,
+                'total_expense' => 0.0,
+                'net_total' => 0.0,
+                'transaction_count' => 0,
+            ];
+        }
 
-        if ($operationType === 'all' || $operationType === 'sales') {
-            $salesDetail = (clone $salesQuery)->select([
-                DB::raw("'Venta POS' as operation_type"),
+        $detailQueries = [];
+
+        // 1. Sales
+        if ($shouldInclude('income', 'sales')) {
+            $salesQuery = SalePayment::join('sales', 'sale_payments.sale_id', '=', 'sales.id')
+                ->join('payment_methods', 'sale_payments.payment_method_id', '=', 'payment_methods.id')
+                ->join('users', 'sales.user_id', '=', 'users.id')
+                ->leftJoin('branches', 'sales.branch_id', '=', 'branches.id')
+                ->leftJoin('customers', 'sales.customer_id', '=', 'customers.id')
+                ->where('sales.status', 'completed')
+                ->whereDate('sales.created_at', '>=', $startDate)
+                ->whereDate('sales.created_at', '<=', $endDate);
+
+            if ($branchId) $salesQuery->where('sales.branch_id', $branchId);
+            if ($cashRegisterId) $salesQuery->whereHas('sale.cashReconciliation', fn($q) => $q->where('cash_register_id', $cashRegisterId));
+            if ($paymentMethodId) $salesQuery->where('sale_payments.payment_method_id', $paymentMethodId);
+            if ($userId) $salesQuery->where('sales.user_id', $userId);
+            if ($cashAffectation === 'with_cash') $salesQuery->whereNotNull('sales.cash_reconciliation_id');
+            elseif ($cashAffectation === 'without_cash') $salesQuery->whereNull('sales.cash_reconciliation_id');
+
+            $salesAgg = (clone $salesQuery)->select('sale_payments.payment_method_id', DB::raw('SUM(sale_payments.amount) as total'), DB::raw('COUNT(DISTINCT sales.id) as cnt'))->groupBy('sale_payments.payment_method_id')->get();
+            foreach ($salesAgg as $sa) {
+                if (isset($methodsMap[$sa->payment_method_id])) {
+                    $methodsMap[$sa->payment_method_id]['sales_total'] += (float) $sa->total;
+                    $methodsMap[$sa->payment_method_id]['transaction_count'] += (int) $sa->cnt;
+                }
+            }
+
+            $detailQueries[] = (clone $salesQuery)->select([
+                DB::raw("'Venta POS' as operation_label"),
                 'sales.invoice_number as document_number',
-                DB::raw("{$customerSql} as customer_name"),
+                DB::raw("{$customerSql} as third_party_name"),
                 'sales.created_at as payment_date',
                 'payment_methods.name as payment_method_name',
                 'users.name as user_name',
                 'branches.name as branch_name',
+                DB::raw("(CASE WHEN sales.cash_reconciliation_id IS NOT NULL THEN 'Sí' ELSE 'No' END) as affects_cash"),
                 'sale_payments.amount as amount',
-                DB::raw("(CASE WHEN sales.cash_reconciliation_id IS NOT NULL THEN 'Sí' ELSE 'No' END) as affects_cash")
+                DB::raw("'+' as flow_sign")
             ]);
         }
 
-        if ($operationType === 'all' || $operationType === 'credits') {
-            $creditsDetail = (clone $creditsQuery)->select([
-                DB::raw("'Cobro Cartera' as operation_type"),
+        // 2. Receivables
+        if ($shouldInclude('income', 'receivables')) {
+            $recQuery = CreditPayment::join('payment_methods', 'credit_payments.payment_method_id', '=', 'payment_methods.id')
+                ->join('users', 'credit_payments.user_id', '=', 'users.id')
+                ->leftJoin('branches', 'credit_payments.branch_id', '=', 'branches.id')
+                ->leftJoin('sales', 'credit_payments.sale_id', '=', 'sales.id')
+                ->leftJoin('customers', function ($join) {
+                    $join->on('credit_payments.customer_id', '=', 'customers.id')
+                        ->orWhere(function ($q) {
+                            $q->whereNull('credit_payments.customer_id')->whereColumn('sales.customer_id', 'customers.id');
+                        });
+                })
+                ->where('credit_payments.credit_type', 'receivable')
+                ->whereDate('credit_payments.created_at', '>=', $startDate)
+                ->whereDate('credit_payments.created_at', '<=', $endDate);
+
+            if ($branchId) $recQuery->where('credit_payments.branch_id', $branchId);
+            if ($cashRegisterId) $recQuery->whereHas('cashReconciliation', fn($q) => $q->where('cash_register_id', $cashRegisterId));
+            if ($paymentMethodId) $recQuery->where('credit_payments.payment_method_id', $paymentMethodId);
+            if ($userId) $recQuery->where('credit_payments.user_id', $userId);
+            if ($cashAffectation === 'with_cash') $recQuery->where('credit_payments.affects_cash', true);
+            elseif ($cashAffectation === 'without_cash') $recQuery->where('credit_payments.affects_cash', false);
+
+            $recAgg = (clone $recQuery)->select('credit_payments.payment_method_id', DB::raw('SUM(credit_payments.amount) as total'), DB::raw('COUNT(DISTINCT credit_payments.id) as cnt'))->groupBy('credit_payments.payment_method_id')->get();
+            foreach ($recAgg as $ra) {
+                if (isset($methodsMap[$ra->payment_method_id])) {
+                    $methodsMap[$ra->payment_method_id]['receivables_total'] += (float) $ra->total;
+                    $methodsMap[$ra->payment_method_id]['transaction_count'] += (int) $ra->cnt;
+                }
+            }
+
+            $detailQueries[] = (clone $recQuery)->select([
+                DB::raw("'Cobro Cartera' as operation_label"),
                 'credit_payments.payment_number as document_number',
-                DB::raw("{$customerSql} as customer_name"),
+                DB::raw("{$customerSql} as third_party_name"),
                 'credit_payments.created_at as payment_date',
                 'payment_methods.name as payment_method_name',
                 'users.name as user_name',
                 'branches.name as branch_name',
+                DB::raw("(CASE WHEN credit_payments.affects_cash = 1 THEN 'Sí' ELSE 'No' END) as affects_cash"),
                 'credit_payments.amount as amount',
-                DB::raw("(CASE WHEN credit_payments.affects_cash = 1 THEN 'Sí' ELSE 'No' END) as affects_cash")
+                DB::raw("'+' as flow_sign")
             ]);
         }
 
+        // 3. Expenses
+        if ($shouldInclude('expense', 'expenses')) {
+            $expQuery = Expense::join('payment_methods', 'expenses.payment_method_id', '=', 'payment_methods.id')
+                ->join('users', 'expenses.user_id', '=', 'users.id')
+                ->leftJoin('branches', 'expenses.branch_id', '=', 'branches.id')
+                ->leftJoin('customers', function ($join) {
+                    $join->on('expenses.contact_id', '=', 'customers.id')->where('expenses.contact_type', '=', 'customer');
+                })
+                ->leftJoin('suppliers', function ($join) {
+                    $join->on('expenses.contact_id', '=', 'suppliers.id')->where('expenses.contact_type', '=', 'supplier');
+                })
+                ->whereDate('expenses.expense_date', '>=', $startDate)
+                ->whereDate('expenses.expense_date', '<=', $endDate);
+
+            if ($branchId) $expQuery->where('expenses.branch_id', $branchId);
+            if ($paymentMethodId) $expQuery->where('expenses.payment_method_id', $paymentMethodId);
+            if ($userId) $expQuery->where('expenses.user_id', $userId);
+
+            $expAgg = (clone $expQuery)->select('expenses.payment_method_id', DB::raw('SUM(expenses.amount) as total'), DB::raw('COUNT(DISTINCT expenses.id) as cnt'))->groupBy('expenses.payment_method_id')->get();
+            foreach ($expAgg as $ea) {
+                if (isset($methodsMap[$ea->payment_method_id])) {
+                    $methodsMap[$ea->payment_method_id]['expenses_total'] += (float) $ea->total;
+                    $methodsMap[$ea->payment_method_id]['transaction_count'] += (int) $ea->cnt;
+                }
+            }
+
+            $detailQueries[] = (clone $expQuery)->select([
+                DB::raw("'Gasto' as operation_label"),
+                DB::raw("CONCAT('GST-', LPAD(expenses.id, 5, '0')) as document_number"),
+                DB::raw("COALESCE(suppliers.name, {$customerSql}, expenses.description) as third_party_name"),
+                'expenses.expense_date as payment_date',
+                'payment_methods.name as payment_method_name',
+                'users.name as user_name',
+                'branches.name as branch_name',
+                DB::raw("'No' as affects_cash"),
+                'expenses.amount as amount',
+                DB::raw("'-' as flow_sign")
+            ]);
+        }
+
+        // 4. Payables (Credit Payments to Suppliers)
+        if ($shouldInclude('expense', 'payables')) {
+            $payQuery = CreditPayment::join('payment_methods', 'credit_payments.payment_method_id', '=', 'payment_methods.id')
+                ->join('users', 'credit_payments.user_id', '=', 'users.id')
+                ->leftJoin('branches', 'credit_payments.branch_id', '=', 'branches.id')
+                ->leftJoin('purchases', 'credit_payments.purchase_id', '=', 'purchases.id')
+                ->leftJoin('suppliers', function ($join) {
+                    $join->on('credit_payments.supplier_id', '=', 'suppliers.id')
+                        ->orWhere(function ($q) {
+                            $q->whereNull('credit_payments.supplier_id')->whereColumn('purchases.supplier_id', 'suppliers.id');
+                        });
+                })
+                ->where('credit_payments.credit_type', 'payable')
+                ->whereDate('credit_payments.created_at', '>=', $startDate)
+                ->whereDate('credit_payments.created_at', '<=', $endDate);
+
+            if ($branchId) $payQuery->where('credit_payments.branch_id', $branchId);
+            if ($cashRegisterId) $payQuery->whereHas('cashReconciliation', fn($q) => $q->where('cash_register_id', $cashRegisterId));
+            if ($paymentMethodId) $payQuery->where('credit_payments.payment_method_id', $paymentMethodId);
+            if ($userId) $payQuery->where('credit_payments.user_id', $userId);
+            if ($cashAffectation === 'with_cash') $payQuery->where('credit_payments.affects_cash', true);
+            elseif ($cashAffectation === 'without_cash') $payQuery->where('credit_payments.affects_cash', false);
+
+            $payAgg = (clone $payQuery)->select('credit_payments.payment_method_id', DB::raw('SUM(credit_payments.amount) as total'), DB::raw('COUNT(DISTINCT credit_payments.id) as cnt'))->groupBy('credit_payments.payment_method_id')->get();
+            foreach ($payAgg as $pa) {
+                if (isset($methodsMap[$pa->payment_method_id])) {
+                    $methodsMap[$pa->payment_method_id]['payables_total'] += (float) $pa->total;
+                    $methodsMap[$pa->payment_method_id]['transaction_count'] += (int) $pa->cnt;
+                }
+            }
+
+            $detailQueries[] = (clone $payQuery)->select([
+                DB::raw("'Pago Proveedor' as operation_label"),
+                'credit_payments.payment_number as document_number',
+                DB::raw("COALESCE(suppliers.name, 'Proveedor') as third_party_name"),
+                'credit_payments.created_at as payment_date',
+                'payment_methods.name as payment_method_name',
+                'users.name as user_name',
+                'branches.name as branch_name',
+                DB::raw("(CASE WHEN credit_payments.affects_cash = 1 THEN 'Sí' ELSE 'No' END) as affects_cash"),
+                'credit_payments.amount as amount',
+                DB::raw("'-' as flow_sign")
+            ]);
+        }
+
+        // 5. Purchases (Cash)
+        if ($shouldInclude('expense', 'purchases')) {
+            $purQuery = Purchase::join('payment_methods', 'purchases.payment_method_id', '=', 'payment_methods.id')
+                ->join('users', 'purchases.user_id', '=', 'users.id')
+                ->leftJoin('branches', 'purchases.branch_id', '=', 'branches.id')
+                ->leftJoin('suppliers', 'purchases.supplier_id', '=', 'suppliers.id')
+                ->where('purchases.payment_type', 'cash')
+                ->whereDate('purchases.purchase_date', '>=', $startDate)
+                ->whereDate('purchases.purchase_date', '<=', $endDate);
+
+            if ($branchId) $purQuery->where('purchases.branch_id', $branchId);
+            if ($paymentMethodId) $purQuery->where('purchases.payment_method_id', $paymentMethodId);
+            if ($userId) $purQuery->where('purchases.user_id', $userId);
+
+            $purAgg = (clone $purQuery)->select('purchases.payment_method_id', DB::raw('SUM(COALESCE(purchases.paid_amount, purchases.total)) as total'), DB::raw('COUNT(DISTINCT purchases.id) as cnt'))->groupBy('purchases.payment_method_id')->get();
+            foreach ($purAgg as $pua) {
+                if (isset($methodsMap[$pua->payment_method_id])) {
+                    $methodsMap[$pua->payment_method_id]['purchases_total'] += (float) $pua->total;
+                    $methodsMap[$pua->payment_method_id]['transaction_count'] += (int) $pua->cnt;
+                }
+            }
+
+            $detailQueries[] = (clone $purQuery)->select([
+                DB::raw("'Compra Contado' as operation_label"),
+                'purchases.purchase_number as document_number',
+                DB::raw("COALESCE(suppliers.name, 'Proveedor') as third_party_name"),
+                'purchases.purchase_date as payment_date',
+                'payment_methods.name as payment_method_name',
+                'users.name as user_name',
+                'branches.name as branch_name',
+                DB::raw("'No' as affects_cash"),
+                DB::raw("COALESCE(purchases.paid_amount, purchases.total) as amount"),
+                DB::raw("'-' as flow_sign")
+            ]);
+        }
+
+        // Summary items
+        $summary = collect();
+        foreach ($methodsMap as $m) {
+            $inc = $m['sales_total'] + $m['receivables_total'];
+            $exp = $m['expenses_total'] + $m['payrolls_total'] + $m['payables_total'] + $m['purchases_total'];
+            if ($m['transaction_count'] === 0 && empty($paymentMethodId)) continue;
+
+            $m['total_income'] = $inc;
+            $m['total_expense'] = $exp;
+            $m['net_total'] = $inc - $exp;
+            $summary->push((object) $m);
+        }
+
+        $summary = $summary->sortByDesc('total_income')->values();
+        $grandTotalIncome = (float) $summary->sum('total_income');
+        $grandTotalExpense = (float) $summary->sum('total_expense');
+        $grandNetTotal = $grandTotalIncome - $grandTotalExpense;
+
+        // Detail list
         $detail = collect();
-        if ($salesDetail && $creditsDetail) {
-            $unionQuery = $salesDetail->unionAll($creditsDetail);
-            $detail = DB::query()->fromSub($unionQuery, 'combined')->orderByDesc('payment_date')->get();
-        } elseif ($salesDetail) {
-            $detail = DB::query()->fromSub($salesDetail, 'combined')->orderByDesc('payment_date')->get();
-        } elseif ($creditsDetail) {
-            $detail = DB::query()->fromSub($creditsDetail, 'combined')->orderByDesc('payment_date')->get();
+        if (count($detailQueries) > 0) {
+            $mainQ = array_shift($detailQueries);
+            foreach ($detailQueries as $dq) {
+                $mainQ = $mainQ->unionAll($dq);
+            }
+            $detail = DB::query()->fromSub($mainQ, 'combined')->orderByDesc('payment_date')->get();
         }
 
         // Build Excel
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Medios de Pago');
+        $sheet->setTitle('Resumen');
 
         $headerStyle = [
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
@@ -1398,120 +1468,103 @@ class ReportExportController extends Controller
         $dataStyle = ['borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E2E8F0']]]];
 
         $row = 1;
-        $sheet->setCellValue('A' . $row, 'REPORTE DE MEDIOS DE PAGO Y RECAUDOS');
-        $sheet->mergeCells('A' . $row . ':F' . $row);
+        $sheet->setCellValue('A' . $row, 'REPORTE CONSOLIDADO DE MEDIOS DE PAGO');
+        $sheet->mergeCells('A' . $row . ':J' . $row);
         $sheet->getStyle('A' . $row)->applyFromArray($titleStyle);
         $sheet->getRowDimension($row)->setRowHeight(30);
         $row += 2;
 
         $sheet->setCellValue('A' . $row, 'Período:'); $sheet->setCellValue('B' . $row, $startDate . ' - ' . $endDate); $sheet->getStyle('A' . $row)->getFont()->setBold(true); $row++;
         $sheet->setCellValue('A' . $row, 'Sucursal:'); $sheet->setCellValue('B' . $row, $branchName); $sheet->getStyle('A' . $row)->getFont()->setBold(true); $row++;
-        $sheet->setCellValue('A' . $row, 'Tipo Operación:'); 
-        $sheet->setCellValue('B' . $row, $operationType === 'sales' ? 'Solo Ventas POS' : ($operationType === 'credits' ? 'Solo Abonos Cartera' : 'Todos (Ventas + Abonos)')); 
-        $sheet->getStyle('A' . $row)->getFont()->setBold(true); $row++;
         $sheet->setCellValue('A' . $row, 'Generado:'); $sheet->setCellValue('B' . $row, now()->format('d/m/Y H:i')); $sheet->getStyle('A' . $row)->getFont()->setBold(true); $row += 2;
 
         // Summary section
-        $sheet->setCellValue('A' . $row, 'RESUMEN POR MÉTODO DE PAGO'); $sheet->getStyle('A' . $row)->applyFromArray($subtitleStyle); $row++;
+        $sheet->setCellValue('A' . $row, 'RESUMEN DE INGRESOS Y EGRESOS POR MÉTODO DE PAGO'); $sheet->getStyle('A' . $row)->applyFromArray($subtitleStyle); $row++;
         $sheet->setCellValue('A' . $row, 'Método de Pago'); 
-        $sheet->setCellValue('B' . $row, 'Ventas POS');
-        $sheet->setCellValue('C' . $row, 'Abonos Cartera');
-        $sheet->setCellValue('D' . $row, 'Transacciones'); 
-        $sheet->setCellValue('E' . $row, 'Total Recaudado'); 
-        $sheet->setCellValue('F' . $row, '% del Total');
-        $sheet->getStyle('A' . $row . ':F' . $row)->applyFromArray($headerStyle); $row++;
+        $sheet->setCellValue('B' . $row, 'Ventas Directas (+)');
+        $sheet->setCellValue('C' . $row, 'Abonos Cartera (+)');
+        $sheet->setCellValue('D' . $row, 'Total Ingresos (+)');
+        $sheet->setCellValue('E' . $row, 'Gastos (-)');
+        $sheet->setCellValue('F' . $row, 'Nómina (-)');
+        $sheet->setCellValue('G' . $row, 'Proveedores / Compras (-)');
+        $sheet->setCellValue('H' . $row, 'Total Egresos (-)');
+        $sheet->setCellValue('I' . $row, 'Balance Neto');
+        $sheet->setCellValue('J' . $row, 'Transacciones');
+        $sheet->getStyle('A' . $row . ':J' . $row)->applyFromArray($headerStyle); $row++;
 
         foreach ($summary as $item) {
-            $pct = $grandTotal > 0 ? ($item->total / $grandTotal) * 100 : 0;
             $sheet->setCellValue('A' . $row, $item->name);
             $sheet->setCellValue('B' . $row, $item->sales_total);
-            $sheet->setCellValue('C' . $row, $item->credits_total);
-            $sheet->setCellValue('D' . $row, $item->transaction_count);
-            $sheet->setCellValue('E' . $row, $item->total);
-            $sheet->setCellValue('F' . $row, number_format($pct, 1) . '%');
-            $sheet->getStyle('A' . $row . ':F' . $row)->applyFromArray($dataStyle);
-            $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
-            $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
-            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->setCellValue('C' . $row, $item->receivables_total);
+            $sheet->setCellValue('D' . $row, $item->total_income);
+            $sheet->setCellValue('E' . $row, $item->expenses_total);
+            $sheet->setCellValue('F' . $row, $item->payrolls_total);
+            $sheet->setCellValue('G' . $row, $item->payables_total + $item->purchases_total);
+            $sheet->setCellValue('H' . $row, $item->total_expense);
+            $sheet->setCellValue('I' . $row, $item->net_total);
+            $sheet->setCellValue('J' . $row, $item->transaction_count);
+            $sheet->getStyle('A' . $row . ':J' . $row)->applyFromArray($dataStyle);
+            foreach (['B','C','D','E','F','G','H','I'] as $col) {
+                $sheet->getStyle($col . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            }
             $row++;
         }
         // Total row
-        $sheet->setCellValue('A' . $row, 'TOTAL');
+        $sheet->setCellValue('A' . $row, 'TOTAL GENERAL');
         $sheet->setCellValue('B' . $row, $summary->sum('sales_total'));
-        $sheet->setCellValue('C' . $row, $summary->sum('credits_total'));
-        $sheet->setCellValue('D' . $row, $summary->sum('transaction_count'));
-        $sheet->setCellValue('E' . $row, $grandTotal);
-        $sheet->setCellValue('F' . $row, '100%');
-        $sheet->getStyle('A' . $row . ':F' . $row)->getFont()->setBold(true);
-        $sheet->getStyle('A' . $row . ':F' . $row)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F1F5F9');
-        $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
-        $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
-        $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
-        $row += 2;
-
-        // By user section
-        $sheet->setCellValue('A' . $row, 'RESUMEN POR VENDEDOR'); $sheet->getStyle('A' . $row)->applyFromArray($subtitleStyle); $row++;
-        $sheet->setCellValue('A' . $row, 'Vendedor'); 
-        $sheet->setCellValue('B' . $row, 'Método de Pago'); 
-        $sheet->setCellValue('C' . $row, 'Ventas POS');
-        $sheet->setCellValue('D' . $row, 'Abonos Cartera');
-        $sheet->setCellValue('E' . $row, 'Transacciones'); 
-        $sheet->setCellValue('F' . $row, 'Total Recaudado');
-        $sheet->getStyle('A' . $row . ':F' . $row)->applyFromArray($headerStyle); $row++;
-
-        foreach ($byUser as $item) {
-            $sheet->setCellValue('A' . $row, $item->user_name);
-            $sheet->setCellValue('B' . $row, $item->payment_method_name);
-            $sheet->setCellValue('C' . $row, $item->sales_total);
-            $sheet->setCellValue('D' . $row, $item->credits_total);
-            $sheet->setCellValue('E' . $row, $item->transaction_count);
-            $sheet->setCellValue('F' . $row, $item->total);
-            $sheet->getStyle('A' . $row . ':F' . $row)->applyFromArray($dataStyle);
-            $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
-            $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
-            $sheet->getStyle('F' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
-            $row++;
+        $sheet->setCellValue('C' . $row, $summary->sum('receivables_total'));
+        $sheet->setCellValue('D' . $row, $grandTotalIncome);
+        $sheet->setCellValue('E' . $row, $summary->sum('expenses_total'));
+        $sheet->setCellValue('F' . $row, $summary->sum('payrolls_total'));
+        $sheet->setCellValue('G' . $row, $summary->sum('payables_total') + $summary->sum('purchases_total'));
+        $sheet->setCellValue('H' . $row, $grandTotalExpense);
+        $sheet->setCellValue('I' . $row, $grandNetTotal);
+        $sheet->setCellValue('J' . $row, $summary->sum('transaction_count'));
+        $sheet->getStyle('A' . $row . ':J' . $row)->applyFromArray($headerStyle);
+        foreach (['B','C','D','E','F','G','H','I'] as $col) {
+            $sheet->getStyle($col . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
         }
-        $row += 1;
+        $row += 2;
 
         // Detail section (new sheet)
         $detailSheet = $spreadsheet->createSheet();
-        $detailSheet->setTitle('Detalle');
+        $detailSheet->setTitle('Detalle de Movimientos');
         $dRow = 1;
-        $detailSheet->setCellValue('A' . $dRow, 'DETALLE DE PAGOS Y RECAUDOS');
+        $detailSheet->setCellValue('A' . $dRow, 'DETALLE DE MOVIMIENTOS');
         $detailSheet->mergeCells('A' . $dRow . ':I' . $dRow);
         $detailSheet->getStyle('A' . $dRow)->applyFromArray($titleStyle);
         $detailSheet->getRowDimension($dRow)->setRowHeight(30);
         $dRow += 2;
 
-        $detailSheet->setCellValue('A' . $dRow, 'Tipo');
+        $detailSheet->setCellValue('A' . $dRow, 'Concepto');
         $detailSheet->setCellValue('B' . $dRow, 'Documento');
-        $detailSheet->setCellValue('C' . $dRow, 'Cliente / Tercero');
+        $detailSheet->setCellValue('C' . $dRow, 'Tercero / Cliente');
         $detailSheet->setCellValue('D' . $dRow, 'Fecha');
         $detailSheet->setCellValue('E' . $dRow, 'Método');
-        $detailSheet->setCellValue('F' . $dRow, 'Vendedor');
+        $detailSheet->setCellValue('F' . $dRow, 'Registrado por');
         $detailSheet->setCellValue('G' . $dRow, 'Sucursal');
         $detailSheet->setCellValue('H' . $dRow, 'Afectó Caja');
-        $detailSheet->setCellValue('I' . $dRow, 'Monto Pagado');
+        $detailSheet->setCellValue('I' . $dRow, 'Monto');
         $detailSheet->getStyle('A' . $dRow . ':I' . $dRow)->applyFromArray($headerStyle);
         $dRow++;
 
         foreach ($detail as $item) {
-            $detailSheet->setCellValue('A' . $dRow, $item->operation_type);
+            $detailSheet->setCellValue('A' . $dRow, $item->operation_label);
             $detailSheet->setCellValue('B' . $dRow, $item->document_number);
-            $detailSheet->setCellValue('C' . $dRow, $item->customer_name ?? '-');
+            $detailSheet->setCellValue('C' . $dRow, $item->third_party_name ?? '-');
             $detailSheet->setCellValue('D' . $dRow, Carbon::parse($item->payment_date)->format('d/m/Y H:i'));
             $detailSheet->setCellValue('E' . $dRow, $item->payment_method_name);
             $detailSheet->setCellValue('F' . $dRow, $item->user_name);
             $detailSheet->setCellValue('G' . $dRow, $item->branch_name ?? '-');
             $detailSheet->setCellValue('H' . $dRow, $item->affects_cash);
-            $detailSheet->setCellValue('I' . $dRow, $item->amount);
+            $val = ($item->flow_sign === '-' ? -1 : 1) * (float) $item->amount;
+            $detailSheet->setCellValue('I' . $dRow, $val);
             $detailSheet->getStyle('A' . $dRow . ':I' . $dRow)->applyFromArray($dataStyle);
             $detailSheet->getStyle('I' . $dRow)->getNumberFormat()->setFormatCode('$#,##0.00');
             $dRow++;
         }
 
-        foreach (range('A', 'F') as $col) {
+        foreach (range('A', 'J') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
         foreach (range('A', 'I') as $col) {
