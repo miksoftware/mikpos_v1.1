@@ -34,6 +34,12 @@
                 <option value="juridico">Jurídico</option>
                 <option value="exonerado">Exonerado</option>
             </select>
+            <select wire:model.live="filterSeller" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm">
+                <option value="">Todos los vendedores</option>
+                @foreach($sellers as $seller)
+                <option value="{{ $seller->id }}">{{ $seller->name }}</option>
+                @endforeach
+            </select>
             @if($needsBranchSelection)
             <select wire:model.live="filterBranch" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm">
                 <option value="">Todas las sucursales</option>
@@ -54,6 +60,7 @@
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Cliente</th>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Documento</th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Tipo</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Vendedor</th>
                         @if($needsBranchSelection)
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Sucursal</th>
                         @endif
@@ -100,6 +107,16 @@
                                 @else bg-green-100 text-green-800 @endif">
                                 {{ ucfirst($item->customer_type) }}
                             </span>
+                        </td>
+                        <td class="px-6 py-4">
+                            @if($item->seller)
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200/60">
+                                <svg class="w-3.5 h-3.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                                {{ $item->seller->name }}
+                            </span>
+                            @else
+                            <span class="text-xs text-slate-400 italic">Sin vendedor</span>
+                            @endif
                         </td>
                         @if($needsBranchSelection)
                         <td class="px-6 py-4">
@@ -161,7 +178,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="{{ $needsBranchSelection ? 9 : 8 }}" class="px-6 py-12 text-center">
+                        <td colspan="{{ $needsBranchSelection ? 10 : 9 }}" class="px-6 py-12 text-center">
                             <svg class="w-12 h-12 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                             <p class="text-lg font-medium text-slate-900">No hay clientes</p>
                             <p class="text-slate-500">Comienza creando tu primer cliente</p>
@@ -329,13 +346,27 @@
                         <div>
                             <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                                 <svg class="w-4 h-4 text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                Configuración
+                                Configuración y Vendedor
                             </h4>
                             <div class="space-y-4">
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input wire:model.live="has_credit" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
-                                    <span class="text-sm text-slate-700">El cliente maneja crédito</span>
-                                </label>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Vendedor Asignado (Opcional)</label>
+                                    <select wire:model="seller_id" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                                        <option value="">-- Sin vendedor asignado --</option>
+                                        @foreach($sellers as $seller)
+                                        <option value="{{ $seller->id }}">{{ $seller->name }} ({{ $seller->email }})</option>
+                                        @endforeach
+                                    </select>
+                                    <p class="text-xs text-slate-500 mt-1">Este vendedor se asignará automáticamente a las ventas y créditos de este cliente.</p>
+                                    @error('seller_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                                </div>
+
+                                <div class="pt-2 border-t border-slate-100">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input wire:model.live="has_credit" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                                        <span class="text-sm text-slate-700">El cliente maneja crédito</span>
+                                    </label>
+                                </div>
                                 @if($has_credit)
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-1">Límite de Crédito *</label>

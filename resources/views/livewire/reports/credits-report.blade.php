@@ -7,12 +7,13 @@
             <h1 class="text-2xl font-bold text-slate-800">Reporte de Créditos</h1>
             <p class="text-slate-500 mt-1">Análisis de cuentas por pagar y por cobrar</p>
         </div>
-        @if($viewMode === 'by_customer_grouped')
+        @if(in_array($viewMode, ['by_customer_grouped', 'by_seller']))
         <a href="{{ route('reports.credits.excel', [
             'date_range' => $dateRange,
             'start_date' => $startDate,
             'end_date' => $endDate,
             'branch_id' => $selectedBranchId,
+            'seller_id' => $selectedSellerId,
             'payment_status' => $paymentStatus,
             'search' => $search,
         ]) }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all shadow-sm">
@@ -65,6 +66,15 @@
                     <option value="paid">Pagado</option>
                 </select>
             </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">Vendedor</label>
+                <select wire:model.live="selectedSellerId" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[150px]">
+                    <option value="">Todos los vendedores</option>
+                    @foreach($sellers as $s)
+                    <option value="{{ $s->id }}">{{ $s->name }}</option>
+                    @endforeach
+                </select>
+            </div>
             @if($isSuperAdmin)
             <div>
                 <label class="block text-xs font-medium text-slate-500 mb-1">Sucursal</label>
@@ -88,6 +98,7 @@
         @foreach([
             'summary' => 'Resumen',
             'by_customer_grouped' => 'Créditos por Cliente',
+            'by_seller' => 'Por Vendedor',
             'by_customer' => 'Por Cliente',
             'by_supplier' => 'Por Proveedor',
             'by_date' => 'Por Fecha',
@@ -585,8 +596,161 @@
     @endif
     @endif
 
+    @if($viewMode === 'by_seller')
+    {{-- Grouped by Seller View --}}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-4">
+        <input wire:model.live.debounce.300ms="search" type="text" placeholder="Buscar por vendedor, cliente o número de factura..."
+            class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+    </div>
+
+    @php $sellerGrouped = $detailData; $sellersList = $sellerGrouped['sellers']; $expandedInvoices = $sellerGrouped['expandedInvoices']; @endphp
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <p class="text-xs text-slate-500 uppercase font-semibold">Vendedores con Cartera</p>
+            <p class="text-xl font-bold text-slate-800">{{ $sellersList->total() }}</p>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <p class="text-xs text-slate-500 uppercase font-semibold">Total a Cobrar</p>
+            <p class="text-xl font-bold text-blue-600">${{ number_format($receivableSummary['total_credit'], 2) }}</p>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <p class="text-xs text-slate-500 uppercase font-semibold">Total Cobrado</p>
+            <p class="text-xl font-bold text-green-600">${{ number_format($receivableSummary['total_paid'], 2) }}</p>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <p class="text-xs text-slate-500 uppercase font-semibold">Saldo Pendiente de Cobro</p>
+            <p class="text-xl font-bold text-red-600">${{ number_format($receivableSummary['total_remaining'], 2) }}</p>
+        </div>
+    </div>
+
+    <div class="space-y-3">
+        @forelse($sellersList as $seller)
+        @php
+            $sellerKey = $seller->seller_id ?? 0;
+            $isExpanded = $expandedSellerId === $sellerKey;
+        @endphp
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            {{-- Seller header row --}}
+            <button wire:click="toggleSeller({{ $sellerKey }})" class="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                        {{ strtoupper(substr($seller->seller_name, 0, 2)) }}
+                    </div>
+                    <div class="text-left">
+                        <p class="font-semibold text-slate-800">{{ $seller->seller_name }}</p>
+                        <p class="text-xs text-slate-400">{{ $seller->seller_email ?? 'Cartera de cobranza asignada' }}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-6">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-xs text-slate-400">Facturas</p>
+                        <p class="text-sm font-bold text-slate-700">{{ $seller->total_invoices }}</p>
+                    </div>
+                    <div class="text-right hidden sm:block">
+                        <p class="text-xs text-slate-400">Total Créditos</p>
+                        <p class="text-sm font-bold text-slate-700">${{ number_format($seller->total_credit, 2) }}</p>
+                    </div>
+                    <div class="text-right hidden sm:block">
+                        <p class="text-xs text-slate-400">Cobrado</p>
+                        <p class="text-sm font-bold text-green-600">${{ number_format($seller->total_paid, 2) }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-slate-400">Por Cobrar</p>
+                        <p class="text-sm font-bold text-red-600">${{ number_format($seller->total_remaining, 2) }}</p>
+                    </div>
+                    <svg class="w-5 h-5 text-slate-400 transition-transform {{ $isExpanded ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+            </button>
+
+            {{-- Progress bar --}}
+            @if($seller->total_credit > 0)
+            <div class="px-5 pb-2">
+                <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="bg-gradient-to-r from-green-400 to-green-500 h-full rounded-full" style="width: {{ min(($seller->total_paid / $seller->total_credit) * 100, 100) }}%"></div>
+                </div>
+                <p class="text-xs text-slate-400 text-right mt-0.5">{{ number_format(($seller->total_paid / $seller->total_credit) * 100, 1) }}% cobrado</p>
+            </div>
+            @endif
+
+            {{-- Expanded invoices --}}
+            @if($isExpanded && $expandedInvoices->count() > 0)
+            <div class="border-t border-slate-200 bg-slate-50/50">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="bg-slate-100">
+                                <th class="px-5 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Factura</th>
+                                <th class="px-5 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Cliente</th>
+                                <th class="px-5 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Fecha</th>
+                                <th class="px-5 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Vencimiento</th>
+                                <th class="px-5 py-2 text-right text-xs font-semibold text-slate-500 uppercase">Total Crédito</th>
+                                <th class="px-5 py-2 text-right text-xs font-semibold text-slate-500 uppercase">Cobrado</th>
+                                <th class="px-5 py-2 text-right text-xs font-semibold text-slate-500 uppercase">Por Cobrar</th>
+                                <th class="px-5 py-2 text-center text-xs font-semibold text-slate-500 uppercase">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            @foreach($expandedInvoices as $invoice)
+                            @php $invRemaining = (float)$invoice->credit_amount - (float)$invoice->paid_amount; @endphp
+                            <tr class="hover:bg-white transition-colors">
+                                <td class="px-5 py-2.5 text-sm font-semibold text-slate-800">{{ $invoice->invoice_number }}</td>
+                                <td class="px-5 py-2.5 text-sm text-slate-700">
+                                    {{ $invoice->customer?->full_name ?? 'Consumidor Final' }}
+                                    @if($invoice->customer?->phone)
+                                    <span class="text-xs text-slate-400 block">Tel: {{ $invoice->customer->phone }}</span>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-2.5 text-sm text-slate-600">{{ $invoice->created_at->format('d/m/Y') }}</td>
+                                <td class="px-5 py-2.5 text-sm {{ $invoice->payment_due_date && $invoice->payment_due_date->isPast() ? 'text-red-500 font-semibold' : 'text-slate-600' }}">
+                                    {{ $invoice->payment_due_date ? $invoice->payment_due_date->format('d/m/Y') : '-' }}
+                                    @if($invoice->payment_due_date && $invoice->payment_due_date->isPast() && $invRemaining > 0)
+                                    <span class="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-semibold ml-1">Vencido</span>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-2.5 text-right text-sm font-semibold">${{ number_format($invoice->credit_amount, 2) }}</td>
+                                <td class="px-5 py-2.5 text-right text-sm text-green-600">${{ number_format($invoice->paid_amount, 2) }}</td>
+                                <td class="px-5 py-2.5 text-right text-sm font-bold text-red-600">${{ number_format($invRemaining, 2) }}</td>
+                                <td class="px-5 py-2.5 text-center">
+                                    @if($invoice->payment_status === 'paid')
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Pagado</span>
+                                    @elseif($invoice->payment_status === 'partial')
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Parcial</span>
+                                    @else
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Pendiente</span>
+                                    @endif
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot class="bg-slate-100">
+                            <tr>
+                                <td colspan="4" class="px-5 py-2.5 text-sm font-bold text-slate-700">Totales</td>
+                                <td class="px-5 py-2.5 text-right text-sm font-bold text-slate-700">${{ number_format($expandedInvoices->sum('credit_amount'), 2) }}</td>
+                                <td class="px-5 py-2.5 text-right text-sm font-bold text-green-600">${{ number_format($expandedInvoices->sum('paid_amount'), 2) }}</td>
+                                <td class="px-5 py-2.5 text-right text-sm font-bold text-red-600">${{ number_format($expandedInvoices->sum('credit_amount') - $expandedInvoices->sum('paid_amount'), 2) }}</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            @endif
+        </div>
+        @empty
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center text-slate-400">
+            No hay créditos asignados a vendedores para mostrar
+        </div>
+        @endforelse
+    </div>
+
+    @if(method_exists($sellersList, 'links'))
+    <div class="mt-4">{{ $sellersList->links() }}</div>
+    @endif
+    @endif
+
     {{-- Other Detail Views --}}
-    @if(!in_array($viewMode, ['summary', 'by_customer_grouped']))
+    @if(!in_array($viewMode, ['summary', 'by_customer_grouped', 'by_seller']))
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-4">
         <input wire:model.live.debounce.300ms="search" type="text" placeholder="Buscar..."
             class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
@@ -601,6 +765,7 @@
                     <tr>
                         <th class="px-6 py-3 text-left text-sm font-semibold text-slate-500 uppercase">Factura</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold text-slate-500 uppercase">Cliente</th>
+                        <th class="px-6 py-3 text-left text-sm font-semibold text-slate-500 uppercase">Vendedor</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold text-slate-500 uppercase">Fecha</th>
                         <th class="px-6 py-3 text-right text-sm font-semibold text-slate-500 uppercase">Total</th>
                         <th class="px-6 py-3 text-right text-sm font-semibold text-slate-500 uppercase">Pagado</th>
@@ -617,6 +782,7 @@
                             <p class="text-sm font-medium text-slate-700">{{ $item->customer_name }}</p>
                             <p class="text-xs text-slate-400">{{ $item->document_number }}</p>
                         </td>
+                        <td class="px-6 py-3 text-sm text-slate-600">{{ $item->seller_name ?? '-' }}</td>
                         <td class="px-6 py-3 text-sm text-slate-600">{{ $item->created_at->format('d/m/Y') }}</td>
                         <td class="px-6 py-3 text-right text-sm font-semibold">${{ number_format($item->credit_amount, 2) }}</td>
                         <td class="px-6 py-3 text-right text-sm text-green-600">${{ number_format($item->paid_amount, 2) }}</td>
@@ -632,7 +798,7 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="7" class="px-6 py-12 text-center text-slate-400">No hay datos</td></tr>
+                    <tr><td colspan="8" class="px-6 py-12 text-center text-slate-400">No hay datos</td></tr>
                     @endforelse
                 </tbody>
             </table>

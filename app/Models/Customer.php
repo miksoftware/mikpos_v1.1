@@ -14,6 +14,7 @@ class Customer extends Authenticatable
 
     protected $fillable = [
         'branch_id',
+        'seller_id',
         'customer_type',
         'tax_document_id',
         'document_number',
@@ -65,6 +66,11 @@ class Customer extends Authenticatable
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function seller(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'seller_id');
     }
 
     public function taxDocument(): BelongsTo

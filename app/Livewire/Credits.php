@@ -29,6 +29,7 @@ class Credits extends Component
     public string $filterType = ''; // receivable, payable
     public string $filterStatus = ''; // pending, partial, paid
     public ?int $filterBranch = null;
+    public ?int $filterSeller = null;
 
     // Payment modal
     public bool $isPaymentModalOpen = false;
@@ -150,7 +151,7 @@ class Credits extends Component
         // Credit Sales (Cuentas por Cobrar)
         if ($showSales) {
             $sQuery = Sale::query()
-                ->with(['customer', 'branch'])
+                ->with(['customer', 'branch', 'seller'])
                 ->where('sales.payment_type', 'credit')
                 ->where('sales.status', 'completed');
 
@@ -158,6 +159,10 @@ class Credits extends Component
                 $sQuery->where('sales.branch_id', $branchId);
             } elseif (!$user->isSuperAdmin()) {
                 $sQuery->where('sales.branch_id', $user->branch_id);
+            }
+
+            if ($this->filterSeller) {
+                $sQuery->where('sales.seller_id', $this->filterSeller);
             }
 
             if ($this->filterStatus) {
@@ -192,6 +197,9 @@ class Credits extends Component
             } elseif (!$user->isSuperAdmin()) {
                 $stQuery->where('sales.branch_id', $user->branch_id);
             }
+            if ($this->filterSeller) {
+                $stQuery->where('sales.seller_id', $this->filterSeller);
+            }
             $saleTotals = [
                 'total_debt' => (float) $stQuery->sum('credit_amount'),
                 'total_paid' => (float) $stQuery->sum('paid_amount'),
@@ -209,6 +217,7 @@ class Credits extends Component
                 'document_number' => $p->purchase_number,
                 'extra_doc' => $p->supplier_invoice,
                 'entity_name' => $p->supplier->name ?? '-',
+                'seller_name' => null,
                 'branch_name' => $p->branch->name ?? '',
                 'date' => $p->purchase_date,
                 'due_date' => $p->payment_due_date,
@@ -224,6 +233,7 @@ class Credits extends Component
                 'document_number' => $s->invoice_number,
                 'extra_doc' => null,
                 'entity_name' => $s->customer ? $s->customer->full_name : 'Cliente',
+                'seller_name' => $s->seller->name ?? null,
                 'branch_name' => $s->branch->name ?? '',
                 'date' => $s->created_at,
                 'due_date' => $s->payment_due_date,
@@ -244,9 +254,12 @@ class Credits extends Component
             'receivable_count' => $saleTotals['count'],
         ];
 
+        $sellers = User::where('is_active', true)->orderBy('name')->get();
+
         return view('livewire.credits', [
             'items' => $items,
             'totals' => $totals,
+            'sellers' => $sellers,
         ]);
     }
 

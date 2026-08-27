@@ -313,13 +313,26 @@
 
             <!-- Seller Section -->
             <div class="px-2 sm:px-4 py-2 border-b border-slate-200 bg-slate-50">
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between gap-2">
                     <label class="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wider">Vendedor</label>
+                    @if(auth()->user()->hasPermission('pos.change_seller'))
                     <select wire:model="sellerId" class="text-xs sm:text-sm border-slate-300 rounded-lg shadow-sm focus:border-[#a855f7] focus:ring-[#a855f7] bg-white py-1.5 pl-3 pr-8">
-                        @foreach($branchUsers as $user)
-                            <option value="{{ $user->id }}">{{ $user->name }}</option>
+                        @foreach($branchUsers as $u)
+                            <option value="{{ $u->id }}">{{ $u->name }}</option>
                         @endforeach
                     </select>
+                    @else
+                    @php
+                        $activeSeller = $branchUsers->firstWhere('id', $sellerId) ?? auth()->user();
+                    @endphp
+                    <div class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs sm:text-sm font-medium text-slate-700 shadow-sm">
+                        <svg class="w-3.5 h-3.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                        <span>{{ $activeSeller->name }}</span>
+                        @if($selectedCustomer?->seller_id && $selectedCustomer->seller_id === $sellerId)
+                        <span class="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-semibold">Cliente</span>
+                        @endif
+                    </div>
+                    @endif
                 </div>
             </div>
 
@@ -769,6 +782,17 @@
                                     @endforeach
                                 </select>
                             </div>
+                        </div>
+
+                        {{-- Seller Assignment --}}
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Vendedor Asignado (Opcional)</label>
+                            <select wire:model="newCustomerSellerId" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                                <option value="">-- Sin vendedor asignado --</option>
+                                @foreach($branchUsers as $u)
+                                <option value="{{ $u->id }}">{{ $u->name }}</option>
+                                @endforeach
+                            </select>
                         </div>
                     </div>
                     {{-- Footer --}}

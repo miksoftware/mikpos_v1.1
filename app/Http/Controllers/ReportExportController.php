@@ -75,7 +75,7 @@ class ReportExportController extends Controller
                 $join->on('categories.id', '=', DB::raw('COALESCE(products.category_id, services.category_id)'));
             })
             ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
-            ->join('users', 'sales.user_id', '=', 'users.id')
+            ->join('users', 'sales.seller_id', '=', 'users.id')
             ->where('sales.status', 'completed')
             ->whereDate('sales.created_at', '>=', $startDate)
             ->whereDate('sales.created_at', '<=', $endDate)
@@ -99,7 +99,7 @@ class ReportExportController extends Controller
         }
 
         if ($userId) {
-            $query->where('sales.user_id', $userId);
+            $query->where('sales.seller_id', $userId);
         }
 
         if ($categoryId) {
@@ -917,6 +917,7 @@ class ReportExportController extends Controller
         $startDate = $request->get('start_date');
         $endDate = $request->get('end_date');
         $branchId = $request->get('branch_id');
+        $sellerId = $request->get('seller_id');
         $paymentStatus = $request->get('payment_status', '');
         $search = $request->get('search', '');
         $user = auth()->user();
@@ -939,6 +940,10 @@ class ReportExportController extends Controller
             $query->where('sales.branch_id', $branchId);
         } elseif (!$user->isSuperAdmin()) {
             $query->where('sales.branch_id', $user->branch_id);
+        }
+
+        if ($sellerId) {
+            $query->where('sales.seller_id', $sellerId);
         }
 
         if ($startDate) {
@@ -976,7 +981,8 @@ class ReportExportController extends Controller
             ->get();
 
         // Get all invoices grouped by customer
-        $allInvoices = Sale::where('sales.payment_type', 'credit')
+        $allInvoices = Sale::with('seller')
+            ->where('sales.payment_type', 'credit')
             ->where('sales.status', 'completed')
             ->whereIn('sales.customer_id', $customerSummaries->pluck('id'));
 
@@ -984,6 +990,9 @@ class ReportExportController extends Controller
             $allInvoices->where('sales.branch_id', $branchId);
         } elseif (!$user->isSuperAdmin()) {
             $allInvoices->where('sales.branch_id', $user->branch_id);
+        }
+        if ($sellerId) {
+            $allInvoices->where('sales.seller_id', $sellerId);
         }
         if ($startDate) {
             $allInvoices->whereDate('sales.created_at', '>=', $startDate);
@@ -1030,7 +1039,7 @@ class ReportExportController extends Controller
 
         $row = 1;
         $sheet->setCellValue('A' . $row, 'REPORTE DE CRÉDITOS POR CLIENTE');
-        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->mergeCells('A' . $row . ':H' . $row);
         $sheet->getStyle('A' . $row)->applyFromArray($titleStyle);
         $sheet->getRowDimension($row)->setRowHeight(30);
         $row += 2;
@@ -1044,6 +1053,15 @@ class ReportExportController extends Controller
         $sheet->setCellValue('B' . $row, $branchName);
         $sheet->getStyle('A' . $row)->getFont()->setBold(true);
         $row++;
+
+        if ($sellerId) {
+            $sUser = User::find($sellerId);
+            $sheet->setCellValue('A' . $row, 'Vendedor:');
+            $sheet->setCellValue('B' . $row, $sUser?->name ?? '-');
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row++;
+        }
+
         $sheet->setCellValue('A' . $row, 'Generado:');
         $sheet->setCellValue('B' . $row, now()->format('d/m/Y H:i'));
         $sheet->getStyle('A' . $row)->getFont()->setBold(true);
@@ -1099,22 +1117,23 @@ class ReportExportController extends Controller
             // Customer header row
             $sheet->setCellValue('A' . $row, $customer->customer_name);
             $sheet->setCellValue('C' . $row, 'Doc: ' . $customer->document_number);
-            $sheet->setCellValue('E' . $row, 'Tel: ' . ($customer->phone ?? '-'));
+            $sheet->setCellValue('F' . $row, 'Tel: ' . ($customer->phone ?? '-'));
             $sheet->mergeCells('A' . $row . ':B' . $row);
-            $sheet->mergeCells('C' . $row . ':D' . $row);
-            $sheet->mergeCells('E' . $row . ':G' . $row);
-            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($customerHeaderStyle);
+            $sheet->mergeCells('C' . $row . ':E' . $row);
+            $sheet->mergeCells('F' . $row . ':H' . $row);
+            $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($customerHeaderStyle);
             $row++;
 
             // Invoice headers
             $sheet->setCellValue('A' . $row, 'Factura');
             $sheet->setCellValue('B' . $row, 'Fecha');
-            $sheet->setCellValue('C' . $row, 'Total Venta');
-            $sheet->setCellValue('D' . $row, 'Total Crédito');
-            $sheet->setCellValue('E' . $row, 'Pagado');
-            $sheet->setCellValue('F' . $row, 'Pendiente');
-            $sheet->setCellValue('G' . $row, 'Estado');
-            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($headerStyle);
+            $sheet->setCellValue('C' . $row, 'Vendedor');
+            $sheet->setCellValue('D' . $row, 'Total Venta');
+            $sheet->setCellValue('E' . $row, 'Total Crédito');
+            $sheet->setCellValue('F' . $row, 'Pagado');
+            $sheet->setCellValue('G' . $row, 'Pendiente');
+            $sheet->setCellValue('H' . $row, 'Estado');
+            $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($headerStyle);
             $row++;
 
             // Invoice rows
@@ -1125,40 +1144,41 @@ class ReportExportController extends Controller
 
                 $sheet->setCellValue('A' . $row, $invoice->invoice_number);
                 $sheet->setCellValue('B' . $row, $invoice->created_at->format('d/m/Y'));
-                $sheet->setCellValue('C' . $row, (float) $invoice->total);
-                $sheet->setCellValue('D' . $row, (float) $invoice->credit_amount);
-                $sheet->setCellValue('E' . $row, (float) $invoice->paid_amount);
-                $sheet->setCellValue('F' . $row, $remaining);
-                $sheet->setCellValue('G' . $row, $statusLabels[$invoice->payment_status] ?? $invoice->payment_status);
-                $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($dataStyle);
-                $sheet->getStyle('C' . $row . ':F' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+                $sheet->setCellValue('C' . $row, $invoice->seller?->name ?? '-');
+                $sheet->setCellValue('D' . $row, (float) $invoice->total);
+                $sheet->setCellValue('E' . $row, (float) $invoice->credit_amount);
+                $sheet->setCellValue('F' . $row, (float) $invoice->paid_amount);
+                $sheet->setCellValue('G' . $row, $remaining);
+                $sheet->setCellValue('H' . $row, $statusLabels[$invoice->payment_status] ?? $invoice->payment_status);
+                $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($dataStyle);
+                $sheet->getStyle('D' . $row . ':G' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
 
                 if ($remaining > 0) {
-                    $sheet->getStyle('F' . $row)->getFont()->setColor(new Color('DC2626'));
+                    $sheet->getStyle('G' . $row)->getFont()->setColor(new Color('DC2626'));
                 }
                 $row++;
             }
 
             // Customer subtotal
             $sheet->setCellValue('A' . $row, 'Subtotal ' . $customer->customer_name);
-            $sheet->mergeCells('A' . $row . ':B' . $row);
-            $sheet->setCellValue('C' . $row, '');
-            $sheet->setCellValue('D' . $row, (float) $customer->total_credit);
-            $sheet->setCellValue('E' . $row, (float) $customer->total_paid);
-            $sheet->setCellValue('F' . $row, (float) $customer->total_remaining);
-            $sheet->setCellValue('G' . $row, $customer->total_invoices . ' factura(s)');
-            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($subtotalStyle);
-            $sheet->getStyle('D' . $row . ':F' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
-            $sheet->getStyle('F' . $row)->getFont()->setBold(true)->setColor(new Color('DC2626'));
+            $sheet->mergeCells('A' . $row . ':C' . $row);
+            $sheet->setCellValue('D' . $row, '');
+            $sheet->setCellValue('E' . $row, (float) $customer->total_credit);
+            $sheet->setCellValue('F' . $row, (float) $customer->total_paid);
+            $sheet->setCellValue('G' . $row, (float) $customer->total_remaining);
+            $sheet->setCellValue('H' . $row, $customer->total_invoices . ' factura(s)');
+            $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($subtotalStyle);
+            $sheet->getStyle('E' . $row . ':G' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('G' . $row)->getFont()->setBold(true)->setColor(new Color('DC2626'));
             $row += 2;
         }
 
-        foreach (range('A', 'G') as $col) {
+        foreach (range('A', 'H') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
         $writer = new Xlsx($spreadsheet);
-        $filename = 'creditos-por-cliente-' . now()->format('Y-m-d') . '.xlsx';
+        $filename = 'reporte-creditos-cliente-' . now()->format('Y-m-d') . '.xlsx';
         $tempFile = tempnam(sys_get_temp_dir(), 'excel');
         $writer->save($tempFile);
 
@@ -1885,6 +1905,7 @@ class ReportExportController extends Controller
         $endDate = $request->get('end_date', now()->format('Y-m-d'));
         $branchId = $request->get('branch_id');
         $userId = $request->get('user_id');
+        $cashierId = $request->get('cashier_id');
         $paymentMethodId = $request->get('payment_method_id');
         $cashRegisterId = $request->get('cash_register_id');
         $statusFilter = $request->get('status', 'all');
@@ -1911,6 +1932,10 @@ class ReportExportController extends Controller
 
         if ($userId) {
             $query->where('sales.seller_id', $userId);
+        }
+
+        if ($cashierId) {
+            $query->where('sales.user_id', $cashierId);
         }
 
         if ($paymentMethodId) {
@@ -2056,13 +2081,13 @@ class ReportExportController extends Controller
         $sheet->getStyle('A' . $row)->applyFromArray($subtitleStyle);
         $row++;
 
-        $headers = ['Factura', 'No. DIAN', 'Fecha', 'Hora', 'Cliente', 'Documento', 'Vendedor', 'Forma de Pago', 'Subtotal', 'Impuestos', 'Descuento', 'Total', 'Estado', 'Tipo Pago', 'Caja'];
+        $headers = ['Factura', 'No. DIAN', 'Fecha', 'Hora', 'Cliente', 'Documento', 'Vendedor', 'Cajero / Usuario', 'Forma de Pago', 'Subtotal', 'Impuestos', 'Descuento', 'Total', 'Estado', 'Tipo Pago', 'Caja'];
         $col = 'A';
         foreach ($headers as $header) {
             $sheet->setCellValue($col . $row, $header);
             $col++;
         }
-        $sheet->getStyle('A' . $row . ':O' . $row)->applyFromArray($headerStyle);
+        $sheet->getStyle('A' . $row . ':P' . $row)->applyFromArray($headerStyle);
         $sheet->getRowDimension($row)->setRowHeight(25);
         $row++;
 
@@ -2091,49 +2116,50 @@ class ReportExportController extends Controller
             $sheet->setCellValue('E' . $row, $customerName);
             $sheet->setCellValue('F' . $row, $customerDoc);
             $sheet->setCellValue('G' . $row, $sale->seller?->name ?? '-');
-            $sheet->setCellValue('H' . $row, $paymentMethods);
-            $sheet->setCellValue('I' . $row, (float) $sale->subtotal);
-            $sheet->setCellValue('J' . $row, (float) $sale->tax_total);
-            $sheet->setCellValue('K' . $row, (float) $sale->discount);
-            $sheet->setCellValue('L' . $row, (float) $sale->total);
-            $sheet->setCellValue('M' . $row, $status);
-            $sheet->setCellValue('N' . $row, $paymentType);
-            $sheet->setCellValue('O' . $row, $cashRegister);
+            $sheet->setCellValue('H' . $row, $sale->user?->name ?? '-');
+            $sheet->setCellValue('I' . $row, $paymentMethods);
+            $sheet->setCellValue('J' . $row, (float) $sale->subtotal);
+            $sheet->setCellValue('K' . $row, (float) $sale->tax_total);
+            $sheet->setCellValue('L' . $row, (float) $sale->discount);
+            $sheet->setCellValue('M' . $row, (float) $sale->total);
+            $sheet->setCellValue('N' . $row, $status);
+            $sheet->setCellValue('O' . $row, $paymentType);
+            $sheet->setCellValue('P' . $row, $cashRegister);
 
-            $sheet->getStyle('A' . $row . ':O' . $row)->applyFromArray($dataStyle);
-            $sheet->getStyle('I' . $row)->getNumberFormat()->setFormatCode('$#,##0');
+            $sheet->getStyle('A' . $row . ':P' . $row)->applyFromArray($dataStyle);
             $sheet->getStyle('J' . $row)->getNumberFormat()->setFormatCode('$#,##0');
             $sheet->getStyle('K' . $row)->getNumberFormat()->setFormatCode('$#,##0');
             $sheet->getStyle('L' . $row)->getNumberFormat()->setFormatCode('$#,##0');
+            $sheet->getStyle('M' . $row)->getNumberFormat()->setFormatCode('$#,##0');
 
             if ($row % 2 == 0) {
-                $sheet->getStyle('A' . $row . ':O' . $row)->getFill()
+                $sheet->getStyle('A' . $row . ':P' . $row)->getFill()
                     ->setFillType(Fill::FILL_SOLID)
                     ->getStartColor()->setRGB('F8FAFC');
             }
 
             if ($sale->status !== 'completed') {
-                $sheet->getStyle('M' . $row)->getFont()->getColor()->setRGB('DC2626');
+                $sheet->getStyle('N' . $row)->getFont()->getColor()->setRGB('DC2626');
             }
 
             $row++;
         }
 
         // Totals row
-        $sheet->setCellValue('H' . $row, 'TOTALES:');
-        $sheet->getStyle('H' . $row)->getFont()->setBold(true);
-        $sheet->setCellValue('I' . $row, $completedSales->sum('subtotal'));
-        $sheet->setCellValue('J' . $row, $completedSales->sum('tax_total'));
-        $sheet->setCellValue('K' . $row, $completedSales->sum('discount'));
-        $sheet->setCellValue('L' . $row, $completedSales->sum('total'));
-        $sheet->getStyle('H' . $row . ':O' . $row)->applyFromArray($summaryStyle);
-        $sheet->getStyle('I' . $row)->getNumberFormat()->setFormatCode('$#,##0');
+        $sheet->setCellValue('I' . $row, 'TOTALES:');
+        $sheet->getStyle('I' . $row)->getFont()->setBold(true);
+        $sheet->setCellValue('J' . $row, $completedSales->sum('subtotal'));
+        $sheet->setCellValue('K' . $row, $completedSales->sum('tax_total'));
+        $sheet->setCellValue('L' . $row, $completedSales->sum('discount'));
+        $sheet->setCellValue('M' . $row, $completedSales->sum('total'));
+        $sheet->getStyle('I' . $row . ':P' . $row)->applyFromArray($summaryStyle);
         $sheet->getStyle('J' . $row)->getNumberFormat()->setFormatCode('$#,##0');
         $sheet->getStyle('K' . $row)->getNumberFormat()->setFormatCode('$#,##0');
         $sheet->getStyle('L' . $row)->getNumberFormat()->setFormatCode('$#,##0');
+        $sheet->getStyle('M' . $row)->getNumberFormat()->setFormatCode('$#,##0');
 
         // Auto-size columns
-        foreach (range('A', 'O') as $col) {
+        foreach (range('A', 'P') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 

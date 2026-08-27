@@ -11,6 +11,7 @@
             'end_date' => $endDate,
             'branch_id' => $selectedBranchId,
             'user_id' => $selectedUserId,
+            'cashier_id' => $selectedCashierId,
             'payment_method_id' => $selectedPaymentMethodId,
             'cash_register_id' => $selectedCashRegisterId,
             'status' => $statusFilter,
@@ -297,6 +298,12 @@
                     <option value="{{ $user->id }}">{{ $user->name }}</option>
                     @endforeach
                 </select>
+                <select wire:model.live="selectedCashierId" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[140px]">
+                    <option value="">Todos los cajeros</option>
+                    @foreach($users as $user)
+                    <option value="{{ $user->id }}">{{ $user->name }}</option>
+                    @endforeach
+                </select>
                 <select wire:model.live="selectedPaymentMethodId" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm min-w-[150px]">
                     <option value="">Todas las formas de pago</option>
                     @foreach($paymentMethods as $method)
@@ -314,7 +321,7 @@
                     <option value="completed">Completadas</option>
                     <option value="cancelled">Anuladas</option>
                 </select>
-                @if($search || $selectedUserId || $selectedPaymentMethodId || $selectedCashRegisterId || $statusFilter !== 'all' || ($isSuperAdmin && $selectedBranchId))
+                @if($search || $selectedUserId || $selectedCashierId || $selectedPaymentMethodId || $selectedCashRegisterId || $statusFilter !== 'all' || ($isSuperAdmin && $selectedBranchId))
                 <button wire:click="clearFilters" class="px-3 py-2.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors text-sm font-medium flex items-center gap-1">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -336,6 +343,7 @@
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Fecha</th>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Cliente</th>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Vendedor</th>
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Cajero</th>
                         <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Forma Pago</th>
                         <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Total</th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Estado</th>
@@ -363,7 +371,8 @@
                             <p class="text-xs text-slate-500">{{ $sale->customer->document_number }}</p>
                             @endif
                         </td>
-                        <td class="px-6 py-4 text-slate-600">{{ $sale->seller?->name ?? '-' }}</td>
+                        <td class="px-6 py-4 text-slate-700 font-medium">{{ $sale->seller?->name ?? '-' }}</td>
+                        <td class="px-6 py-4 text-xs text-slate-500">{{ $sale->user?->name ?? '-' }}</td>
                         <td class="px-6 py-4">
                             <div class="flex flex-wrap gap-1">
                                 @if($sale->payments->isNotEmpty())
@@ -398,7 +407,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8" class="px-6 py-12 text-center">
+                        <td colspan="9" class="px-6 py-12 text-center">
                             <svg class="w-12 h-12 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                             </svg>
@@ -448,7 +457,7 @@
                     {{-- Content --}}
                     <div class="px-6 py-4 max-h-[70vh] overflow-y-auto">
                         {{-- Sale Info --}}
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                             <div class="p-3 bg-slate-50 rounded-xl">
                                 <p class="text-xs text-slate-500">Fecha</p>
                                 <p class="font-medium text-slate-800">{{ $selectedSale->created_at->format('d/m/Y H:i') }}</p>
@@ -460,6 +469,10 @@
                             <div class="p-3 bg-slate-50 rounded-xl">
                                 <p class="text-xs text-slate-500">Vendedor</p>
                                 <p class="font-medium text-slate-800">{{ $selectedSale->seller?->name ?? '-' }}</p>
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-xl">
+                                <p class="text-xs text-slate-500">Cajero / Usuario</p>
+                                <p class="font-medium text-slate-800">{{ $selectedSale->user?->name ?? '-' }}</p>
                             </div>
                             <div class="p-3 bg-slate-50 rounded-xl">
                                 <p class="text-xs text-slate-500">Caja</p>

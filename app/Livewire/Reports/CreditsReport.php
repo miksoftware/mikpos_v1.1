@@ -24,11 +24,13 @@ class CreditsReport extends Component
     public ?string $startDate = null;
     public ?string $endDate = null;
     public ?int $selectedBranchId = null;
+    public ?int $selectedSellerId = null;
     public string $creditType = ''; // payable, receivable
     public string $paymentStatus = ''; // pending, partial, paid
     public string $search = '';
-    public string $viewMode = 'summary'; // summary, by_customer, by_customer_grouped, by_supplier, by_date, payments
+    public string $viewMode = 'summary'; // summary, by_customer, by_customer_grouped, by_seller, by_supplier, by_date, payments
     public ?int $expandedCustomerId = null;
+    public ?int $expandedSellerId = null;
 
     // Summary data
     public array $summary = [];
@@ -92,6 +94,7 @@ class CreditsReport extends Component
     public function updatedViewMode()
     {
         $this->expandedCustomerId = null;
+        $this->expandedSellerId = null;
         $this->resetPage();
     }
 
@@ -117,6 +120,14 @@ class CreditsReport extends Component
         }
         if ($this->endDate) {
             $query->whereDate("{$table}.created_at", '<=', $this->endDate);
+        }
+        return $query;
+    }
+
+    private function applySellerFilter($query, string $table = 'sales')
+    {
+        if ($this->selectedSellerId) {
+            $query->where("{$table}.seller_id", $this->selectedSellerId);
         }
         return $query;
     }
@@ -150,6 +161,7 @@ class CreditsReport extends Component
             ->where('sales.status', 'completed');
         $this->applyBranchFilter($sQuery, 'sales');
         $this->applyDateFilter($sQuery, 'sales');
+        $this->applySellerFilter($sQuery, 'sales');
 
         $sData = (clone $sQuery)->selectRaw('
             COUNT(*) as count,
@@ -364,6 +376,8 @@ class CreditsReport extends Component
             return $this->getByCustomerData();
         } elseif ($this->viewMode === 'by_customer_grouped') {
             return $this->getByCustomerGroupedData();
+        } elseif ($this->viewMode === 'by_seller') {
+            return $this->getBySellerData();
         } elseif ($this->viewMode === 'by_supplier') {
             return $this->getBySupplierData();
         } elseif ($this->viewMode === 'by_date') {
@@ -378,9 +392,11 @@ class CreditsReport extends Component
     {
         $query = Sale::where('sales.payment_type', 'credit')
             ->where('sales.status', 'completed')
-            ->join('customers', 'sales.customer_id', '=', 'customers.id');
+            ->join('customers', 'sales.customer_id', '=', 'customers.id')
+            ->leftJoin('users as sellers', 'sales.seller_id', '=', 'sellers.id');
         $this->applyBranchFilter($query, 'sales');
         $this->applyDateFilter($query, 'sales');
+        $this->applySellerFilter($query, 'sales');
 
         if ($this->paymentStatus) {
             $query->where('sales.payment_status', $this->paymentStatus);
@@ -392,6 +408,7 @@ class CreditsReport extends Component
                     ->orWhere('customers.last_name', 'like', "%{$this->search}%")
                     ->orWhere('customers.business_name', 'like', "%{$this->search}%")
                     ->orWhere('customers.document_number', 'like', "%{$this->search}%")
+                    ->orWhere('sellers.name', 'like', "%{$this->search}%")
                     ->orWhere('sales.invoice_number', 'like', "%{$this->search}%");
             });
         }
@@ -399,7 +416,8 @@ class CreditsReport extends Component
         return $query->select(
                 'sales.*',
                 DB::raw("CASE WHEN customers.customer_type = 'juridico' THEN customers.business_name ELSE CONCAT(customers.first_name, ' ', customers.last_name) END as customer_name"),
-                'customers.document_number'
+                'customers.document_number',
+                'sellers.name as seller_name'
             )
             ->orderByDesc('sales.created_at')
             ->paginate(15);
@@ -414,6 +432,7 @@ class CreditsReport extends Component
             ->join('customers', 'sales.customer_id', '=', 'customers.id');
         $this->applyBranchFilter($query, 'sales');
         $this->applyDateFilter($query, 'sales');
+        $this->applySellerFilter($query, 'sales');
 
         if ($this->paymentStatus) {
             $query->where('sales.payment_status', $this->paymentStatus);
@@ -450,6 +469,7 @@ class CreditsReport extends Component
                 ->where('sales.customer_id', $this->expandedCustomerId);
             $this->applyBranchFilter($invQuery, 'sales');
             $this->applyDateFilter($invQuery, 'sales');
+            $this->applySellerFilter($invQuery, 'sales');
             if ($this->paymentStatus) {
                 $invQuery->where('sales.payment_status', $this->paymentStatus);
             }
@@ -462,6 +482,76 @@ class CreditsReport extends Component
     public function toggleCustomer($customerId)
     {
         $this->expandedCustomerId = $this->expandedCustomerId == $customerId ? null : $customerId;
+    }
+
+    private function getBySellerData()
+    {
+        $query = Sale::where('sales.payment_type', 'credit')
+            ->where('sales.status', 'completed')
+            ->leftJoin('users as sellers', 'sales.seller_id', '=', 'sellers.id')
+            ->leftJoin('customers', 'sales.customer_id', '=', 'customers.id');
+
+        $this->applyBranchFilter($query, 'sales');
+        $this->applyDateFilter($query, 'sales');
+        $this->applySellerFilter($query, 'sales');
+
+        if ($this->paymentStatus) {
+            $query->where('sales.payment_status', $this->paymentStatus);
+        }
+
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->where('sellers.name', 'like', "%{$this->search}%")
+                    ->orWhere('customers.first_name', 'like', "%{$this->search}%")
+                    ->orWhere('customers.last_name', 'like', "%{$this->search}%")
+                    ->orWhere('customers.business_name', 'like', "%{$this->search}%")
+                    ->orWhere('customers.document_number', 'like', "%{$this->search}%")
+                    ->orWhere('sales.invoice_number', 'like', "%{$this->search}%");
+            });
+        }
+
+        $sellers = $query->select(
+                'sales.seller_id',
+                DB::raw("COALESCE(sellers.name, 'Sin Vendedor Asignado') as seller_name"),
+                'sellers.email as seller_email',
+                DB::raw('COUNT(sales.id) as total_invoices'),
+                DB::raw('SUM(sales.credit_amount) as total_credit'),
+                DB::raw('SUM(sales.paid_amount) as total_paid'),
+                DB::raw('SUM(sales.credit_amount - sales.paid_amount) as total_remaining')
+            )
+            ->groupBy('sales.seller_id', 'sellers.name', 'sellers.email')
+            ->orderByDesc('total_remaining')
+            ->paginate(15);
+
+        // Load invoices for expanded seller
+        $expandedInvoices = collect();
+        if ($this->expandedSellerId !== null) {
+            $invQuery = Sale::with(['customer', 'branch'])
+                ->where('sales.payment_type', 'credit')
+                ->where('sales.status', 'completed');
+
+            if ($this->expandedSellerId === 0) {
+                $invQuery->whereNull('sales.seller_id');
+            } else {
+                $invQuery->where('sales.seller_id', $this->expandedSellerId);
+            }
+
+            $this->applyBranchFilter($invQuery, 'sales');
+            $this->applyDateFilter($invQuery, 'sales');
+
+            if ($this->paymentStatus) {
+                $invQuery->where('sales.payment_status', $this->paymentStatus);
+            }
+
+            $expandedInvoices = $invQuery->orderByDesc('sales.created_at')->get();
+        }
+
+        return ['sellers' => $sellers, 'expandedInvoices' => $expandedInvoices];
+    }
+
+    public function toggleSeller($sellerId)
+    {
+        $this->expandedSellerId = $this->expandedSellerId === $sellerId ? null : $sellerId;
     }
 
     private function getBySupplierData()
@@ -591,6 +681,8 @@ class CreditsReport extends Component
         $this->search = '';
         $this->viewMode = 'summary';
         $this->expandedCustomerId = null;
+        $this->expandedSellerId = null;
+        $this->selectedSellerId = null;
         if (auth()->user()->isSuperAdmin()) {
             $this->selectedBranchId = null;
         }
@@ -606,10 +698,13 @@ class CreditsReport extends Component
             ? Branch::where('is_active', true)->orderBy('name')->get()
             : collect();
 
+        $sellers = \App\Models\User::where('is_active', true)->orderBy('name')->get();
+
         $detailData = $this->viewMode !== 'summary' ? $this->getDetailData() : collect();
 
         return view('livewire.reports.credits-report', [
             'branches' => $branches,
+            'sellers' => $sellers,
             'isSuperAdmin' => auth()->user()->isSuperAdmin(),
             'detailData' => $detailData,
         ]);

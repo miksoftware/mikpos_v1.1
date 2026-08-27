@@ -61,6 +61,8 @@ class CustomerImportService
         $branches = Branch::where('is_active', true)->get();
         $fallbackBranchId = $defaultBranchId ?: ($branches->first()?->id ?? 1);
 
+        $users = \App\Models\User::where('is_active', true)->get();
+
         $createdCount = 0;
         $updatedCount = 0;
         $errors = [];
@@ -125,6 +127,11 @@ class CustomerImportService
             $branchRaw = trim((string) $this->getCellValue($row, $columnMap, 'branch'));
             $branchId = $this->findBranchId($branchRaw, $branches) ?: $fallbackBranchId;
 
+            // Match Seller
+            $sellerRaw = trim((string) $this->getCellValue($row, $columnMap, 'seller'));
+            $matchedSeller = $this->findSeller($sellerRaw, $users);
+            $sellerId = $matchedSeller?->id;
+
             // Contact & Location
             $phone = trim((string) $this->getCellValue($row, $columnMap, 'phone')) ?: null;
             $email = trim((string) $this->getCellValue($row, $columnMap, 'email')) ?: null;
@@ -152,24 +159,30 @@ class CustomerImportService
                 $existing = Customer::where('document_number', $docNumber)->first();
                 $isNew = !$existing;
 
+                $customerData = [
+                    'branch_id' => $branchId,
+                    'customer_type' => $customerType,
+                    'tax_document_id' => $taxDoc?->id ?: $defaultTaxDoc->id,
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'business_name' => $businessName ?: null,
+                    'phone' => $phone,
+                    'email' => $email,
+                    'department_id' => $matchedDepartment?->id ?: $defaultDepartment?->id,
+                    'municipality_id' => $matchedMunicipality?->id ?: $defaultMunicipality?->id,
+                    'address' => $address,
+                    'has_credit' => $hasCredit,
+                    'credit_limit' => $creditLimit,
+                    'is_active' => true,
+                ];
+
+                if ($sellerId) {
+                    $customerData['seller_id'] = $sellerId;
+                }
+
                 $customer = Customer::updateOrCreate(
                     ['document_number' => $docNumber],
-                    [
-                        'branch_id' => $branchId,
-                        'customer_type' => $customerType,
-                        'tax_document_id' => $taxDoc?->id ?: $defaultTaxDoc->id,
-                        'first_name' => $firstName,
-                        'last_name' => $lastName,
-                        'business_name' => $businessName ?: null,
-                        'phone' => $phone,
-                        'email' => $email,
-                        'department_id' => $matchedDepartment?->id ?: $defaultDepartment?->id,
-                        'municipality_id' => $matchedMunicipality?->id ?: $defaultMunicipality?->id,
-                        'address' => $address,
-                        'has_credit' => $hasCredit,
-                        'credit_limit' => $creditLimit,
-                        'is_active' => true,
-                    ]
+                    $customerData
                 );
 
                 if ($isNew) {
@@ -240,10 +253,30 @@ class CustomerImportService
                 $map['credit_limit'] = $colKey;
             } elseif (in_array($normalized, ['sucursal', 'branch', 'sede'])) {
                 $map['branch'] = $colKey;
+            } elseif (in_array($normalized, ['vendedor', 'seller', 'asesor', 'ejecutivo', 'asesor_comercial', 'vendedor_asignado'])) {
+                $map['seller'] = $colKey;
             }
         }
 
         return $map;
+    }
+
+    private function findSeller(string $raw, $users): ?\App\Models\User
+    {
+        if ($raw === '') return null;
+
+        $rawLower = mb_strtolower($raw);
+
+        // Try exact match by email
+        $byEmail = $users->first(fn($u) => mb_strtolower($u->email ?? '') === $rawLower);
+        if ($byEmail) return $byEmail;
+
+        // Try exact match by name
+        $byName = $users->first(fn($u) => mb_strtolower($u->name ?? '') === $rawLower);
+        if ($byName) return $byName;
+
+        // Try partial match by name
+        return $users->first(fn($u) => str_contains(mb_strtolower($u->name ?? ''), $rawLower));
     }
 
     private function getCellValue(array $row, array $columnMap, string $field)

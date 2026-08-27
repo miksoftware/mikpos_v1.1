@@ -23,6 +23,7 @@ class Customers extends Component
     public $search = '';
     public $filterCustomerType = '';
     public $filterBranch = '';
+    public $filterSeller = '';
     public $isModalOpen = false;
     public $isDeleteModalOpen = false;
     public $itemIdToDelete = null;
@@ -36,6 +37,7 @@ class Customers extends Component
     // Form properties
     public $itemId;
     public $branch_id;
+    public $seller_id = null;
     public $customer_type = 'natural';
     public $tax_document_id;
     public $document_number;
@@ -75,7 +77,7 @@ class Customers extends Component
         $user = auth()->user();
         
         $query = Customer::query()
-            ->with(['taxDocument', 'department', 'municipality', 'branch']);
+            ->with(['taxDocument', 'department', 'municipality', 'branch', 'seller']);
 
         // Apply branch filter
         if ($this->needsBranchSelection) {
@@ -104,6 +106,7 @@ class Customers extends Component
                 });
             })
             ->when($this->filterCustomerType, fn($q) => $q->where('customer_type', $this->filterCustomerType))
+            ->when($this->filterSeller, fn($q) => $q->where('seller_id', $this->filterSeller))
             ->latest()
             ->paginate(10);
 
@@ -115,10 +118,20 @@ class Customers extends Component
             ->map(fn($d) => ['id' => $d->id, 'name' => $d->name])
             ->toArray();
 
+        // Load active sellers
+        $sellersQuery = \App\Models\User::where('is_active', true);
+        if (!$this->needsBranchSelection && $user->branch_id) {
+            $sellersQuery->where(function ($sq) use ($user) {
+                $sq->where('branch_id', $user->branch_id)->orWhereNull('branch_id');
+            });
+        }
+        $sellers = $sellersQuery->orderBy('name')->get();
+
         return view('livewire.customers', [
             'items' => $items,
             'taxDocuments' => $taxDocuments,
             'departments' => $departments,
+            'sellers' => $sellers,
         ]);
     }
 
@@ -170,6 +183,7 @@ class Customers extends Component
         
         $this->itemId = $item->id;
         $this->branch_id = $item->branch_id;
+        $this->seller_id = $item->seller_id;
         $this->customer_type = $item->customer_type;
         $this->tax_document_id = $item->tax_document_id;
         $this->document_number = $item->document_number;
@@ -207,6 +221,7 @@ class Customers extends Component
         }
 
         $rules = [
+            'seller_id' => 'nullable|exists:users,id',
             'customer_type' => 'required|in:natural,juridico,exonerado',
             'tax_document_id' => 'required|exists:tax_documents,id',
             'document_number' => 'required|string|unique:customers,document_number,' . $this->itemId,
@@ -242,6 +257,7 @@ class Customers extends Component
         $oldValues = $isNew ? null : Customer::find($this->itemId)->toArray();
         $item = Customer::updateOrCreate(['id' => $this->itemId], [
             'branch_id' => $branchId,
+            'seller_id' => $this->seller_id ?: null,
             'customer_type' => $this->customer_type,
             'tax_document_id' => $this->tax_document_id,
             'document_number' => $this->document_number,
@@ -379,6 +395,7 @@ class Customers extends Component
     {
         $this->itemId = null;
         $this->branch_id = '';
+        $this->seller_id = null;
         $this->customer_type = 'natural';
         $this->tax_document_id = '';
         $this->document_number = '';

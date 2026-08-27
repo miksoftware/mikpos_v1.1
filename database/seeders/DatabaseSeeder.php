@@ -70,6 +70,7 @@ class DatabaseSeeder extends Seeder
         $this->call(EvoWhatsappModuleSeeder::class);
         $this->call(ProductMergePermissionSeeder::class);
         $this->call(PosObservationsPermissionSeeder::class);
+        $this->call(PosSellerPermissionSeeder::class);
 
         // Create test branches
         $mainBranch = Branch::create([

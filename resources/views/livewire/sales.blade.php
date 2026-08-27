@@ -282,7 +282,7 @@
                         @endif
 
                         <!-- Info Grid -->
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
                             <div class="p-4 bg-slate-50 rounded-xl">
                                 <p class="text-xs text-slate-500 mb-1">Cliente</p>
                                 <p class="font-medium text-slate-800">{{ $selectedSale->customer->full_name ?? 'Sin cliente' }}</p>
@@ -290,14 +290,18 @@
                             </div>
                             <div class="p-4 bg-slate-50 rounded-xl">
                                 <p class="text-xs text-slate-500 mb-1">Vendedor</p>
-                                <p class="font-medium text-slate-800">{{ $selectedSale->user->name ?? 'N/A' }}</p>
+                                <p class="font-medium text-slate-800">{{ $selectedSale->seller->name ?? $selectedSale->user->name ?? 'N/A' }}</p>
                                 <p class="text-sm text-slate-500">{{ $selectedSale->branch->name ?? '' }}</p>
+                            </div>
+                            <div class="p-4 bg-slate-50 rounded-xl">
+                                <p class="text-xs text-slate-500 mb-1">Cajero / Usuario</p>
+                                <p class="font-medium text-slate-800">{{ $selectedSale->user->name ?? 'N/A' }}</p>
                             </div>
                             <div class="p-4 bg-slate-50 rounded-xl">
                                 <p class="text-xs text-slate-500 mb-1">Fecha</p>
                                 <p class="font-medium text-slate-800">{{ $selectedSale->created_at->format('d/m/Y H:i') }}</p>
                             </div>
-                            <div class="p-4 bg-slate-50 rounded-xl">
+                            <div class="p-4 bg-slate-50 rounded-xl sm:col-span-2">
                                 <p class="text-xs text-slate-500 mb-1">Caja</p>
                                 <p class="font-medium text-slate-800">{{ $selectedSale->cashReconciliation->cashRegister->name ?? 'N/A' }}</p>
                             </div>

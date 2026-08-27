@@ -66,6 +66,12 @@
                 <option value="payable">Por Pagar (Proveedores)</option>
                 <option value="receivable">Por Cobrar (Clientes)</option>
             </select>
+            <select wire:model.live="filterSeller" class="px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                <option value="">Todos los vendedores</option>
+                @foreach($sellers as $s)
+                <option value="{{ $s->id }}">{{ $s->name }}</option>
+                @endforeach
+            </select>
             <select wire:model.live="filterStatus" class="px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                 <option value="">Pendientes</option>
                 <option value="pending">Solo Pendientes</option>
@@ -129,7 +135,17 @@
                         </td>
                         <td class="px-6 py-4">
                             <p class="font-medium text-slate-700">{{ $item->entity_name }}</p>
-                            <p class="text-xs text-slate-400">{{ $item->branch_name }}</p>
+                            <div class="flex items-center gap-2 mt-0.5">
+                                @if($item->branch_name)
+                                <span class="text-xs text-slate-400">{{ $item->branch_name }}</span>
+                                @endif
+                                @if($item->seller_name)
+                                <span class="inline-flex items-center gap-1 text-[11px] font-medium text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100">
+                                    <svg class="w-3 h-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                                    {{ $item->seller_name }}
+                                </span>
+                                @endif
+                            </div>
                         </td>
                         <td class="px-6 py-4 text-sm text-slate-600">
                             {{ $item->date->format('d/m/Y') }}

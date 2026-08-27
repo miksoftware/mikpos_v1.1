@@ -46,6 +46,7 @@ class PointOfSale extends Component
     // Create customer form
     public $showCreateCustomer = false;
     public $newCustomerType = 'natural';
+    public $newCustomerSellerId = null;
     public $newCustomerDocumentType = null;
     public $newCustomerDocument = '';
     public $newCustomerFirstName = '';
@@ -306,6 +307,9 @@ class PointOfSale extends Component
         if ($defaultCustomer) {
             $this->customerId = $defaultCustomer->id;
             $this->selectedCustomer = $defaultCustomer;
+            if ($defaultCustomer->seller_id) {
+                $this->sellerId = $defaultCustomer->seller_id;
+            }
         }
     }
 
@@ -319,6 +323,10 @@ class PointOfSale extends Component
         $this->selectedCustomer = Customer::find($customerId);
         $this->customerId = $customerId;
         $this->customerSearch = '';
+
+        if ($this->selectedCustomer && $this->selectedCustomer->seller_id) {
+            $this->sellerId = $this->selectedCustomer->seller_id;
+        }
     }
 
     public function clearCustomer()
@@ -342,6 +350,7 @@ class PointOfSale extends Component
     public function resetCreateCustomerForm()
     {
         $this->newCustomerType = 'natural';
+        $this->newCustomerSellerId = null;
         $this->newCustomerDocumentType = null;
         $this->newCustomerDocument = '';
         $this->newCustomerFirstName = '';
@@ -409,6 +418,7 @@ class PointOfSale extends Component
         try {
             $customer = Customer::create([
                 'branch_id' => $this->branchId,
+                'seller_id' => $this->newCustomerSellerId ?: null,
                 'customer_type' => $this->newCustomerType,
                 'tax_document_id' => $this->newCustomerDocumentType,
                 'document_number' => $this->newCustomerDocument,
@@ -1899,13 +1909,20 @@ class PointOfSale extends Component
                 $paymentStatus = $paidAmount >= $total ? 'paid' : ($paidAmount > 0 ? 'partial' : 'pending');
             }
             
+            // Determine seller based on permission or customer assignment
+            $effectiveSellerId = $this->sellerId;
+            if (!auth()->user()->hasPermission('pos.change_seller')) {
+                $customer = $this->selectedCustomer ?: ($this->customerId ? Customer::find($this->customerId) : null);
+                $effectiveSellerId = $customer?->seller_id ?: auth()->id();
+            }
+
             // Create sale
             $sale = Sale::create([
                 'branch_id' => $this->branchId,
                 'cash_reconciliation_id' => $this->openReconciliation->id,
                 'customer_id' => $this->customerId,
                 'user_id' => auth()->id(),
-                'seller_id' => $this->sellerId ?: auth()->id(),
+                'seller_id' => $effectiveSellerId ?: auth()->id(),
                 'invoice_number' => Sale::generateInvoiceNumber($this->branchId),
                 'subtotal' => $this->getSubtotalProperty(),
                 'tax_total' => $this->getTaxTotalProperty(),

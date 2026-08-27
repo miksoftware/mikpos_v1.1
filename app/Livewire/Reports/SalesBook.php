@@ -24,7 +24,8 @@ class SalesBook extends Component
     public ?string $startDate = null;
     public ?string $endDate = null;
     public ?int $selectedBranchId = null;
-    public ?int $selectedUserId = null;
+    public ?int $selectedUserId = null; // Vendedor (seller_id)
+    public ?int $selectedCashierId = null; // Cajero/Usuario (user_id)
     public ?int $selectedCustomerId = null;
     public ?int $selectedPaymentMethodId = null;
     public ?int $selectedCashRegisterId = null;
@@ -119,6 +120,10 @@ class SalesBook extends Component
 
         if ($this->selectedUserId) {
             $query->where('sales.seller_id', $this->selectedUserId);
+        }
+
+        if ($this->selectedCashierId) {
+            $query->where('sales.user_id', $this->selectedCashierId);
         }
 
         if ($this->selectedCustomerId) {
@@ -339,6 +344,7 @@ class SalesBook extends Component
         $this->startDate = now()->startOfMonth()->format('Y-m-d');
         $this->endDate = now()->format('Y-m-d');
         $this->selectedUserId = null;
+        $this->selectedCashierId = null;
         $this->selectedCustomerId = null;
         $this->selectedPaymentMethodId = null;
         $this->selectedCashRegisterId = null;
