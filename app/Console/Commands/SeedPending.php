@@ -68,6 +68,7 @@ class SeedPending extends Command
         'ProductImportFieldsPermissionSeeder',
         'ElectronicPayrollModuleSeeder',
         'ProductMergePermissionSeeder',
+        'PosObservationsPermissionSeeder',
         // Add new seeders here
     ];
 

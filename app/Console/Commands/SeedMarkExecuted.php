@@ -63,6 +63,7 @@ class SeedMarkExecuted extends Command
         'ProductImportFieldsPermissionSeeder',
         'ElectronicPayrollModuleSeeder',
         'ProductMergePermissionSeeder',
+        'PosObservationsPermissionSeeder',
     ];
 
     public function handle(): int

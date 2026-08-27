@@ -1819,6 +1819,7 @@ class PointOfSale extends Component
         $this->payments = [
             ['method_id' => $defaultPaymentMethod?->id ?? '', 'amount' => $initialAmount]
         ];
+        $this->paymentNotes = '';
         $this->isCredit = false;
         $this->generateElectronicInvoice = false;
         $this->showPaymentModal = true;
@@ -2184,6 +2185,7 @@ class PointOfSale extends Component
     {
         $this->showPaymentModal = false;
         $this->payments = [];
+        $this->paymentNotes = '';
         $this->isCredit = false;
     }
 

@@ -224,6 +224,28 @@
             border-top: 1px dotted #000;
         }
         
+        /* Notes / Observaciones */
+        .notes-section {
+            padding: 5px 0;
+            border-top: 1px dashed #000;
+            margin-bottom: 6px;
+            font-size: 11px;
+        }
+        
+        .notes-title {
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+        
+        .notes-content {
+            font-size: 10.5px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.3;
+        }
+        
         /* DIAN Info */
         .dian-section {
             text-align: center;
@@ -524,6 +546,14 @@
                 <span>${{ number_format($sale->credit_amount - $totalPaid, 0) }}</span>
             </div>
         </div>
+
+        <!-- Observaciones -->
+        @if(!empty($sale->notes) && ($showObservations ?? true))
+        <div class="notes-section">
+            <div class="notes-title">Observaciones:</div>
+            <div class="notes-content">{{ $sale->notes }}</div>
+        </div>
+        @endif
 
         <!-- DIAN Info (only if electronic AND validated with CUFE) -->
         @if($sale->is_electronic && $sale->cufe)

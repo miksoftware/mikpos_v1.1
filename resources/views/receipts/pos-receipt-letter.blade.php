@@ -79,6 +79,13 @@
             font-size: 13px; font-weight: bold; color: #0066cc;
             border-top: 2px solid #333; margin-top: 4px; padding-top: 4px;
         }
+        .notes-box {
+            font-size: 8.5px; color: #444; margin-bottom: 8px;
+            padding: 5px 8px; background: #f8f8f8;
+            border: 1px solid #ddd; border-left: 3px solid #0066cc;
+            line-height: 1.35;
+        }
+        .notes-box-title { font-weight: bold; text-transform: uppercase; font-size: 8.5px; color: #333; margin-bottom: 2px; }
         .amount-words {
             font-size: 8.5px; color: #555; font-style: italic; margin-bottom: 8px;
             padding: 4px 8px; background: #f8f8f8; border-left: 3px solid #ccc;
@@ -321,6 +328,14 @@
                 </div>
             </div>
         </div>
+
+        <!-- Observaciones -->
+        @if(!empty($sale->notes) && ($options['show_observations'] ?? true))
+        <div class="notes-box">
+            <div class="notes-box-title">Observaciones:</div>
+            <div style="white-space: pre-line;">{{ $sale->notes }}</div>
+        </div>
+        @endif
 
         <!-- Amount in words -->
         @if($options['show_amount_words'])

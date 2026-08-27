@@ -1264,6 +1264,24 @@
                         </div>
                         @endif
 
+                        <!-- Observaciones (if user has permission pos.observations) -->
+                        @if(auth()->user()->hasPermission('pos.observations'))
+                        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                                <span class="flex items-center gap-1.5">
+                                    <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                    Observaciones
+                                </span>
+                                <span class="text-[11px] font-normal text-slate-400">Opcional</span>
+                            </label>
+                            <textarea wire:model="paymentNotes" rows="2"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm text-slate-800 placeholder-slate-400 resize-none transition"
+                                placeholder="Escribe una observación para la venta o factura..."></textarea>
+                        </div>
+                        @endif
+
                         <!-- Payment Summary -->
                         <div class="p-4 bg-slate-50 rounded-xl space-y-2">
                             <div class="flex justify-between text-sm">

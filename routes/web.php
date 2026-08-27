@@ -461,8 +461,9 @@ Route::middleware(['auth'])->group(function () {
         $format = App\Models\PrintFormatSetting::getFormat($documentType);
         $view = $format === 'letter' ? 'receipts.pos-receipt-letter' : 'receipts.pos-receipt';
         $showLogo = $format === '80mm' && App\Models\PrintFormatSetting::shouldShowLogo80mm($documentType);
+        $showObservations = $format === '80mm' ? App\Models\PrintFormatSetting::shouldShowObservations80mm($documentType) : true;
 
-        return view($view, compact('sale', 'showLogo'));
+        return view($view, compact('sale', 'showLogo', 'showObservations'));
     })->name('receipt.show');
 
     // Sale QR Receipt (10x10 label format) - uses snapshot token
@@ -497,8 +498,9 @@ Route::middleware(['auth'])->group(function () {
             $format = App\Models\PrintFormatSetting::getFormat($documentType);
             $view = $format === 'letter' ? 'receipts.credit-receipt-letter' : 'receipts.credit-receipt';
             $showLogo = $format === '80mm' && App\Models\PrintFormatSetting::shouldShowLogo80mm($documentType);
+            $showObservations = $format === '80mm' ? App\Models\PrintFormatSetting::shouldShowObservations80mm($documentType) : true;
 
-            return view($view, compact('sale', 'showLogo', 'type'));
+            return view($view, compact('sale', 'showLogo', 'showObservations', 'type'));
         } else {
             // For purchase, if needed later
             abort(404, 'Formato no soportado para compras actualmente.');

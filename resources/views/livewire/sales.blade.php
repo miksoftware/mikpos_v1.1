@@ -91,6 +91,9 @@
                         <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Total</th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Origen</th>
                         <th class="px-6 py-4 text-center text-sm font-semibold text-slate-500 uppercase">Estado</th>
+                        @if(auth()->user()->hasPermission('pos.observations'))
+                        <th class="px-6 py-4 text-left text-sm font-semibold text-slate-500 uppercase">Observación</th>
+                        @endif
                         <th class="px-6 py-4 text-right text-sm font-semibold text-slate-500 uppercase">Acciones</th>
                     </tr>
                 </thead>
@@ -160,6 +163,17 @@
                             <span class="text-slate-400 text-xs">-</span>
                             @endif
                         </td>
+                        @if(auth()->user()->hasPermission('pos.observations'))
+                        <td class="px-6 py-4">
+                            @if(!empty($sale->notes))
+                            <div class="max-w-xs">
+                                <p class="text-sm text-slate-700" title="{{ $sale->notes }}">{{ $sale->notes }}</p>
+                            </div>
+                            @else
+                            <span class="text-slate-400 text-xs">-</span>
+                            @endif
+                        </td>
+                        @endif
                         <td class="px-6 py-4 text-right">
                             <div class="flex items-center justify-end gap-1">
                                 @if($sale->isEcommerce() && $sale->isPendingApproval())
@@ -192,7 +206,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="px-6 py-12 text-center text-slate-500">
+                        <td colspan="{{ auth()->user()->hasPermission('pos.observations') ? 8 : 7 }}" class="px-6 py-12 text-center text-slate-500">
                             <svg class="w-12 h-12 mx-auto text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
                             No hay ventas en el período seleccionado
                         </td>
@@ -288,6 +302,13 @@
                                 <p class="font-medium text-slate-800">{{ $selectedSale->cashReconciliation->cashRegister->name ?? 'N/A' }}</p>
                             </div>
                         </div>
+
+                        @if(!empty($selectedSale->notes))
+                        <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                            <p class="text-xs font-semibold text-slate-500 mb-1">Observaciones</p>
+                            <p class="text-sm text-slate-700 whitespace-pre-line">{{ $selectedSale->notes }}</p>
+                        </div>
+                        @endif
 
                         <!-- Items -->
                         <div>

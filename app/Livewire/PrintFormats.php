@@ -14,6 +14,7 @@ class PrintFormats extends Component
     public array $letterOptions = [];
     public array $cashDrawerOptions = [];
     public array $logo80mmOptions = [];
+    public array $observations80mmOptions = [];
     public ?string $previewFormat = null;
     public ?string $previewDocumentType = null;
 
@@ -32,6 +33,7 @@ class PrintFormats extends Component
                 'letter_options' => PrintFormatSetting::DEFAULT_LETTER_OPTIONS,
                 'open_cash_drawer_on_skip' => false,
                 'show_logo_80mm' => false,
+                'show_observations_80mm' => true,
             ]
         );
 
@@ -39,6 +41,8 @@ class PrintFormats extends Component
         $this->formats = [];
         $this->letterOptions = [];
         $this->cashDrawerOptions = [];
+        $this->logo80mmOptions = [];
+        $this->observations80mmOptions = [];
         foreach ($settings as $setting) {
             $this->formats[$setting->document_type] = $setting->format;
             $this->letterOptions[$setting->document_type] = array_merge(
@@ -47,6 +51,7 @@ class PrintFormats extends Component
             );
             $this->cashDrawerOptions[$setting->document_type] = (bool) $setting->open_cash_drawer_on_skip;
             $this->logo80mmOptions[$setting->document_type] = (bool) $setting->show_logo_80mm;
+            $this->observations80mmOptions[$setting->document_type] = (bool) ($setting->show_observations_80mm ?? true);
         }
     }
 
@@ -93,6 +98,7 @@ class PrintFormats extends Component
             'show_amount_words' => 'Monto en letras',
             'show_footer' => 'Pie de página',
             'show_logo' => 'Logo de la empresa',
+            'show_observations' => 'Observaciones',
         ];
 
         $label = $optionLabels[$option] ?? $option;
@@ -139,6 +145,26 @@ class PrintFormats extends Component
         $state = $newValue ? 'activado' : 'desactivado';
         ActivityLogService::logUpdate('print_formats', $setting, $oldValues, "Logo en tirilla 80mm {$state} en '{$setting->display_name}'");
         $this->dispatch('notify', message: "Logo en tirilla {$state}", type: 'success');
+    }
+
+    public function toggleObservations80mm(string $documentType)
+    {
+        if (!auth()->user()->hasPermission('print_formats.edit')) {
+            $this->dispatch('notify', message: 'No tienes permiso para editar', type: 'error');
+            return;
+        }
+
+        $setting = PrintFormatSetting::where('document_type', $documentType)->first();
+        if (!$setting) return;
+
+        $oldValues = $setting->toArray();
+        $newValue = !($setting->show_observations_80mm ?? true);
+        $setting->update(['show_observations_80mm' => $newValue]);
+        $this->observations80mmOptions[$documentType] = $newValue;
+
+        $state = $newValue ? 'activadas' : 'desactivadas';
+        ActivityLogService::logUpdate('print_formats', $setting, $oldValues, "Observaciones en tirilla 80mm {$state} en '{$setting->display_name}'");
+        $this->dispatch('notify', message: "Observaciones en tirilla {$state}", type: 'success');
     }
 
     public function showPreview(string $documentType, string $format)

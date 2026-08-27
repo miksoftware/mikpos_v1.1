@@ -131,6 +131,7 @@
                             'show_amount_words' => ['label' => 'Monto en letras', 'icon' => 'M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129'],
                             'show_footer' => ['label' => 'Pie de página', 'icon' => 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z'],
                             'show_logo' => ['label' => 'Logo de la empresa', 'icon' => 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'],
+                            'show_observations' => ['label' => 'Observaciones', 'icon' => 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z'],
                         ];
                         $currentOptions = $letterOptions[$setting->document_type] ?? \App\Models\PrintFormatSetting::DEFAULT_LETTER_OPTIONS;
                     @endphp
@@ -159,7 +160,7 @@
 
             <!-- 80mm Logo Option (only when 80mm is selected) -->
             @if(($formats[$setting->document_type] ?? '80mm') === '80mm')
-            <div class="mt-6 pt-6 border-t border-slate-200">
+            <div class="mt-6 pt-6 border-t border-slate-200 space-y-3">
                 <button
                     wire:click="toggleLogo80mm('{{ $setting->document_type }}')"
                     class="flex items-center gap-4 w-full p-4 rounded-xl border transition-all duration-200 text-left {{ ($logo80mmOptions[$setting->document_type] ?? false) ? 'border-indigo-300 bg-indigo-50' : 'border-slate-200 bg-slate-50' }}">
@@ -175,6 +176,25 @@
                     <div class="flex-shrink-0">
                         <div class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors {{ ($logo80mmOptions[$setting->document_type] ?? false) ? 'bg-indigo-500' : 'bg-slate-300' }}">
                             <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow {{ ($logo80mmOptions[$setting->document_type] ?? false) ? 'translate-x-6' : 'translate-x-1' }}"></span>
+                        </div>
+                    </div>
+                </button>
+
+                <button
+                    wire:click="toggleObservations80mm('{{ $setting->document_type }}')"
+                    class="flex items-center gap-4 w-full p-4 rounded-xl border transition-all duration-200 text-left {{ ($observations80mmOptions[$setting->document_type] ?? true) ? 'border-teal-300 bg-teal-50' : 'border-slate-200 bg-slate-50' }}">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center {{ ($observations80mmOptions[$setting->document_type] ?? true) ? 'bg-teal-100' : 'bg-slate-200' }}">
+                        <svg class="w-5 h-5 {{ ($observations80mmOptions[$setting->document_type] ?? true) ? 'text-teal-600' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="text-sm font-bold {{ ($observations80mmOptions[$setting->document_type] ?? true) ? 'text-teal-800' : 'text-slate-600' }}">Mostrar observaciones en la tirilla</span>
+                        <p class="text-xs {{ ($observations80mmOptions[$setting->document_type] ?? true) ? 'text-teal-600' : 'text-slate-400' }} mt-0.5">Muestra la sección de observaciones en el ticket POS 80mm si la venta incluye notas u observaciones</p>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors {{ ($observations80mmOptions[$setting->document_type] ?? true) ? 'bg-teal-500' : 'bg-slate-300' }}">
+                            <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow {{ ($observations80mmOptions[$setting->document_type] ?? true) ? 'translate-x-6' : 'translate-x-1' }}"></span>
                         </div>
                     </div>
                 </button>

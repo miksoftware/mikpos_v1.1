@@ -13,6 +13,7 @@ class PrintFormatSetting extends Model
         'letter_options',
         'open_cash_drawer_on_skip',
         'show_logo_80mm',
+        'show_observations_80mm',
     ];
 
     protected function casts(): array
@@ -21,6 +22,7 @@ class PrintFormatSetting extends Model
             'letter_options' => 'array',
             'open_cash_drawer_on_skip' => 'boolean',
             'show_logo_80mm' => 'boolean',
+            'show_observations_80mm' => 'boolean',
         ];
     }
 
@@ -32,6 +34,7 @@ class PrintFormatSetting extends Model
         'show_amount_words' => true,
         'show_footer' => true,
         'show_logo' => true,
+        'show_observations' => true,
     ];
 
     public static function getFormat(string $documentType): string
@@ -56,5 +59,11 @@ class PrintFormatSetting extends Model
     {
         $setting = static::where('document_type', $documentType)->first();
         return (bool) ($setting?->show_logo_80mm ?? false);
+    }
+
+    public static function shouldShowObservations80mm(string $documentType): bool
+    {
+        $setting = static::where('document_type', $documentType)->first();
+        return (bool) ($setting?->show_observations_80mm ?? true);
     }
 }
