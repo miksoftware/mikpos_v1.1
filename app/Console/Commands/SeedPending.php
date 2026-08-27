@@ -69,6 +69,9 @@ class SeedPending extends Command
         'ElectronicPayrollModuleSeeder',
         'ProductMergePermissionSeeder',
         'PosObservationsPermissionSeeder',
+        'ProductionModuleSeeder',
+        'EvoWhatsappModuleSeeder',
+        'PosSellerPermissionSeeder',
         // Add new seeders here
     ];
 
