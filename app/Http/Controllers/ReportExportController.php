@@ -15,6 +15,7 @@ use App\Models\Purchase;
 use App\Models\CashMovement;
 use App\Models\Expense;
 use App\Models\Customer;
+use App\Models\CreditPayment;
 use App\Models\PaymentMethod;
 use App\Models\CashRegister;
 use Illuminate\Http\Request;
@@ -1173,6 +1174,8 @@ class ReportExportController extends Controller
         $cashRegisterId = $request->get('cash_register_id');
         $paymentMethodId = $request->get('payment_method_id');
         $userId = $request->get('user_id');
+        $operationType = $request->get('operation_type', 'all');
+        $cashAffectation = $request->get('cash_affectation', 'all');
         $user = auth()->user();
 
         $branchName = 'Todas';
@@ -1183,51 +1186,201 @@ class ReportExportController extends Controller
             $branchName = Branch::find($branchId)?->name ?? '';
         }
 
-        // Base query
-        $baseQuery = SalePayment::join('sales', 'sale_payments.sale_id', '=', 'sales.id')
+        // Sales Query
+        $salesQuery = SalePayment::join('sales', 'sale_payments.sale_id', '=', 'sales.id')
             ->join('payment_methods', 'sale_payments.payment_method_id', '=', 'payment_methods.id')
+            ->join('users', 'sales.user_id', '=', 'users.id')
+            ->leftJoin('branches', 'sales.branch_id', '=', 'branches.id')
+            ->leftJoin('customers', 'sales.customer_id', '=', 'customers.id')
             ->where('sales.status', 'completed')
             ->whereDate('sales.created_at', '>=', $startDate)
             ->whereDate('sales.created_at', '<=', $endDate);
 
-        if ($branchId) $baseQuery->where('sales.branch_id', $branchId);
+        if ($branchId) $salesQuery->where('sales.branch_id', $branchId);
         if ($cashRegisterId) {
-            $baseQuery->whereHas('sale.cashReconciliation', fn($q) => $q->where('cash_register_id', $cashRegisterId));
+            $salesQuery->whereHas('sale.cashReconciliation', fn($q) => $q->where('cash_register_id', $cashRegisterId));
         }
-        if ($paymentMethodId) $baseQuery->where('sale_payments.payment_method_id', $paymentMethodId);
-        if ($userId) $baseQuery->where('sales.user_id', $userId);
+        if ($paymentMethodId) $salesQuery->where('sale_payments.payment_method_id', $paymentMethodId);
+        if ($userId) $salesQuery->where('sales.user_id', $userId);
+        if ($cashAffectation === 'with_cash') {
+            $salesQuery->whereNotNull('sales.cash_reconciliation_id');
+        } elseif ($cashAffectation === 'without_cash') {
+            $salesQuery->whereNull('sales.cash_reconciliation_id');
+        }
 
-        // Summary by payment method
-        $summary = (clone $baseQuery)->select(
-            'payment_methods.name',
-            DB::raw('SUM(sale_payments.amount) as total'),
-            DB::raw('COUNT(DISTINCT sales.id) as transaction_count')
-        )->groupBy('payment_methods.id', 'payment_methods.name')->orderByDesc('total')->get();
+        // Credits Query
+        $creditsQuery = CreditPayment::join('payment_methods', 'credit_payments.payment_method_id', '=', 'payment_methods.id')
+            ->join('users', 'credit_payments.user_id', '=', 'users.id')
+            ->leftJoin('branches', 'credit_payments.branch_id', '=', 'branches.id')
+            ->leftJoin('sales', 'credit_payments.sale_id', '=', 'sales.id')
+            ->leftJoin('customers', function ($join) {
+                $join->on('credit_payments.customer_id', '=', 'customers.id')
+                    ->orWhere(function ($q) {
+                        $q->whereNull('credit_payments.customer_id')
+                            ->whereColumn('sales.customer_id', 'customers.id');
+                    });
+            })
+            ->where('credit_payments.credit_type', 'receivable')
+            ->whereDate('credit_payments.created_at', '>=', $startDate)
+            ->whereDate('credit_payments.created_at', '<=', $endDate);
 
+        if ($branchId) $creditsQuery->where('credit_payments.branch_id', $branchId);
+        if ($cashRegisterId) {
+            $creditsQuery->whereHas('cashReconciliation', fn($q) => $q->where('cash_register_id', $cashRegisterId));
+        }
+        if ($paymentMethodId) $creditsQuery->where('credit_payments.payment_method_id', $paymentMethodId);
+        if ($userId) $creditsQuery->where('credit_payments.user_id', $userId);
+        if ($cashAffectation === 'with_cash') {
+            $creditsQuery->where('credit_payments.affects_cash', true);
+        } elseif ($cashAffectation === 'without_cash') {
+            $creditsQuery->where('credit_payments.affects_cash', false);
+        }
+
+        // Summary calculation
+        $salesSummary = collect();
+        $creditsSummary = collect();
+
+        if ($operationType === 'all' || $operationType === 'sales') {
+            $salesSummary = (clone $salesQuery)->select(
+                'payment_methods.id',
+                'payment_methods.name',
+                DB::raw('SUM(sale_payments.amount) as sales_total'),
+                DB::raw('COUNT(DISTINCT sales.id) as sales_count')
+            )->groupBy('payment_methods.id', 'payment_methods.name')->get()->keyBy('id');
+        }
+
+        if ($operationType === 'all' || $operationType === 'credits') {
+            $creditsSummary = (clone $creditsQuery)->select(
+                'payment_methods.id',
+                'payment_methods.name',
+                DB::raw('SUM(credit_payments.amount) as credits_total'),
+                DB::raw('COUNT(DISTINCT credit_payments.id) as credits_count')
+            )->groupBy('payment_methods.id', 'payment_methods.name')->get()->keyBy('id');
+        }
+
+        $allMethodIds = $salesSummary->keys()->merge($creditsSummary->keys())->unique();
+        $summary = collect();
+
+        foreach ($allMethodIds as $mId) {
+            $saleItem = $salesSummary->get($mId);
+            $creditItem = $creditsSummary->get($mId);
+
+            $name = $saleItem->name ?? $creditItem->name ?? 'Desconocido';
+            $sTotal = (float) ($saleItem->sales_total ?? 0);
+            $sCount = (int) ($saleItem->sales_count ?? 0);
+            $cTotal = (float) ($creditItem->credits_total ?? 0);
+            $cCount = (int) ($creditItem->credits_count ?? 0);
+
+            $summary->push((object) [
+                'name' => $name,
+                'sales_total' => $sTotal,
+                'sales_count' => $sCount,
+                'credits_total' => $cTotal,
+                'credits_count' => $cCount,
+                'transaction_count' => $sCount + $cCount,
+                'total' => $sTotal + $cTotal,
+            ]);
+        }
+
+        $summary = $summary->sortByDesc('total')->values();
         $grandTotal = $summary->sum('total');
 
-        // Detail
-        $detail = (clone $baseQuery)->join('users', 'sales.user_id', '=', 'users.id')
-            ->leftJoin('branches', 'sales.branch_id', '=', 'branches.id')
-            ->select(
-                'sales.invoice_number',
-                'sales.created_at',
-                'sales.total as sale_total',
-                'sale_payments.amount',
-                'payment_methods.name as payment_method_name',
-                'users.name as user_name',
-                'branches.name as branch_name'
-            )->orderByDesc('sales.created_at')->get();
+        // Summary by User
+        $salesByUser = collect();
+        $creditsByUser = collect();
 
-        // By user
-        $byUser = (clone $baseQuery)->join('users', 'sales.user_id', '=', 'users.id')
-            ->select(
+        if ($operationType === 'all' || $operationType === 'sales') {
+            $salesByUser = (clone $salesQuery)->select(
                 'users.name as user_name',
                 'payment_methods.name as payment_method_name',
-                DB::raw('SUM(sale_payments.amount) as total'),
-                DB::raw('COUNT(DISTINCT sales.id) as transaction_count')
-            )->groupBy('users.id', 'users.name', 'payment_methods.name')
-            ->orderBy('users.name')->orderByDesc('total')->get();
+                DB::raw('SUM(sale_payments.amount) as sales_total'),
+                DB::raw('COUNT(DISTINCT sales.id) as sales_count')
+            )->groupBy('users.id', 'users.name', 'payment_methods.name')->get();
+        }
+
+        if ($operationType === 'all' || $operationType === 'credits') {
+            $creditsByUser = (clone $creditsQuery)->select(
+                'users.name as user_name',
+                'payment_methods.name as payment_method_name',
+                DB::raw('SUM(credit_payments.amount) as credits_total'),
+                DB::raw('COUNT(DISTINCT credit_payments.id) as credits_count')
+            )->groupBy('users.id', 'users.name', 'payment_methods.name')->get();
+        }
+
+        $userGroups = [];
+        foreach ($salesByUser as $sbu) {
+            $key = $sbu->user_name . '|' . $sbu->payment_method_name;
+            $userGroups[$key] = (object) [
+                'user_name' => $sbu->user_name,
+                'payment_method_name' => $sbu->payment_method_name,
+                'sales_total' => (float) $sbu->sales_total,
+                'credits_total' => 0.0,
+                'transaction_count' => (int) $sbu->sales_count,
+                'total' => (float) $sbu->sales_total,
+            ];
+        }
+        foreach ($creditsByUser as $cbu) {
+            $key = $cbu->user_name . '|' . $cbu->payment_method_name;
+            if (isset($userGroups[$key])) {
+                $userGroups[$key]->credits_total += (float) $cbu->credits_total;
+                $userGroups[$key]->transaction_count += (int) $cbu->credits_count;
+                $userGroups[$key]->total += (float) $cbu->credits_total;
+            } else {
+                $userGroups[$key] = (object) [
+                    'user_name' => $cbu->user_name,
+                    'payment_method_name' => $cbu->payment_method_name,
+                    'sales_total' => 0.0,
+                    'credits_total' => (float) $cbu->credits_total,
+                    'transaction_count' => (int) $cbu->credits_count,
+                    'total' => (float) $cbu->credits_total,
+                ];
+            }
+        }
+        $byUser = collect($userGroups)->sortBy('user_name')->values();
+
+        // Detail items
+        $customerSql = "COALESCE(CASE WHEN customers.customer_type = 'juridico' AND customers.business_name IS NOT NULL AND customers.business_name != '' THEN customers.business_name ELSE TRIM(CONCAT(COALESCE(customers.first_name, ''), ' ', COALESCE(customers.last_name, ''))) END, 'Cliente General')";
+
+        $salesDetail = null;
+        $creditsDetail = null;
+
+        if ($operationType === 'all' || $operationType === 'sales') {
+            $salesDetail = (clone $salesQuery)->select([
+                DB::raw("'Venta POS' as operation_type"),
+                'sales.invoice_number as document_number',
+                DB::raw("{$customerSql} as customer_name"),
+                'sales.created_at as payment_date',
+                'payment_methods.name as payment_method_name',
+                'users.name as user_name',
+                'branches.name as branch_name',
+                'sale_payments.amount as amount',
+                DB::raw("(CASE WHEN sales.cash_reconciliation_id IS NOT NULL THEN 'Sí' ELSE 'No' END) as affects_cash")
+            ]);
+        }
+
+        if ($operationType === 'all' || $operationType === 'credits') {
+            $creditsDetail = (clone $creditsQuery)->select([
+                DB::raw("'Cobro Cartera' as operation_type"),
+                'credit_payments.payment_number as document_number',
+                DB::raw("{$customerSql} as customer_name"),
+                'credit_payments.created_at as payment_date',
+                'payment_methods.name as payment_method_name',
+                'users.name as user_name',
+                'branches.name as branch_name',
+                'credit_payments.amount as amount',
+                DB::raw("(CASE WHEN credit_payments.affects_cash = 1 THEN 'Sí' ELSE 'No' END) as affects_cash")
+            ]);
+        }
+
+        $detail = collect();
+        if ($salesDetail && $creditsDetail) {
+            $unionQuery = $salesDetail->unionAll($creditsDetail);
+            $detail = DB::query()->fromSub($unionQuery, 'combined')->orderByDesc('payment_date')->get();
+        } elseif ($salesDetail) {
+            $detail = DB::query()->fromSub($salesDetail, 'combined')->orderByDesc('payment_date')->get();
+        } elseif ($creditsDetail) {
+            $detail = DB::query()->fromSub($creditsDetail, 'combined')->orderByDesc('payment_date')->get();
+        }
 
         // Build Excel
         $spreadsheet = new Spreadsheet();
@@ -1245,50 +1398,78 @@ class ReportExportController extends Controller
         $dataStyle = ['borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E2E8F0']]]];
 
         $row = 1;
-        $sheet->setCellValue('A' . $row, 'REPORTE DE MEDIOS DE PAGO');
-        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->setCellValue('A' . $row, 'REPORTE DE MEDIOS DE PAGO Y RECAUDOS');
+        $sheet->mergeCells('A' . $row . ':F' . $row);
         $sheet->getStyle('A' . $row)->applyFromArray($titleStyle);
         $sheet->getRowDimension($row)->setRowHeight(30);
         $row += 2;
 
         $sheet->setCellValue('A' . $row, 'Período:'); $sheet->setCellValue('B' . $row, $startDate . ' - ' . $endDate); $sheet->getStyle('A' . $row)->getFont()->setBold(true); $row++;
         $sheet->setCellValue('A' . $row, 'Sucursal:'); $sheet->setCellValue('B' . $row, $branchName); $sheet->getStyle('A' . $row)->getFont()->setBold(true); $row++;
+        $sheet->setCellValue('A' . $row, 'Tipo Operación:'); 
+        $sheet->setCellValue('B' . $row, $operationType === 'sales' ? 'Solo Ventas POS' : ($operationType === 'credits' ? 'Solo Abonos Cartera' : 'Todos (Ventas + Abonos)')); 
+        $sheet->getStyle('A' . $row)->getFont()->setBold(true); $row++;
         $sheet->setCellValue('A' . $row, 'Generado:'); $sheet->setCellValue('B' . $row, now()->format('d/m/Y H:i')); $sheet->getStyle('A' . $row)->getFont()->setBold(true); $row += 2;
 
         // Summary section
         $sheet->setCellValue('A' . $row, 'RESUMEN POR MÉTODO DE PAGO'); $sheet->getStyle('A' . $row)->applyFromArray($subtitleStyle); $row++;
-        $sheet->setCellValue('A' . $row, 'Método de Pago'); $sheet->setCellValue('B' . $row, 'Transacciones'); $sheet->setCellValue('C' . $row, 'Total'); $sheet->setCellValue('D' . $row, '% del Total');
-        $sheet->getStyle('A' . $row . ':D' . $row)->applyFromArray($headerStyle); $row++;
+        $sheet->setCellValue('A' . $row, 'Método de Pago'); 
+        $sheet->setCellValue('B' . $row, 'Ventas POS');
+        $sheet->setCellValue('C' . $row, 'Abonos Cartera');
+        $sheet->setCellValue('D' . $row, 'Transacciones'); 
+        $sheet->setCellValue('E' . $row, 'Total Recaudado'); 
+        $sheet->setCellValue('F' . $row, '% del Total');
+        $sheet->getStyle('A' . $row . ':F' . $row)->applyFromArray($headerStyle); $row++;
 
         foreach ($summary as $item) {
             $pct = $grandTotal > 0 ? ($item->total / $grandTotal) * 100 : 0;
             $sheet->setCellValue('A' . $row, $item->name);
-            $sheet->setCellValue('B' . $row, $item->transaction_count);
-            $sheet->setCellValue('C' . $row, $item->total);
-            $sheet->setCellValue('D' . $row, number_format($pct, 1) . '%');
-            $sheet->getStyle('A' . $row . ':D' . $row)->applyFromArray($dataStyle);
+            $sheet->setCellValue('B' . $row, $item->sales_total);
+            $sheet->setCellValue('C' . $row, $item->credits_total);
+            $sheet->setCellValue('D' . $row, $item->transaction_count);
+            $sheet->setCellValue('E' . $row, $item->total);
+            $sheet->setCellValue('F' . $row, number_format($pct, 1) . '%');
+            $sheet->getStyle('A' . $row . ':F' . $row)->applyFromArray($dataStyle);
+            $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
             $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
             $row++;
         }
         // Total row
-        $sheet->setCellValue('A' . $row, 'TOTAL'); $sheet->setCellValue('B' . $row, $summary->sum('transaction_count')); $sheet->setCellValue('C' . $row, $grandTotal); $sheet->setCellValue('D' . $row, '100%');
-        $sheet->getStyle('A' . $row . ':D' . $row)->getFont()->setBold(true);
-        $sheet->getStyle('A' . $row . ':D' . $row)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F1F5F9');
+        $sheet->setCellValue('A' . $row, 'TOTAL');
+        $sheet->setCellValue('B' . $row, $summary->sum('sales_total'));
+        $sheet->setCellValue('C' . $row, $summary->sum('credits_total'));
+        $sheet->setCellValue('D' . $row, $summary->sum('transaction_count'));
+        $sheet->setCellValue('E' . $row, $grandTotal);
+        $sheet->setCellValue('F' . $row, '100%');
+        $sheet->getStyle('A' . $row . ':F' . $row)->getFont()->setBold(true);
+        $sheet->getStyle('A' . $row . ':F' . $row)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F1F5F9');
+        $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
         $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+        $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
         $row += 2;
 
         // By user section
         $sheet->setCellValue('A' . $row, 'RESUMEN POR VENDEDOR'); $sheet->getStyle('A' . $row)->applyFromArray($subtitleStyle); $row++;
-        $sheet->setCellValue('A' . $row, 'Vendedor'); $sheet->setCellValue('B' . $row, 'Método de Pago'); $sheet->setCellValue('C' . $row, 'Transacciones'); $sheet->setCellValue('D' . $row, 'Total');
-        $sheet->getStyle('A' . $row . ':D' . $row)->applyFromArray($headerStyle); $row++;
+        $sheet->setCellValue('A' . $row, 'Vendedor'); 
+        $sheet->setCellValue('B' . $row, 'Método de Pago'); 
+        $sheet->setCellValue('C' . $row, 'Ventas POS');
+        $sheet->setCellValue('D' . $row, 'Abonos Cartera');
+        $sheet->setCellValue('E' . $row, 'Transacciones'); 
+        $sheet->setCellValue('F' . $row, 'Total Recaudado');
+        $sheet->getStyle('A' . $row . ':F' . $row)->applyFromArray($headerStyle); $row++;
 
         foreach ($byUser as $item) {
             $sheet->setCellValue('A' . $row, $item->user_name);
             $sheet->setCellValue('B' . $row, $item->payment_method_name);
-            $sheet->setCellValue('C' . $row, $item->transaction_count);
-            $sheet->setCellValue('D' . $row, $item->total);
-            $sheet->getStyle('A' . $row . ':D' . $row)->applyFromArray($dataStyle);
+            $sheet->setCellValue('C' . $row, $item->sales_total);
+            $sheet->setCellValue('D' . $row, $item->credits_total);
+            $sheet->setCellValue('E' . $row, $item->transaction_count);
+            $sheet->setCellValue('F' . $row, $item->total);
+            $sheet->getStyle('A' . $row . ':F' . $row)->applyFromArray($dataStyle);
+            $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
             $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('F' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
             $row++;
         }
         $row += 1;
@@ -1297,34 +1478,43 @@ class ReportExportController extends Controller
         $detailSheet = $spreadsheet->createSheet();
         $detailSheet->setTitle('Detalle');
         $dRow = 1;
-        $detailSheet->setCellValue('A' . $dRow, 'DETALLE DE PAGOS');
-        $detailSheet->mergeCells('A' . $dRow . ':G' . $dRow);
+        $detailSheet->setCellValue('A' . $dRow, 'DETALLE DE PAGOS Y RECAUDOS');
+        $detailSheet->mergeCells('A' . $dRow . ':I' . $dRow);
         $detailSheet->getStyle('A' . $dRow)->applyFromArray($titleStyle);
         $detailSheet->getRowDimension($dRow)->setRowHeight(30);
         $dRow += 2;
 
-        $detailSheet->setCellValue('A' . $dRow, 'Factura'); $detailSheet->setCellValue('B' . $dRow, 'Fecha');
-        $detailSheet->setCellValue('C' . $dRow, 'Método'); $detailSheet->setCellValue('D' . $dRow, 'Vendedor');
-        $detailSheet->setCellValue('E' . $dRow, 'Sucursal'); $detailSheet->setCellValue('F' . $dRow, 'Total Venta');
-        $detailSheet->setCellValue('G' . $dRow, 'Monto Pagado');
-        $detailSheet->getStyle('A' . $dRow . ':G' . $dRow)->applyFromArray($headerStyle);
+        $detailSheet->setCellValue('A' . $dRow, 'Tipo');
+        $detailSheet->setCellValue('B' . $dRow, 'Documento');
+        $detailSheet->setCellValue('C' . $dRow, 'Cliente / Tercero');
+        $detailSheet->setCellValue('D' . $dRow, 'Fecha');
+        $detailSheet->setCellValue('E' . $dRow, 'Método');
+        $detailSheet->setCellValue('F' . $dRow, 'Vendedor');
+        $detailSheet->setCellValue('G' . $dRow, 'Sucursal');
+        $detailSheet->setCellValue('H' . $dRow, 'Afectó Caja');
+        $detailSheet->setCellValue('I' . $dRow, 'Monto Pagado');
+        $detailSheet->getStyle('A' . $dRow . ':I' . $dRow)->applyFromArray($headerStyle);
         $dRow++;
 
         foreach ($detail as $item) {
-            $detailSheet->setCellValue('A' . $dRow, $item->invoice_number);
-            $detailSheet->setCellValue('B' . $dRow, Carbon::parse($item->created_at)->format('d/m/Y H:i'));
-            $detailSheet->setCellValue('C' . $dRow, $item->payment_method_name);
-            $detailSheet->setCellValue('D' . $dRow, $item->user_name);
-            $detailSheet->setCellValue('E' . $dRow, $item->branch_name ?? '-');
-            $detailSheet->setCellValue('F' . $dRow, $item->sale_total);
-            $detailSheet->setCellValue('G' . $dRow, $item->amount);
-            $detailSheet->getStyle('A' . $dRow . ':G' . $dRow)->applyFromArray($dataStyle);
-            $detailSheet->getStyle('F' . $dRow . ':G' . $dRow)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $detailSheet->setCellValue('A' . $dRow, $item->operation_type);
+            $detailSheet->setCellValue('B' . $dRow, $item->document_number);
+            $detailSheet->setCellValue('C' . $dRow, $item->customer_name ?? '-');
+            $detailSheet->setCellValue('D' . $dRow, Carbon::parse($item->payment_date)->format('d/m/Y H:i'));
+            $detailSheet->setCellValue('E' . $dRow, $item->payment_method_name);
+            $detailSheet->setCellValue('F' . $dRow, $item->user_name);
+            $detailSheet->setCellValue('G' . $dRow, $item->branch_name ?? '-');
+            $detailSheet->setCellValue('H' . $dRow, $item->affects_cash);
+            $detailSheet->setCellValue('I' . $dRow, $item->amount);
+            $detailSheet->getStyle('A' . $dRow . ':I' . $dRow)->applyFromArray($dataStyle);
+            $detailSheet->getStyle('I' . $dRow)->getNumberFormat()->setFormatCode('$#,##0.00');
             $dRow++;
         }
 
-        foreach (range('A', 'G') as $col) {
+        foreach (range('A', 'F') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+        foreach (range('A', 'I') as $col) {
             $detailSheet->getColumnDimension($col)->setAutoSize(true);
         }
 

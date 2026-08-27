@@ -40,7 +40,7 @@ class Credits extends Component
     public float $paymentPaid = 0;
     public float $paymentRemaining = 0;
     public array $paymentLines = [];
-    public bool $paymentAffectsCash = false;
+    public bool $paymentAffectsCash = true;
     public string $paymentNotes = '';
     public bool $paymentMarkComplete = false;
 
@@ -59,7 +59,7 @@ class Credits extends Component
     public array $bulkEntityResults = [];
     public ?array $bulkSelectedEntity = null; // ['id', 'name']
     public array $bulkInvoices = [];          // each: ['id','document_number','date','total','paid','remaining','allocated','lines'=>[...]]
-    public bool $bulkAffectsCash = false;
+    public bool $bulkAffectsCash = true;
     public string $bulkNotes = '';
 
     // Portfolio import properties
@@ -285,7 +285,7 @@ class Credits extends Component
 
         $this->paymentRemaining = $this->paymentTotal - $this->paymentPaid;
         $this->paymentLines = [['payment_method_id' => '', 'amount' => 0]];
-        $this->paymentAffectsCash = false;
+        $this->paymentAffectsCash = true;
         $this->paymentNotes = '';
         $this->paymentMarkComplete = false;
         $this->isPaymentModalOpen = true;
@@ -525,7 +525,7 @@ class Credits extends Component
         $this->bulkEntityResults = [];
         $this->bulkSelectedEntity = null;
         $this->bulkInvoices = [];
-        $this->bulkAffectsCash = false;
+        $this->bulkAffectsCash = true;
         $this->bulkNotes = '';
         $this->isBulkModalOpen = true;
     }
