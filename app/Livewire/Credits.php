@@ -11,6 +11,7 @@ use App\Models\PaymentMethod;
 use App\Models\Purchase;
 use App\Models\Sale;
 use App\Models\Supplier;
+use App\Models\User;
 use App\Services\ActivityLogService;
 use App\Services\CreditPortfolioImportService;
 use Illuminate\Support\Facades\DB;
