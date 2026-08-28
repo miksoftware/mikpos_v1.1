@@ -1,51 +1,100 @@
-<div class="p-6" wire:ignore.self>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- Header -->
-    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-800">Comisiones</h1>
-            <p class="text-slate-500 text-sm mt-1">Análisis de comisiones por vendedor y producto</p>
+<div class="space-y-6">
+    <x-toast />
+
+    {{-- Top Header with Title and Mode Switcher --}}
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#ff7261] to-[#a855f7] flex items-center justify-center text-white shadow-md shadow-[#ff7261]/20">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+                    Comisiones
+                    @if($viewMode === 'versus')
+                    <span class="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-sm">
+                        ⚔️ MODO VERSUS
+                    </span>
+                    @endif
+                </h1>
+                <p class="text-xs sm:text-sm text-slate-500">
+                    {{ $viewMode === 'versus' ? 'Comparativa de comisiones y rendimiento de vendedores inter-meses' : 'Análisis de comisiones por vendedor y producto' }}
+                </p>
+            </div>
         </div>
-        <div x-data="{ exportOpen: false }" class="relative">
-            <button @click="exportOpen = !exportOpen" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition shadow-sm">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-                Exportar PDF
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-            </button>
-            <div x-show="exportOpen" @click.away="exportOpen = false" x-transition class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 z-50 overflow-hidden">
-                <button wire:click="exportPdf('detailed')" @click="exportOpen = false" class="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition">
-                    <svg class="w-4 h-4 text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                    </svg>
-                    <div class="text-left">
-                        <p class="font-medium">Discriminado</p>
-                        <p class="text-xs text-slate-400">Detalle por venta individual</p>
-                    </div>
+
+        <div class="flex items-center gap-3 flex-wrap">
+            {{-- Mode Switcher Segmented Control --}}
+            <div class="bg-slate-100 p-1 rounded-xl flex items-center border border-slate-200 text-sm font-semibold">
+                <button wire:click="setViewMode('standard')"
+                    class="px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 {{ $viewMode === 'standard' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+                    Estándar
                 </button>
-                <button wire:click="exportPdf('totalized')" @click="exportOpen = false" class="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition border-t border-slate-100">
-                    <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
-                    </svg>
-                    <div class="text-left">
-                        <p class="font-medium">Totalizado</p>
-                        <p class="text-xs text-slate-400">Agrupado por producto/servicio</p>
-                    </div>
+                <button wire:click="setViewMode('versus')"
+                    class="px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 {{ $viewMode === 'versus' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-sm' : 'text-slate-500 hover:text-slate-800' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    ⚔️ Versus
                 </button>
             </div>
+
+            @if($viewMode === 'versus')
+                @if(auth()->user()->hasPermission('reports.export'))
+                <button wire:click="exportExcel" wire:loading.attr="disabled" wire:target="exportExcel"
+                    class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-sm hover:shadow transition-all duration-200 disabled:opacity-50 gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    <span wire:loading.remove wire:target="exportExcel">Excel Comparativo</span>
+                    <span wire:loading wire:target="exportExcel">Exportando...</span>
+                </button>
+                @endif
+            @else
+                {{-- Standard Export Dropdown --}}
+                <div class="flex items-center gap-2">
+                    @if(auth()->user()->hasPermission('reports.export'))
+                    <button wire:click="exportExcel" wire:loading.attr="disabled" wire:target="exportExcel"
+                        class="inline-flex items-center px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm hover:shadow transition-all duration-200 disabled:opacity-50 gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        <span>Excel</span>
+                    </button>
+                    @endif
+
+                    <div x-data="{ exportOpen: false }" class="relative">
+                        <button @click="exportOpen = !exportOpen" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            Exportar PDF
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        <div x-show="exportOpen" @click.away="exportOpen = false" x-transition class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 z-50 overflow-hidden text-xs">
+                            <button wire:click="exportPdf('detailed')" @click="exportOpen = false" class="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 transition">
+                                <svg class="w-4 h-4 text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                                <div class="text-left">
+                                    <p class="font-bold text-slate-800">Discriminado</p>
+                                    <p class="text-[10px] text-slate-400">Detalle por venta individual</p>
+                                </div>
+                            </button>
+                            <button wire:click="exportPdf('totalized')" @click="exportOpen = false" class="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 transition border-t border-slate-100">
+                                <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+                                <div class="text-left">
+                                    <p class="font-bold text-slate-800">Totalizado</p>
+                                    <p class="text-[10px] text-slate-400">Agrupado por producto/servicio</p>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 
-    <!-- Filters -->
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+    {{-- FILTERS SECTION --}}
+    @if($viewMode === 'standard')
+    {{-- Standard Filters --}}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
             <div>
-                <label class="block text-xs font-medium text-slate-500 mb-1">Período</label>
-                <select wire:model.live="dateRange" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Período</label>
+                <select wire:model.live="dateRange" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                     <option value="today">Hoy</option>
                     <option value="yesterday">Ayer</option>
                     <option value="week">Esta semana</option>
@@ -57,17 +106,17 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-medium text-slate-500 mb-1">Desde</label>
-                <input wire:model.live="startDate" type="date" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm" @if($dateRange !== 'custom') disabled @endif>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Desde</label>
+                <input wire:model.live="startDate" type="date" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" @if($dateRange !== 'custom') disabled @endif>
             </div>
             <div>
-                <label class="block text-xs font-medium text-slate-500 mb-1">Hasta</label>
-                <input wire:model.live="endDate" type="date" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm" @if($dateRange !== 'custom') disabled @endif>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Hasta</label>
+                <input wire:model.live="endDate" type="date" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" @if($dateRange !== 'custom') disabled @endif>
             </div>
             @if($isSuperAdmin)
             <div>
-                <label class="block text-xs font-medium text-slate-500 mb-1">Sucursal</label>
-                <select wire:model.live="selectedBranchId" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Sucursal</label>
+                <select wire:model.live="selectedBranchId" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                     <option value="">Todas</option>
                     @foreach($branches as $branch)
                     <option value="{{ $branch->id }}">{{ $branch->name }}</option>
@@ -76,8 +125,8 @@
             </div>
             @endif
             <div>
-                <label class="block text-xs font-medium text-slate-500 mb-1">Vendedor</label>
-                <select wire:model.live="selectedUserId" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Vendedor</label>
+                <select wire:model.live="selectedUserId" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                     <option value="">Todos</option>
                     @foreach($users as $user)
                     <option value="{{ $user->id }}">{{ $user->name }}</option>
@@ -85,8 +134,8 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-medium text-slate-500 mb-1">Categoría</label>
-                <select wire:model.live="selectedCategoryId" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Categoría</label>
+                <select wire:model.live="selectedCategoryId" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                     <option value="">Todas</option>
                     @foreach($categories as $category)
                     <option value="{{ $category->id }}">{{ $category->name }}</option>
@@ -94,628 +143,753 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-medium text-slate-500 mb-1">Marca</label>
-                <select wire:model.live="selectedBrandId" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Marca</label>
+                <select wire:model.live="selectedBrandId" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                     <option value="">Todas</option>
                     @foreach($brands as $brand)
                     <option value="{{ $brand->id }}">{{ $brand->name }}</option>
                     @endforeach
                 </select>
             </div>
-            @if($isSupervisor && $cashRegisters->isNotEmpty())
-            <div>
-                <label class="block text-xs font-medium text-slate-500 mb-1">Caja</label>
-                <select wire:model.live="selectedCashRegisterId" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
-                    <option value="">Todas las cajas</option>
-                    @foreach($cashRegisters as $register)
-                    <option value="{{ $register->id }}">{{ $register->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            @endif
+        </div>
+
+        <div class="flex items-center justify-end mt-3 pt-3 border-t border-slate-100">
+            <button wire:click="clearFilters" class="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1 font-semibold">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                Limpiar Filtros
+            </button>
         </div>
     </div>
+    @else
+    {{-- Versus Filters (Light System Design) --}}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            {{-- Quick Presets --}}
+            <div class="space-y-1.5">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Comparación Rápida de Comisiones</span>
+                <div class="flex flex-wrap gap-2">
+                    <button wire:click="$set('versusPreset', 'mom')"
+                        class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 {{ $versusPreset === 'mom' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-sm' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200' }}">
+                        ⚡ Mes Actual vs Mes Anterior (MoM)
+                    </button>
+                    <button wire:click="$set('versusPreset', 'yoy')"
+                        class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 {{ $versusPreset === 'yoy' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-sm' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200' }}">
+                        ⚡ Mismo Mes vs Año Anterior (YoY)
+                    </button>
+                    <button wire:click="$set('versusPreset', 'custom')"
+                        class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 {{ $versusPreset === 'custom' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-sm' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200' }}">
+                        ⚙️ Personalizado
+                    </button>
+                </div>
+            </div>
 
-    <!-- Summary Cards -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-medium text-slate-500">Total Comisiones</p>
-                    <p class="text-xl font-bold text-green-600 mt-1">${{ number_format($totalCommissions, 0, ',', '.') }}</p>
+            {{-- Period Selectors --}}
+            <div class="flex flex-wrap items-center gap-3">
+                {{-- Period A --}}
+                <div class="bg-orange-50/80 rounded-xl p-2.5 border border-[#ff7261]/40 flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-[#ff7261] flex-shrink-0"></span>
+                    <div>
+                        <div class="text-[10px] uppercase font-bold text-[#ff7261]">Período A (Base)</div>
+                        @if($versusPreset === 'custom')
+                        <input wire:model.live="monthA" type="month" class="bg-transparent text-slate-800 text-xs font-bold border-0 p-0 focus:ring-0 cursor-pointer">
+                        @else
+                        <span class="text-xs font-bold text-slate-800">{{ ucfirst($labelA) }}</span>
+                        @endif
+                    </div>
                 </div>
-                <div class="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-medium text-slate-500">Ventas con Comisión</p>
-                    <p class="text-xl font-bold text-slate-800 mt-1">${{ number_format($totalSales, 0, ',', '.') }}</p>
-                </div>
-                <div class="w-10 h-10 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-xl flex items-center justify-center">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                    </svg>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-medium text-slate-500">Transacciones</p>
-                    <p class="text-xl font-bold text-slate-800 mt-1">{{ number_format($totalTransactions, 0, ',', '.') }}</p>
-                </div>
-                <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                    </svg>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-medium text-slate-500">Items Vendidos</p>
-                    <p class="text-xl font-bold text-slate-800 mt-1">{{ number_format($totalItemsSold, 0, ',', '.') }}</p>
-                </div>
-                <div class="w-10 h-10 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                    </svg>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-medium text-slate-500">% Comisión Prom.</p>
-                    <p class="text-xl font-bold text-slate-800 mt-1">{{ number_format($averageCommissionRate, 2) }}%</p>
-                </div>
-                <div class="w-10 h-10 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-xl flex items-center justify-center">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
-                    </svg>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Charts Row 1: Trend & By User -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <h3 class="text-lg font-semibold text-slate-800 mb-4">Tendencia de Comisiones</h3>
-            <div class="h-64" wire:ignore>
-                <div id="trendEmpty" class="flex items-center justify-center h-full text-slate-400 {{ count($commissionsByDay) > 0 ? 'hidden' : '' }}">
-                    <div class="text-center">
-                        <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
-                        <p>No hay datos para mostrar</p>
-                    </div>
-                </div>
-                <canvas id="trendChart" class="{{ count($commissionsByDay) > 0 ? '' : 'hidden' }}"></canvas>
-            </div>
-        </div>
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <h3 class="text-lg font-semibold text-slate-800 mb-4">Comisiones por Vendedor</h3>
-            <div class="h-64" wire:ignore>
-                <div id="userEmpty" class="flex items-center justify-center h-full text-slate-400 {{ count($commissionsByUser) > 0 ? 'hidden' : '' }}">
-                    <div class="text-center">
-                        <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                        <p>No hay datos para mostrar</p>
-                    </div>
-                </div>
-                <canvas id="userChart" class="{{ count($commissionsByUser) > 0 ? '' : 'hidden' }}"></canvas>
-            </div>
-        </div>
-    </div>
+                <div class="text-center font-black text-slate-400 text-xs px-1">VS</div>
 
-    <!-- Charts Row 2: Products & Category -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <h3 class="text-lg font-semibold text-slate-800 mb-4">Top 10 Productos con Comisión</h3>
-            <div class="h-64" wire:ignore>
-                <div id="productEmpty" class="flex items-center justify-center h-full text-slate-400 {{ count($commissionsByProduct) > 0 ? 'hidden' : '' }}">
-                    <div class="text-center">
-                        <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-                        <p>No hay datos para mostrar</p>
+                {{-- Period B --}}
+                <div class="bg-purple-50/80 rounded-xl p-2.5 border border-[#a855f7]/40 flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-[#a855f7] flex-shrink-0"></span>
+                    <div>
+                        <div class="text-[10px] uppercase font-bold text-[#a855f7]">Período B (Comparado)</div>
+                        @if($versusPreset === 'custom')
+                        <input wire:model.live="monthB" type="month" class="bg-transparent text-slate-800 text-xs font-bold border-0 p-0 focus:ring-0 cursor-pointer">
+                        @else
+                        <span class="text-xs font-bold text-slate-800">{{ ucfirst($labelB) }}</span>
+                        @endif
                     </div>
                 </div>
-                <canvas id="productChart" class="{{ count($commissionsByProduct) > 0 ? '' : 'hidden' }}"></canvas>
-            </div>
-        </div>
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <h3 class="text-lg font-semibold text-slate-800 mb-4">Comisiones por Categoría</h3>
-            <div class="h-64" wire:ignore>
-                <div id="categoryEmpty" class="flex items-center justify-center h-full text-slate-400 {{ count($commissionsByCategory) > 0 ? 'hidden' : '' }}">
-                    <div class="text-center">
-                        <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path></svg>
-                        <p>No hay datos para mostrar</p>
-                    </div>
-                </div>
-                <canvas id="categoryChart" class="{{ count($commissionsByCategory) > 0 ? '' : 'hidden' }}"></canvas>
-            </div>
-        </div>
-    </div>
 
-    <!-- User Ranking with Expandable Detail -->
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6">
-        <h3 class="text-lg font-semibold text-slate-800 mb-4">Detalle por Vendedor</h3>
-        <p class="text-sm text-slate-500 mb-4">Haz clic en un vendedor para ver el detalle de sus ventas con comisión</p>
-        
-        <div class="space-y-3">
-            @forelse($commissionsByUser as $index => $user)
-            <div class="border border-slate-200 rounded-xl overflow-hidden">
-                {{-- User Header (clickable) --}}
-                <button wire:click="toggleUserDetail({{ $user['user_id'] }})" class="w-full flex items-center gap-4 p-4 hover:bg-slate-50 transition {{ $index < 3 ? 'bg-gradient-to-r from-green-50 to-emerald-50' : 'bg-white' }}">
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 {{ $index === 0 ? 'bg-yellow-400 text-yellow-900' : ($index === 1 ? 'bg-slate-300 text-slate-700' : ($index === 2 ? 'bg-amber-600 text-white' : 'bg-slate-200 text-slate-600')) }}">
-                        {{ $index + 1 }}
-                    </div>
-                    <div class="flex-1 min-w-0 text-left">
-                        <p class="font-medium text-slate-800 truncate">{{ $user['user_name'] }}</p>
-                        <p class="text-xs text-slate-500">{{ number_format($user['items']) }} items vendidos</p>
-                    </div>
-                    <div class="text-right flex-shrink-0">
-                        <p class="font-bold text-green-600">${{ number_format($user['commission'], 0, ',', '.') }}</p>
-                        <p class="text-xs text-slate-500">${{ number_format($user['sales'], 0, ',', '.') }} ventas</p>
-                    </div>
-                    <svg class="w-5 h-5 text-slate-400 flex-shrink-0 transition-transform {{ $expandedUserId === $user['user_id'] ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                </button>
-                
-                {{-- Expanded Detail --}}
-                @if($expandedUserId === $user['user_id'] && count($userSalesDetail) > 0)
-                <div class="border-t border-slate-200 bg-slate-50 p-4">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="text-xs text-slate-500 uppercase">
-                                    <th class="px-3 py-2 text-left">Fecha</th>
-                                    <th class="px-3 py-2 text-left">Factura</th>
-                                    <th class="px-3 py-2 text-left">Producto</th>
-                                    <th class="px-3 py-2 text-left">Categoría</th>
-                                    <th class="px-3 py-2 text-left">Marca</th>
-                                    <th class="px-3 py-2 text-center">Cant.</th>
-                                    <th class="px-3 py-2 text-right">Total</th>
-                                    <th class="px-3 py-2 text-right">Comisión</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-200">
-                                @foreach($userSalesDetail as $detail)
-                                <tr class="bg-white hover:bg-slate-50">
-                                    <td class="px-3 py-2 text-slate-600">{{ $detail['date'] }}</td>
-                                    <td class="px-3 py-2 text-slate-800 font-medium">{{ $detail['invoice_number'] }}</td>
-                                    <td class="px-3 py-2 text-slate-800">
-                                        @if($detail['is_service'] ?? false)
-                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-700 mr-1">Serv.</span>
-                                        @endif
-                                        {{ Str::limit($detail['product_name'], 30) }}
-                                    </td>
-                                    <td class="px-3 py-2 text-slate-600">{{ $detail['category'] }}</td>
-                                    <td class="px-3 py-2 text-slate-600">{{ $detail['brand'] }}</td>
-                                    <td class="px-3 py-2 text-center">
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#a855f7]/10 text-[#a855f7]">
-                                            {{ $detail['quantity'] }}
-                                        </span>
-                                    </td>
-                                    <td class="px-3 py-2 text-right text-slate-600">${{ number_format($detail['total'], 0, ',', '.') }}</td>
-                                    <td class="px-3 py-2 text-right font-semibold text-green-600">${{ number_format($detail['commission'], 0, ',', '.') }}</td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                            <tfoot class="bg-green-50">
-                                <tr>
-                                    <td colspan="6" class="px-3 py-2 text-right font-semibold text-slate-700">Total:</td>
-                                    <td class="px-3 py-2 text-right font-semibold text-slate-700">${{ number_format($user['sales'], 0, ',', '.') }}</td>
-                                    <td class="px-3 py-2 text-right font-bold text-green-600">${{ number_format($user['commission'], 0, ',', '.') }}</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
+                {{-- Branch Filter --}}
+                @if($isSuperAdmin)
+                <div>
+                    <select wire:model.live="selectedBranchId" class="px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold focus:ring-2 focus:ring-[#ff7261]">
+                        <option value="">Todas las sucursales</option>
+                        @foreach($branches as $branch)
+                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 @endif
             </div>
-            @empty
-            <div class="flex items-center justify-center py-12 text-slate-400">
-                <div class="text-center">
-                    <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                    <p>No hay datos de comisiones para mostrar</p>
-                    <p class="text-sm mt-1">Ajusta los filtros o verifica que haya productos con comisión configurada</p>
+        </div>
+    </div>
+    @endif
+
+    {{-- ========================================================================= --}}
+    {{-- MODO VERSUS CONTENT --}}
+    {{-- ========================================================================= --}}
+    @if($viewMode === 'versus' && !empty($versusSummary))
+    @php
+        $A = $versusSummary['A'];
+        $B = $versusSummary['B'];
+
+        $diffComm = $B['totalCommissions'] - $A['totalCommissions'];
+        $growthComm = $A['totalCommissions'] > 0 ? ($diffComm / $A['totalCommissions']) * 100 : ($B['totalCommissions'] > 0 ? 100 : 0);
+
+        $diffSales = $B['totalSales'] - $A['totalSales'];
+        $growthSales = $A['totalSales'] > 0 ? ($diffSales / $A['totalSales']) * 100 : ($B['totalSales'] > 0 ? 100 : 0);
+
+        $diffRate = $B['avgCommissionRate'] - $A['avgCommissionRate'];
+    @endphp
+
+    {{-- BATTLE CARDS (Crystal Clear Comparison Layout) --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {{-- Card 1: Total Comisiones --}}
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-all flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Comisiones</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $growthComm >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200' }}">
+                        {{ $growthComm >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthComm, 1) }}%
+                    </span>
+                </div>
+
+                {{-- Side-by-side Period Boxes --}}
+                <div class="grid grid-cols-2 gap-2 bg-slate-50/80 rounded-xl p-3 border border-slate-100 mb-3">
+                    <div class="border-r border-slate-200/80 pr-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#ff7261] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelA) }} (A)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            ${{ number_format($A['totalCommissions'], 0) }}
+                        </div>
+                    </div>
+                    <div class="pl-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#a855f7] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelB) }} (B)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-purple-700">
+                            ${{ number_format($B['totalCommissions'], 0) }}
+                        </div>
+                    </div>
                 </div>
             </div>
-            @endforelse
+
+            <div>
+                <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                    <span class="text-slate-500 font-medium">Diferencia (B vs A):</span>
+                    <span class="font-black {{ $diffComm >= 0 ? 'text-purple-600' : 'text-red-600' }}">
+                        {{ $diffComm >= 0 ? '+' : '' }}${{ number_format($diffComm, 0) }}
+                    </span>
+                </div>
+                <div class="mt-2">
+                    <div class="h-1.5 w-full bg-slate-100 rounded-full flex overflow-hidden">
+                        <div class="bg-[#ff7261] h-full" style="width: {{ $A['totalCommissions'] + $B['totalCommissions'] > 0 ? ($A['totalCommissions'] / ($A['totalCommissions'] + $B['totalCommissions'])) * 100 : 50 }}%"></div>
+                        <div class="bg-[#a855f7] h-full" style="width: {{ $A['totalCommissions'] + $B['totalCommissions'] > 0 ? ($B['totalCommissions'] / ($A['totalCommissions'] + $B['totalCommissions'])) * 100 : 50 }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Card 2: Ventas Comisionables --}}
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-all flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Ventas Comisionables</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $growthSales >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200' }}">
+                        {{ $growthSales >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthSales, 1) }}%
+                    </span>
+                </div>
+
+                {{-- Side-by-side Period Boxes --}}
+                <div class="grid grid-cols-2 gap-2 bg-slate-50/80 rounded-xl p-3 border border-slate-100 mb-3">
+                    <div class="border-r border-slate-200/80 pr-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#ff7261] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelA) }} (A)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            ${{ number_format($A['totalSales'], 0) }}
+                        </div>
+                    </div>
+                    <div class="pl-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#a855f7] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelB) }} (B)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            ${{ number_format($B['totalSales'], 0) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                    <span class="text-slate-500 font-medium">Diferencia:</span>
+                    <span class="font-black {{ $diffSales >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
+                        {{ $diffSales >= 0 ? '+' : '' }}${{ number_format($diffSales, 0) }}
+                    </span>
+                </div>
+                <div class="mt-2 text-[10px] text-slate-400 flex justify-between">
+                    <span>Items vendidos:</span>
+                    <span class="font-bold">{{ number_format($B['totalItems'], 0) }} (B) vs {{ number_format($A['totalItems'], 0) }} (A)</span>
+                </div>
+            </div>
+        </div>
+
+        {{-- Card 3: Tasa Promedio de Comisión --}}
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-all flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Tasa Promedio Comisión</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $diffRate >= 0 ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-slate-100 text-slate-600' }}">
+                        {{ $diffRate >= 0 ? '+' : '' }}{{ number_format($diffRate, 2) }} pts
+                    </span>
+                </div>
+
+                {{-- Side-by-side Period Boxes --}}
+                <div class="grid grid-cols-2 gap-2 bg-slate-50/80 rounded-xl p-3 border border-slate-100 mb-3">
+                    <div class="border-r border-slate-200/80 pr-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#ff7261] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelA) }} (A)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            {{ number_format($A['avgCommissionRate'], 1) }}%
+                        </div>
+                    </div>
+                    <div class="pl-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#a855f7] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelB) }} (B)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            {{ number_format($B['avgCommissionRate'], 1) }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                    <span class="text-slate-500 font-medium">Comisión s/ Venta:</span>
+                    <span class="font-bold text-slate-700">Porcentaje medio liquidado</span>
+                </div>
+                <div class="mt-2 text-[10px] text-slate-400 flex justify-between">
+                    <span>Transacciones:</span>
+                    <span class="font-bold">{{ $B['totalTransactions'] }} (B) vs {{ $A['totalTransactions'] }} (A)</span>
+                </div>
+            </div>
+        </div>
+
+        {{-- Card 4: Vendedor Estrella / Mayor Comisión --}}
+        <div class="bg-white rounded-2xl p-5 shadow-sm border-2 border-purple-200 hover:shadow-md transition-all flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1">
+                        🏆 VENDEDOR LÍDER
+                    </span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-800">
+                        Top Comisionista
+                    </span>
+                </div>
+
+                {{-- Side-by-side Period Boxes --}}
+                <div class="grid grid-cols-2 gap-2 bg-slate-50/80 rounded-xl p-3 border border-slate-100 mb-3">
+                    <div class="border-r border-slate-200/80 pr-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#ff7261] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelA) }} (A)</span>
+                        </div>
+                        <div class="text-xs font-bold text-slate-800 truncate" title="{{ $A['topSeller']['name'] }}">
+                            {{ $A['topSeller']['name'] }}
+                        </div>
+                        <span class="text-sm font-black text-slate-700 block mt-0.5">${{ number_format($A['topSeller']['commission'], 0) }}</span>
+                    </div>
+                    <div class="pl-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#a855f7] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelB) }} (B)</span>
+                        </div>
+                        <div class="text-xs font-bold text-purple-900 truncate" title="{{ $B['topSeller']['name'] }}">
+                            {{ $B['topSeller']['name'] }}
+                        </div>
+                        <span class="text-sm font-black text-purple-700 block mt-0.5">${{ number_format($B['topSeller']['commission'], 0) }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                    <span class="text-slate-500 font-medium">Mayor Comisionista:</span>
+                    <span class="font-bold text-purple-700 truncate max-w-[130px]" title="{{ $B['topSeller']['name'] }}">
+                        {{ $B['topSeller']['name'] }} 🌟
+                    </span>
+                </div>
+                <div class="mt-2 text-[10px] text-slate-400 flex justify-between">
+                    <span>Ventas líder B:</span>
+                    <span class="font-bold">${{ number_format($B['topSeller']['sales'], 0) }}</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Top Products List -->
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-        <h3 class="text-lg font-semibold text-slate-800 mb-4">Detalle de Productos con Comisión</h3>
+    {{-- INTERACTIVE CHART ROW 1: Superimposed Daily Commissions Curve --}}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+                <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+                    <svg class="w-5 h-5 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                    </svg>
+                    Curva Comparativa Diaria de Comisiones (Día 1 al 31)
+                </h3>
+                <p class="text-xs text-slate-500">Superposición de las comisiones generadas día a día entre ambos meses</p>
+            </div>
+            <div class="flex items-center gap-4 text-xs font-bold">
+                <span class="flex items-center gap-1.5 text-[#ff7261]">
+                    <span class="w-3 h-3 rounded-full bg-[#ff7261]"></span> {{ ucfirst($labelA) }} (A)
+                </span>
+                <span class="flex items-center gap-1.5 text-[#a855f7]">
+                    <span class="w-3 h-3 rounded-full bg-[#a855f7]"></span> {{ ucfirst($labelB) }} (B)
+                </span>
+            </div>
+        </div>
+        <div class="relative w-full" style="height: 320px;"
+             x-data="{
+                 chart: null,
+                 initChart() {
+                     if (typeof Chart === 'undefined') return;
+                     if (this.chart) this.chart.destroy();
+                     const data = @js($versusDaily);
+                     if (!data || !data.length) return;
+                     this.chart = new Chart(this.$refs.canvas, {
+                         type: 'line',
+                         data: {
+                             labels: data.map(d => d.label),
+                             datasets: [
+                                 {
+                                     label: '{{ ucfirst($labelA) }} (A)',
+                                     data: data.map(d => d.commA),
+                                     borderColor: 'rgba(255, 114, 97, 1)',
+                                     backgroundColor: 'rgba(255, 114, 97, 0.1)',
+                                     fill: true,
+                                     tension: 0.35,
+                                     pointRadius: 3,
+                                     pointBackgroundColor: 'rgba(255, 114, 97, 1)',
+                                 },
+                                 {
+                                     label: '{{ ucfirst($labelB) }} (B)',
+                                     data: data.map(d => d.commB),
+                                     borderColor: 'rgba(168, 85, 247, 1)',
+                                     backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                                     fill: true,
+                                     tension: 0.35,
+                                     pointRadius: 4,
+                                     pointBackgroundColor: 'rgba(168, 85, 247, 1)',
+                                 }
+                             ]
+                         },
+                         options: {
+                             responsive: true,
+                             maintainAspectRatio: false,
+                             interaction: { mode: 'index', intersect: false },
+                             plugins: {
+                                 tooltip: {
+                                     callbacks: { label: ctx => ctx.dataset.label + ': $' + Number(ctx.raw).toLocaleString('es-CO') }
+                                 }
+                             },
+                             scales: {
+                                 y: {
+                                     beginAtZero: true,
+                                     ticks: { callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1) + 'M' : (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)) }
+                                 }
+                             }
+                         }
+                     });
+                 }
+             }"
+             x-init="$nextTick(() => initChart())"
+             wire:key="comm-versus-daily-{{ $startDateA }}-{{ $startDateB }}">
+            <canvas x-ref="canvas"></canvas>
+        </div>
+    </div>
+
+    {{-- CHART ROW 2: Sellers Comparison & Categories Comparison --}}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {{-- Sellers Commissions Comparison --}}
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h3 class="font-bold text-slate-800 text-base mb-3 flex items-center gap-2">
+                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                Comisiones por Vendedor (Mes A vs Mes B)
+            </h3>
+            <div class="relative w-full" style="height: 280px;"
+                 x-data="{
+                     chart: null,
+                     initChart() {
+                         if (typeof Chart === 'undefined') return;
+                         if (this.chart) this.chart.destroy();
+                         const rawData = @js(array_slice($versusSellers, 0, 7));
+                         if (!rawData || !rawData.length) return;
+                         this.chart = new Chart(this.$refs.canvas, {
+                             type: 'bar',
+                             data: {
+                                 labels: rawData.map(s => s.name),
+                                 datasets: [
+                                     {
+                                         label: '{{ ucfirst($labelA) }}',
+                                         data: rawData.map(s => s.commA),
+                                         backgroundColor: 'rgba(255, 114, 97, 0.85)',
+                                         borderRadius: 6,
+                                     },
+                                     {
+                                         label: '{{ ucfirst($labelB) }}',
+                                         data: rawData.map(s => s.commB),
+                                         backgroundColor: 'rgba(168, 85, 247, 0.85)',
+                                         borderRadius: 6,
+                                     }
+                                 ]
+                             },
+                             options: {
+                                 responsive: true,
+                                 maintainAspectRatio: false,
+                                 plugins: {
+                                     tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + Number(ctx.raw).toLocaleString('es-CO') } }
+                                 },
+                                 scales: {
+                                     y: {
+                                         beginAtZero: true,
+                                         ticks: { callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1) + 'M' : (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)) }
+                                     }
+                                 }
+                             }
+                         });
+                     }
+                 }"
+                 x-init="$nextTick(() => initChart())"
+                 wire:key="comm-versus-sellers-{{ $startDateA }}-{{ $startDateB }}">
+                <canvas x-ref="canvas"></canvas>
+            </div>
+        </div>
+
+        {{-- Categories Comparison Chart --}}
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h3 class="font-bold text-slate-800 text-base mb-3 flex items-center gap-2">
+                <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                Comisiones por Categoría (Mes A vs Mes B)
+            </h3>
+            <div class="relative w-full" style="height: 280px;"
+                 x-data="{
+                     chart: null,
+                     initChart() {
+                         if (typeof Chart === 'undefined') return;
+                         if (this.chart) this.chart.destroy();
+                         const rawData = @js(array_slice($versusCategories, 0, 7));
+                         if (!rawData || !rawData.length) return;
+                         this.chart = new Chart(this.$refs.canvas, {
+                             type: 'bar',
+                             data: {
+                                 labels: rawData.map(c => c.name),
+                                 datasets: [
+                                     {
+                                         label: '{{ ucfirst($labelA) }}',
+                                         data: rawData.map(c => c.commA),
+                                         backgroundColor: 'rgba(255, 114, 97, 0.85)',
+                                         borderRadius: 6,
+                                     },
+                                     {
+                                         label: '{{ ucfirst($labelB) }}',
+                                         data: rawData.map(c => c.commB),
+                                         backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                                         borderRadius: 6,
+                                     }
+                                 ]
+                             },
+                             options: {
+                                 responsive: true,
+                                 maintainAspectRatio: false,
+                                 plugins: {
+                                     tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + Number(ctx.raw).toLocaleString('es-CO') } }
+                                 },
+                                 scales: {
+                                     y: {
+                                         beginAtZero: true,
+                                         ticks: { callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1) + 'M' : (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)) }
+                                     }
+                                 }
+                             }
+                         });
+                     }
+                 }"
+                 x-init="$nextTick(() => initChart())"
+                 wire:key="comm-versus-cat-{{ $startDateA }}-{{ $startDateB }}">
+                <canvas x-ref="canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    {{-- SIDE-BY-SIDE SELLERS COMPARISON TABLE --}}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    Comparativa Completa de Comisiones por Vendedor (Lado a Lado)
+                </h3>
+                <p class="text-xs text-slate-500">Desglose de ventas comisionables, comisiones totales, deltas y porcentaje de crecimiento</p>
+            </div>
+            <div class="flex items-center gap-3 text-xs">
+                <span class="px-2.5 py-1 rounded-lg bg-orange-50 text-[#ff7261] font-bold border border-[#ff7261]/30">Período A: {{ ucfirst($labelA) }}</span>
+                <span class="px-2.5 py-1 rounded-lg bg-purple-50 text-[#a855f7] font-bold border border-[#a855f7]/30">Período B: {{ ucfirst($labelB) }}</span>
+            </div>
+        </div>
+
         <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead class="bg-slate-50 border-b border-slate-200">
+            <table class="min-w-full divide-y divide-slate-200 text-xs">
+                <thead class="bg-slate-50 text-slate-600 font-bold uppercase">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">#</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Producto</th>
-                        <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Cantidad</th>
-                        <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Ventas</th>
-                        <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Comisión</th>
+                        <th class="px-4 py-3 text-left">Vendedor</th>
+                        <th class="px-3 py-3 text-right bg-orange-50/50 text-[#ff7261]">Ventas {{ ucfirst($labelA) }}</th>
+                        <th class="px-3 py-3 text-right bg-orange-50/50 text-[#ff7261]">Comisión {{ ucfirst($labelA) }}</th>
+                        <th class="px-3 py-3 text-right bg-purple-50/50 text-[#7c3aed]">Ventas {{ ucfirst($labelB) }}</th>
+                        <th class="px-3 py-3 text-right bg-purple-50/50 text-[#7c3aed]">Comisión {{ ucfirst($labelB) }}</th>
+                        <th class="px-3 py-3 text-right">Variación Comis. ($)</th>
+                        <th class="px-3 py-3 text-right">Crecimiento (%)</th>
+                        <th class="px-3 py-3 text-center">Tendencia</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
-                    @forelse($commissionsByProduct as $index => $product)
-                    <tr class="hover:bg-slate-50/50 transition-colors">
-                        <td class="px-4 py-3">
-                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium {{ $index < 3 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600' }}">
-                                {{ $index + 1 }}
+                    @forelse($versusSellers as $s)
+                    <tr class="hover:bg-slate-50/60">
+                        <td class="px-4 py-2.5 font-bold text-slate-800">
+                            {{ $s['name'] }}
+                            <span class="text-[10px] text-slate-400 block">{{ $s['itemsB'] }} items (B) vs {{ $s['itemsA'] }} (A)</span>
+                        </td>
+                        <td class="px-3 py-2.5 text-right font-medium text-slate-600 bg-orange-50/20">${{ number_format($s['salesA'], 0) }}</td>
+                        <td class="px-3 py-2.5 text-right font-bold text-slate-800 bg-orange-50/20">${{ number_format($s['commA'], 0) }}</td>
+                        <td class="px-3 py-2.5 text-right font-medium text-slate-600 bg-purple-50/20">${{ number_format($s['salesB'], 0) }}</td>
+                        <td class="px-3 py-2.5 text-right font-bold text-purple-700 bg-purple-50/20">${{ number_format($s['commB'], 0) }}</td>
+                        <td class="px-3 py-2.5 text-right font-black {{ $s['diffComm'] >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
+                            {{ $s['diffComm'] >= 0 ? '+' : '' }}${{ number_format($s['diffComm'], 0) }}
+                        </td>
+                        <td class="px-3 py-2.5 text-right font-black {{ $s['growthComm'] >= 0 ? 'text-emerald-700' : 'text-red-700' }}">
+                            {{ $s['growthComm'] >= 0 ? '+' : '' }}{{ $s['growthComm'] }}%
+                        </td>
+                        <td class="px-3 py-2.5 text-center">
+                            @if($s['diffComm'] > 0)
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                                ▲ Sube
                             </span>
-                        </td>
-                        <td class="px-4 py-3">
-                            <div>
-                                <p class="font-medium text-slate-800 text-sm">{{ $product['name'] }}</p>
-                                <p class="text-xs text-slate-500">{{ $product['sku'] }}</p>
-                            </div>
-                        </td>
-                        <td class="px-4 py-3 text-center">
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-[#a855f7]/10 text-[#a855f7]">
-                                {{ number_format($product['quantity']) }}
+                            @elseif($s['diffComm'] < 0)
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">
+                                ▼ Baja
                             </span>
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                            <span class="text-sm text-slate-600">${{ number_format($product['sales'], 0, ',', '.') }}</span>
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                            <span class="text-sm font-semibold text-green-600">${{ number_format($product['commission'], 0, ',', '.') }}</span>
+                            @else
+                            <span class="text-slate-400 text-xs">— Igual</span>
+                            @endif
                         </td>
                     </tr>
                     @empty
-                    <tr>
-                        <td colspan="5" class="px-4 py-12 text-center">
-                            <div class="flex flex-col items-center">
-                                <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                                    <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                                    </svg>
-                                </div>
-                                <p class="text-slate-500 font-medium">No hay productos con comisión</p>
-                                <p class="text-slate-400 text-sm">Ajusta los filtros para ver resultados</p>
-                            </div>
-                        </td>
-                    </tr>
+                    <tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">Sin datos de comisiones de vendedores</td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
     </div>
 
-    <!-- Chart Data for JavaScript -->
-    <div id="chartData" 
-         data-trend='@json($commissionsByDay)'
-         data-users='@json($commissionsByUser)'
-         data-products='@json($commissionsByProduct)'
-         data-categories='@json($commissionsByCategory)'
-         class="hidden"></div>
+    {{-- TOP PRODUCTS COMPARISON TABLE --}}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 bg-slate-50 border-b border-slate-200">
+            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                <svg class="w-4 h-4 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                Top Productos / Servicios con Mayor Comisión Generada
+            </h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 text-xs">
+                <thead class="bg-slate-50 text-slate-600 font-bold uppercase">
+                    <tr>
+                        <th class="px-4 py-2.5 text-left">Producto / Servicio</th>
+                        <th class="px-3 py-2.5 text-right bg-orange-50/40 text-[#ff7261]">Comis. {{ ucfirst($labelA) }}</th>
+                        <th class="px-3 py-2.5 text-right bg-purple-50/40 text-[#7c3aed]">Comis. {{ ucfirst($labelB) }}</th>
+                        <th class="px-3 py-2.5 text-right">Variación ($)</th>
+                        <th class="px-3 py-2.5 text-right">% Crecimiento</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @forelse($versusProducts as $p)
+                    <tr class="hover:bg-slate-50/50">
+                        <td class="px-4 py-2.5 font-medium text-slate-800">
+                            {{ $p['name'] }}
+                            @if($p['sku'])<span class="text-[10px] text-slate-400 block">{{ $p['sku'] }}</span>@endif
+                        </td>
+                        <td class="px-3 py-2.5 text-right text-slate-600 bg-orange-50/20">${{ number_format($p['commA'], 0) }}</td>
+                        <td class="px-3 py-2.5 text-right font-bold text-slate-900 bg-purple-50/20">${{ number_format($p['commB'], 0) }}</td>
+                        <td class="px-3 py-2.5 text-right font-bold {{ $p['diffComm'] >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
+                            {{ $p['diffComm'] >= 0 ? '+' : '' }}${{ number_format($p['diffComm'], 0) }}
+                        </td>
+                        <td class="px-3 py-2.5 text-right font-bold {{ $p['growthComm'] >= 0 ? 'text-emerald-700' : 'text-red-700' }}">
+                            {{ $p['growthComm'] >= 0 ? '+' : '' }}{{ $p['growthComm'] }}%
+                        </td>
+                    </tr>
+                    @empty
+                    <tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">Sin datos de productos comisionables</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @endif
 
-    <!-- Charts JavaScript -->
-    <script>
-        const chartColors = [
-            'rgba(16,185,129,0.8)',
-            'rgba(168,85,247,0.8)',
-            'rgba(59,130,246,0.8)',
-            'rgba(255,114,97,0.8)',
-            'rgba(245,158,11,0.8)',
-            'rgba(239,68,68,0.8)',
-            'rgba(99,102,241,0.8)',
-            'rgba(236,72,153,0.8)',
-            'rgba(20,184,166,0.8)',
-            'rgba(132,204,22,0.8)'
-        ];
+    {{-- ========================================================================= --}}
+    {{-- STANDARD VIEW CONTENT --}}
+    {{-- ========================================================================= --}}
+    @if($viewMode === 'standard')
+    {{-- Summary Cards --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {{-- Total Commissions --}}
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <span class="text-sm text-slate-500 font-medium">Total Comisiones</span>
+            </div>
+            <p class="text-2xl font-bold text-[#a855f7]">${{ number_format($totalCommissions, 0, ',', '.') }}</p>
+            <p class="text-xs text-slate-400 mt-1">Generadas en el período</p>
+        </div>
 
-        let trendChart = null;
-        let userChart = null;
-        let productChart = null;
-        let categoryChart = null;
+        {{-- Total Sales with Commission --}}
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                </div>
+                <span class="text-sm text-slate-500 font-medium">Ventas Comisionables</span>
+            </div>
+            <p class="text-2xl font-bold text-slate-800">${{ number_format($totalSales, 0, ',', '.') }}</p>
+            <p class="text-xs text-slate-400 mt-1">{{ $totalTransactions }} ventas registradas</p>
+        </div>
 
-        function initCharts() {
-            const dataEl = document.getElementById('chartData');
-            if (!dataEl) return;
+        {{-- Items Sold --}}
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                </div>
+                <span class="text-sm text-slate-500 font-medium">Items Vendidos</span>
+            </div>
+            <p class="text-2xl font-bold text-slate-800">{{ number_format($totalItemsSold) }}</p>
+            <p class="text-xs text-slate-400 mt-1">Con comisión asignada</p>
+        </div>
 
-            const trendData = JSON.parse(dataEl.dataset.trend || '[]');
-            const usersData = JSON.parse(dataEl.dataset.users || '[]');
-            const productsData = JSON.parse(dataEl.dataset.products || '[]');
-            const categoriesData = JSON.parse(dataEl.dataset.categories || '[]');
+        {{-- Average Commission Rate --}}
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                </div>
+                <span class="text-sm text-slate-500 font-medium">Tasa Promedio</span>
+            </div>
+            <p class="text-2xl font-bold text-slate-800">{{ number_format($averageCommissionRate, 1) }}%</p>
+            <p class="text-xs text-slate-400 mt-1">Sobre ventas totales</p>
+        </div>
 
-            // Destroy existing charts
-            if (trendChart) trendChart.destroy();
-            if (userChart) userChart.destroy();
-            if (productChart) productChart.destroy();
-            if (categoryChart) categoryChart.destroy();
+        {{-- Active Sellers --}}
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </div>
+                <span class="text-sm text-slate-500 font-medium">Vendedores</span>
+            </div>
+            <p class="text-2xl font-bold text-slate-800">{{ count($commissionsByUser) }}</p>
+            <p class="text-xs text-slate-400 mt-1">Con comisiones activas</p>
+        </div>
+    </div>
 
-            // Trend Chart
-            const trendCtx = document.getElementById('trendChart');
-            if (trendCtx && trendData.length > 0) {
-                trendChart = new Chart(trendCtx, {
-                    type: 'line',
-                    data: {
-                        labels: trendData.map(d => d.label),
-                        datasets: [{
-                            label: 'Comisiones',
-                            data: trendData.map(d => d.commission),
-                            borderColor: 'rgba(16, 185, 129, 1)',
-                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                            fill: true,
-                            tension: 0.4,
-                            pointBackgroundColor: 'rgba(16, 185, 129, 1)',
-                            pointBorderColor: '#fff',
-                            pointBorderWidth: 2,
-                            pointRadius: 4,
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
-                            x: { grid: { display: false } }
-                        }
-                    }
-                });
-            }
-
-            // User Chart
-            const userCtx = document.getElementById('userChart');
-            if (userCtx && usersData.length > 0) {
-                userChart = new Chart(userCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: usersData.map(d => d.user_name.length > 15 ? d.user_name.substring(0, 15) + '...' : d.user_name),
-                        datasets: [{
-                            label: 'Comisión',
-                            data: usersData.map(d => d.commission),
-                            backgroundColor: chartColors,
-                            borderRadius: 6,
-                        }]
-                    },
-                    options: {
-                        indexAxis: 'y',
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            x: { beginAtZero: true, grid: { display: false } },
-                            y: { grid: { display: false } }
-                        }
-                    }
-                });
-            }
-
-            // Product Chart
-            const productCtx = document.getElementById('productChart');
-            if (productCtx && productsData.length > 0) {
-                productChart = new Chart(productCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: productsData.map(d => d.name.length > 15 ? d.name.substring(0, 15) + '...' : d.name),
-                        datasets: [{
-                            label: 'Comisión',
-                            data: productsData.map(d => d.commission),
-                            backgroundColor: 'rgba(168, 85, 247, 0.8)',
-                            borderRadius: 6,
-                        }]
-                    },
-                    options: {
-                        indexAxis: 'y',
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            x: { beginAtZero: true, grid: { display: false } },
-                            y: { grid: { display: false } }
-                        }
-                    }
-                });
-            }
-
-            // Category Chart
-            const catCtx = document.getElementById('categoryChart');
-            if (catCtx && categoriesData.length > 0) {
-                categoryChart = new Chart(catCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: categoriesData.map(d => d.category_name),
-                        datasets: [{
-                            data: categoriesData.map(d => d.commission),
-                            backgroundColor: chartColors,
-                            borderWidth: 0,
-                            hoverOffset: 10
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '60%',
-                        plugins: {
-                            legend: { position: 'right', labels: { usePointStyle: true, padding: 10, font: { size: 10 } } }
-                        }
-                    }
-                });
-            }
-        }
-
-        function updateCharts(data) {
-            const trendData = data.trend || [];
-            const usersData = data.users || [];
-            const productsData = data.products || [];
-            const categoriesData = data.categories || [];
-
-            // Destroy existing charts
-            if (trendChart) trendChart.destroy();
-            if (userChart) userChart.destroy();
-            if (productChart) productChart.destroy();
-            if (categoryChart) categoryChart.destroy();
-
-            // Toggle empty states
-            const trendEmpty = document.getElementById('trendEmpty');
-            const trendCanvas = document.getElementById('trendChart');
-            const userEmpty = document.getElementById('userEmpty');
-            const userCanvas = document.getElementById('userChart');
-            const productEmpty = document.getElementById('productEmpty');
-            const productCanvas = document.getElementById('productChart');
-            const categoryEmpty = document.getElementById('categoryEmpty');
-            const categoryCanvas = document.getElementById('categoryChart');
-
-            // Trend Chart
-            if (trendData.length > 0) {
-                if (trendEmpty) trendEmpty.classList.add('hidden');
-                if (trendCanvas) trendCanvas.classList.remove('hidden');
-                const trendCtx = document.getElementById('trendChart');
-                if (trendCtx) {
-                    trendChart = new Chart(trendCtx, {
-                        type: 'line',
-                        data: {
-                            labels: trendData.map(d => d.label),
-                            datasets: [{
-                                label: 'Comisiones',
-                                data: trendData.map(d => d.commission),
-                                borderColor: 'rgba(16, 185, 129, 1)',
-                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                                fill: true,
-                                tension: 0.4,
-                                pointBackgroundColor: 'rgba(16, 185, 129, 1)',
-                                pointBorderColor: '#fff',
-                                pointBorderWidth: 2,
-                                pointRadius: 4,
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: false } },
-                            scales: {
-                                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
-                                x: { grid: { display: false } }
-                            }
-                        }
-                    });
-                }
-            } else {
-                if (trendEmpty) trendEmpty.classList.remove('hidden');
-                if (trendCanvas) trendCanvas.classList.add('hidden');
-            }
-
-            // User Chart
-            if (usersData.length > 0) {
-                if (userEmpty) userEmpty.classList.add('hidden');
-                if (userCanvas) userCanvas.classList.remove('hidden');
-                const userCtx = document.getElementById('userChart');
-                if (userCtx) {
-                    userChart = new Chart(userCtx, {
-                        type: 'bar',
-                        data: {
-                            labels: usersData.map(d => d.user_name.length > 15 ? d.user_name.substring(0, 15) + '...' : d.user_name),
-                            datasets: [{
-                                label: 'Comisión',
-                                data: usersData.map(d => d.commission),
-                                backgroundColor: chartColors,
-                                borderRadius: 6,
-                            }]
-                        },
-                        options: {
-                            indexAxis: 'y',
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: false } },
-                            scales: {
-                                x: { beginAtZero: true, grid: { display: false } },
-                                y: { grid: { display: false } }
-                            }
-                        }
-                    });
-                }
-            } else {
-                if (userEmpty) userEmpty.classList.remove('hidden');
-                if (userCanvas) userCanvas.classList.add('hidden');
-            }
-
-            // Product Chart
-            if (productsData.length > 0) {
-                if (productEmpty) productEmpty.classList.add('hidden');
-                if (productCanvas) productCanvas.classList.remove('hidden');
-                const productCtx = document.getElementById('productChart');
-                if (productCtx) {
-                    productChart = new Chart(productCtx, {
-                        type: 'bar',
-                        data: {
-                            labels: productsData.map(d => d.name.length > 15 ? d.name.substring(0, 15) + '...' : d.name),
-                            datasets: [{
-                                label: 'Comisión',
-                                data: productsData.map(d => d.commission),
-                                backgroundColor: 'rgba(168, 85, 247, 0.8)',
-                                borderRadius: 6,
-                            }]
-                        },
-                        options: {
-                            indexAxis: 'y',
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: false } },
-                            scales: {
-                                x: { beginAtZero: true, grid: { display: false } },
-                                y: { grid: { display: false } }
-                            }
-                        }
-                    });
-                }
-            } else {
-                if (productEmpty) productEmpty.classList.remove('hidden');
-                if (productCanvas) productCanvas.classList.add('hidden');
-            }
-
-            // Category Chart
-            if (categoriesData.length > 0) {
-                if (categoryEmpty) categoryEmpty.classList.add('hidden');
-                if (categoryCanvas) categoryCanvas.classList.remove('hidden');
-                const catCtx = document.getElementById('categoryChart');
-                if (catCtx) {
-                    categoryChart = new Chart(catCtx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: categoriesData.map(d => d.category_name),
-                            datasets: [{
-                                data: categoriesData.map(d => d.commission),
-                                backgroundColor: chartColors,
-                                borderWidth: 0,
-                                hoverOffset: 10
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            cutout: '60%',
-                            plugins: {
-                                legend: { position: 'right', labels: { usePointStyle: true, padding: 10, font: { size: 10 } } }
-                            }
-                        }
-                    });
-                }
-            } else {
-                if (categoryEmpty) categoryEmpty.classList.remove('hidden');
-                if (categoryCanvas) categoryCanvas.classList.add('hidden');
-            }
-        }
-
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', initCharts);
-
-        // Listen for Livewire events
-        document.addEventListener('livewire:initialized', () => {
-            Livewire.on('charts-updated', (data) => {
-                setTimeout(() => updateCharts(data[0]), 100);
-            });
-        });
-    </script>
+    {{-- Sellers List Table (Standard Mode) --}}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                Comisiones por Vendedor
+            </h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 text-xs">
+                <thead class="bg-slate-50 text-slate-500 font-semibold uppercase">
+                    <tr>
+                        <th class="px-4 py-3 text-left">Vendedor</th>
+                        <th class="px-4 py-3 text-right">Ventas Totales</th>
+                        <th class="px-4 py-3 text-right">Items</th>
+                        <th class="px-4 py-3 text-right">Comisión Total</th>
+                        <th class="px-4 py-3 text-right">% Efectivo</th>
+                        <th class="px-4 py-3 text-center">Detalle</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @forelse($commissionsByUser as $userComm)
+                    <tr class="hover:bg-slate-50/60">
+                        <td class="px-4 py-3 font-bold text-slate-800">{{ $userComm['user_name'] }}</td>
+                        <td class="px-4 py-3 text-right text-slate-600">${{ number_format($userComm['sales'], 0, ',', '.') }}</td>
+                        <td class="px-4 py-3 text-right text-slate-600">{{ number_format($userComm['items']) }}</td>
+                        <td class="px-4 py-3 text-right font-black text-[#a855f7]">${{ number_format($userComm['commission'], 0, ',', '.') }}</td>
+                        <td class="px-4 py-3 text-right font-semibold text-slate-700">
+                            {{ $userComm['sales'] > 0 ? number_format(($userComm['commission'] / $userComm['sales']) * 100, 1) : 0 }}%
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <button wire:click="toggleUserDetail({{ $userComm['user_id'] }})" class="p-1.5 rounded-lg bg-slate-100 hover:bg-[#a855f7] hover:text-white text-slate-600 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                            </button>
+                        </td>
+                    </tr>
+                    @if($expandedUserId === $userComm['user_id'] && !empty($userSalesDetail))
+                    <tr>
+                        <td colspan="6" class="px-6 py-4 bg-slate-50 border-y border-slate-200">
+                            <div class="text-xs font-bold text-slate-700 mb-2">Desglose de Ventas de {{ $userComm['user_name'] }}:</div>
+                            <div class="max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white">
+                                <table class="min-w-full divide-y divide-slate-100 text-[11px]">
+                                    <thead class="bg-slate-100 text-slate-600 font-semibold">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left">Factura</th>
+                                            <th class="px-3 py-2 text-left">Fecha</th>
+                                            <th class="px-3 py-2 text-left">Producto / Servicio</th>
+                                            <th class="px-3 py-2 text-right">Cant.</th>
+                                            <th class="px-3 py-2 text-right">Total</th>
+                                            <th class="px-3 py-2 text-right">Comisión</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        @foreach($userSalesDetail as $det)
+                                        <tr>
+                                            <td class="px-3 py-1.5 font-bold">{{ $det['invoice_number'] }}</td>
+                                            <td class="px-3 py-1.5 text-slate-500">{{ $det['date'] }}</td>
+                                            <td class="px-3 py-1.5">{{ $det['product_name'] }}</td>
+                                            <td class="px-3 py-1.5 text-right">{{ $det['quantity'] }}</td>
+                                            <td class="px-3 py-1.5 text-right">${{ number_format($det['total'], 0, ',', '.') }}</td>
+                                            <td class="px-3 py-1.5 text-right font-bold text-[#a855f7]">${{ number_format($det['commission'], 0, ',', '.') }}</td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </td>
+                    </tr>
+                    @endif
+                    @empty
+                    <tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">No se encontraron comisiones para este período</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @endif
 </div>

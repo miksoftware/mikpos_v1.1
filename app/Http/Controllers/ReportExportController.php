@@ -4587,5 +4587,511 @@ class ReportExportController extends Controller
             return null;
         }
     }
+
+    /**
+     * Helper to compute commissions metrics for an arbitrary period.
+     */
+    private function calculateCommissionsMetrics(Request $request, string $startDate, string $endDate): array
+    {
+        $branchId = $request->get('branch_id');
+        $userId = $request->get('user_id');
+        $categoryId = $request->get('category_id');
+        $brandId = $request->get('brand_id');
+        $cashRegisterId = $request->get('cash_register_id');
+        $user = auth()->user();
+
+        $query = SaleItem::query()
+            ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->leftJoin('products', 'sale_items.product_id', '=', 'products.id')
+            ->leftJoin('services', 'sale_items.service_id', '=', 'services.id')
+            ->leftJoin('categories', function ($join) {
+                $join->on('categories.id', '=', DB::raw('COALESCE(products.category_id, services.category_id)'));
+            })
+            ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
+            ->join('users', 'sales.seller_id', '=', 'users.id')
+            ->where('sales.status', 'completed')
+            ->whereDate('sales.created_at', '>=', $startDate)
+            ->whereDate('sales.created_at', '<=', $endDate)
+            ->where(function ($q) {
+                $q->where(function ($pq) {
+                    $pq->where('products.has_commission', true)
+                       ->whereNotNull('products.commission_value')
+                       ->where('products.commission_value', '>', 0);
+                })
+                ->orWhere(function ($sq) {
+                    $sq->where('services.has_commission', true)
+                       ->whereNotNull('services.commission_value')
+                       ->where('services.commission_value', '>', 0);
+                });
+            });
+
+        if ($branchId) {
+            $query->where('sales.branch_id', $branchId);
+        } elseif (!$user->isSuperAdmin()) {
+            $query->where('sales.branch_id', $user->branch_id);
+        }
+
+        if ($userId) {
+            $query->where('sales.seller_id', $userId);
+        }
+
+        if ($user->isSupervisor()) {
+            $supervisorRegisterIds = $user->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $query->whereRaw('0 = 1');
+            } else {
+                $filterIds = ($cashRegisterId && in_array((int) $cashRegisterId, $supervisorRegisterIds))
+                    ? [(int) $cashRegisterId]
+                    : $supervisorRegisterIds;
+                $reconciliationIds = \App\Models\CashReconciliation::whereIn('cash_register_id', $filterIds)->pluck('id');
+                $query->whereIn('sales.cash_reconciliation_id', $reconciliationIds);
+            }
+        } elseif ($cashRegisterId) {
+            $reconciliationIds = \App\Models\CashReconciliation::where('cash_register_id', $cashRegisterId)->pluck('id');
+            $query->whereIn('sales.cash_reconciliation_id', $reconciliationIds);
+        }
+
+        if ($categoryId) {
+            $query->where(function ($q) use ($categoryId) {
+                $q->where('products.category_id', $categoryId)
+                  ->orWhere('services.category_id', $categoryId);
+            });
+        }
+
+        if ($brandId) {
+            $query->where('products.brand_id', $brandId);
+        }
+
+        $items = $query->select(
+            'sale_items.*',
+            'sales.invoice_number',
+            'sales.created_at as sale_date',
+            'users.id as seller_id',
+            'users.name as seller_name',
+            DB::raw("COALESCE(categories.name, 'Sin categoría') as cat_name"),
+            'products.has_commission as p_has_comm',
+            'products.commission_type as p_comm_type',
+            'products.commission_value as p_comm_val',
+            'services.has_commission as s_has_comm',
+            'services.commission_type as s_comm_type',
+            'services.commission_value as s_comm_val'
+        )->get();
+
+        $totalCommissions = 0;
+        $totalSales = 0;
+        $totalItems = 0;
+        $uniqueSaleIds = [];
+        $sellerData = [];
+        $dailyData = [];
+        $categoryData = [];
+        $productData = [];
+
+        foreach ($items as $item) {
+            $basePrice = (float) $item->unit_price;
+            $quantity = (float) $item->quantity;
+            $itemTotal = (float) $item->total;
+
+            $isService = $item->service_id !== null;
+            $hasComm = $isService ? $item->s_has_comm : $item->p_has_comm;
+            $commType = $isService ? $item->s_comm_type : $item->p_comm_type;
+            $commVal = (float) ($isService ? $item->s_comm_val : $item->p_comm_val);
+
+            $comm = 0;
+            if ($hasComm && $commVal > 0) {
+                if ($commType === 'percentage') {
+                    $comm = ($basePrice * ($commVal / 100)) * $quantity;
+                } else {
+                    $comm = $commVal * $quantity;
+                }
+            }
+
+            $totalCommissions += $comm;
+            $totalSales += $itemTotal;
+            $totalItems += $quantity;
+            $uniqueSaleIds[$item->sale_id] = true;
+
+            // Seller breakdown
+            $sName = $item->seller_name ?? 'Sin asignar';
+            if (!isset($sellerData[$sName])) {
+                $sellerData[$sName] = ['name' => $sName, 'commission' => 0, 'sales' => 0, 'items' => 0, 'count' => 0];
+            }
+            $sellerData[$sName]['commission'] += $comm;
+            $sellerData[$sName]['sales'] += $itemTotal;
+            $sellerData[$sName]['items'] += $quantity;
+            $sellerData[$sName]['count']++;
+
+            // Daily breakdown (1..31)
+            $day = (int) Carbon::parse($item->sale_date)->format('j');
+            if (!isset($dailyData[$day])) {
+                $dailyData[$day] = ['day' => $day, 'commission' => 0, 'sales' => 0, 'items' => 0, 'count' => 0];
+            }
+            $dailyData[$day]['commission'] += $comm;
+            $dailyData[$day]['sales'] += $itemTotal;
+            $dailyData[$day]['items'] += $quantity;
+            $dailyData[$day]['count']++;
+
+            // Category breakdown
+            $cName = $item->cat_name ?? 'Sin categoría';
+            if (!isset($categoryData[$cName])) {
+                $categoryData[$cName] = ['name' => $cName, 'commission' => 0, 'sales' => 0, 'items' => 0];
+            }
+            $categoryData[$cName]['commission'] += $comm;
+            $categoryData[$cName]['sales'] += $itemTotal;
+            $categoryData[$cName]['items'] += $quantity;
+
+            // Product breakdown
+            $pKey = $item->product_sku ? $item->product_sku : $item->product_name;
+            if (!isset($productData[$pKey])) {
+                $productData[$pKey] = ['name' => $item->product_name, 'sku' => $item->product_sku, 'commission' => 0, 'sales' => 0, 'quantity' => 0];
+            }
+            $productData[$pKey]['commission'] += $comm;
+            $productData[$pKey]['sales'] += $itemTotal;
+            $productData[$pKey]['quantity'] += $quantity;
+        }
+
+        uasort($sellerData, fn($a, $b) => $b['commission'] <=> $a['commission']);
+        uasort($categoryData, fn($a, $b) => $b['commission'] <=> $a['commission']);
+        uasort($productData, fn($a, $b) => $b['commission'] <=> $a['commission']);
+
+        $topSeller = !empty($sellerData) ? reset($sellerData) : ['name' => 'Ninguno', 'commission' => 0, 'sales' => 0];
+
+        return [
+            'totalCommissions' => $totalCommissions,
+            'totalSales' => $totalSales,
+            'totalItems' => $totalItems,
+            'totalTransactions' => count($uniqueSaleIds),
+            'avgCommissionRate' => $totalSales > 0 ? ($totalCommissions / $totalSales) * 100 : 0,
+            'sellerData' => $sellerData,
+            'dailyData' => $dailyData,
+            'categoryData' => $categoryData,
+            'productData' => $productData,
+            'topSeller' => $topSeller,
+        ];
+    }
+
+    /**
+     * Export standard commissions report to Excel.
+     */
+    public function commissionsExcel(Request $request)
+    {
+        $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->get('end_date', now()->format('Y-m-d'));
+        $metrics = $this->calculateCommissionsMetrics($request, $startDate, $endDate);
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Comisiones');
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 12],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1A1225']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        $subHeaderStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 10],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '7C3AED']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        $dataStyle = [
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E2E8F0']]],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        $sheet->setCellValue('A1', 'MIKPOS - REPORTE DE COMISIONES POR VENDEDOR');
+        $sheet->mergeCells('A1:F1');
+        $sheet->getStyle('A1:F1')->applyFromArray($headerStyle);
+        $sheet->getRowDimension(1)->setRowHeight(32);
+
+        $sheet->setCellValue('A2', "Período: {$startDate} al {$endDate}");
+        $sheet->mergeCells('A2:F2');
+        $sheet->getStyle('A2:F2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $row = 4;
+        $sheet->setCellValue('A' . $row, 'RESUMEN GENERAL');
+        $sheet->mergeCells('A' . $row . ':B' . $row);
+        $sheet->getStyle('A' . $row . ':B' . $row)->applyFromArray($subHeaderStyle);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'Total Comisiones');
+        $sheet->setCellValue('B' . $row, $metrics['totalCommissions']);
+        $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'Total Ventas Comisionables');
+        $sheet->setCellValue('B' . $row, $metrics['totalSales']);
+        $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'Tasa Promedio de Comisión');
+        $sheet->setCellValue('B' . $row, ($metrics['avgCommissionRate'] / 100));
+        $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('0.0%');
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'Total Items Vendidos');
+        $sheet->setCellValue('B' . $row, $metrics['totalItems']);
+        $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('#,##0');
+        $row += 2;
+
+        // Sellers Table
+        $sheet->setCellValue('A' . $row, 'DETALLE POR VENDEDOR');
+        $sheet->mergeCells('A' . $row . ':E' . $row);
+        $sheet->getStyle('A' . $row . ':E' . $row)->applyFromArray($subHeaderStyle);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'VENDEDOR');
+        $sheet->setCellValue('B' . $row, 'VENTAS TOTALES ($)');
+        $sheet->setCellValue('C' . $row, 'COMISIÓN GENERADA ($)');
+        $sheet->setCellValue('D' . $row, '% EFECTIVO');
+        $sheet->setCellValue('E' . $row, 'ITEMS VENDIDOS');
+        $sheet->getStyle('A' . $row . ':E' . $row)->applyFromArray($subHeaderStyle);
+        $row++;
+
+        foreach ($metrics['sellerData'] as $s) {
+            $sheet->setCellValue('A' . $row, $s['name']);
+            $sheet->setCellValue('B' . $row, $s['sales']);
+            $sheet->setCellValue('C' . $row, $s['commission']);
+            $sheet->setCellValue('D' . $row, $s['sales'] > 0 ? ($s['commission'] / $s['sales']) : 0);
+            $sheet->setCellValue('E' . $row, $s['items']);
+
+            $sheet->getStyle('A' . $row . ':E' . $row)->applyFromArray($dataStyle);
+            $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode('0.0%');
+            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('#,##0');
+            $row++;
+        }
+
+        foreach (range('A', 'E') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'comisiones-' . $startDate . '-al-' . $endDate . '.xlsx';
+        $tempFile = tempnam(sys_get_temp_dir(), 'excel');
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Export comparative versus commissions report to Excel.
+     */
+    public function commissionsVersusExcel(Request $request)
+    {
+        $startDateA = $request->get('start_date_a', now()->startOfMonth()->format('Y-m-d'));
+        $endDateA = $request->get('end_date_a', now()->format('Y-m-d'));
+        $startDateB = $request->get('start_date_b', now()->subMonth()->startOfMonth()->format('Y-m-d'));
+        $endDateB = $request->get('end_date_b', now()->subMonth()->endOfMonth()->format('Y-m-d'));
+        $labelA = $request->get('label_a', Carbon::parse($startDateA)->translatedFormat('F Y'));
+        $labelB = $request->get('label_b', Carbon::parse($startDateB)->translatedFormat('F Y'));
+
+        $dataA = $this->calculateCommissionsMetrics($request, $startDateA, $endDateA);
+        $dataB = $this->calculateCommissionsMetrics($request, $startDateB, $endDateB);
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Comisiones Versus');
+
+        $mainHeaderStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 14],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1A1225']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        $sectionHeaderStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '7C3AED']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        $subHeaderStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '334155'], 'size' => 9],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F1F5F9']],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'CBD5E1']]],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        $dataStyle = [
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E2E8F0']]],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        // 1. TITLE
+        $sheet->setCellValue('A1', 'MIKPOS - COMPARATIVA DE COMISIONES (MODO VERSUS)');
+        $sheet->mergeCells('A1:G1');
+        $sheet->getStyle('A1:G1')->applyFromArray($mainHeaderStyle);
+        $sheet->getRowDimension(1)->setRowHeight(32);
+
+        $sheet->setCellValue('A2', "Período A (Base): " . strtoupper($labelA) . " ({$startDateA} a {$endDateA})  VS  Período B (Comparado): " . strtoupper($labelB) . " ({$startDateB} a {$endDateB})");
+        $sheet->mergeCells('A2:G2');
+        $sheet->getStyle('A2:G2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getRowDimension(2)->setRowHeight(20);
+
+        // 2. EXECUTIVE BATTLE CARDS SUMMARY
+        $row = 4;
+        $sheet->setCellValue('A' . $row, '1. RESUMEN EJECUTIVO (BATTLE CARDS)');
+        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($sectionHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(24);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'INDICADOR KPI');
+        $sheet->setCellValue('B' . $row, strtoupper($labelA) . ' (A)');
+        $sheet->setCellValue('C' . $row, strtoupper($labelB) . ' (B)');
+        $sheet->setCellValue('D' . $row, 'DIFERENCIA ($)');
+        $sheet->setCellValue('E' . $row, '% CRECIMIENTO');
+        $sheet->setCellValue('F' . $row, 'PROPORCIÓN (A vs B)');
+        $sheet->setCellValue('G' . $row, 'GANADOR');
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($subHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(22);
+        $row++;
+
+        $kpis = [
+            ['Total Comisiones', $dataA['totalCommissions'], $dataB['totalCommissions'], 'currency'],
+            ['Total Ventas Comisionables', $dataA['totalSales'], $dataB['totalSales'], 'currency'],
+            ['Total Items Vendidos', $dataA['totalItems'], $dataB['totalItems'], 'number'],
+            ['Transacciones con Comisión', $dataA['totalTransactions'], $dataB['totalTransactions'], 'number'],
+            ['Tasa Promedio de Comisión', ($dataA['avgCommissionRate'] / 100), ($dataB['avgCommissionRate'] / 100), 'percent'],
+        ];
+
+        foreach ($kpis as $kpi) {
+            $sheet->setCellValue('A' . $row, $kpi[0]);
+            $sheet->setCellValue('B' . $row, $kpi[1]);
+            $sheet->setCellValue('C' . $row, $kpi[2]);
+            $sheet->setCellValue('D' . $row, "=C{$row}-B{$row}");
+            $sheet->setCellValue('E' . $row, "=IF(B{$row}<>0, (C{$row}-B{$row})/ABS(B{$row}), 0)");
+            $sheet->setCellValue('F' . $row, "=IF(B{$row}+C{$row}>0, C{$row}/(B{$row}+C{$row}), 0.5)");
+            $sheet->setCellValue('G' . $row, "=IF(C{$row}>=B{$row}, \"" . strtoupper($labelB) . " 🏆\", \"" . strtoupper($labelA) . " 🏆\")");
+
+            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($dataStyle);
+
+            if ($kpi[3] === 'currency') {
+                $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+                $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+                $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            } elseif ($kpi[3] === 'percent') {
+                $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('0.0%');
+                $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('0.0%');
+                $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode('+0.0%;-0.0%;0.0%');
+            } else {
+                $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('#,##0');
+                $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('#,##0');
+                $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode('+#,##0;-#,##0;0');
+            }
+
+            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('+0.0%;-0.0%;0.0%');
+            $sheet->getStyle('F' . $row)->getNumberFormat()->setFormatCode('0.0% B');
+            $row++;
+        }
+        $row += 2;
+
+        // 3. SIDE-BY-SIDE SELLERS COMPARISON
+        $sheet->setCellValue('A' . $row, '2. COMPARATIVA DE RENDIMIENTO POR VENDEDOR');
+        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($sectionHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(24);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'VENDEDOR');
+        $sheet->setCellValue('B' . $row, 'VENTAS ' . strtoupper($labelA));
+        $sheet->setCellValue('C' . $row, 'COMISIÓN ' . strtoupper($labelA));
+        $sheet->setCellValue('D' . $row, 'VENTAS ' . strtoupper($labelB));
+        $sheet->setCellValue('E' . $row, 'COMISIÓN ' . strtoupper($labelB));
+        $sheet->setCellValue('F' . $row, 'VARIACIÓN COMISIÓN ($)');
+        $sheet->setCellValue('G' . $row, '% CRECIMIENTO');
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($subHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(22);
+        $row++;
+
+        $allSellers = array_unique(array_merge(array_keys($dataA['sellerData']), array_keys($dataB['sellerData'])));
+        sort($allSellers);
+
+        foreach ($allSellers as $sName) {
+            $sA = $dataA['sellerData'][$sName]['sales'] ?? 0;
+            $cA = $dataA['sellerData'][$sName]['commission'] ?? 0;
+            $sB = $dataB['sellerData'][$sName]['sales'] ?? 0;
+            $cB = $dataB['sellerData'][$sName]['commission'] ?? 0;
+
+            $sheet->setCellValue('A' . $row, $sName);
+            $sheet->setCellValue('B' . $row, $sA);
+            $sheet->setCellValue('C' . $row, $cA);
+            $sheet->setCellValue('D' . $row, $sB);
+            $sheet->setCellValue('E' . $row, $cB);
+            $sheet->setCellValue('F' . $row, "=E{$row}-C{$row}");
+            $sheet->setCellValue('G' . $row, "=IF(C{$row}<>0, (E{$row}-C{$row})/ABS(C{$row}), 0)");
+
+            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($dataStyle);
+            $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('F' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('G' . $row)->getNumberFormat()->setFormatCode('+0.0%;-0.0%;0.0%');
+            $row++;
+        }
+        $row += 2;
+
+        // 4. DAILY COMMISSIONS BREAKDOWN (DAY 1..31)
+        $sheet->setCellValue('A' . $row, '3. COMPARATIVA DÍA POR DÍA (DÍA 1 AL 31)');
+        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($sectionHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(24);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'DÍA');
+        $sheet->setCellValue('B' . $row, 'VENTAS ' . strtoupper($labelA));
+        $sheet->setCellValue('C' . $row, 'COMISIÓN ' . strtoupper($labelA));
+        $sheet->setCellValue('D' . $row, 'VENTAS ' . strtoupper($labelB));
+        $sheet->setCellValue('E' . $row, 'COMISIÓN ' . strtoupper($labelB));
+        $sheet->setCellValue('F' . $row, 'VARIACIÓN COMISIÓN ($)');
+        $sheet->setCellValue('G' . $row, '% CRECIMIENTO');
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($subHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(22);
+        $row++;
+
+        for ($d = 1; $d <= 31; $d++) {
+            $sA = $dataA['dailyData'][$d]['sales'] ?? 0;
+            $cA = $dataA['dailyData'][$d]['commission'] ?? 0;
+            $sB = $dataB['dailyData'][$d]['sales'] ?? 0;
+            $cB = $dataB['dailyData'][$d]['commission'] ?? 0;
+
+            if ($sA == 0 && $sB == 0 && $cA == 0 && $cB == 0) continue;
+
+            $sheet->setCellValue('A' . $row, "Día {$d}");
+            $sheet->setCellValue('B' . $row, $sA);
+            $sheet->setCellValue('C' . $row, $cA);
+            $sheet->setCellValue('D' . $row, $sB);
+            $sheet->setCellValue('E' . $row, $cB);
+            $sheet->setCellValue('F' . $row, "=E{$row}-C{$row}");
+            $sheet->setCellValue('G' . $row, "=IF(C{$row}<>0, (E{$row}-C{$row})/ABS(C{$row}), 0)");
+
+            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($dataStyle);
+            $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('F' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('G' . $row)->getNumberFormat()->setFormatCode('+0.0%;-0.0%;0.0%');
+            $row++;
+        }
+
+        foreach (range('A', 'G') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'comisiones-versus-' . $startDateA . '-vs-' . $startDateB . '.xlsx';
+        $tempFile = tempnam(sys_get_temp_dir(), 'excel');
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
 }
+
 

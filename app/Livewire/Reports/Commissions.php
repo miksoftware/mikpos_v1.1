@@ -21,7 +21,10 @@ class Commissions extends Component
 {
     use WithPagination;
 
-    // Filters
+    // View Mode
+    public string $viewMode = 'standard'; // 'standard' | 'versus'
+
+    // Standard Filters
     public string $dateRange = 'month';
     public ?string $startDate = null;
     public ?string $endDate = null;
@@ -32,32 +35,132 @@ class Commissions extends Component
     public ?int $selectedBrandId = null;
     public string $search = '';
     
+    // Versus Filters
+    public string $versusPreset = 'mom'; // 'mom', 'yoy', 'custom'
+    public string $monthA = '';
+    public string $monthB = '';
+    public ?string $startDateA = null;
+    public ?string $endDateA = null;
+    public ?string $startDateB = null;
+    public ?string $endDateB = null;
+    public string $labelA = '';
+    public string $labelB = '';
+
     // Detail view
     public ?int $expandedUserId = null;
     public array $userSalesDetail = [];
 
-    // Summary
+    // Standard Summary
     public float $totalCommissions = 0;
     public float $totalSales = 0;
     public int $totalTransactions = 0;
     public int $totalItemsSold = 0;
     public float $averageCommissionRate = 0;
 
-    // Chart data
+    // Standard Chart data
     public array $commissionsByUser = [];
     public array $commissionsByDay = [];
     public array $commissionsByProduct = [];
     public array $commissionsByCategory = [];
     public array $userRanking = [];
 
+    // Versus Comparison Data
+    public array $versusSummary = [];
+    public array $versusDaily = [];
+    public array $versusSellers = [];
+    public array $versusCategories = [];
+    public array $versusProducts = [];
+
     public function mount()
     {
         $this->startDate = now()->startOfMonth()->format('Y-m-d');
         $this->endDate = now()->format('Y-m-d');
+
+        $this->initVersusPeriods();
         
         $user = auth()->user();
         if (!$user->isSuperAdmin() && $user->branch_id) {
             $this->selectedBranchId = $user->branch_id;
+        }
+    }
+
+    public function setViewMode(string $mode)
+    {
+        $this->viewMode = $mode;
+        if ($mode === 'versus' && empty($this->startDateA)) {
+            $this->initVersusPeriods();
+        }
+    }
+
+    public function initVersusPeriods()
+    {
+        $this->monthA = now()->format('Y-m');
+        $this->monthB = now()->subMonth()->format('Y-m');
+        $this->applyVersusPreset();
+    }
+
+    public function updatedVersusPreset($value)
+    {
+        $this->applyVersusPreset();
+    }
+
+    public function updatedMonthA($value)
+    {
+        if ($this->versusPreset === 'custom' && $value) {
+            $date = Carbon::createFromFormat('Y-m', $value);
+            $this->startDateA = $date->copy()->startOfMonth()->format('Y-m-d');
+            $this->endDateA = ($value === now()->format('Y-m')) ? now()->format('Y-m-d') : $date->copy()->endOfMonth()->format('Y-m-d');
+            $this->labelA = $date->translatedFormat('F Y');
+        }
+    }
+
+    public function updatedMonthB($value)
+    {
+        if ($this->versusPreset === 'custom' && $value) {
+            $date = Carbon::createFromFormat('Y-m', $value);
+            $this->startDateB = $date->copy()->startOfMonth()->format('Y-m-d');
+            $this->endDateB = ($value === now()->format('Y-m')) ? now()->format('Y-m-d') : $date->copy()->endOfMonth()->format('Y-m-d');
+            $this->labelB = $date->translatedFormat('F Y');
+        }
+    }
+
+    public function applyVersusPreset()
+    {
+        switch ($this->versusPreset) {
+            case 'mom':
+                $this->monthA = now()->format('Y-m');
+                $this->monthB = now()->subMonth()->format('Y-m');
+                $this->startDateA = now()->startOfMonth()->format('Y-m-d');
+                $this->endDateA = now()->format('Y-m-d');
+                $this->startDateB = now()->subMonth()->startOfMonth()->format('Y-m-d');
+                $this->endDateB = now()->subMonth()->endOfMonth()->format('Y-m-d');
+                $this->labelA = Carbon::parse($this->startDateA)->translatedFormat('F Y');
+                $this->labelB = Carbon::parse($this->startDateB)->translatedFormat('F Y');
+                break;
+
+            case 'yoy':
+                $this->monthA = now()->format('Y-m');
+                $this->monthB = now()->subYear()->format('Y-m');
+                $this->startDateA = now()->startOfMonth()->format('Y-m-d');
+                $this->endDateA = now()->format('Y-m-d');
+                $this->startDateB = now()->subYear()->startOfMonth()->format('Y-m-d');
+                $this->endDateB = now()->subYear()->endOfMonth()->format('Y-m-d');
+                $this->labelA = Carbon::parse($this->startDateA)->translatedFormat('F Y');
+                $this->labelB = Carbon::parse($this->startDateB)->translatedFormat('F Y');
+                break;
+
+            case 'custom':
+                if (empty($this->monthA)) $this->monthA = now()->format('Y-m');
+                if (empty($this->monthB)) $this->monthB = now()->subMonth()->format('Y-m');
+                $dateA = Carbon::createFromFormat('Y-m', $this->monthA);
+                $dateB = Carbon::createFromFormat('Y-m', $this->monthB);
+                $this->startDateA = $dateA->copy()->startOfMonth()->format('Y-m-d');
+                $this->endDateA = ($this->monthA === now()->format('Y-m')) ? now()->format('Y-m-d') : $dateA->copy()->endOfMonth()->format('Y-m-d');
+                $this->startDateB = $dateB->copy()->startOfMonth()->format('Y-m-d');
+                $this->endDateB = ($this->monthB === now()->format('Y-m')) ? now()->format('Y-m-d') : $dateB->copy()->endOfMonth()->format('Y-m-d');
+                $this->labelA = $dateA->translatedFormat('F Y');
+                $this->labelB = $dateB->translatedFormat('F Y');
+                break;
         }
     }
 
@@ -98,15 +201,18 @@ class Commissions extends Component
         $this->resetPage();
     }
 
-    private function getBaseQuery()
+    private function getBaseQuery(?string $customStart = null, ?string $customEnd = null)
     {
+        $start = $customStart ?? $this->startDate;
+        $end = $customEnd ?? $this->endDate;
+
         $query = SaleItem::query()
             ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
             ->leftJoin('products', 'sale_items.product_id', '=', 'products.id')
             ->leftJoin('services', 'sale_items.service_id', '=', 'services.id')
             ->where('sales.status', 'completed')
-            ->whereDate('sales.created_at', '>=', $this->startDate)
-            ->whereDate('sales.created_at', '<=', $this->endDate)
+            ->whereDate('sales.created_at', '>=', $start)
+            ->whereDate('sales.created_at', '<=', $end)
             ->where(function ($q) {
                 // Products with commission
                 $q->where(function ($pq) {
@@ -370,6 +476,241 @@ class Commissions extends Component
         })->values()->take(8)->toArray();
     }
 
+    /**
+     * Compute full commission metrics for an arbitrary period.
+     */
+    private function computePeriodCommissionMetrics(string $start, string $end): array
+    {
+        $items = $this->getBaseQuery($start, $end)
+            ->leftJoin('categories', function ($join) {
+                $join->on('categories.id', '=', DB::raw('COALESCE(products.category_id, services.category_id)'));
+            })
+            ->join('users', 'sales.seller_id', '=', 'users.id')
+            ->select(
+                'sale_items.*',
+                'sales.invoice_number',
+                'sales.created_at as sale_date',
+                'users.id as seller_id',
+                'users.name as seller_name',
+                DB::raw("COALESCE(categories.name, 'Sin categoría') as cat_name"),
+                'products.has_commission as p_has_comm',
+                'products.commission_type as p_comm_type',
+                'products.commission_value as p_comm_val',
+                'services.has_commission as s_has_comm',
+                'services.commission_type as s_comm_type',
+                'services.commission_value as s_comm_val'
+            )
+            ->with(['product', 'service'])
+            ->get();
+
+        $totalCommissions = 0;
+        $totalSales = 0;
+        $totalItems = 0;
+        $uniqueSaleIds = [];
+        $sellerData = [];
+        $dailyData = [];
+        $categoryData = [];
+        $productData = [];
+
+        foreach ($items as $item) {
+            $basePrice = (float) $item->unit_price;
+            $quantity = (float) $item->quantity;
+            $itemTotal = (float) $item->total;
+
+            $isService = $item->service_id !== null;
+            $hasComm = $isService ? $item->s_has_comm : $item->p_has_comm;
+            $commType = $isService ? $item->s_comm_type : $item->p_comm_type;
+            $commVal = (float) ($isService ? $item->s_comm_val : $item->p_comm_val);
+
+            $comm = 0;
+            if ($hasComm && $commVal > 0) {
+                if ($commType === 'percentage') {
+                    $comm = ($basePrice * ($commVal / 100)) * $quantity;
+                } else {
+                    $comm = $commVal * $quantity;
+                }
+            }
+
+            $totalCommissions += $comm;
+            $totalSales += $itemTotal;
+            $totalItems += $quantity;
+            $uniqueSaleIds[$item->sale_id] = true;
+
+            // Seller breakdown
+            $sName = $item->seller_name ?? 'Sin asignar';
+            if (!isset($sellerData[$sName])) {
+                $sellerData[$sName] = ['name' => $sName, 'commission' => 0, 'sales' => 0, 'items' => 0, 'count' => 0];
+            }
+            $sellerData[$sName]['commission'] += $comm;
+            $sellerData[$sName]['sales'] += $itemTotal;
+            $sellerData[$sName]['items'] += $quantity;
+            $sellerData[$sName]['count']++;
+
+            // Daily breakdown (1..31)
+            $day = (int) Carbon::parse($item->sale_date)->format('j');
+            if (!isset($dailyData[$day])) {
+                $dailyData[$day] = ['day' => $day, 'commission' => 0, 'sales' => 0, 'items' => 0, 'count' => 0];
+            }
+            $dailyData[$day]['commission'] += $comm;
+            $dailyData[$day]['sales'] += $itemTotal;
+            $dailyData[$day]['items'] += $quantity;
+            $dailyData[$day]['count']++;
+
+            // Category breakdown
+            $cName = $item->cat_name ?? 'Sin categoría';
+            if (!isset($categoryData[$cName])) {
+                $categoryData[$cName] = ['name' => $cName, 'commission' => 0, 'sales' => 0, 'items' => 0];
+            }
+            $categoryData[$cName]['commission'] += $comm;
+            $categoryData[$cName]['sales'] += $itemTotal;
+            $categoryData[$cName]['items'] += $quantity;
+
+            // Product breakdown
+            $pKey = $item->product_sku ? $item->product_sku : $item->product_name;
+            if (!isset($productData[$pKey])) {
+                $productData[$pKey] = ['name' => $item->product_name, 'sku' => $item->product_sku, 'commission' => 0, 'sales' => 0, 'quantity' => 0];
+            }
+            $productData[$pKey]['commission'] += $comm;
+            $productData[$pKey]['sales'] += $itemTotal;
+            $productData[$pKey]['quantity'] += $quantity;
+        }
+
+        uasort($sellerData, fn($a, $b) => $b['commission'] <=> $a['commission']);
+        uasort($categoryData, fn($a, $b) => $b['commission'] <=> $a['commission']);
+        uasort($productData, fn($a, $b) => $b['commission'] <=> $a['commission']);
+
+        $topSeller = !empty($sellerData) ? reset($sellerData) : ['name' => 'Ninguno', 'commission' => 0, 'sales' => 0];
+
+        return [
+            'totalCommissions' => $totalCommissions,
+            'totalSales' => $totalSales,
+            'totalItems' => $totalItems,
+            'totalTransactions' => count($uniqueSaleIds),
+            'avgCommissionRate' => $totalSales > 0 ? ($totalCommissions / $totalSales) * 100 : 0,
+            'sellerData' => $sellerData,
+            'dailyData' => $dailyData,
+            'categoryData' => $categoryData,
+            'productData' => $productData,
+            'topSeller' => $topSeller,
+        ];
+    }
+
+    private function calculateVersusData()
+    {
+        $dataA = $this->computePeriodCommissionMetrics($this->startDateA, $this->endDateA);
+        $dataB = $this->computePeriodCommissionMetrics($this->startDateB, $this->endDateB);
+
+        $this->versusSummary = [
+            'A' => $dataA,
+            'B' => $dataB,
+        ];
+
+        // Daily Comparison (Day 1..31)
+        $this->versusDaily = [];
+        for ($d = 1; $d <= 31; $d++) {
+            $cA = $dataA['dailyData'][$d]['commission'] ?? 0;
+            $sA = $dataA['dailyData'][$d]['sales'] ?? 0;
+            $cB = $dataB['dailyData'][$d]['commission'] ?? 0;
+            $sB = $dataB['dailyData'][$d]['sales'] ?? 0;
+
+            $this->versusDaily[] = [
+                'day' => $d,
+                'label' => "Día {$d}",
+                'commA' => round($cA, 0),
+                'salesA' => round($sA, 0),
+                'commB' => round($cB, 0),
+                'salesB' => round($sB, 0),
+                'diffComm' => round($cB - $cA, 0),
+            ];
+        }
+
+        // Sellers Comparison
+        $allSellers = array_unique(array_merge(array_keys($dataA['sellerData']), array_keys($dataB['sellerData'])));
+        $sellerComp = [];
+        foreach ($allSellers as $name) {
+            $commA = $dataA['sellerData'][$name]['commission'] ?? 0;
+            $salesA = $dataA['sellerData'][$name]['sales'] ?? 0;
+            $itemsA = $dataA['sellerData'][$name]['items'] ?? 0;
+
+            $commB = $dataB['sellerData'][$name]['commission'] ?? 0;
+            $salesB = $dataB['sellerData'][$name]['sales'] ?? 0;
+            $itemsB = $dataB['sellerData'][$name]['items'] ?? 0;
+
+            $diffComm = $commB - $commA;
+            $growthComm = $commA != 0 ? (($commB - $commA) / $commA) * 100 : ($commB > 0 ? 100 : 0);
+
+            $diffSales = $salesB - $salesA;
+            $growthSales = $salesA != 0 ? (($salesB - $salesA) / $salesA) * 100 : ($salesB > 0 ? 100 : 0);
+
+            $sellerComp[] = [
+                'name' => $name,
+                'commA' => round($commA, 0),
+                'salesA' => round($salesA, 0),
+                'itemsA' => $itemsA,
+                'commB' => round($commB, 0),
+                'salesB' => round($salesB, 0),
+                'itemsB' => $itemsB,
+                'diffComm' => round($diffComm, 0),
+                'growthComm' => round($growthComm, 1),
+                'diffSales' => round($diffSales, 0),
+                'growthSales' => round($growthSales, 1),
+            ];
+        }
+        $this->versusSellers = collect($sellerComp)->sortByDesc('commB')->values()->toArray();
+
+        // Categories Comparison
+        $allCats = array_unique(array_merge(array_keys($dataA['categoryData']), array_keys($dataB['categoryData'])));
+        $catComp = [];
+        foreach ($allCats as $name) {
+            $cA = $dataA['categoryData'][$name]['commission'] ?? 0;
+            $sA = $dataA['categoryData'][$name]['sales'] ?? 0;
+            $cB = $dataB['categoryData'][$name]['commission'] ?? 0;
+            $sB = $dataB['categoryData'][$name]['sales'] ?? 0;
+            $diff = $cB - $cA;
+            $growth = $cA != 0 ? (($cB - $cA) / $cA) * 100 : ($cB > 0 ? 100 : 0);
+
+            $catComp[] = [
+                'name' => $name,
+                'commA' => round($cA, 0),
+                'salesA' => round($sA, 0),
+                'commB' => round($cB, 0),
+                'salesB' => round($sB, 0),
+                'diffComm' => round($diff, 0),
+                'growthComm' => round($growth, 1),
+            ];
+        }
+        $this->versusCategories = collect($catComp)->sortByDesc('commB')->values()->toArray();
+
+        // Products Comparison
+        $allProds = array_unique(array_merge(array_keys($dataA['productData']), array_keys($dataB['productData'])));
+        $prodComp = [];
+        foreach ($allProds as $key) {
+            $itemA = $dataA['productData'][$key] ?? null;
+            $itemB = $dataB['productData'][$key] ?? null;
+
+            $pName = $itemB['name'] ?? $itemA['name'] ?? $key;
+            $pSku = $itemB['sku'] ?? $itemA['sku'] ?? '';
+            $cA = $itemA['commission'] ?? 0;
+            $sA = $itemA['sales'] ?? 0;
+            $cB = $itemB['commission'] ?? 0;
+            $sB = $itemB['sales'] ?? 0;
+            $diff = $cB - $cA;
+            $growth = $cA != 0 ? (($cB - $cA) / $cA) * 100 : ($cB > 0 ? 100 : 0);
+
+            $prodComp[] = [
+                'name' => $pName,
+                'sku' => $pSku,
+                'commA' => round($cA, 0),
+                'salesA' => round($sA, 0),
+                'commB' => round($cB, 0),
+                'salesB' => round($sB, 0),
+                'diffComm' => round($diff, 0),
+                'growthComm' => round($growth, 1),
+            ];
+        }
+        $this->versusProducts = collect($prodComp)->sortByDesc('commB')->values()->take(10)->toArray();
+    }
+
     public function toggleUserDetail($userId)
     {
         if ($this->expandedUserId === $userId) {
@@ -423,6 +764,40 @@ class Commissions extends Component
         })->toArray();
     }
 
+    public function exportExcel()
+    {
+        if (!auth()->user()->hasPermission('reports.export')) {
+            $this->dispatch('notify', message: 'No tienes permiso para exportar', type: 'error');
+            return;
+        }
+
+        if ($this->viewMode === 'versus') {
+            return redirect()->route('reports.commissions.excel-versus', [
+                'start_date_a' => $this->startDateA,
+                'end_date_a' => $this->endDateA,
+                'start_date_b' => $this->startDateB,
+                'end_date_b' => $this->endDateB,
+                'label_a' => $this->labelA,
+                'label_b' => $this->labelB,
+                'branch_id' => $this->selectedBranchId,
+                'user_id' => $this->selectedUserId,
+                'category_id' => $this->selectedCategoryId,
+                'brand_id' => $this->selectedBrandId,
+                'cash_register_id' => $this->selectedCashRegisterId,
+            ]);
+        }
+
+        return redirect()->route('reports.commissions.excel', [
+            'start_date' => $this->startDate,
+            'end_date' => $this->endDate,
+            'branch_id' => $this->selectedBranchId,
+            'user_id' => $this->selectedUserId,
+            'category_id' => $this->selectedCategoryId,
+            'brand_id' => $this->selectedBrandId,
+            'cash_register_id' => $this->selectedCashRegisterId,
+        ]);
+    }
+
     public function exportPdf($mode = 'detailed')
     {
         $params = http_build_query([
@@ -438,17 +813,39 @@ class Commissions extends Component
         return redirect()->to(route('reports.commissions.pdf') . '?' . $params);
     }
 
+    public function clearFilters()
+    {
+        $this->search = '';
+        $this->dateRange = 'month';
+        $this->startDate = now()->startOfMonth()->format('Y-m-d');
+        $this->endDate = now()->format('Y-m-d');
+        $this->selectedUserId = null;
+        $this->selectedCategoryId = null;
+        $this->selectedBrandId = null;
+        $this->selectedCashRegisterId = null;
+        $this->versusPreset = 'mom';
+        $this->initVersusPeriods();
+        if (auth()->user()->isSuperAdmin()) {
+            $this->selectedBranchId = null;
+        }
+        $this->resetPage();
+    }
+
     public function render()
     {
         $user = auth()->user();
         $isSuperAdmin = $user->isSuperAdmin();
 
-        $this->calculateSummary();
-        $this->commissionsByUser = $this->getCommissionsByUser();
-        $this->commissionsByDay = $this->getCommissionsByDay();
-        $this->commissionsByProduct = $this->getCommissionsByProduct();
-        $this->commissionsByCategory = $this->getCommissionsByCategory();
-        $this->userRanking = array_slice($this->commissionsByUser, 0, 5);
+        if ($this->viewMode === 'versus') {
+            $this->calculateVersusData();
+        } else {
+            $this->calculateSummary();
+            $this->commissionsByUser = $this->getCommissionsByUser();
+            $this->commissionsByDay = $this->getCommissionsByDay();
+            $this->commissionsByProduct = $this->getCommissionsByProduct();
+            $this->commissionsByCategory = $this->getCommissionsByCategory();
+            $this->userRanking = array_slice($this->commissionsByUser, 0, 5);
+        }
 
         $isSupervisor = $user->isSupervisor();
         $branches = $isSuperAdmin ? Branch::where('is_active', true)->orderBy('name')->get() : collect();
@@ -458,14 +855,6 @@ class Commissions extends Component
         $cashRegisters = $isSupervisor
             ? $user->cashRegisters()->where('cash_registers.is_active', true)->orderBy('cash_registers.name')->get()
             : collect();
-
-        // Dispatch event to update charts
-        $this->dispatch('charts-updated', [
-            'trend' => $this->commissionsByDay,
-            'users' => $this->commissionsByUser,
-            'products' => $this->commissionsByProduct,
-            'categories' => $this->commissionsByCategory,
-        ]);
 
         return view('livewire.reports.commissions', [
             'branches' => $branches,

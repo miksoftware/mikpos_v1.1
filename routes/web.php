@@ -595,6 +595,14 @@ Route::middleware(['auth'])->group(function () {
             ->name('commissions.pdf')
             ->middleware('permission:reports.export');
 
+        Route::get('/commissions/excel', [App\Http\Controllers\ReportExportController::class, 'commissionsExcel'])
+            ->name('commissions.excel')
+            ->middleware('permission:reports.export');
+
+        Route::get('/commissions/excel-versus', [App\Http\Controllers\ReportExportController::class, 'commissionsVersusExcel'])
+            ->name('commissions.excel-versus')
+            ->middleware('permission:reports.export');
+
         Route::get('/kardex', App\Livewire\Reports\Kardex::class)
             ->name('kardex')
             ->middleware('permission:reports.kardex');
