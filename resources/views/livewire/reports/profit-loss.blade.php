@@ -121,7 +121,7 @@
             {{-- Period Selectors --}}
             <div class="flex flex-wrap items-center gap-3">
                 {{-- Period A --}}
-                <div class="bg-orange-50/70 rounded-xl p-2.5 border border-[#ff7261]/30 flex items-center gap-2.5">
+                <div class="bg-orange-50/80 rounded-xl p-2.5 border border-[#ff7261]/40 flex items-center gap-2.5">
                     <span class="w-3 h-3 rounded-full bg-[#ff7261] flex-shrink-0"></span>
                     <div>
                         <div class="text-[10px] uppercase font-bold text-[#ff7261]">Período A (Base)</div>
@@ -136,7 +136,7 @@
                 <div class="text-center font-black text-slate-400 text-xs px-1">VS</div>
 
                 {{-- Period B --}}
-                <div class="bg-purple-50/70 rounded-xl p-2.5 border border-[#a855f7]/30 flex items-center gap-2.5">
+                <div class="bg-purple-50/80 rounded-xl p-2.5 border border-[#a855f7]/40 flex items-center gap-2.5">
                     <span class="w-3 h-3 rounded-full bg-[#a855f7] flex-shrink-0"></span>
                     <div>
                         <div class="text-[10px] uppercase font-bold text-[#a855f7]">Período B (Comparado)</div>
@@ -187,126 +187,209 @@
         $growthCost = $A['totalCost'] > 0 ? (($diffCost) / $A['totalCost']) * 100 : 0;
     @endphp
 
-    {{-- VERSUS BATTLE CARDS (Light Theme) --}}
+    {{-- VERSUS BATTLE CARDS (Crystal Clear Comparison Layout) --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {{-- Card 1: Ingresos Reales --}}
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-all relative overflow-hidden">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Ingresos Reales</span>
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $growthIncome >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700' }}">
-                    {{ $growthIncome >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthIncome, 1) }}%
-                </span>
-            </div>
-            <div class="flex items-baseline justify-between">
-                <div>
-                    <span class="text-xs font-semibold text-[#ff7261]">A: ${{ number_format($incRealA, 0) }}</span>
-                    <div class="text-2xl font-black text-slate-800">${{ number_format($incRealB, 0) }}</div>
-                    <span class="text-[11px] font-semibold text-[#a855f7]">B: {{ ucfirst($labelB) }}</span>
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-all flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Ingresos Reales</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $growthIncome >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200' }}">
+                        {{ $growthIncome >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthIncome, 1) }}%
+                    </span>
                 </div>
-                <div class="text-right">
-                    <span class="text-[11px] font-medium text-slate-400 block">Diferencia</span>
-                    <span class="text-sm font-black {{ $diffIncome >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
+
+                {{-- Side-by-side Period Boxes --}}
+                <div class="grid grid-cols-2 gap-2 bg-slate-50/80 rounded-xl p-3 border border-slate-100 mb-3">
+                    <div class="border-r border-slate-200/80 pr-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#ff7261] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelA) }} (A)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            ${{ number_format($incRealA, 0) }}
+                        </div>
+                    </div>
+                    <div class="pl-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#a855f7] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelB) }} (B)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            ${{ number_format($incRealB, 0) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                    <span class="text-slate-500 font-medium">Diferencia (B vs A):</span>
+                    <span class="font-black {{ $diffIncome >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
                         {{ $diffIncome >= 0 ? '+' : '' }}${{ number_format($diffIncome, 0) }}
                     </span>
                 </div>
-            </div>
-            {{-- Victory Mini Bar --}}
-            <div class="mt-3 pt-2 border-t border-slate-100">
-                <div class="flex justify-between text-[10px] text-slate-400 font-semibold mb-1">
-                    <span>A: {{ number_format($incRealA + $incRealB > 0 ? ($incRealA / ($incRealA + $incRealB)) * 100 : 50, 0) }}%</span>
-                    <span>B: {{ number_format($incRealA + $incRealB > 0 ? ($incRealB / ($incRealA + $incRealB)) * 100 : 50, 0) }}%</span>
-                </div>
-                <div class="h-1.5 w-full bg-slate-100 rounded-full flex overflow-hidden">
-                    <div class="bg-[#ff7261] h-full" style="width: {{ $incRealA + $incRealB > 0 ? ($incRealA / ($incRealA + $incRealB)) * 100 : 50 }}%"></div>
-                    <div class="bg-[#a855f7] h-full" style="width: {{ $incRealA + $incRealB > 0 ? ($incRealB / ($incRealA + $incRealB)) * 100 : 50 }}%"></div>
+                <div class="mt-2">
+                    <div class="h-1.5 w-full bg-slate-100 rounded-full flex overflow-hidden">
+                        <div class="bg-[#ff7261] h-full" style="width: {{ $incRealA + $incRealB > 0 ? ($incRealA / ($incRealA + $incRealB)) * 100 : 50 }}%"></div>
+                        <div class="bg-[#a855f7] h-full" style="width: {{ $incRealA + $incRealB > 0 ? ($incRealB / ($incRealA + $incRealB)) * 100 : 50 }}%"></div>
+                    </div>
                 </div>
             </div>
         </div>
 
         {{-- Card 2: Costo de Ventas --}}
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-all relative overflow-hidden">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Costo de Ventas</span>
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $growthCost <= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">
-                    {{ $growthCost >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthCost, 1) }}%
-                </span>
-            </div>
-            <div class="flex items-baseline justify-between">
-                <div>
-                    <span class="text-xs font-semibold text-[#ff7261]">A: ${{ number_format($A['totalCost'], 0) }}</span>
-                    <div class="text-2xl font-black text-slate-800">${{ number_format($B['totalCost'], 0) }}</div>
-                    <span class="text-[11px] font-semibold text-[#a855f7]">B: {{ ucfirst($labelB) }}</span>
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-all flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Costo de Ventas (COGS)</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $growthCost <= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200' }}">
+                        {{ $growthCost >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthCost, 1) }}%
+                    </span>
                 </div>
-                <div class="text-right">
-                    <span class="text-[11px] font-medium text-slate-400 block">Diferencia</span>
-                    <span class="text-sm font-black {{ $diffCost <= 0 ? 'text-emerald-600' : 'text-slate-700' }}">
+
+                {{-- Side-by-side Period Boxes --}}
+                <div class="grid grid-cols-2 gap-2 bg-slate-50/80 rounded-xl p-3 border border-slate-100 mb-3">
+                    <div class="border-r border-slate-200/80 pr-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#ff7261] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelA) }} (A)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            ${{ number_format($A['totalCost'], 0) }}
+                        </div>
+                        <span class="text-[10px] text-slate-400 font-semibold">{{ number_format($incRealA > 0 ? ($A['totalCost'] / $incRealA) * 100 : 0, 1) }}% ing.</span>
+                    </div>
+                    <div class="pl-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#a855f7] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelB) }} (B)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            ${{ number_format($B['totalCost'], 0) }}
+                        </div>
+                        <span class="text-[10px] text-slate-400 font-semibold">{{ number_format($incRealB > 0 ? ($B['totalCost'] / $incRealB) * 100 : 0, 1) }}% ing.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                    <span class="text-slate-500 font-medium">Diferencia Costo:</span>
+                    <span class="font-black {{ $diffCost <= 0 ? 'text-emerald-600' : 'text-slate-700' }}">
                         {{ $diffCost >= 0 ? '+' : '' }}${{ number_format($diffCost, 0) }}
                     </span>
                 </div>
-            </div>
-            <div class="mt-3 pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex justify-between">
-                <span>Costo % sobre ingreso:</span>
-                <span class="font-bold">{{ number_format($incRealB > 0 ? ($B['totalCost'] / $incRealB) * 100 : 0, 1) }}% (B) vs {{ number_format($incRealA > 0 ? ($A['totalCost'] / $incRealA) * 100 : 0, 1) }}% (A)</span>
+                <div class="mt-2">
+                    <div class="h-1.5 w-full bg-slate-100 rounded-full flex overflow-hidden">
+                        <div class="bg-[#ff7261] h-full" style="width: {{ $A['totalCost'] + $B['totalCost'] > 0 ? ($A['totalCost'] / ($A['totalCost'] + $B['totalCost'])) * 100 : 50 }}%"></div>
+                        <div class="bg-[#a855f7] h-full" style="width: {{ $A['totalCost'] + $B['totalCost'] > 0 ? ($B['totalCost'] / ($A['totalCost'] + $B['totalCost'])) * 100 : 50 }}%"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
         {{-- Card 3: Utilidad Bruta --}}
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-all relative overflow-hidden">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Utilidad Bruta</span>
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $growthGross >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700' }}">
-                    {{ $growthGross >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthGross, 1) }}%
-                </span>
-            </div>
-            <div class="flex items-baseline justify-between">
-                <div>
-                    <span class="text-xs font-semibold text-[#ff7261]">A: ${{ number_format($A['grossProfit'], 0) }} ({{ number_format($A['grossMargin'], 1) }}%)</span>
-                    <div class="text-2xl font-black text-slate-800">${{ number_format($B['grossProfit'], 0) }}</div>
-                    <span class="text-[11px] font-semibold text-[#a855f7]">B: Margen {{ number_format($B['grossMargin'], 1) }}%</span>
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-all flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Utilidad Bruta</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $growthGross >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200' }}">
+                        {{ $growthGross >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthGross, 1) }}%
+                    </span>
                 </div>
-                <div class="text-right">
-                    <span class="text-[11px] font-medium text-slate-400 block">Diferencia</span>
-                    <span class="text-sm font-black {{ $diffGross >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
+
+                {{-- Side-by-side Period Boxes --}}
+                <div class="grid grid-cols-2 gap-2 bg-slate-50/80 rounded-xl p-3 border border-slate-100 mb-3">
+                    <div class="border-r border-slate-200/80 pr-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#ff7261] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelA) }} (A)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            ${{ number_format($A['grossProfit'], 0) }}
+                        </div>
+                        <span class="text-[10px] text-slate-400 font-semibold">Margen: {{ number_format($A['grossMargin'], 1) }}%</span>
+                    </div>
+                    <div class="pl-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#a855f7] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelB) }} (B)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            ${{ number_format($B['grossProfit'], 0) }}
+                        </div>
+                        <span class="text-[10px] text-slate-400 font-semibold">Margen: {{ number_format($B['grossMargin'], 1) }}%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                    <span class="text-slate-500 font-medium">Variación Bruta:</span>
+                    <span class="font-black {{ $diffGross >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
                         {{ $diffGross >= 0 ? '+' : '' }}${{ number_format($diffGross, 0) }}
                     </span>
                 </div>
-            </div>
-            <div class="mt-3 pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex justify-between">
-                <span>Variación Margen:</span>
-                <span class="font-bold {{ $B['grossMargin'] >= $A['grossMargin'] ? 'text-emerald-600' : 'text-red-600' }}">
-                    {{ $B['grossMargin'] >= $A['grossMargin'] ? '+' : '' }}{{ number_format($B['grossMargin'] - $A['grossMargin'], 1) }} pts
-                </span>
+                <div class="mt-2">
+                    <div class="h-1.5 w-full bg-slate-100 rounded-full flex overflow-hidden">
+                        <div class="bg-[#ff7261] h-full" style="width: {{ abs($A['grossProfit']) + abs($B['grossProfit']) > 0 ? (abs($A['grossProfit']) / (abs($A['grossProfit']) + abs($B['grossProfit']))) * 100 : 50 }}%"></div>
+                        <div class="bg-[#a855f7] h-full" style="width: {{ abs($A['grossProfit']) + abs($B['grossProfit']) > 0 ? (abs($B['grossProfit']) / (abs($A['grossProfit']) + abs($B['grossProfit']))) * 100 : 50 }}%"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        {{-- Card 4: UTILIDAD NETA (Light System Theme) --}}
-        <div class="bg-white rounded-2xl p-5 shadow-sm border-2 {{ $B['netProfit'] >= $A['netProfit'] ? 'border-emerald-300' : 'border-[#a855f7]/40' }} hover:shadow-md transition-all relative overflow-hidden">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1">
-                    🏆 UTILIDAD NETA
-                </span>
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $diffNet >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700' }}">
-                    {{ $growthNet >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthNet, 1) }}%
-                </span>
-            </div>
-            <div class="flex items-baseline justify-between">
-                <div>
-                    <span class="text-xs font-semibold text-[#ff7261]">A: ${{ number_format($A['netProfit'], 0) }}</span>
-                    <div class="text-2xl font-black {{ $B['netProfit'] >= 0 ? 'text-emerald-600' : 'text-red-600' }}">${{ number_format($B['netProfit'], 0) }}</div>
-                    <span class="text-[11px] font-semibold text-[#a855f7]">B: Margen Neto {{ number_format($B['netMargin'], 1) }}%</span>
-                </div>
-                <div class="text-right">
-                    <span class="text-[10px] uppercase font-bold text-slate-400 block">Delta Neto</span>
-                    <span class="text-sm font-black {{ $diffNet >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
-                        {{ $diffNet >= 0 ? '+' : '' }}${{ number_format($diffNet, 0) }}
+        {{-- Card 4: UTILIDAD NETA --}}
+        <div class="bg-white rounded-2xl p-5 shadow-sm border-2 {{ $B['netProfit'] >= $A['netProfit'] ? 'border-emerald-300' : 'border-[#a855f7]/40' }} hover:shadow-md transition-all flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1">
+                        🏆 UTILIDAD NETA
+                    </span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $diffNet >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200' }}">
+                        {{ $growthNet >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthNet, 1) }}%
                     </span>
                 </div>
+
+                {{-- Side-by-side Period Boxes --}}
+                <div class="grid grid-cols-2 gap-2 bg-slate-50/80 rounded-xl p-3 border border-slate-100 mb-3">
+                    <div class="border-r border-slate-200/80 pr-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#ff7261] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelA) }} (A)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black {{ $A['netProfit'] >= 0 ? 'text-slate-800' : 'text-red-600' }}">
+                            ${{ number_format($A['netProfit'], 0) }}
+                        </div>
+                        <span class="text-[10px] text-slate-400 font-semibold">Neto: {{ number_format($A['netMargin'], 1) }}%</span>
+                    </div>
+                    <div class="pl-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#a855f7] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelB) }} (B)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black {{ $B['netProfit'] >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
+                            ${{ number_format($B['netProfit'], 0) }}
+                        </div>
+                        <span class="text-[10px] text-slate-400 font-semibold">Neto: {{ number_format($B['netMargin'], 1) }}%</span>
+                    </div>
+                </div>
             </div>
-            <div class="mt-3 pt-2 border-t border-slate-100 text-[11px] flex justify-between items-center">
-                <span class="text-slate-500 font-medium">Mes Ganador:</span>
-                <span class="font-bold px-2 py-0.5 rounded-md {{ $B['netProfit'] >= $A['netProfit'] ? 'bg-emerald-50 text-emerald-700' : 'bg-purple-50 text-purple-700' }}">
-                    {{ $B['netProfit'] >= $A['netProfit'] ? ucfirst($labelB) . ' 🏆' : ucfirst($labelA) . ' 🏆' }}
-                </span>
+
+            <div>
+                <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                    <span class="text-slate-500 font-medium">Ganador:</span>
+                    <span class="font-bold px-2 py-0.5 rounded-md {{ $B['netProfit'] >= $A['netProfit'] ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800' }}">
+                        {{ $B['netProfit'] >= $A['netProfit'] ? ucfirst($labelB) . ' 🏆' : ucfirst($labelA) . ' 🏆' }}
+                    </span>
+                </div>
+                <div class="mt-2">
+                    <div class="h-1.5 w-full bg-slate-100 rounded-full flex overflow-hidden">
+                        <div class="bg-[#ff7261] h-full" style="width: {{ abs($A['netProfit']) + abs($B['netProfit']) > 0 ? (abs($A['netProfit']) / (abs($A['netProfit']) + abs($B['netProfit']))) * 100 : 50 }}%"></div>
+                        <div class="bg-[#a855f7] h-full" style="width: {{ abs($A['netProfit']) + abs($B['netProfit']) > 0 ? (abs($B['netProfit']) / (abs($A['netProfit']) + abs($B['netProfit']))) * 100 : 50 }}%"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -316,22 +399,22 @@
         <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
             <span class="text-xs font-semibold text-slate-400 block">Total Egresos (Gastos + Nómina)</span>
             <p class="text-lg font-bold text-red-600 mt-1">${{ number_format($B['totalExpenses'] + $B['totalPayrollExpenses'], 0) }}</p>
-            <span class="text-xs text-slate-500">vs ${{ number_format($A['totalExpenses'] + $A['totalPayrollExpenses'], 0) }} (A)</span>
+            <span class="text-xs text-slate-500">vs ${{ number_format($A['totalExpenses'] + $A['totalPayrollExpenses'], 0) }} ({{ ucfirst($labelA) }})</span>
         </div>
         <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
             <span class="text-xs font-semibold text-slate-400 block">Transacciones / Ventas</span>
             <p class="text-lg font-bold text-blue-600 mt-1">{{ number_format($B['totalTransactions']) }}</p>
-            <span class="text-xs text-slate-500">vs {{ number_format($A['totalTransactions']) }} (A) [{{ $B['totalTransactions'] - $A['totalTransactions'] >= 0 ? '+' : '' }}{{ $B['totalTransactions'] - $A['totalTransactions'] }}]</span>
+            <span class="text-xs text-slate-500">vs {{ number_format($A['totalTransactions']) }} ({{ ucfirst($labelA) }}) [{{ $B['totalTransactions'] - $A['totalTransactions'] >= 0 ? '+' : '' }}{{ $B['totalTransactions'] - $A['totalTransactions'] }}]</span>
         </div>
         <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
             <span class="text-xs font-semibold text-slate-400 block">Ticket Promedio</span>
             <p class="text-lg font-bold text-purple-600 mt-1">${{ number_format($B['totalTransactions'] > 0 ? $B['totalRevenue'] / $B['totalTransactions'] : 0, 0) }}</p>
-            <span class="text-xs text-slate-500">vs ${{ number_format($A['totalTransactions'] > 0 ? $A['totalRevenue'] / $A['totalTransactions'] : 0, 0) }} (A)</span>
+            <span class="text-xs text-slate-500">vs ${{ number_format($A['totalTransactions'] > 0 ? $A['totalRevenue'] / $A['totalTransactions'] : 0, 0) }} ({{ ucfirst($labelA) }})</span>
         </div>
         <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
             <span class="text-xs font-semibold text-slate-400 block">Devoluciones & NC</span>
             <p class="text-lg font-bold text-orange-600 mt-1">${{ number_format($B['totalRefunds'], 0) }}</p>
-            <span class="text-xs text-slate-500">vs ${{ number_format($A['totalRefunds'], 0) }} (A)</span>
+            <span class="text-xs text-slate-500">vs ${{ number_format($A['totalRefunds'], 0) }} ({{ ucfirst($labelA) }})</span>
         </div>
     </div>
 
@@ -356,8 +439,65 @@
                 </span>
             </div>
         </div>
-        <div class="relative w-full" style="height: 320px;">
-            <canvas id="versusDailyCurveChart"></canvas>
+        <div class="relative w-full" style="height: 320px;"
+             x-data="{
+                 chart: null,
+                 initChart() {
+                     if (typeof Chart === 'undefined') return;
+                     if (this.chart) this.chart.destroy();
+                     const data = @js($versusDaily);
+                     if (!data || !data.length) return;
+                     this.chart = new Chart(this.$refs.canvas, {
+                         type: 'line',
+                         data: {
+                             labels: data.map(d => d.label),
+                             datasets: [
+                                 {
+                                     label: '{{ ucfirst($labelA) }} (A)',
+                                     data: data.map(d => d.revenueA),
+                                     borderColor: 'rgba(255, 114, 97, 1)',
+                                     backgroundColor: 'rgba(255, 114, 97, 0.1)',
+                                     fill: true,
+                                     tension: 0.35,
+                                     pointRadius: 3,
+                                     pointBackgroundColor: 'rgba(255, 114, 97, 1)',
+                                 },
+                                 {
+                                     label: '{{ ucfirst($labelB) }} (B)',
+                                     data: data.map(d => d.revenueB),
+                                     borderColor: 'rgba(168, 85, 247, 1)',
+                                     backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                                     fill: true,
+                                     tension: 0.35,
+                                     pointRadius: 4,
+                                     pointBackgroundColor: 'rgba(168, 85, 247, 1)',
+                                 }
+                             ]
+                         },
+                         options: {
+                             responsive: true,
+                             maintainAspectRatio: false,
+                             interaction: { mode: 'index', intersect: false },
+                             plugins: {
+                                 tooltip: {
+                                     callbacks: {
+                                         label: ctx => ctx.dataset.label + ': $' + Number(ctx.raw).toLocaleString('es-CO')
+                                     }
+                                 }
+                             },
+                             scales: {
+                                 y: {
+                                     beginAtZero: true,
+                                     ticks: { callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1) + 'M' : (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)) }
+                                 }
+                             }
+                         }
+                     });
+                 }
+             }"
+             x-init="$nextTick(() => initChart())"
+             wire:key="pyg-versus-daily-{{ $startDateA }}-{{ $startDateB }}">
+            <canvas x-ref="canvas"></canvas>
         </div>
     </div>
 
@@ -369,8 +509,52 @@
                 <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
                 Ventas por Categoría (Mes A vs Mes B)
             </h3>
-            <div class="relative w-full" style="height: 280px;">
-                <canvas id="versusCategoriesChart"></canvas>
+            <div class="relative w-full" style="height: 280px;"
+                 x-data="{
+                     chart: null,
+                     initChart() {
+                         if (typeof Chart === 'undefined') return;
+                         if (this.chart) this.chart.destroy();
+                         const rawData = @js(array_slice($versusCategories, 0, 7));
+                         if (!rawData || !rawData.length) return;
+                         this.chart = new Chart(this.$refs.canvas, {
+                             type: 'bar',
+                             data: {
+                                 labels: rawData.map(c => c.name),
+                                 datasets: [
+                                     {
+                                         label: '{{ ucfirst($labelA) }}',
+                                         data: rawData.map(c => c.revenueA),
+                                         backgroundColor: 'rgba(255, 114, 97, 0.85)',
+                                         borderRadius: 6,
+                                     },
+                                     {
+                                         label: '{{ ucfirst($labelB) }}',
+                                         data: rawData.map(c => c.revenueB),
+                                         backgroundColor: 'rgba(168, 85, 247, 0.85)',
+                                         borderRadius: 6,
+                                     }
+                                 ]
+                             },
+                             options: {
+                                 responsive: true,
+                                 maintainAspectRatio: false,
+                                 plugins: {
+                                     tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + Number(ctx.raw).toLocaleString('es-CO') } }
+                                 },
+                                 scales: {
+                                     y: {
+                                         beginAtZero: true,
+                                         ticks: { callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1) + 'M' : (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)) }
+                                     }
+                                 }
+                             }
+                         });
+                     }
+                 }"
+                 x-init="$nextTick(() => initChart())"
+                 wire:key="pyg-versus-cat-{{ $startDateA }}-{{ $startDateB }}">
+                <canvas x-ref="canvas"></canvas>
             </div>
         </div>
 
@@ -380,8 +564,52 @@
                 <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
                 Distribución por Métodos de Pago
             </h3>
-            <div class="relative w-full" style="height: 280px;">
-                <canvas id="versusPaymentMethodsChart"></canvas>
+            <div class="relative w-full" style="height: 280px;"
+                 x-data="{
+                     chart: null,
+                     initChart() {
+                         if (typeof Chart === 'undefined') return;
+                         if (this.chart) this.chart.destroy();
+                         const rawData = @js(array_slice($versusPaymentMethods, 0, 7));
+                         if (!rawData || !rawData.length) return;
+                         this.chart = new Chart(this.$refs.canvas, {
+                             type: 'bar',
+                             data: {
+                                 labels: rawData.map(p => p.name),
+                                 datasets: [
+                                     {
+                                         label: '{{ ucfirst($labelA) }}',
+                                         data: rawData.map(p => p.totalA),
+                                         backgroundColor: 'rgba(255, 114, 97, 0.8)',
+                                         borderRadius: 6,
+                                     },
+                                     {
+                                         label: '{{ ucfirst($labelB) }}',
+                                         data: rawData.map(p => p.totalB),
+                                         backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                                         borderRadius: 6,
+                                     }
+                                 ]
+                             },
+                             options: {
+                                 responsive: true,
+                                 maintainAspectRatio: false,
+                                 plugins: {
+                                     tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + Number(ctx.raw).toLocaleString('es-CO') } }
+                                 },
+                                 scales: {
+                                     y: {
+                                         beginAtZero: true,
+                                         ticks: { callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1) + 'M' : (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)) }
+                                     }
+                                 }
+                             }
+                         });
+                     }
+                 }"
+                 x-init="$nextTick(() => initChart())"
+                 wire:key="pyg-versus-pm-{{ $startDateA }}-{{ $startDateB }}">
+                <canvas x-ref="canvas"></canvas>
             </div>
         </div>
     </div>
@@ -505,8 +733,8 @@
                     <thead class="bg-slate-50 text-slate-500 font-semibold">
                         <tr>
                             <th class="px-4 py-2 text-left">Producto</th>
-                            <th class="px-3 py-2 text-right">Util. A</th>
-                            <th class="px-3 py-2 text-right">Util. B</th>
+                            <th class="px-3 py-2 text-right">Util. {{ ucfirst($labelA) }}</th>
+                            <th class="px-3 py-2 text-right">Util. {{ ucfirst($labelB) }}</th>
                             <th class="px-3 py-2 text-right">Ganancia (+)</th>
                             <th class="px-3 py-2 text-right">%</th>
                         </tr>
@@ -544,8 +772,8 @@
                     <thead class="bg-slate-50 text-slate-500 font-semibold">
                         <tr>
                             <th class="px-4 py-2 text-left">Producto</th>
-                            <th class="px-3 py-2 text-right">Util. A</th>
-                            <th class="px-3 py-2 text-right">Util. B</th>
+                            <th class="px-3 py-2 text-right">Util. {{ ucfirst($labelA) }}</th>
+                            <th class="px-3 py-2 text-right">Util. {{ ucfirst($labelB) }}</th>
                             <th class="px-3 py-2 text-right">Caída (-)</th>
                             <th class="px-3 py-2 text-right">%</th>
                         </tr>
@@ -801,210 +1029,4 @@
         </div>
     </div>
     @endif
-
-    {{-- CHART ENGINE (ROBUST SCRIPT) --}}
-    <script>
-        function loadScriptIfNotPresent(src, callback) {
-            if (typeof Chart !== 'undefined') {
-                callback();
-                return;
-            }
-            let existingScript = document.querySelector(`script[src="${src}"]`);
-            if (existingScript) {
-                existingScript.addEventListener('load', callback);
-            } else {
-                let script = document.createElement('script');
-                script.src = src;
-                script.onload = callback;
-                document.head.appendChild(script);
-            }
-        }
-
-        window.mikposPygCharts = window.mikposPygCharts || {};
-
-        function renderPygVersusCharts(data) {
-            loadScriptIfNotPresent('https://cdn.jsdelivr.net/npm/chart.js', function() {
-                // 1. Daily Superimposed Curve
-                const dailyCanvas = document.getElementById('versusDailyCurveChart');
-                if (dailyCanvas && data && data.daily) {
-                    if (window.mikposPygCharts.daily) {
-                        try { window.mikposPygCharts.daily.destroy(); } catch(e) {}
-                    }
-                    const labels = data.daily.map(d => d.label);
-                    const revA = data.daily.map(d => d.revenueA);
-                    const revB = data.daily.map(d => d.revenueB);
-
-                    window.mikposPygCharts.daily = new Chart(dailyCanvas, {
-                        type: 'line',
-                        data: {
-                            labels: labels,
-                            datasets: [
-                                {
-                                    label: (data.labelA || 'Período A'),
-                                    data: revA,
-                                    borderColor: 'rgba(255, 114, 97, 1)',
-                                    backgroundColor: 'rgba(255, 114, 97, 0.1)',
-                                    fill: true,
-                                    tension: 0.35,
-                                    pointRadius: 3,
-                                    pointBackgroundColor: 'rgba(255, 114, 97, 1)',
-                                },
-                                {
-                                    label: (data.labelB || 'Período B'),
-                                    data: revB,
-                                    borderColor: 'rgba(168, 85, 247, 1)',
-                                    backgroundColor: 'rgba(168, 85, 247, 0.1)',
-                                    fill: true,
-                                    tension: 0.35,
-                                    pointRadius: 4,
-                                    pointBackgroundColor: 'rgba(168, 85, 247, 1)',
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            interaction: { mode: 'index', intersect: false },
-                            plugins: {
-                                tooltip: {
-                                    callbacks: {
-                                        label: ctx => ctx.dataset.label + ': $' + Number(ctx.raw).toLocaleString('es-CO')
-                                    }
-                                }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: { callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1) + 'M' : (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)) }
-                                }
-                            }
-                        }
-                    });
-                }
-
-                // 2. Categories Chart
-                const catCanvas = document.getElementById('versusCategoriesChart');
-                if (catCanvas && data && data.categories) {
-                    if (window.mikposPygCharts.cat) {
-                        try { window.mikposPygCharts.cat.destroy(); } catch(e) {}
-                    }
-                    const catLabels = data.categories.map(c => c.name);
-                    const catRevA = data.categories.map(c => c.revenueA);
-                    const catRevB = data.categories.map(c => c.revenueB);
-
-                    window.mikposPygCharts.cat = new Chart(catCanvas, {
-                        type: 'bar',
-                        data: {
-                            labels: catLabels,
-                            datasets: [
-                                {
-                                    label: (data.labelA || 'A'),
-                                    data: catRevA,
-                                    backgroundColor: 'rgba(255, 114, 97, 0.85)',
-                                    borderRadius: 6,
-                                },
-                                {
-                                    label: (data.labelB || 'B'),
-                                    data: catRevB,
-                                    backgroundColor: 'rgba(168, 85, 247, 0.85)',
-                                    borderRadius: 6,
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + Number(ctx.raw).toLocaleString('es-CO') } }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: { callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1) + 'M' : (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)) }
-                                }
-                            }
-                        }
-                    });
-                }
-
-                // 3. Payment Methods Chart
-                const pmCanvas = document.getElementById('versusPaymentMethodsChart');
-                if (pmCanvas && data && data.paymentMethods) {
-                    if (window.mikposPygCharts.pm) {
-                        try { window.mikposPygCharts.pm.destroy(); } catch(e) {}
-                    }
-                    const pmLabels = data.paymentMethods.map(p => p.name);
-                    const pmTotA = data.paymentMethods.map(p => p.totalA);
-                    const pmTotB = data.paymentMethods.map(p => p.totalB);
-
-                    window.mikposPygCharts.pm = new Chart(pmCanvas, {
-                        type: 'bar',
-                        data: {
-                            labels: pmLabels,
-                            datasets: [
-                                {
-                                    label: (data.labelA || 'A'),
-                                    data: pmTotA,
-                                    backgroundColor: 'rgba(255, 114, 97, 0.8)',
-                                    borderRadius: 6,
-                                },
-                                {
-                                    label: (data.labelB || 'B'),
-                                    data: pmTotB,
-                                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                                    borderRadius: 6,
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + Number(ctx.raw).toLocaleString('es-CO') } }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: { callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1) + 'M' : (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)) }
-                                }
-                            }
-                        }
-                    });
-                }
-            });
-        }
-
-        // Livewire event listener
-        window.addEventListener('pyg-versus-charts-ready', function(e) {
-            const data = Array.isArray(e.detail) ? e.detail[0] : e.detail;
-            setTimeout(() => renderPygVersusCharts(data), 50);
-        });
-
-        // Initialize on DOM load if data is pre-rendered
-        document.addEventListener('DOMContentLoaded', function() {
-            @if($viewMode === 'versus' && !empty($versusDaily))
-            const initialData = {
-                daily: @json($versusDaily),
-                categories: @json(array_slice($versusCategories, 0, 7)),
-                paymentMethods: @json($versusPaymentMethods),
-                labelA: @json(ucfirst($labelA)),
-                labelB: @json(ucfirst($labelB))
-            };
-            setTimeout(() => renderPygVersusCharts(initialData), 100);
-            @endif
-        });
-
-        document.addEventListener('livewire:navigated', function() {
-            @if($viewMode === 'versus' && !empty($versusDaily))
-            const initialData = {
-                daily: @json($versusDaily),
-                categories: @json(array_slice($versusCategories, 0, 7)),
-                paymentMethods: @json($versusPaymentMethods),
-                labelA: @json(ucfirst($labelA)),
-                labelB: @json(ucfirst($labelB))
-            };
-            setTimeout(() => renderPygVersusCharts(initialData), 100);
-            @endif
-        });
-    </script>
 </div>

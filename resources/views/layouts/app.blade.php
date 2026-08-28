@@ -17,10 +17,9 @@
             : asset('favicon.ico');
     @endphp
     <link rel="icon" href="{{ $faviconUrl }}">
-    <link rel="apple-touch-icon" href="{{ $touchIconUrl }}">
-    <link rel="manifest" href="{{ route('manifest', ['context' => 'app', 'v' => $faviconVersion]) }}">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>

@@ -169,7 +169,7 @@
             {{-- Period Selectors --}}
             <div class="flex flex-wrap items-center gap-3">
                 {{-- Period A --}}
-                <div class="bg-orange-50/70 rounded-xl p-2.5 border border-[#ff7261]/30 flex items-center gap-2">
+                <div class="bg-orange-50/80 rounded-xl p-2.5 border border-[#ff7261]/40 flex items-center gap-2">
                     <span class="w-3 h-3 rounded-full bg-[#ff7261] flex-shrink-0"></span>
                     <div>
                         <div class="text-[10px] uppercase font-bold text-[#ff7261]">Período A (Base)</div>
@@ -184,7 +184,7 @@
                 <div class="text-center font-black text-slate-400 text-xs px-1">VS</div>
 
                 {{-- Period B --}}
-                <div class="bg-purple-50/70 rounded-xl p-2.5 border border-[#a855f7]/30 flex items-center gap-2">
+                <div class="bg-purple-50/80 rounded-xl p-2.5 border border-[#a855f7]/40 flex items-center gap-2">
                     <span class="w-3 h-3 rounded-full bg-[#a855f7] flex-shrink-0"></span>
                     <div>
                         <div class="text-[10px] uppercase font-bold text-[#a855f7]">Período B (Comparado)</div>
@@ -233,122 +233,201 @@
         $growthProfit = $A['totalProfit'] != 0 ? ($diffProfit / abs($A['totalProfit'])) * 100 : ($B['totalProfit'] > 0 ? 100 : 0);
     @endphp
 
-    {{-- BATTLE CARDS (Light System Theme) --}}
+    {{-- BATTLE CARDS (Crystal Clear Comparison Layout) --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {{-- Card 1: Total Ventas --}}
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-all relative overflow-hidden">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Ventas</span>
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $growthSales >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700' }}">
-                    {{ $growthSales >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthSales, 1) }}%
-                </span>
-            </div>
-            <div class="flex items-baseline justify-between">
-                <div>
-                    <span class="text-xs font-semibold text-[#ff7261]">A: ${{ number_format($A['totalSales'], 0) }}</span>
-                    <div class="text-2xl font-black text-slate-800">${{ number_format($B['totalSales'], 0) }}</div>
-                    <span class="text-[11px] font-semibold text-[#a855f7]">B: {{ ucfirst($labelB) }}</span>
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-all flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Ventas</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $growthSales >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200' }}">
+                        {{ $growthSales >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthSales, 1) }}%
+                    </span>
                 </div>
-                <div class="text-right">
-                    <span class="text-[11px] font-medium text-slate-400 block">Diferencia</span>
-                    <span class="text-sm font-black {{ $diffSales >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
+
+                {{-- Side-by-side Period Boxes --}}
+                <div class="grid grid-cols-2 gap-2 bg-slate-50/80 rounded-xl p-3 border border-slate-100 mb-3">
+                    <div class="border-r border-slate-200/80 pr-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#ff7261] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelA) }} (A)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            ${{ number_format($A['totalSales'], 0) }}
+                        </div>
+                    </div>
+                    <div class="pl-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#a855f7] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelB) }} (B)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            ${{ number_format($B['totalSales'], 0) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                    <span class="text-slate-500 font-medium">Diferencia (B vs A):</span>
+                    <span class="font-black {{ $diffSales >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
                         {{ $diffSales >= 0 ? '+' : '' }}${{ number_format($diffSales, 0) }}
                     </span>
                 </div>
-            </div>
-            {{-- Victory Mini Bar --}}
-            <div class="mt-3 pt-2 border-t border-slate-100">
-                <div class="flex justify-between text-[10px] text-slate-400 font-semibold mb-1">
-                    <span>A: {{ number_format($A['totalSales'] + $B['totalSales'] > 0 ? ($A['totalSales'] / ($A['totalSales'] + $B['totalSales'])) * 100 : 50, 0) }}%</span>
-                    <span>B: {{ number_format($A['totalSales'] + $B['totalSales'] > 0 ? ($B['totalSales'] / ($A['totalSales'] + $B['totalSales'])) * 100 : 50, 0) }}%</span>
-                </div>
-                <div class="h-1.5 w-full bg-slate-100 rounded-full flex overflow-hidden">
-                    <div class="bg-[#ff7261] h-full" style="width: {{ $A['totalSales'] + $B['totalSales'] > 0 ? ($A['totalSales'] / ($A['totalSales'] + $B['totalSales'])) * 100 : 50 }}%"></div>
-                    <div class="bg-[#a855f7] h-full" style="width: {{ $A['totalSales'] + $B['totalSales'] > 0 ? ($B['totalSales'] / ($A['totalSales'] + $B['totalSales'])) * 100 : 50 }}%"></div>
+                <div class="mt-2">
+                    <div class="h-1.5 w-full bg-slate-100 rounded-full flex overflow-hidden">
+                        <div class="bg-[#ff7261] h-full" style="width: {{ $A['totalSales'] + $B['totalSales'] > 0 ? ($A['totalSales'] / ($A['totalSales'] + $B['totalSales'])) * 100 : 50 }}%"></div>
+                        <div class="bg-[#a855f7] h-full" style="width: {{ $A['totalSales'] + $B['totalSales'] > 0 ? ($B['totalSales'] / ($A['totalSales'] + $B['totalSales'])) * 100 : 50 }}%"></div>
+                    </div>
                 </div>
             </div>
         </div>
 
         {{-- Card 2: Transacciones --}}
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-all relative overflow-hidden">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Transacciones</span>
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $growthTrans >= 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700' }}">
-                    {{ $growthTrans >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthTrans, 1) }}%
-                </span>
-            </div>
-            <div class="flex items-baseline justify-between">
-                <div>
-                    <span class="text-xs font-semibold text-[#ff7261]">A: {{ number_format($A['totalTransactions']) }}</span>
-                    <div class="text-2xl font-black text-slate-800">{{ number_format($B['totalTransactions']) }}</div>
-                    <span class="text-[11px] font-semibold text-[#a855f7]">B: {{ ucfirst($labelB) }}</span>
-                </div>
-                <div class="text-right">
-                    <span class="text-[11px] font-medium text-slate-400 block">Diferencia</span>
-                    <span class="text-sm font-black {{ $diffTrans >= 0 ? 'text-blue-600' : 'text-red-600' }}">
-                        {{ $diffTrans >= 0 ? '+' : '' }}{{ number_format($diffTrans) }}
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-all flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Transacciones</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $growthTrans >= 0 ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-red-50 text-red-700 border border-red-200' }}">
+                        {{ $growthTrans >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthTrans, 1) }}%
                     </span>
                 </div>
+
+                {{-- Side-by-side Period Boxes --}}
+                <div class="grid grid-cols-2 gap-2 bg-slate-50/80 rounded-xl p-3 border border-slate-100 mb-3">
+                    <div class="border-r border-slate-200/80 pr-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#ff7261] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelA) }} (A)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            {{ number_format($A['totalTransactions']) }}
+                        </div>
+                    </div>
+                    <div class="pl-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#a855f7] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelB) }} (B)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            {{ number_format($B['totalTransactions']) }}
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="mt-3 pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex justify-between">
-                <span>Promedio diario:</span>
-                <span class="font-bold">{{ number_format($B['totalTransactions'] / 30, 1) }} v/día (B) vs {{ number_format($A['totalTransactions'] / 30, 1) }} (A)</span>
+
+            <div>
+                <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                    <span class="text-slate-500 font-medium">Diferencia:</span>
+                    <span class="font-black {{ $diffTrans >= 0 ? 'text-blue-600' : 'text-red-600' }}">
+                        {{ $diffTrans >= 0 ? '+' : '' }}{{ number_format($diffTrans) }} v.
+                    </span>
+                </div>
+                <div class="mt-2 text-[10px] text-slate-400 flex justify-between">
+                    <span>Promedio/día:</span>
+                    <span class="font-bold">{{ number_format($B['totalTransactions'] / 30, 1) }} (B) vs {{ number_format($A['totalTransactions'] / 30, 1) }} (A)</span>
+                </div>
             </div>
         </div>
 
         {{-- Card 3: Ticket Promedio --}}
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-all relative overflow-hidden">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Ticket Promedio</span>
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $growthTicket >= 0 ? 'bg-purple-100 text-purple-700' : 'bg-red-100 text-red-700' }}">
-                    {{ $growthTicket >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthTicket, 1) }}%
-                </span>
-            </div>
-            <div class="flex items-baseline justify-between">
-                <div>
-                    <span class="text-xs font-semibold text-[#ff7261]">A: ${{ number_format($A['averageTicket'], 0) }}</span>
-                    <div class="text-2xl font-black text-slate-800">${{ number_format($B['averageTicket'], 0) }}</div>
-                    <span class="text-[11px] font-semibold text-[#a855f7]">B: {{ ucfirst($labelB) }}</span>
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-all flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Ticket Promedio</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $growthTicket >= 0 ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-red-50 text-red-700 border border-red-200' }}">
+                        {{ $growthTicket >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthTicket, 1) }}%
+                    </span>
                 </div>
-                <div class="text-right">
-                    <span class="text-[11px] font-medium text-slate-400 block">Diferencia</span>
-                    <span class="text-sm font-black {{ $diffTicket >= 0 ? 'text-purple-600' : 'text-red-600' }}">
+
+                {{-- Side-by-side Period Boxes --}}
+                <div class="grid grid-cols-2 gap-2 bg-slate-50/80 rounded-xl p-3 border border-slate-100 mb-3">
+                    <div class="border-r border-slate-200/80 pr-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#ff7261] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelA) }} (A)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            ${{ number_format($A['averageTicket'], 0) }}
+                        </div>
+                    </div>
+                    <div class="pl-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#a855f7] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelB) }} (B)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            ${{ number_format($B['averageTicket'], 0) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                    <span class="text-slate-500 font-medium">Diferencia Ticket:</span>
+                    <span class="font-black {{ $diffTicket >= 0 ? 'text-purple-600' : 'text-red-600' }}">
                         {{ $diffTicket >= 0 ? '+' : '' }}${{ number_format($diffTicket, 0) }}
                     </span>
                 </div>
-            </div>
-            <div class="mt-3 pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex justify-between">
-                <span>Ticket medio:</span>
-                <span class="font-bold">{{ $diffTicket >= 0 ? 'Mayor compra en B' : 'Mayor compra en A' }}</span>
+                <div class="mt-2 text-[10px] text-slate-400 flex justify-between">
+                    <span>Tendencia:</span>
+                    <span class="font-bold {{ $diffTicket >= 0 ? 'text-purple-600' : 'text-slate-600' }}">{{ $diffTicket >= 0 ? 'Mayor valor por compra en B' : 'Mayor valor por compra en A' }}</span>
+                </div>
             </div>
         </div>
 
-        {{-- Card 4: Ganancia Estimada (Light System Theme) --}}
-        <div class="bg-white rounded-2xl p-5 shadow-sm border-2 {{ $B['totalProfit'] >= $A['totalProfit'] ? 'border-emerald-300' : 'border-[#a855f7]/40' }} hover:shadow-md transition-all relative overflow-hidden">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-black uppercase tracking-wider text-slate-700">
-                    Ganancia de Ventas
-                </span>
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black {{ $growthProfit >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700' }}">
-                    {{ $growthProfit >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthProfit, 1) }}%
-                </span>
-            </div>
-            <div class="flex items-baseline justify-between">
-                <div>
-                    <span class="text-xs font-semibold text-[#ff7261]">A: ${{ number_format($A['totalProfit'], 0) }}</span>
-                    <div class="text-2xl font-black text-emerald-600">${{ number_format($B['totalProfit'], 0) }}</div>
-                    <span class="text-[11px] font-semibold text-[#a855f7]">B: {{ ucfirst($labelB) }}</span>
+        {{-- Card 4: Ganancia Estimada --}}
+        <div class="bg-white rounded-2xl p-5 shadow-sm border-2 {{ $B['totalProfit'] >= $A['totalProfit'] ? 'border-emerald-300' : 'border-[#a855f7]/40' }} hover:shadow-md transition-all flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-black uppercase tracking-wider text-slate-700">
+                        Ganancia de Ventas
+                    </span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black {{ $growthProfit >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200' }}">
+                        {{ $growthProfit >= 0 ? '▲ +' : '▼ ' }}{{ number_format($growthProfit, 1) }}%
+                    </span>
                 </div>
-                <div class="text-right">
-                    <span class="text-[10px] uppercase font-bold text-slate-400 block">Diferencia</span>
-                    <span class="text-sm font-black {{ $diffProfit >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
+
+                {{-- Side-by-side Period Boxes --}}
+                <div class="grid grid-cols-2 gap-2 bg-slate-50/80 rounded-xl p-3 border border-slate-100 mb-3">
+                    <div class="border-r border-slate-200/80 pr-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#ff7261] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelA) }} (A)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-slate-800">
+                            ${{ number_format($A['totalProfit'], 0) }}
+                        </div>
+                        <span class="text-[10px] text-slate-400 font-semibold">{{ number_format($A['totalSales'] > 0 ? ($A['totalProfit'] / $A['totalSales']) * 100 : 0, 1) }}% margen</span>
+                    </div>
+                    <div class="pl-2">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#a855f7] flex-shrink-0"></span>
+                            <span class="text-[11px] font-bold text-slate-600 truncate">{{ ucfirst($labelB) }} (B)</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black text-emerald-600">
+                            ${{ number_format($B['totalProfit'], 0) }}
+                        </div>
+                        <span class="text-[10px] text-slate-400 font-semibold">{{ number_format($B['totalSales'] > 0 ? ($B['totalProfit'] / $B['totalSales']) * 100 : 0, 1) }}% margen</span>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                    <span class="text-slate-500 font-medium">Diferencia Ganancia:</span>
+                    <span class="font-black {{ $diffProfit >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
                         {{ $diffProfit >= 0 ? '+' : '' }}${{ number_format($diffProfit, 0) }}
                     </span>
                 </div>
-            </div>
-            <div class="mt-3 pt-2 border-t border-slate-100 text-[11px] flex justify-between items-center">
-                <span class="text-slate-500">Margen s/ Venta:</span>
-                <span class="font-bold text-emerald-700">{{ number_format($B['totalSales'] > 0 ? ($B['totalProfit'] / $B['totalSales']) * 100 : 0, 1) }}% (B) vs {{ number_format($A['totalSales'] > 0 ? ($A['totalProfit'] / $A['totalSales']) * 100 : 0, 1) }}% (A)</span>
+                <div class="mt-2">
+                    <div class="h-1.5 w-full bg-slate-100 rounded-full flex overflow-hidden">
+                        <div class="bg-[#ff7261] h-full" style="width: {{ abs($A['totalProfit']) + abs($B['totalProfit']) > 0 ? (abs($A['totalProfit']) / (abs($A['totalProfit']) + abs($B['totalProfit']))) * 100 : 50 }}%"></div>
+                        <div class="bg-[#a855f7] h-full" style="width: {{ abs($A['totalProfit']) + abs($B['totalProfit']) > 0 ? (abs($B['totalProfit']) / (abs($A['totalProfit']) + abs($B['totalProfit']))) * 100 : 50 }}%"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -374,8 +453,63 @@
                 </span>
             </div>
         </div>
-        <div class="relative w-full" style="height: 320px;">
-            <canvas id="versusSalesDailyChart"></canvas>
+        <div class="relative w-full" style="height: 320px;"
+             x-data="{
+                 chart: null,
+                 initChart() {
+                     if (typeof Chart === 'undefined') return;
+                     if (this.chart) this.chart.destroy();
+                     const data = @js($versusDaily);
+                     if (!data || !data.length) return;
+                     this.chart = new Chart(this.$refs.canvas, {
+                         type: 'line',
+                         data: {
+                             labels: data.map(d => d.label),
+                             datasets: [
+                                 {
+                                     label: '{{ ucfirst($labelA) }} (A)',
+                                     data: data.map(d => d.totalA),
+                                     borderColor: 'rgba(255, 114, 97, 1)',
+                                     backgroundColor: 'rgba(255, 114, 97, 0.1)',
+                                     fill: true,
+                                     tension: 0.35,
+                                     pointRadius: 3,
+                                     pointBackgroundColor: 'rgba(255, 114, 97, 1)',
+                                 },
+                                 {
+                                     label: '{{ ucfirst($labelB) }} (B)',
+                                     data: data.map(d => d.totalB),
+                                     borderColor: 'rgba(168, 85, 247, 1)',
+                                     backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                                     fill: true,
+                                     tension: 0.35,
+                                     pointRadius: 4,
+                                     pointBackgroundColor: 'rgba(168, 85, 247, 1)',
+                                 }
+                             ]
+                         },
+                         options: {
+                             responsive: true,
+                             maintainAspectRatio: false,
+                             interaction: { mode: 'index', intersect: false },
+                             plugins: {
+                                 tooltip: {
+                                     callbacks: { label: ctx => ctx.dataset.label + ': $' + Number(ctx.raw).toLocaleString('es-CO') }
+                                 }
+                             },
+                             scales: {
+                                 y: {
+                                     beginAtZero: true,
+                                     ticks: { callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1) + 'M' : (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)) }
+                                 }
+                             }
+                         }
+                     });
+                 }
+             }"
+             x-init="$nextTick(() => initChart())"
+             wire:key="sales-versus-daily-{{ $startDateA }}-{{ $startDateB }}">
+            <canvas x-ref="canvas"></canvas>
         </div>
     </div>
 
@@ -387,8 +521,52 @@
                 <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 Ventas por Franja Horaria (Horas Pico)
             </h3>
-            <div class="relative w-full" style="height: 280px;">
-                <canvas id="versusSalesHourlyChart"></canvas>
+            <div class="relative w-full" style="height: 280px;"
+                 x-data="{
+                     chart: null,
+                     initChart() {
+                         if (typeof Chart === 'undefined') return;
+                         if (this.chart) this.chart.destroy();
+                         const data = @js($versusHourly);
+                         if (!data || !data.length) return;
+                         this.chart = new Chart(this.$refs.canvas, {
+                             type: 'bar',
+                             data: {
+                                 labels: data.map(h => h.hour),
+                                 datasets: [
+                                     {
+                                         label: '{{ ucfirst($labelA) }}',
+                                         data: data.map(h => h.totalA),
+                                         backgroundColor: 'rgba(255, 114, 97, 0.85)',
+                                         borderRadius: 4,
+                                     },
+                                     {
+                                         label: '{{ ucfirst($labelB) }}',
+                                         data: data.map(h => h.totalB),
+                                         backgroundColor: 'rgba(99, 102, 241, 0.85)',
+                                         borderRadius: 4,
+                                     }
+                                 ]
+                             },
+                             options: {
+                                 responsive: true,
+                                 maintainAspectRatio: false,
+                                 plugins: {
+                                     tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + Number(ctx.raw).toLocaleString('es-CO') } }
+                                 },
+                                 scales: {
+                                     y: {
+                                         beginAtZero: true,
+                                         ticks: { callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1) + 'M' : (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)) }
+                                     }
+                                 }
+                             }
+                         });
+                     }
+                 }"
+                 x-init="$nextTick(() => initChart())"
+                 wire:key="sales-versus-hourly-{{ $startDateA }}-{{ $startDateB }}">
+                <canvas x-ref="canvas"></canvas>
             </div>
         </div>
 
@@ -398,8 +576,52 @@
                 <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                 Ventas por Vendedor (Mes A vs Mes B)
             </h3>
-            <div class="relative w-full" style="height: 280px;">
-                <canvas id="versusSalesSellersChart"></canvas>
+            <div class="relative w-full" style="height: 280px;"
+                 x-data="{
+                     chart: null,
+                     initChart() {
+                         if (typeof Chart === 'undefined') return;
+                         if (this.chart) this.chart.destroy();
+                         const rawData = @js(array_slice($versusSellers, 0, 7));
+                         if (!rawData || !rawData.length) return;
+                         this.chart = new Chart(this.$refs.canvas, {
+                             type: 'bar',
+                             data: {
+                                 labels: rawData.map(s => s.name),
+                                 datasets: [
+                                     {
+                                         label: '{{ ucfirst($labelA) }}',
+                                         data: rawData.map(s => s.totalA),
+                                         backgroundColor: 'rgba(255, 114, 97, 0.85)',
+                                         borderRadius: 6,
+                                     },
+                                     {
+                                         label: '{{ ucfirst($labelB) }}',
+                                         data: rawData.map(s => s.totalB),
+                                         backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                                         borderRadius: 6,
+                                     }
+                                 ]
+                             },
+                             options: {
+                                 responsive: true,
+                                 maintainAspectRatio: false,
+                                 plugins: {
+                                     tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + Number(ctx.raw).toLocaleString('es-CO') } }
+                                 },
+                                 scales: {
+                                     y: {
+                                         beginAtZero: true,
+                                         ticks: { callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1) + 'M' : (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)) }
+                                     }
+                                 }
+                             }
+                         });
+                     }
+                 }"
+                 x-init="$nextTick(() => initChart())"
+                 wire:key="sales-versus-sellers-{{ $startDateA }}-{{ $startDateB }}">
+                <canvas x-ref="canvas"></canvas>
             </div>
         </div>
     </div>
@@ -486,203 +708,12 @@
             </div>
         </div>
     </div>
+    @endif
 
-    {{-- SCRIPT FOR SALES VERSUS CHARTS (ROBUST) --}}
-    <script>
-        function loadScriptIfNotPresent(src, callback) {
-            if (typeof Chart !== 'undefined') {
-                callback();
-                return;
-            }
-            let existingScript = document.querySelector(`script[src="${src}"]`);
-            if (existingScript) {
-                existingScript.addEventListener('load', callback);
-            } else {
-                let script = document.createElement('script');
-                script.src = src;
-                script.onload = callback;
-                document.head.appendChild(script);
-            }
-        }
-
-        window.mikposSalesCharts = window.mikposSalesCharts || {};
-
-        function renderSalesVersusCharts(data) {
-            loadScriptIfNotPresent('https://cdn.jsdelivr.net/npm/chart.js', function() {
-                // 1. Daily Sales Chart
-                const dailyCtx = document.getElementById('versusSalesDailyChart');
-                if (dailyCtx && data && data.daily) {
-                    if (window.mikposSalesCharts.daily) {
-                        try { window.mikposSalesCharts.daily.destroy(); } catch(e) {}
-                    }
-                    window.mikposSalesCharts.daily = new Chart(dailyCtx, {
-                        type: 'line',
-                        data: {
-                            labels: data.daily.map(d => d.label),
-                            datasets: [
-                                {
-                                    label: (data.labelA || 'Período A') + ' (A)',
-                                    data: data.daily.map(d => d.totalA),
-                                    borderColor: 'rgba(255, 114, 97, 1)',
-                                    backgroundColor: 'rgba(255, 114, 97, 0.1)',
-                                    fill: true,
-                                    tension: 0.35,
-                                    pointRadius: 3,
-                                    pointBackgroundColor: 'rgba(255, 114, 97, 1)',
-                                },
-                                {
-                                    label: (data.labelB || 'Período B') + ' (B)',
-                                    data: data.daily.map(d => d.totalB),
-                                    borderColor: 'rgba(168, 85, 247, 1)',
-                                    backgroundColor: 'rgba(168, 85, 247, 0.1)',
-                                    fill: true,
-                                    tension: 0.35,
-                                    pointRadius: 4,
-                                    pointBackgroundColor: 'rgba(168, 85, 247, 1)',
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            interaction: { mode: 'index', intersect: false },
-                            plugins: {
-                                tooltip: {
-                                    callbacks: { label: ctx => ctx.dataset.label + ': $' + Number(ctx.raw).toLocaleString('es-CO') }
-                                }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: { callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1) + 'M' : (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)) }
-                                }
-                            }
-                        }
-                    });
-                }
-
-                // 2. Hourly Sales Chart
-                const hourlyCtx = document.getElementById('versusSalesHourlyChart');
-                if (hourlyCtx && data && data.hourly) {
-                    if (window.mikposSalesCharts.hourly) {
-                        try { window.mikposSalesCharts.hourly.destroy(); } catch(e) {}
-                    }
-                    window.mikposSalesCharts.hourly = new Chart(hourlyCtx, {
-                        type: 'bar',
-                        data: {
-                            labels: data.hourly.map(h => h.hour),
-                            datasets: [
-                                {
-                                    label: (data.labelA || 'A'),
-                                    data: data.hourly.map(h => h.totalA),
-                                    backgroundColor: 'rgba(255, 114, 97, 0.85)',
-                                    borderRadius: 4,
-                                },
-                                {
-                                    label: (data.labelB || 'B'),
-                                    data: data.hourly.map(h => h.totalB),
-                                    backgroundColor: 'rgba(99, 102, 241, 0.85)',
-                                    borderRadius: 4,
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + Number(ctx.raw).toLocaleString('es-CO') } }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: { callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1) + 'M' : (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)) }
-                                }
-                            }
-                        }
-                    });
-                }
-
-                // 3. Sellers Chart
-                const sellerCtx = document.getElementById('versusSalesSellersChart');
-                if (sellerCtx && data && data.sellers) {
-                    if (window.mikposSalesCharts.sellers) {
-                        try { window.mikposSalesCharts.sellers.destroy(); } catch(e) {}
-                    }
-                    window.mikposSalesCharts.sellers = new Chart(sellerCtx, {
-                        type: 'bar',
-                        data: {
-                            labels: data.sellers.map(s => s.name),
-                            datasets: [
-                                {
-                                    label: (data.labelA || 'A'),
-                                    data: data.sellers.map(s => s.totalA),
-                                    backgroundColor: 'rgba(255, 114, 97, 0.85)',
-                                    borderRadius: 6,
-                                },
-                                {
-                                    label: (data.labelB || 'B'),
-                                    data: data.sellers.map(s => s.totalB),
-                                    backgroundColor: 'rgba(16, 185, 129, 0.85)',
-                                    borderRadius: 6,
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + Number(ctx.raw).toLocaleString('es-CO') } }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: { callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1) + 'M' : (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v)) }
-                                }
-                            }
-                        }
-                    });
-                }
-            });
-        }
-
-        // Livewire event listener
-        window.addEventListener('sales-versus-charts-ready', function(e) {
-            const data = Array.isArray(e.detail) ? e.detail[0] : e.detail;
-            setTimeout(() => renderSalesVersusCharts(data), 50);
-        });
-
-        // Initialize on DOM load if data is pre-rendered
-        document.addEventListener('DOMContentLoaded', function() {
-            @if($viewMode === 'versus' && !empty($versusDaily))
-            const initialData = {
-                daily: @json($versusDaily),
-                hourly: @json($versusHourly),
-                sellers: @json(array_slice($versusSellers, 0, 7)),
-                labelA: @json(ucfirst($labelA)),
-                labelB: @json(ucfirst($labelB))
-            };
-            setTimeout(() => renderSalesVersusCharts(initialData), 100);
-            @endif
-        });
-
-        document.addEventListener('livewire:navigated', function() {
-            @if($viewMode === 'versus' && !empty($versusDaily))
-            const initialData = {
-                daily: @json($versusDaily),
-                hourly: @json($versusHourly),
-                sellers: @json(array_slice($versusSellers, 0, 7)),
-                labelA: @json(ucfirst($labelA)),
-                labelB: @json(ucfirst($labelB))
-            };
-            setTimeout(() => renderSalesVersusCharts(initialData), 100);
-            @endif
-        });
-    </script>
-
-    @else
     {{-- ========================================================================= --}}
     {{-- STANDARD VIEW CONTENT --}}
     {{-- ========================================================================= --}}
+    @if($viewMode === 'standard')
     {{-- Summary Cards --}}
     <div class="grid grid-cols-2 lg:grid-cols-7 gap-4">
         {{-- Total Sales --}}
