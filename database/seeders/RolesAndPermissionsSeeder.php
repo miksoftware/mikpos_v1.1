@@ -294,37 +294,34 @@ class RolesAndPermissionsSeeder extends Seeder
             $permissions = $moduleData['permissions'];
             unset($moduleData['permissions']);
 
-            $module = Module::create($moduleData);
+            $module = Module::firstOrCreate(['name' => $moduleData['name']], $moduleData);
 
             foreach ($permissions as $permissionData) {
-                $module->permissions()->create($permissionData);
+                $permissionData['module_id'] = $module->id;
+                Permission::firstOrCreate(['name' => $permissionData['name']], $permissionData);
             }
         }
 
         // Create system roles
-        $superAdmin = Role::create([
-            'name' => 'super_admin',
+        $superAdmin = Role::firstOrCreate(['name' => 'super_admin'], [
             'display_name' => 'Administrador General',
             'description' => 'Acceso total al sistema en todas las sucursales',
             'is_system' => true,
         ]);
 
-        $branchAdmin = Role::create([
-            'name' => 'branch_admin',
+        $branchAdmin = Role::firstOrCreate(['name' => 'branch_admin'], [
             'display_name' => 'Administrador de Sucursal',
             'description' => 'Administración completa de una sucursal específica',
             'is_system' => true,
         ]);
 
-        $supervisor = Role::create([
-            'name' => 'supervisor',
+        $supervisor = Role::firstOrCreate(['name' => 'supervisor'], [
             'display_name' => 'Supervisor',
             'description' => 'Supervisión de operaciones y reportes',
             'is_system' => true,
         ]);
 
-        $cashier = Role::create([
-            'name' => 'cashier',
+        $cashier = Role::firstOrCreate(['name' => 'cashier'], [
             'display_name' => 'Cajero',
             'description' => 'Operaciones básicas de punto de venta',
             'is_system' => true,
@@ -332,14 +329,14 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // Assign all permissions to super_admin
         $allPermissions = Permission::pluck('id');
-        $superAdmin->permissions()->attach($allPermissions);
+        $superAdmin->permissions()->syncWithoutDetaching($allPermissions);
 
         // Assign permissions to branch_admin (all except roles management and activity logs export)
         $branchAdminPermissions = Permission::whereNotIn('name', [
             'roles.create', 'roles.edit', 'roles.delete',
             'activity_logs.export'
         ])->pluck('id');
-        $branchAdmin->permissions()->attach($branchAdminPermissions);
+        $branchAdmin->permissions()->syncWithoutDetaching($branchAdminPermissions);
 
         // Assign permissions to supervisor
         $supervisorPermissions = Permission::whereIn('name', [
@@ -349,13 +346,13 @@ class RolesAndPermissionsSeeder extends Seeder
             'pos.access', 'pos.sell', 'pos.discount', 'pos.cancel', 'pos.reprint',
             'reports.sales', 'reports.inventory',
         ])->pluck('id');
-        $supervisor->permissions()->attach($supervisorPermissions);
+        $supervisor->permissions()->syncWithoutDetaching($supervisorPermissions);
 
         // Assign permissions to cashier
         $cashierPermissions = Permission::whereIn('name', [
             'dashboard.view',
             'pos.access', 'pos.sell',
         ])->pluck('id');
-        $cashier->permissions()->attach($cashierPermissions);
+        $cashier->permissions()->syncWithoutDetaching($cashierPermissions);
     }
 }

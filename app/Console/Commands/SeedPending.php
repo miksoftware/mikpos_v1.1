@@ -9,70 +9,18 @@ use Illuminate\Support\Facades\Schema;
 class SeedPending extends Command
 {
     protected $signature = 'db:seed-pending {--force : Force the operation to run in production}';
-    protected $description = 'Run pending seeders that have not been executed yet';
+    protected $description = 'Run pending seeders that have not been executed yet using automatic discovery';
 
     /**
-     * List of seeders to track (in order of execution).
-     * Add new seeders here when created.
+     * Priority seeders that must run first if pending.
      */
-    protected array $trackedSeeders = [
+    protected array $prioritySeeders = [
         'RolesAndPermissionsSeeder',
         'DepartmentSeeder',
         'MunicipalitySeeder',
         'TaxDocumentsSeeder',
         'PaymentMethodsSeeder',
         'SystemDocumentsSeeder',
-        'ProductCatalogPermissionsSeeder',
-        'CustomerModuleSeeder',
-        'SupplierModuleSeeder',
-        'ProductsModuleSeeder',
-        'CombosModuleSeeder',
-        'PurchasesModuleSeeder',
-        'CashRegistersModuleSeeder',
-        'CashReconciliationsModuleSeeder',
-        'InventoryAdjustmentsModuleSeeder',
-        'InventoryTransfersModuleSeeder',
-        'BillingSettingsModuleSeeder',
-        'SalesModuleSeeder',
-        'ServicesModuleSeeder',
-        'ReportsModuleSeeder',
-        'CommissionsReportPermissionSeeder',
-        'KardexReportPermissionSeeder',
-        'SalesBookReportPermissionSeeder',
-        'WeightUnitsSeeder',
-        'ProfitLossReportPermissionSeeder',
-        'CreditsModuleSeeder',
-        'CreditsReportPermissionSeeder',
-        'CashReconciliationEditPermissionSeeder',
-        'RefundSystemDocumentSeeder',
-        'PurchasesReportPermissionSeeder',
-        'CashReportPermissionSeeder',
-        'MigrationModuleSeeder',
-        'PrintFormatsModuleSeeder',
-        'ExpensesModuleSeeder',
-        'PayrollModuleSeeder',
-        'DiscountsModuleSeeder',
-        'PaymentMethodsReportPermissionSeeder',
-        'PosCashDenominationsRoleSeeder',
-        'EcommerceModuleSeeder',
-        'EcommerceSystemDocumentSeeder',
-        'EcommerceOrdersModuleSeeder',
-        'CustomerSalesReportPermissionSeeder',
-        'SalesViewOwnPermissionSeeder',
-        'QuotesModuleSeeder',
-        'RefundsReportPermissionSeeder',
-        'PromotionsModuleSeeder',
-        'QuoteReservationSystemDocumentSeeder',
-        'LocationsModuleSeeder',
-        'CashMovementsPermissionsSeeder',
-        'ProductImportFieldsPermissionSeeder',
-        'ElectronicPayrollModuleSeeder',
-        'ProductMergePermissionSeeder',
-        'PosObservationsPermissionSeeder',
-        'ProductionModuleSeeder',
-        'EvoWhatsappModuleSeeder',
-        'PosSellerPermissionSeeder',
-        // Add new seeders here
     ];
 
     public function handle(): int
@@ -89,50 +37,126 @@ class SeedPending extends Command
             return 1;
         }
 
+        // 1. Auto-discover all seeders in database/seeders/
+        $allSeeders = $this->discoverSeeders();
+
         $executedSeeders = DB::table('seeder_history')->pluck('seeder')->toArray();
-        $pendingSeeders = array_diff($this->trackedSeeders, $executedSeeders);
+        $pendingSeeders = array_values(array_diff($allSeeders, $executedSeeders));
 
         if (empty($pendingSeeders)) {
             $this->info('No pending seeders to run.');
-            return 0;
+        } else {
+            $batch = (DB::table('seeder_history')->max('batch') ?? 0) + 1;
+
+            $this->info('Found ' . count($pendingSeeders) . ' pending seeder(s) via automatic discovery:');
+            $this->newLine();
+
+            foreach ($pendingSeeders as $seederName) {
+                $seederClass = "Database\\Seeders\\{$seederName}";
+
+                if (!class_exists($seederClass)) {
+                    $this->warn("⚠ Seeder class not found: {$seederName}");
+                    continue;
+                }
+
+                $this->info("▶ Running: {$seederName}");
+
+                try {
+                    $seeder = new $seederClass();
+                    $seeder->run();
+
+                    DB::table('seeder_history')->insert([
+                        'seeder' => $seederName,
+                        'batch' => $batch,
+                        'executed_at' => now(),
+                    ]);
+
+                    $this->info("  ✓ Completed: {$seederName}");
+                } catch (\Exception $e) {
+                    $this->error("  ✗ Failed: {$seederName}");
+                    $this->error("    Error: " . $e->getMessage());
+                    return 1;
+                }
+            }
+
+            $this->newLine();
+            $this->info('✅ All pending seeders executed successfully!');
         }
 
-        $batch = (DB::table('seeder_history')->max('batch') ?? 0) + 1;
+        // 2. Automatically sync all permission & module seeders (idempotent loop)
+        $this->syncPermissionsAndModules();
 
-        $this->info('Running ' . count($pendingSeeders) . ' pending seeder(s)...');
-        $this->newLine();
+        return 0;
+    }
 
-        foreach ($pendingSeeders as $seederName) {
-            $seederClass = "Database\\Seeders\\{$seederName}";
+    /**
+     * Automatically discover all Seeder classes in database/seeders directory.
+     */
+    private function discoverSeeders(): array
+    {
+        $files = glob(database_path('seeders/*Seeder.php'));
+        $discovered = [];
 
-            if (!class_exists($seederClass)) {
-                $this->warn("⚠ Seeder class not found: {$seederName}");
+        foreach ($files as $file) {
+            $name = basename($file, '.php');
+            if ($name === 'DatabaseSeeder') {
+                continue;
+            }
+            $discovered[] = $name;
+        }
+
+        // Order priority seeders first, followed by the rest alphabetically
+        $ordered = [];
+        foreach ($this->prioritySeeders as $p) {
+            if (in_array($p, $discovered)) {
+                $ordered[] = $p;
+            }
+        }
+
+        $remaining = array_diff($discovered, $ordered);
+        sort($remaining);
+
+        return array_merge($ordered, $remaining);
+    }
+
+    /**
+     * Run all Module and Permission seeders to ensure no permissions are missing.
+     * All of these use firstOrCreate and syncWithoutDetaching, making them 100% safe.
+     */
+    private function syncPermissionsAndModules(): void
+    {
+        $this->info('🔄 Verificando y sincronizando permisos y módulos en la base de datos...');
+
+        $files = glob(database_path('seeders/*Seeder.php'));
+        $count = 0;
+
+        foreach ($files as $file) {
+            $name = basename($file, '.php');
+            if ($name === 'DatabaseSeeder') {
                 continue;
             }
 
-            $this->info("▶ Running: {$seederName}");
-
-            try {
-                $seeder = new $seederClass();
-                $seeder->run();
-
-                DB::table('seeder_history')->insert([
-                    'seeder' => $seederName,
-                    'batch' => $batch,
-                    'executed_at' => now(),
-                ]);
-
-                $this->info("  ✓ Completed: {$seederName}");
-            } catch (\Exception $e) {
-                $this->error("  ✗ Failed: {$seederName}");
-                $this->error("    Error: " . $e->getMessage());
-                return 1;
+            // Target seeders related to permissions, modules, or documents
+            if (
+                str_ends_with($name, 'PermissionSeeder') ||
+                str_ends_with($name, 'PermissionsSeeder') ||
+                str_ends_with($name, 'ModuleSeeder') ||
+                str_ends_with($name, 'RoleSeeder') ||
+                $name === 'RolesAndPermissionsSeeder'
+            ) {
+                $class = "Database\\Seeders\\{$name}";
+                if (class_exists($class)) {
+                    try {
+                        $seeder = new $class();
+                        $seeder->run();
+                        $count++;
+                    } catch (\Throwable $e) {
+                        $this->warn("  ⚠ Advertencia en {$name}: " . $e->getMessage());
+                    }
+                }
             }
         }
 
-        $this->newLine();
-        $this->info('✅ All pending seeders executed successfully!');
-
-        return 0;
+        $this->info("✓ {$count} archivos de módulos y permisos verificados e integrados correctamente.");
     }
 }
