@@ -22,21 +22,35 @@ use Livewire\Component;
 #[Layout('layouts.app')]
 class ProfitLoss extends Component
 {
-    // Filters
+    // Mode
+    public string $viewMode = 'standard'; // 'standard' | 'versus'
+
+    // Standard Filters
     public string $dateRange = 'month';
     public ?string $startDate = null;
     public ?string $endDate = null;
     public ?int $selectedBranchId = null;
 
-    // Summary
+    // Versus Filters
+    public string $versusPreset = 'mom'; // 'mom' (Mes anterior), 'yoy' (Año anterior), 'custom'
+    public string $monthA = '';
+    public string $monthB = '';
+    public ?string $startDateA = null;
+    public ?string $endDateA = null;
+    public ?string $startDateB = null;
+    public ?string $endDateB = null;
+    public string $labelA = '';
+    public string $labelB = '';
+
+    // Standard Summary
     public float $totalRevenue = 0;
     public float $totalCost = 0;
     public float $grossProfit = 0;
     public float $grossMargin = 0;
-    public float $totalExpenses = 0;            // operating expenses (cash + module), WITHOUT payroll
+    public float $totalExpenses = 0;
     public float $totalCashExpenses = 0;
     public float $totalModuleExpenses = 0;
-    public float $totalPayrollExpenses = 0;     // shown separately on P&L
+    public float $totalPayrollExpenses = 0;
     public float $totalCashIncome = 0;
     public float $netProfit = 0;
     public float $netMargin = 0;
@@ -44,18 +58,12 @@ class ProfitLoss extends Component
     public float $totalTax = 0;
     public float $totalDiscount = 0;
     public float $totalPurchases = 0;
-
-    // Gross revenue before subtracting returns (used for P&L display consistency)
     public float $rawRevenue = 0;
-
-    // Returns (refunds + credit notes) — partial returns specifically were
-    // missing from previous reports. Total refunds change sale.status, but
-    // partial ones don't, so we must read the refunds/credit_notes tables directly.
-    public float $totalRefunds = 0;        // money returned (refund total + credit_note total)
-    public float $totalRefundsCost = 0;    // cost of products returned (to reduce COGS)
+    public float $totalRefunds = 0;
+    public float $totalRefundsCost = 0;
     public int $totalRefundsCount = 0;
 
-    // Chart data
+    // Standard Chart data
     public array $profitByDay = [];
     public array $revenueByCategory = [];
     public array $profitByCategory = [];
@@ -65,14 +73,106 @@ class ProfitLoss extends Component
     public array $topLossProducts = [];
     public array $revenueByPaymentMethod = [];
 
+    // Versus Comparison Data
+    public array $versusSummary = [];
+    public array $versusDaily = [];
+    public array $versusCategories = [];
+    public array $versusPaymentMethods = [];
+    public array $versusExpenses = [];
+    public array $versusTopGrowthProducts = [];
+    public array $versusTopDropProducts = [];
+
     public function mount()
     {
         $this->startDate = now()->startOfMonth()->format('Y-m-d');
         $this->endDate = now()->format('Y-m-d');
 
+        // Initialize Versus periods
+        $this->initVersusPeriods();
+
         $user = auth()->user();
         if (!$user->isSuperAdmin() && $user->branch_id) {
             $this->selectedBranchId = $user->branch_id;
+        }
+    }
+
+    public function setViewMode(string $mode)
+    {
+        $this->viewMode = $mode;
+        if ($mode === 'versus' && empty($this->startDateA)) {
+            $this->initVersusPeriods();
+        }
+    }
+
+    public function initVersusPeriods()
+    {
+        $this->monthA = now()->format('Y-m');
+        $this->monthB = now()->subMonth()->format('Y-m');
+        $this->applyVersusPreset();
+    }
+
+    public function updatedVersusPreset($value)
+    {
+        $this->applyVersusPreset();
+    }
+
+    public function updatedMonthA($value)
+    {
+        if ($this->versusPreset === 'custom' && $value) {
+            $date = Carbon::createFromFormat('Y-m', $value);
+            $this->startDateA = $date->copy()->startOfMonth()->format('Y-m-d');
+            $this->endDateA = ($value === now()->format('Y-m')) ? now()->format('Y-m-d') : $date->copy()->endOfMonth()->format('Y-m-d');
+            $this->labelA = $date->translatedFormat('F Y');
+        }
+    }
+
+    public function updatedMonthB($value)
+    {
+        if ($this->versusPreset === 'custom' && $value) {
+            $date = Carbon::createFromFormat('Y-m', $value);
+            $this->startDateB = $date->copy()->startOfMonth()->format('Y-m-d');
+            $this->endDateB = ($value === now()->format('Y-m')) ? now()->format('Y-m-d') : $date->copy()->endOfMonth()->format('Y-m-d');
+            $this->labelB = $date->translatedFormat('F Y');
+        }
+    }
+
+    public function applyVersusPreset()
+    {
+        switch ($this->versusPreset) {
+            case 'mom':
+                $this->monthA = now()->format('Y-m');
+                $this->monthB = now()->subMonth()->format('Y-m');
+                $this->startDateA = now()->startOfMonth()->format('Y-m-d');
+                $this->endDateA = now()->format('Y-m-d');
+                $this->startDateB = now()->subMonth()->startOfMonth()->format('Y-m-d');
+                $this->endDateB = now()->subMonth()->endOfMonth()->format('Y-m-d');
+                $this->labelA = Carbon::parse($this->startDateA)->translatedFormat('F Y');
+                $this->labelB = Carbon::parse($this->startDateB)->translatedFormat('F Y');
+                break;
+
+            case 'yoy':
+                $this->monthA = now()->format('Y-m');
+                $this->monthB = now()->subYear()->format('Y-m');
+                $this->startDateA = now()->startOfMonth()->format('Y-m-d');
+                $this->endDateA = now()->format('Y-m-d');
+                $this->startDateB = now()->subYear()->startOfMonth()->format('Y-m-d');
+                $this->endDateB = now()->subYear()->endOfMonth()->format('Y-m-d');
+                $this->labelA = Carbon::parse($this->startDateA)->translatedFormat('F Y');
+                $this->labelB = Carbon::parse($this->startDateB)->translatedFormat('F Y');
+                break;
+
+            case 'custom':
+                if (empty($this->monthA)) $this->monthA = now()->format('Y-m');
+                if (empty($this->monthB)) $this->monthB = now()->subMonth()->format('Y-m');
+                $dateA = Carbon::createFromFormat('Y-m', $this->monthA);
+                $dateB = Carbon::createFromFormat('Y-m', $this->monthB);
+                $this->startDateA = $dateA->copy()->startOfMonth()->format('Y-m-d');
+                $this->endDateA = ($this->monthA === now()->format('Y-m')) ? now()->format('Y-m-d') : $dateA->copy()->endOfMonth()->format('Y-m-d');
+                $this->startDateB = $dateB->copy()->startOfMonth()->format('Y-m-d');
+                $this->endDateB = ($this->monthB === now()->format('Y-m')) ? now()->format('Y-m-d') : $dateB->copy()->endOfMonth()->format('Y-m-d');
+                $this->labelA = $dateA->translatedFormat('F Y');
+                $this->labelB = $dateB->translatedFormat('F Y');
+                break;
         }
     }
 
@@ -122,10 +222,6 @@ class ProfitLoss extends Component
         return $query;
     }
 
-    /**
-     * For supervisors, restrict a sales-based query to their assigned cash registers.
-     * Call after applyBranchFilter() for queries that join the sales table.
-     */
     private function applySupervisorSalesFilter($query, string $reconciliationColumn = 'sales.cash_reconciliation_id')
     {
         $user = auth()->user();
@@ -141,12 +237,14 @@ class ProfitLoss extends Component
         return $query;
     }
 
-    private function calculateSummary()
+    /**
+     * Compute full metrics for an arbitrary period.
+     */
+    private function computePeriodMetrics(string $start, string $end): array
     {
-        // Revenue from completed sales
         $salesQuery = Sale::where('sales.status', 'completed')
-            ->whereDate('sales.created_at', '>=', $this->startDate)
-            ->whereDate('sales.created_at', '<=', $this->endDate);
+            ->whereDate('sales.created_at', '>=', $start)
+            ->whereDate('sales.created_at', '<=', $end);
         $this->applyBranchFilter($salesQuery);
         $this->applySupervisorSalesFilter($salesQuery);
 
@@ -158,46 +256,36 @@ class ProfitLoss extends Component
             COALESCE(SUM(sales.total), 0) as revenue
         ')->first();
 
-        $this->totalTransactions = $salesSummary->transactions ?? 0;
-        $this->totalRevenue = (float) ($salesSummary->revenue ?? 0);
-        $this->totalTax = (float) ($salesSummary->tax ?? 0);
-        $this->totalDiscount = (float) ($salesSummary->discount ?? 0);
+        $transactions = (int) ($salesSummary->transactions ?? 0);
+        $revenue = (float) ($salesSummary->revenue ?? 0);
+        $tax = (float) ($salesSummary->tax ?? 0);
+        $discount = (float) ($salesSummary->discount ?? 0);
 
-        // Cost of goods sold from sale items
-        $this->totalCost = 0;
-        $sales = (clone $salesQuery)->with('items.product')->get();
-        foreach ($sales as $sale) {
+        // COGS and daily maps
+        $cost = 0;
+        $dailySales = [];
+        $dailyCost = [];
+        $salesWithItems = (clone $salesQuery)->with('items.product')->get();
+        foreach ($salesWithItems as $sale) {
+            $dayNum = (int) $sale->created_at->format('j');
+            $saleCost = 0;
             foreach ($sale->items as $item) {
                 if ($item->product) {
-                    $this->totalCost += $item->unit_cost * (float) $item->quantity;
+                    $itemCost = $item->unit_cost * (float) $item->quantity;
+                    $cost += $itemCost;
+                    $saleCost += $itemCost;
                 }
             }
+            $dailySales[$dayNum] = ($dailySales[$dayNum] ?? 0) + (float) $sale->total;
+            $dailyCost[$dayNum] = ($dailyCost[$dayNum] ?? 0) + $saleCost;
         }
 
-        // ====================================================================
-        // RETURNS (Refunds + Credit Notes)
-        // Refunds (POS) and credit notes (electronic invoices) — both reduce
-        // the actual revenue and the cost of goods sold for the period. Total
-        // refunds also flip sale.status to 'refunded'/'cancelled', so to avoid
-        // double-counting we only consider sales that are still 'completed'
-        // for refund/credit_note totals tied to those sales (i.e. partial
-        // returns where the sale is still active).
-        //
-        // We measure them by THEIR OWN created_at, so a return processed in
-        // the current period is reflected in the current period's P&L,
-        // regardless of when the original sale was made.
-        // ====================================================================
-
-        // Refunds (status=completed)
+        // Refunds & Credit Notes
         $refundsQuery = Refund::query()
             ->where('refunds.status', 'completed')
-            ->whereDate('refunds.created_at', '>=', $this->startDate)
-            ->whereDate('refunds.created_at', '<=', $this->endDate)
-            // Only include refunds whose parent sale is still 'completed' to avoid
-            // double-counting. When a sale is fully refunded its status becomes
-            // 'refunded' and it's already excluded from $totalRevenue above.
+            ->whereDate('refunds.created_at', '>=', $start)
+            ->whereDate('refunds.created_at', '<=', $end)
             ->whereHas('sale', fn($q) => $q->where('sales.status', 'completed'));
-
         if ($this->selectedBranchId) {
             $refundsQuery->where('refunds.branch_id', $this->selectedBranchId);
         } elseif (!auth()->user()->isSuperAdmin()) {
@@ -212,16 +300,10 @@ class ProfitLoss extends Component
                 $refundsQuery->whereHas('sale', fn($q) => $q->whereIn('cash_reconciliation_id', $reconciliationIds));
             }
         }
+        $refundsAgg = (clone $refundsQuery)->selectRaw('COUNT(*) as count, COALESCE(SUM(refunds.total), 0) as total')->first();
+        $refundAmount = (float) ($refundsAgg->total ?? 0);
+        $refundCount = (int) ($refundsAgg->count ?? 0);
 
-        $refundsAggregate = (clone $refundsQuery)->selectRaw('
-            COUNT(*) as count,
-            COALESCE(SUM(refunds.total), 0) as total
-        ')->first();
-
-        $totalRefundAmount = (float) ($refundsAggregate->total ?? 0);
-        $totalRefundCount = (int) ($refundsAggregate->count ?? 0);
-
-        // Refund cost (cost of products returned via POS refunds)
         $refundCost = 0;
         $refundIds = (clone $refundsQuery)->pluck('refunds.id');
         if ($refundIds->isNotEmpty()) {
@@ -230,13 +312,11 @@ class ProfitLoss extends Component
                 ->sum(DB::raw('refund_items.quantity * sale_items.unit_cost'));
         }
 
-        // Credit notes (status pending/validated) tied to sales still in 'completed'
         $creditNotesQuery = CreditNote::query()
             ->whereIn('credit_notes.status', ['pending', 'validated'])
-            ->whereDate('credit_notes.created_at', '>=', $this->startDate)
-            ->whereDate('credit_notes.created_at', '<=', $this->endDate)
+            ->whereDate('credit_notes.created_at', '>=', $start)
+            ->whereDate('credit_notes.created_at', '<=', $end)
             ->whereHas('sale', fn($q) => $q->where('sales.status', 'completed'));
-
         if ($this->selectedBranchId) {
             $creditNotesQuery->where('credit_notes.branch_id', $this->selectedBranchId);
         } elseif (!auth()->user()->isSuperAdmin()) {
@@ -251,121 +331,217 @@ class ProfitLoss extends Component
                 $creditNotesQuery->whereHas('sale', fn($q) => $q->whereIn('cash_reconciliation_id', $reconciliationIds));
             }
         }
+        $cnAgg = (clone $creditNotesQuery)->selectRaw('COUNT(*) as count, COALESCE(SUM(credit_notes.total), 0) as total')->first();
+        $cnAmount = (float) ($cnAgg->total ?? 0);
+        $cnCount = (int) ($cnAgg->count ?? 0);
 
-        $creditNotesAggregate = (clone $creditNotesQuery)->selectRaw('
-            COUNT(*) as count,
-            COALESCE(SUM(credit_notes.total), 0) as total
-        ')->first();
-
-        $totalCreditNoteAmount = (float) ($creditNotesAggregate->total ?? 0);
-        $totalCreditNoteCount = (int) ($creditNotesAggregate->count ?? 0);
-
-        $creditNoteCost = 0;
-        $creditNoteIds = (clone $creditNotesQuery)->pluck('credit_notes.id');
-        if ($creditNoteIds->isNotEmpty()) {
-            $creditNoteCost = (float) CreditNoteItem::join('sale_items', 'credit_note_items.sale_item_id', '=', 'sale_items.id')
-                ->whereIn('credit_note_items.credit_note_id', $creditNoteIds)
+        $cnCost = 0;
+        $cnIds = (clone $creditNotesQuery)->pluck('credit_notes.id');
+        if ($cnIds->isNotEmpty()) {
+            $cnCost = (float) CreditNoteItem::join('sale_items', 'credit_note_items.sale_item_id', '=', 'sale_items.id')
+                ->whereIn('credit_note_items.credit_note_id', $cnIds)
                 ->sum(DB::raw('credit_note_items.quantity * sale_items.unit_cost'));
         }
 
-        $this->totalRefunds = round($totalRefundAmount + $totalCreditNoteAmount, 2);
-        $this->totalRefundsCost = round($refundCost + $creditNoteCost, 2);
-        $this->totalRefundsCount = $totalRefundCount + $totalCreditNoteCount;
+        $totalRefunds = round($refundAmount + $cnAmount, 2);
+        $totalRefundsCost = round($refundCost + $cnCost, 2);
+        $totalRefundsCount = $refundCount + $cnCount;
 
-        // Save gross revenue BEFORE subtracting returns (used for P&L display)
-        $this->rawRevenue = $this->totalRevenue;
+        $rawRevenue = $revenue;
+        $realRevenue = max(0, $revenue - $totalRefunds);
+        $realCost = max(0, $cost - $totalRefundsCost);
 
-        // Adjust revenue and cost for returns
-        $this->totalRevenue = max(0, $this->totalRevenue - $this->totalRefunds);
-        $this->totalCost = max(0, $this->totalCost - $this->totalRefundsCost);
-
-        // Purchases total
-        $purchasesQuery = Purchase::whereDate('purchases.created_at', '>=', $this->startDate)
-            ->whereDate('purchases.created_at', '<=', $this->endDate);
+        // Purchases
+        $purchasesQuery = Purchase::whereDate('purchases.created_at', '>=', $start)
+            ->whereDate('purchases.created_at', '<=', $end);
         $this->applyBranchFilter($purchasesQuery, 'purchases');
-        $this->totalPurchases = (float) $purchasesQuery->sum('total');
+        $totalPurchases = (float) $purchasesQuery->sum('total');
 
-        // Cash incomes (ingresos from cash movements)
+        // Cash Incomes
         $cashIncomeQuery = CashMovement::where('cash_movements.type', 'income')
-            ->whereDate('cash_movements.created_at', '>=', $this->startDate)
-            ->whereDate('cash_movements.created_at', '<=', $this->endDate);
+            ->whereDate('cash_movements.created_at', '>=', $start)
+            ->whereDate('cash_movements.created_at', '<=', $end);
         if ($this->selectedBranchId) {
             $cashIncomeQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', $this->selectedBranchId));
         } elseif (!auth()->user()->isSuperAdmin()) {
             $cashIncomeQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', auth()->user()->branch_id));
         }
-        if (auth()->user()->isSupervisor()) {
-            $supervisorRegisterIds = auth()->user()->getSupervisorCashRegisterIds();
-            if (empty($supervisorRegisterIds)) {
-                $cashIncomeQuery->whereRaw('0 = 1');
-            } else {
-                $cashIncomeQuery->whereHas('reconciliation', fn($q) => $q->whereIn('cash_register_id', $supervisorRegisterIds));
-            }
-        }
-        $this->totalCashIncome = (float) $cashIncomeQuery->sum('amount');
+        $totalCashIncome = (float) $cashIncomeQuery->sum('amount');
 
-        // Cash expenses (egresos from cash movements)
-        // IMPORTANT: We exclude cash movements created automatically by refunds
-        // and credit notes (concept starting with "Devolución " or "Nota Crédito ").
-        // Those amounts are already subtracted from revenue via $totalRefunds, so
-        // counting them again as operating expenses would double-count.
-        $expensesQuery = CashMovement::where('cash_movements.type', 'expense')
-            ->whereDate('cash_movements.created_at', '>=', $this->startDate)
-            ->whereDate('cash_movements.created_at', '<=', $this->endDate)
+        // Cash Expenses
+        $cashExpQuery = CashMovement::where('cash_movements.type', 'expense')
+            ->whereDate('cash_movements.created_at', '>=', $start)
+            ->whereDate('cash_movements.created_at', '<=', $end)
             ->where(function ($q) {
                 $q->where('cash_movements.concept', 'not like', 'Devolución %')
                   ->where('cash_movements.concept', 'not like', 'Nota Crédito %');
             });
         if ($this->selectedBranchId) {
-            $expensesQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', $this->selectedBranchId));
+            $cashExpQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', $this->selectedBranchId));
         } elseif (!auth()->user()->isSuperAdmin()) {
-            $expensesQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', auth()->user()->branch_id));
+            $cashExpQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', auth()->user()->branch_id));
         }
-        if (auth()->user()->isSupervisor()) {
-            $supervisorRegisterIds = auth()->user()->getSupervisorCashRegisterIds();
-            if (empty($supervisorRegisterIds)) {
-                $expensesQuery->whereRaw('0 = 1');
-            } else {
-                $expensesQuery->whereHas('reconciliation', fn($q) => $q->whereIn('cash_register_id', $supervisorRegisterIds));
-            }
-        }
-        $this->totalCashExpenses = (float) $expensesQuery->sum('amount');
+        $totalCashExpenses = (float) $cashExpQuery->sum('amount');
 
-        // Module expenses (from expenses table)
-        $moduleExpensesQuery = Expense::whereDate('expenses.expense_date', '>=', $this->startDate)
-            ->whereDate('expenses.expense_date', '<=', $this->endDate);
+        // Module Expenses
+        $moduleExpQuery = Expense::whereDate('expenses.expense_date', '>=', $start)
+            ->whereDate('expenses.expense_date', '<=', $end);
         if ($this->selectedBranchId) {
-            $moduleExpensesQuery->where('expenses.branch_id', $this->selectedBranchId);
+            $moduleExpQuery->where('expenses.branch_id', $this->selectedBranchId);
         } elseif (!auth()->user()->isSuperAdmin()) {
-            $moduleExpensesQuery->where('expenses.branch_id', auth()->user()->branch_id);
+            $moduleExpQuery->where('expenses.branch_id', auth()->user()->branch_id);
         }
-        $this->totalModuleExpenses = (float) $moduleExpensesQuery->sum('amount');
+        $totalModuleExpenses = (float) $moduleExpQuery->sum('amount');
 
-        // Payroll expenses (paid payrolls in period) - direct join for efficiency
+        // Payroll
         $payrollExpQuery = \App\Models\PayrollDetail::join('payrolls', 'payroll_details.payroll_id', '=', 'payrolls.id')
             ->where('payrolls.status', 'pagada')
-            ->whereDate('payrolls.payment_date', '>=', $this->startDate)
-            ->whereDate('payrolls.payment_date', '<=', $this->endDate);
+            ->whereDate('payrolls.payment_date', '>=', $start)
+            ->whereDate('payrolls.payment_date', '<=', $end);
         if ($this->selectedBranchId) {
             $payrollExpQuery->where('payrolls.branch_id', $this->selectedBranchId);
         } elseif (!auth()->user()->isSuperAdmin()) {
             $payrollExpQuery->where('payrolls.branch_id', auth()->user()->branch_id);
         }
-        $this->totalPayrollExpenses = (float) $payrollExpQuery->sum('payroll_details.net_pay');
+        $totalPayrollExpenses = (float) $payrollExpQuery->sum('payroll_details.net_pay');
 
-        // Total operating expenses = cash egresos + module expenses (WITHOUT payroll).
-        // Payroll is tracked separately ($totalPayrollExpenses) and subtracted on its own
-        // line in the P&L statement so the user can see it apart from operating expenses.
-        $this->totalExpenses = $this->totalCashExpenses + $this->totalModuleExpenses;
+        $totalExpenses = $totalCashExpenses + $totalModuleExpenses;
+        $grossProfit = $realRevenue + $totalCashIncome - $realCost;
+        $totalIncome = $realRevenue + $totalCashIncome;
+        $grossMargin = $totalIncome > 0 ? ($grossProfit / $totalIncome) * 100 : 0;
+        $netProfit = $grossProfit - $totalExpenses - $totalPayrollExpenses;
+        $netMargin = $totalIncome > 0 ? ($netProfit / $totalIncome) * 100 : 0;
 
-        // Gross profit = Revenue + Cash Income - Cost of goods sold
-        $this->grossProfit = $this->totalRevenue + $this->totalCashIncome - $this->totalCost;
-        $totalIncome = $this->totalRevenue + $this->totalCashIncome;
-        $this->grossMargin = $totalIncome > 0 ? ($this->grossProfit / $totalIncome) * 100 : 0;
+        // Categories
+        $catData = SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->leftJoin('products', 'sale_items.product_id', '=', 'products.id')
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->where('sales.status', 'completed')
+            ->whereDate('sales.created_at', '>=', $start)
+            ->whereDate('sales.created_at', '<=', $end);
+        $this->applyBranchFilter($catData);
+        $this->applySupervisorSalesFilter($catData);
 
-        // Net profit = Gross profit - Operating expenses - Payroll
-        $this->netProfit = $this->grossProfit - $this->totalExpenses - $this->totalPayrollExpenses;
-        $this->netMargin = $totalIncome > 0 ? ($this->netProfit / $totalIncome) * 100 : 0;
+        $categories = (clone $catData)
+            ->select(
+                DB::raw("COALESCE(categories.name, 'Sin categoría') as name"),
+                DB::raw('SUM(sale_items.subtotal) as revenue'),
+                DB::raw('SUM(sale_items.quantity * sale_items.unit_cost) as cost')
+            )
+            ->groupBy('categories.name')
+            ->orderByDesc('revenue')
+            ->get()
+            ->map(fn($c) => [
+                'name' => $c->name,
+                'revenue' => round((float) $c->revenue, 2),
+                'cost' => round((float) ($c->cost ?? 0), 2),
+                'profit' => round((float) $c->revenue - (float) ($c->cost ?? 0), 2),
+            ])
+            ->keyBy('name')
+            ->toArray();
+
+        // Payment Methods
+        $pmData = SalePayment::join('sales', 'sale_payments.sale_id', '=', 'sales.id')
+            ->join('payment_methods', 'sale_payments.payment_method_id', '=', 'payment_methods.id')
+            ->where('sales.status', 'completed')
+            ->whereDate('sales.created_at', '>=', $start)
+            ->whereDate('sales.created_at', '<=', $end);
+        $this->applyBranchFilter($pmData);
+        $this->applySupervisorSalesFilter($pmData);
+
+        $paymentMethods = (clone $pmData)
+            ->select('payment_methods.name', DB::raw('SUM(sale_payments.amount) as total'), DB::raw('COUNT(DISTINCT sales.id) as count'))
+            ->groupBy('payment_methods.id', 'payment_methods.name')
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn($p) => ['name' => $p->name, 'total' => round((float) $p->total, 2), 'count' => $p->count])
+            ->keyBy('name')
+            ->toArray();
+
+        // Products
+        $pData = SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->join('products', 'sale_items.product_id', '=', 'products.id')
+            ->where('sales.status', 'completed')
+            ->whereDate('sales.created_at', '>=', $start)
+            ->whereDate('sales.created_at', '<=', $end);
+        $this->applyBranchFilter($pData);
+        $this->applySupervisorSalesFilter($pData);
+
+        $products = (clone $pData)
+            ->select(
+                'products.id',
+                'products.name',
+                'products.sku',
+                DB::raw('SUM(sale_items.quantity) as qty'),
+                DB::raw('SUM(sale_items.subtotal) as revenue'),
+                DB::raw('SUM(sale_items.quantity * sale_items.unit_cost) as cost')
+            )
+            ->groupBy('products.id', 'products.name', 'products.sku')
+            ->get()
+            ->map(fn($p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'sku' => $p->sku,
+                'qty' => (float) $p->qty,
+                'revenue' => round((float) $p->revenue, 2),
+                'cost' => round((float) $p->cost, 2),
+                'profit' => round((float) $p->revenue - (float) $p->cost, 2),
+                'margin' => $p->revenue > 0 ? round(((($p->revenue - $p->cost) / $p->revenue) * 100), 1) : 0,
+            ])
+            ->keyBy('id')
+            ->toArray();
+
+        return [
+            'rawRevenue' => $rawRevenue,
+            'totalRevenue' => $realRevenue,
+            'totalCost' => $realCost,
+            'totalTax' => $tax,
+            'totalDiscount' => $discount,
+            'totalTransactions' => $transactions,
+            'totalRefunds' => $totalRefunds,
+            'totalRefundsCost' => $totalRefundsCost,
+            'totalRefundsCount' => $totalRefundsCount,
+            'totalCashIncome' => $totalCashIncome,
+            'totalCashExpenses' => $totalCashExpenses,
+            'totalModuleExpenses' => $totalModuleExpenses,
+            'totalPayrollExpenses' => $totalPayrollExpenses,
+            'totalExpenses' => $totalExpenses,
+            'grossProfit' => $grossProfit,
+            'grossMargin' => $grossMargin,
+            'netProfit' => $netProfit,
+            'netMargin' => $netMargin,
+            'totalPurchases' => $totalPurchases,
+            'dailySales' => $dailySales,
+            'dailyCost' => $dailyCost,
+            'categories' => $categories,
+            'paymentMethods' => $paymentMethods,
+            'products' => $products,
+        ];
+    }
+
+    private function calculateSummary()
+    {
+        $metrics = $this->computePeriodMetrics($this->startDate, $this->endDate);
+
+        $this->rawRevenue = $metrics['rawRevenue'];
+        $this->totalRevenue = $metrics['totalRevenue'];
+        $this->totalCost = $metrics['totalCost'];
+        $this->totalTax = $metrics['totalTax'];
+        $this->totalDiscount = $metrics['totalDiscount'];
+        $this->totalTransactions = $metrics['totalTransactions'];
+        $this->totalRefunds = $metrics['totalRefunds'];
+        $this->totalRefundsCost = $metrics['totalRefundsCost'];
+        $this->totalRefundsCount = $metrics['totalRefundsCount'];
+        $this->totalCashIncome = $metrics['totalCashIncome'];
+        $this->totalCashExpenses = $metrics['totalCashExpenses'];
+        $this->totalModuleExpenses = $metrics['totalModuleExpenses'];
+        $this->totalPayrollExpenses = $metrics['totalPayrollExpenses'];
+        $this->totalExpenses = $metrics['totalExpenses'];
+        $this->grossProfit = $metrics['grossProfit'];
+        $this->grossMargin = $metrics['grossMargin'];
+        $this->netProfit = $metrics['netProfit'];
+        $this->netMargin = $metrics['netMargin'];
+        $this->totalPurchases = $metrics['totalPurchases'];
     }
 
     private function loadChartData()
@@ -384,7 +560,6 @@ class ProfitLoss extends Component
             ->get()
             ->keyBy('sale_date');
 
-        // Calculate daily cost
         $dailyCost = [];
         $salesWithItems = (clone $salesByDay)->with('items.product')->get();
         foreach ($salesWithItems as $sale) {
@@ -397,175 +572,31 @@ class ProfitLoss extends Component
             }
         }
 
-        // Daily refunds (subtract from revenue and cost on the day they were processed)
-        $dailyRefundRevenue = [];
-        $dailyRefundCost = [];
-
-        $refundsForChart = Refund::query()
-            ->where('refunds.status', 'completed')
-            ->whereDate('refunds.created_at', '>=', $this->startDate)
-            ->whereDate('refunds.created_at', '<=', $this->endDate)
-            ->whereHas('sale', fn($q) => $q->where('sales.status', 'completed'));
-        if ($this->selectedBranchId) {
-            $refundsForChart->where('refunds.branch_id', $this->selectedBranchId);
-        } elseif (!auth()->user()->isSuperAdmin()) {
-            $refundsForChart->where('refunds.branch_id', auth()->user()->branch_id);
-        }
-        if (auth()->user()->isSupervisor()) {
-            $supervisorRegisterIds = auth()->user()->getSupervisorCashRegisterIds();
-            if (empty($supervisorRegisterIds)) {
-                $refundsForChart->whereRaw('0 = 1');
-            } else {
-                $reconciliationIds = \App\Models\CashReconciliation::whereIn('cash_register_id', $supervisorRegisterIds)->pluck('id');
-                $refundsForChart->whereHas('sale', fn($q) => $q->whereIn('cash_reconciliation_id', $reconciliationIds));
-            }
-        }
-        foreach ($refundsForChart->with('items.product')->get() as $refund) {
-            $date = $refund->created_at->format('Y-m-d');
-            $dailyRefundRevenue[$date] = ($dailyRefundRevenue[$date] ?? 0) + (float) $refund->total;
-            foreach ($refund->items as $item) {
-                if ($item->product) {
-                    $dailyRefundCost[$date] = ($dailyRefundCost[$date] ?? 0)
-                        + (float) $item->quantity * (float) ($item->saleItem?->unit_cost ?? 0);
-                }
-            }
-        }
-
-        $creditNotesForChart = CreditNote::query()
-            ->whereIn('credit_notes.status', ['pending', 'validated'])
-            ->whereDate('credit_notes.created_at', '>=', $this->startDate)
-            ->whereDate('credit_notes.created_at', '<=', $this->endDate)
-            ->whereHas('sale', fn($q) => $q->where('sales.status', 'completed'));
-        if ($this->selectedBranchId) {
-            $creditNotesForChart->where('credit_notes.branch_id', $this->selectedBranchId);
-        } elseif (!auth()->user()->isSuperAdmin()) {
-            $creditNotesForChart->where('credit_notes.branch_id', auth()->user()->branch_id);
-        }
-        if (auth()->user()->isSupervisor()) {
-            $supervisorRegisterIds = auth()->user()->getSupervisorCashRegisterIds();
-            if (empty($supervisorRegisterIds)) {
-                $creditNotesForChart->whereRaw('0 = 1');
-            } else {
-                $reconciliationIds = \App\Models\CashReconciliation::whereIn('cash_register_id', $supervisorRegisterIds)->pluck('id');
-                $creditNotesForChart->whereHas('sale', fn($q) => $q->whereIn('cash_reconciliation_id', $reconciliationIds));
-            }
-        }
-        foreach ($creditNotesForChart->with('items.product')->get() as $cn) {
-            $date = $cn->created_at->format('Y-m-d');
-            $dailyRefundRevenue[$date] = ($dailyRefundRevenue[$date] ?? 0) + (float) $cn->total;
-            foreach ($cn->items as $item) {
-                if ($item->product) {
-                    $dailyRefundCost[$date] = ($dailyRefundCost[$date] ?? 0)
-                        + (float) $item->quantity * (float) ($item->saleItem?->unit_cost ?? 0);
-                }
-            }
-        }
-
-        // Build profit by day, including days with returns even if there were no sales
-        $allDays = collect($dailySales->keys()->all())
-            ->merge(array_keys($dailyRefundRevenue))
-            ->unique()
-            ->sort()
-            ->values();
-
         $this->profitByDay = [];
-        foreach ($allDays as $date) {
-            $revenue = isset($dailySales[$date]) ? (float) $dailySales[$date]->revenue : 0;
-            $cost = $dailyCost[$date] ?? 0;
-            $refRev = $dailyRefundRevenue[$date] ?? 0;
-            $refCost = $dailyRefundCost[$date] ?? 0;
-
-            $netRevenue = max(0, $revenue - $refRev);
-            $netCost = max(0, $cost - $refCost);
-
+        foreach ($dailySales as $date => $val) {
+            $rev = (float) $val->revenue;
+            $cst = $dailyCost[$date] ?? 0;
             $this->profitByDay[] = [
                 'label' => Carbon::parse($date)->format('d M'),
-                'revenue' => round($netRevenue, 2),
-                'cost' => round($netCost, 2),
-                'profit' => round($netRevenue - $netCost, 2),
+                'revenue' => round($rev, 2),
+                'cost' => round($cst, 2),
+                'profit' => round($rev - $cst, 2),
             ];
         }
 
-        // Revenue & profit by category
-        $categoryData = SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
-            ->leftJoin('products', 'sale_items.product_id', '=', 'products.id')
-            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
-            ->where('sales.status', 'completed')
-            ->whereDate('sales.created_at', '>=', $this->startDate)
-            ->whereDate('sales.created_at', '<=', $this->endDate);
-        $this->applyBranchFilter($categoryData);
-        $this->applySupervisorSalesFilter($categoryData);
+        // Categories
+        $metrics = $this->computePeriodMetrics($this->startDate, $this->endDate);
+        $this->revenueByCategory = array_values($metrics['categories']);
 
-        $catResults = (clone $categoryData)
-            ->select(
-                DB::raw("COALESCE(categories.name, 'Sin categoría') as category_name"),
-                DB::raw('SUM(sale_items.subtotal) as revenue'),
-                DB::raw('SUM(sale_items.quantity * sale_items.unit_cost) as cost')
-            )
-            ->groupBy('categories.name')
-            ->orderByDesc('revenue')
-            ->get();
+        // Payment Methods
+        $this->revenueByPaymentMethod = array_values($metrics['paymentMethods']);
 
-        $this->revenueByCategory = $catResults->map(fn($c) => [
-            'name' => $c->category_name,
-            'revenue' => round($c->revenue, 2),
-            'cost' => round($c->cost ?? 0, 2),
-            'profit' => round($c->revenue - ($c->cost ?? 0), 2),
-        ])->toArray();
-
-        // Revenue by payment method
-        $paymentData = SalePayment::join('sales', 'sale_payments.sale_id', '=', 'sales.id')
-            ->join('payment_methods', 'sale_payments.payment_method_id', '=', 'payment_methods.id')
-            ->where('sales.status', 'completed')
-            ->whereDate('sales.created_at', '>=', $this->startDate)
-            ->whereDate('sales.created_at', '<=', $this->endDate);
-        $this->applyBranchFilter($paymentData);
-        $this->applySupervisorSalesFilter($paymentData);
-
-        $this->revenueByPaymentMethod = (clone $paymentData)
-            ->select('payment_methods.name', DB::raw('SUM(sale_payments.amount) as total'), DB::raw('COUNT(DISTINCT sales.id) as count'))
-            ->groupBy('payment_methods.id', 'payment_methods.name')
-            ->orderByDesc('total')
-            ->get()
-            ->map(fn($p) => ['name' => $p->name, 'total' => round($p->total, 2), 'count' => $p->count])
-            ->toArray();
-
-        // Top profitable products
-        $productProfits = SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
-            ->join('products', 'sale_items.product_id', '=', 'products.id')
-            ->where('sales.status', 'completed')
-            ->whereDate('sales.created_at', '>=', $this->startDate)
-            ->whereDate('sales.created_at', '<=', $this->endDate);
-        $this->applyBranchFilter($productProfits);
-        $this->applySupervisorSalesFilter($productProfits);
-
-        $allProducts = (clone $productProfits)
-            ->select(
-                'products.name',
-                'products.sku',
-                DB::raw('SUM(sale_items.quantity) as qty'),
-                DB::raw('SUM(sale_items.subtotal) as revenue'),
-                DB::raw('SUM(sale_items.quantity * sale_items.unit_cost) as cost')
-            )
-            ->groupBy('products.id', 'products.name', 'products.sku')
-            ->get()
-            ->map(fn($p) => [
-                'name' => $p->name,
-                'sku' => $p->sku,
-                'qty' => $p->qty,
-                'revenue' => round($p->revenue, 2),
-                'cost' => round($p->cost, 2),
-                'profit' => round($p->revenue - $p->cost, 2),
-                'margin' => $p->revenue > 0 ? round((($p->revenue - $p->cost) / $p->revenue) * 100, 1) : 0,
-            ]);
-
+        // Products
+        $allProducts = collect(array_values($metrics['products']));
         $this->topProfitableProducts = $allProducts->sortByDesc('profit')->take(10)->values()->toArray();
         $this->topLossProducts = $allProducts->filter(fn($p) => $p['profit'] < 0)->sortBy('profit')->take(10)->values()->toArray();
 
-        // Expense breakdown (cash movements + module expenses).
-        // Same exclusion as in calculateSummary: cash movements created by refunds
-        // and credit notes are NOT operating expenses; they're already counted as
-        // reductions in revenue.
+        // Expense breakdown
         $cashExpenses = CashMovement::where('cash_movements.type', 'expense')
             ->whereDate('cash_movements.created_at', '>=', $this->startDate)
             ->whereDate('cash_movements.created_at', '<=', $this->endDate)
@@ -577,14 +608,6 @@ class ProfitLoss extends Component
             $cashExpenses->whereHas('reconciliation', fn($q) => $q->where('branch_id', $this->selectedBranchId));
         } elseif (!auth()->user()->isSuperAdmin()) {
             $cashExpenses->whereHas('reconciliation', fn($q) => $q->where('branch_id', auth()->user()->branch_id));
-        }
-        if (auth()->user()->isSupervisor()) {
-            $supervisorRegisterIds = auth()->user()->getSupervisorCashRegisterIds();
-            if (empty($supervisorRegisterIds)) {
-                $cashExpenses->whereRaw('0 = 1');
-            } else {
-                $cashExpenses->whereHas('reconciliation', fn($q) => $q->whereIn('cash_register_id', $supervisorRegisterIds));
-            }
         }
         $cashExpenseData = $cashExpenses
             ->select('concept', DB::raw('SUM(amount) as total'), DB::raw('COUNT(*) as count'))
@@ -605,17 +628,111 @@ class ProfitLoss extends Component
             ->get()
             ->map(fn($e) => ['concept' => $e->concept, 'total' => round($e->total, 2), 'count' => $e->count]);
 
-        $allExpenses = $cashExpenseData->concat($moduleExpenseData);
+        $this->expenseBreakdown = $cashExpenseData->concat($moduleExpenseData)->sortByDesc('total')->take(10)->values()->toArray();
+    }
 
-        // NOTE: Payroll is intentionally NOT included in the expense breakdown.
-        // It is shown separately on its own KPI card and as a dedicated line on the
-        // P&L statement, so adding it here would make it look duplicated.
+    private function calculateVersusData()
+    {
+        $dataA = $this->computePeriodMetrics($this->startDateA, $this->endDateA);
+        $dataB = $this->computePeriodMetrics($this->startDateB, $this->endDateB);
 
-        $this->expenseBreakdown = $allExpenses
-            ->sortByDesc('total')
-            ->take(10)
-            ->values()
-            ->toArray();
+        $this->versusSummary = [
+            'A' => $dataA,
+            'B' => $dataB,
+        ];
+
+        // Build Daily Comparison array for Day 1..31
+        $this->versusDaily = [];
+        for ($d = 1; $d <= 31; $d++) {
+            $revA = $dataA['dailySales'][$d] ?? 0;
+            $costA = $dataA['dailyCost'][$d] ?? 0;
+            $profA = $revA - $costA;
+
+            $revB = $dataB['dailySales'][$d] ?? 0;
+            $costB = $dataB['dailyCost'][$d] ?? 0;
+            $profB = $revB - $costB;
+
+            $this->versusDaily[] = [
+                'day' => $d,
+                'label' => "Día {$d}",
+                'revenueA' => round($revA, 0),
+                'profitA' => round($profA, 0),
+                'revenueB' => round($revB, 0),
+                'profitB' => round($profB, 0),
+                'diffRevenue' => round($revB - $revA, 0),
+                'diffProfit' => round($profB - $profA, 0),
+            ];
+        }
+
+        // Combined Categories
+        $allCatNames = array_unique(array_merge(array_keys($dataA['categories']), array_keys($dataB['categories'])));
+        $catComparison = [];
+        foreach ($allCatNames as $name) {
+            $revA = $dataA['categories'][$name]['revenue'] ?? 0;
+            $profA = $dataA['categories'][$name]['profit'] ?? 0;
+            $revB = $dataB['categories'][$name]['revenue'] ?? 0;
+            $profB = $dataB['categories'][$name]['profit'] ?? 0;
+            $diff = $profB - $profA;
+            $growth = $profA != 0 ? (($profB - $profA) / abs($profA)) * 100 : ($profB > 0 ? 100 : 0);
+
+            $catComparison[] = [
+                'name' => $name,
+                'revenueA' => $revA,
+                'profitA' => $profA,
+                'revenueB' => $revB,
+                'profitB' => $profB,
+                'diffRevenue' => $revB - $revA,
+                'diffProfit' => $diff,
+                'growth' => round($growth, 1),
+            ];
+        }
+        $this->versusCategories = collect($catComparison)->sortByDesc('revenueB')->values()->toArray();
+
+        // Payment Methods
+        $allPmNames = array_unique(array_merge(array_keys($dataA['paymentMethods']), array_keys($dataB['paymentMethods'])));
+        $pmComparison = [];
+        foreach ($allPmNames as $name) {
+            $totA = $dataA['paymentMethods'][$name]['total'] ?? 0;
+            $totB = $dataB['paymentMethods'][$name]['total'] ?? 0;
+            $pmComparison[] = [
+                'name' => $name,
+                'totalA' => $totA,
+                'totalB' => $totB,
+                'diff' => $totB - $totA,
+                'growth' => $totA != 0 ? round((($totB - $totA) / $totA) * 100, 1) : 100,
+            ];
+        }
+        $this->versusPaymentMethods = collect($pmComparison)->sortByDesc('totalB')->values()->toArray();
+
+        // Product Shifts (Top Growth and Top Drop)
+        $allPIds = array_unique(array_merge(array_keys($dataA['products']), array_keys($dataB['products'])));
+        $productShifts = [];
+        foreach ($allPIds as $pId) {
+            $pA = $dataA['products'][$pId] ?? null;
+            $pB = $dataB['products'][$pId] ?? null;
+            $name = $pB['name'] ?? ($pA['name'] ?? 'Producto');
+            $sku = $pB['sku'] ?? ($pA['sku'] ?? '');
+            $revA = $pA['revenue'] ?? 0;
+            $revB = $pB['revenue'] ?? 0;
+            $profA = $pA['profit'] ?? 0;
+            $profB = $pB['profit'] ?? 0;
+            $diffProfit = $profB - $profA;
+            $growth = $profA != 0 ? (($profB - $profA) / abs($profA)) * 100 : ($profB > 0 ? 100 : 0);
+
+            $productShifts[] = [
+                'name' => $name,
+                'sku' => $sku,
+                'revenueA' => $revA,
+                'revenueB' => $revB,
+                'profitA' => $profA,
+                'profitB' => $profB,
+                'diffProfit' => $diffProfit,
+                'growth' => round($growth, 1),
+            ];
+        }
+        $shiftsCollect = collect($productShifts);
+        $this->versusTopGrowthProducts = $shiftsCollect->sortByDesc('diffProfit')->take(8)->values()->toArray();
+        $this->versusTopDropProducts = $shiftsCollect->sortBy('diffProfit')->take(8)->values()->toArray();
     }
 
     public function exportExcel()
@@ -623,6 +740,18 @@ class ProfitLoss extends Component
         if (!auth()->user()->hasPermission('reports.export')) {
             $this->dispatch('notify', message: 'No tienes permiso para exportar', type: 'error');
             return;
+        }
+
+        if ($this->viewMode === 'versus') {
+            return redirect()->route('reports.profit-loss.excel-versus', [
+                'start_date_a' => $this->startDateA,
+                'end_date_a' => $this->endDateA,
+                'start_date_b' => $this->startDateB,
+                'end_date_b' => $this->endDateB,
+                'label_a' => $this->labelA,
+                'label_b' => $this->labelB,
+                'branch_id' => $this->selectedBranchId,
+            ]);
         }
 
         return redirect()->route('reports.profit-loss.excel', [
@@ -637,6 +766,8 @@ class ProfitLoss extends Component
         $this->dateRange = 'month';
         $this->startDate = now()->startOfMonth()->format('Y-m-d');
         $this->endDate = now()->format('Y-m-d');
+        $this->versusPreset = 'mom';
+        $this->initVersusPeriods();
         if (auth()->user()->isSuperAdmin()) {
             $this->selectedBranchId = null;
         }
@@ -644,8 +775,19 @@ class ProfitLoss extends Component
 
     public function render()
     {
-        $this->calculateSummary();
-        $this->loadChartData();
+        if ($this->viewMode === 'versus') {
+            $this->calculateVersusData();
+            $this->dispatch('pyg-versus-charts-ready', [
+                'daily' => $this->versusDaily,
+                'categories' => array_slice($this->versusCategories, 0, 7),
+                'paymentMethods' => $this->versusPaymentMethods,
+                'labelA' => ucfirst($this->labelA),
+                'labelB' => ucfirst($this->labelB),
+            ]);
+        } else {
+            $this->calculateSummary();
+            $this->loadChartData();
+        }
 
         $branches = auth()->user()->isSuperAdmin()
             ? Branch::where('is_active', true)->orderBy('name')->get()

@@ -911,6 +911,624 @@ class ReportExportController extends Controller
         ])->deleteFileAfterSend(true);
     }
 
+    /**
+     * Helper to compute full P&L metrics for a given date range and branch.
+     */
+    private function calculateProfitLossMetrics(string $startDate, string $endDate, ?int $branchId, $user = null): array
+    {
+        if (!$user) {
+            $user = auth()->user();
+        }
+
+        // Sales query
+        $salesQuery = Sale::where('sales.status', 'completed')
+            ->whereDate('sales.created_at', '>=', $startDate)
+            ->whereDate('sales.created_at', '<=', $endDate);
+
+        if ($branchId) {
+            $salesQuery->where('sales.branch_id', $branchId);
+        } elseif ($user && !$user->isSuperAdmin()) {
+            $salesQuery->where('sales.branch_id', $user->branch_id);
+        }
+
+        if ($user && $user->isSupervisor()) {
+            $supervisorRegisterIds = $user->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $salesQuery->whereRaw('0 = 1');
+            } else {
+                $reconciliationIds = \App\Models\CashReconciliation::whereIn('cash_register_id', $supervisorRegisterIds)->pluck('id');
+                $salesQuery->whereIn('sales.cash_reconciliation_id', $reconciliationIds);
+            }
+        }
+
+        $salesSummary = (clone $salesQuery)->selectRaw('
+            COUNT(*) as transactions,
+            COALESCE(SUM(sales.subtotal), 0) as subtotal,
+            COALESCE(SUM(sales.tax_total), 0) as tax,
+            COALESCE(SUM(sales.discount), 0) as discount,
+            COALESCE(SUM(sales.total), 0) as revenue
+        ')->first();
+
+        $totalRevenue = (float) ($salesSummary->revenue ?? 0);
+        $totalTax = (float) ($salesSummary->tax ?? 0);
+        $totalDiscount = (float) ($salesSummary->discount ?? 0);
+        $totalTransactions = (int) ($salesSummary->transactions ?? 0);
+
+        // COGS
+        $totalCost = 0;
+        $salesWithItems = (clone $salesQuery)->with('items.product')->get();
+        $dailySales = [];
+        $dailyCost = [];
+
+        foreach ($salesWithItems as $sale) {
+            $dayNum = (int) $sale->created_at->format('j');
+            $saleCost = 0;
+            foreach ($sale->items as $item) {
+                if ($item->product) {
+                    $itemCost = $item->unit_cost * (float) $item->quantity;
+                    $totalCost += $itemCost;
+                    $saleCost += $itemCost;
+                }
+            }
+            $dailySales[$dayNum] = ($dailySales[$dayNum] ?? 0) + (float) $sale->total;
+            $dailyCost[$dayNum] = ($dailyCost[$dayNum] ?? 0) + $saleCost;
+        }
+
+        // Returns
+        $refundsQuery = \App\Models\Refund::query()
+            ->where('refunds.status', 'completed')
+            ->whereDate('refunds.created_at', '>=', $startDate)
+            ->whereDate('refunds.created_at', '<=', $endDate)
+            ->whereHas('sale', fn($q) => $q->where('sales.status', 'completed'));
+
+        if ($branchId) {
+            $refundsQuery->where('refunds.branch_id', $branchId);
+        } elseif ($user && !$user->isSuperAdmin()) {
+            $refundsQuery->where('refunds.branch_id', $user->branch_id);
+        }
+        if ($user && $user->isSupervisor()) {
+            $supervisorRegisterIds = $user->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $refundsQuery->whereRaw('0 = 1');
+            } else {
+                $reconciliationIds = \App\Models\CashReconciliation::whereIn('cash_register_id', $supervisorRegisterIds)->pluck('id');
+                $refundsQuery->whereHas('sale', fn($q) => $q->whereIn('cash_reconciliation_id', $reconciliationIds));
+            }
+        }
+
+        $refundsAggregate = (clone $refundsQuery)->selectRaw('
+            COUNT(*) as count,
+            COALESCE(SUM(refunds.total), 0) as total
+        ')->first();
+        $totalRefundAmount = (float) ($refundsAggregate->total ?? 0);
+        $totalRefundCount = (int) ($refundsAggregate->count ?? 0);
+
+        $refundCost = 0;
+        $refundIds = (clone $refundsQuery)->pluck('refunds.id');
+        if ($refundIds->isNotEmpty()) {
+            $refundCost = (float) \App\Models\RefundItem::join('sale_items', 'refund_items.sale_item_id', '=', 'sale_items.id')
+                ->whereIn('refund_items.refund_id', $refundIds)
+                ->sum(DB::raw('refund_items.quantity * sale_items.unit_cost'));
+        }
+
+        // Credit notes
+        $creditNotesQuery = \App\Models\CreditNote::query()
+            ->whereIn('credit_notes.status', ['pending', 'validated'])
+            ->whereDate('credit_notes.created_at', '>=', $startDate)
+            ->whereDate('credit_notes.created_at', '<=', $endDate)
+            ->whereHas('sale', fn($q) => $q->where('sales.status', 'completed'));
+
+        if ($branchId) {
+            $creditNotesQuery->where('credit_notes.branch_id', $branchId);
+        } elseif ($user && !$user->isSuperAdmin()) {
+            $creditNotesQuery->where('credit_notes.branch_id', $user->branch_id);
+        }
+        if ($user && $user->isSupervisor()) {
+            $supervisorRegisterIds = $user->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $creditNotesQuery->whereRaw('0 = 1');
+            } else {
+                $reconciliationIds = \App\Models\CashReconciliation::whereIn('cash_register_id', $supervisorRegisterIds)->pluck('id');
+                $creditNotesQuery->whereHas('sale', fn($q) => $q->whereIn('cash_reconciliation_id', $reconciliationIds));
+            }
+        }
+
+        $creditNotesAggregate = (clone $creditNotesQuery)->selectRaw('
+            COUNT(*) as count,
+            COALESCE(SUM(credit_notes.total), 0) as total
+        ')->first();
+        $totalCreditNoteAmount = (float) ($creditNotesAggregate->total ?? 0);
+        $totalCreditNoteCount = (int) ($creditNotesAggregate->count ?? 0);
+
+        $creditNoteCost = 0;
+        $creditNoteIds = (clone $creditNotesQuery)->pluck('credit_notes.id');
+        if ($creditNoteIds->isNotEmpty()) {
+            $creditNoteCost = (float) \App\Models\CreditNoteItem::join('sale_items', 'credit_note_items.sale_item_id', '=', 'sale_items.id')
+                ->whereIn('credit_note_items.credit_note_id', $creditNoteIds)
+                ->sum(DB::raw('credit_note_items.quantity * sale_items.unit_cost'));
+        }
+
+        $totalRefunds = round($totalRefundAmount + $totalCreditNoteAmount, 2);
+        $totalRefundsCost = round($refundCost + $creditNoteCost, 2);
+        $totalRefundsCount = $totalRefundCount + $totalCreditNoteCount;
+        $rawRevenue = $totalRevenue;
+
+        $realRevenue = max(0, $totalRevenue - $totalRefunds);
+        $realCost = max(0, $totalCost - $totalRefundsCost);
+
+        // Cash income
+        $cashIncomeQuery = CashMovement::where('cash_movements.type', 'income')
+            ->whereDate('cash_movements.created_at', '>=', $startDate)
+            ->whereDate('cash_movements.created_at', '<=', $endDate);
+        if ($branchId) {
+            $cashIncomeQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', $branchId));
+        } elseif ($user && !$user->isSuperAdmin()) {
+            $cashIncomeQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', $user->branch_id));
+        }
+        $totalCashIncome = (float) $cashIncomeQuery->sum('amount');
+
+        // Cash expenses
+        $cashExpQuery = CashMovement::where('cash_movements.type', 'expense')
+            ->whereDate('cash_movements.created_at', '>=', $startDate)
+            ->whereDate('cash_movements.created_at', '<=', $endDate)
+            ->where(function ($q) {
+                $q->where('cash_movements.concept', 'not like', 'Devolución %')
+                  ->where('cash_movements.concept', 'not like', 'Nota Crédito %');
+            });
+        if ($branchId) {
+            $cashExpQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', $branchId));
+        } elseif ($user && !$user->isSuperAdmin()) {
+            $cashExpQuery->whereHas('reconciliation', fn($q) => $q->where('branch_id', $user->branch_id));
+        }
+        $totalCashExpenses = (float) $cashExpQuery->sum('amount');
+
+        // Module expenses
+        $moduleExpQuery = Expense::whereDate('expenses.expense_date', '>=', $startDate)
+            ->whereDate('expenses.expense_date', '<=', $endDate);
+        if ($branchId) {
+            $moduleExpQuery->where('expenses.branch_id', $branchId);
+        } elseif ($user && !$user->isSuperAdmin()) {
+            $moduleExpQuery->where('expenses.branch_id', $user->branch_id);
+        }
+        $totalModuleExpenses = (float) $moduleExpQuery->sum('amount');
+
+        // Payroll
+        $payrollExpQuery = \App\Models\PayrollDetail::join('payrolls', 'payroll_details.payroll_id', '=', 'payrolls.id')
+            ->where('payrolls.status', 'pagada')
+            ->whereDate('payrolls.payment_date', '>=', $startDate)
+            ->whereDate('payrolls.payment_date', '<=', $endDate);
+        if ($branchId) {
+            $payrollExpQuery->where('payrolls.branch_id', $branchId);
+        } elseif ($user && !$user->isSuperAdmin()) {
+            $payrollExpQuery->where('payrolls.branch_id', $user->branch_id);
+        }
+        $totalPayrollExpenses = (float) $payrollExpQuery->sum('payroll_details.net_pay');
+
+        $totalExpenses = $totalCashExpenses + $totalModuleExpenses;
+
+        $grossProfit = $realRevenue + $totalCashIncome - $realCost;
+        $totalIncome = $realRevenue + $totalCashIncome;
+        $grossMargin = $totalIncome > 0 ? ($grossProfit / $totalIncome) * 100 : 0;
+        $netProfit = $grossProfit - $totalExpenses - $totalPayrollExpenses;
+        $netMargin = $totalIncome > 0 ? ($netProfit / $totalIncome) * 100 : 0;
+
+        // Purchases
+        $purchasesQuery = Purchase::whereDate('purchases.created_at', '>=', $startDate)
+            ->whereDate('purchases.created_at', '<=', $endDate);
+        if ($branchId) {
+            $purchasesQuery->where('purchases.branch_id', $branchId);
+        } elseif ($user && !$user->isSuperAdmin()) {
+            $purchasesQuery->where('purchases.branch_id', $user->branch_id);
+        }
+        $totalPurchases = (float) $purchasesQuery->sum('total');
+
+        // Categories
+        $catQuery = SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->leftJoin('products', 'sale_items.product_id', '=', 'products.id')
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->where('sales.status', 'completed')
+            ->whereDate('sales.created_at', '>=', $startDate)
+            ->whereDate('sales.created_at', '<=', $endDate);
+        if ($branchId) $catQuery->where('sales.branch_id', $branchId);
+        elseif ($user && !$user->isSuperAdmin()) $catQuery->where('sales.branch_id', $user->branch_id);
+
+        $categories = $catQuery->select(
+            DB::raw("COALESCE(categories.name, 'Sin categoría') as name"),
+            DB::raw('SUM(sale_items.subtotal) as revenue'),
+            DB::raw('SUM(sale_items.quantity * sale_items.unit_cost) as cost')
+        )->groupBy('categories.name')->orderByDesc('revenue')->get()->keyBy('name')->toArray();
+
+        // Payment methods
+        $pmQuery = SalePayment::join('sales', 'sale_payments.sale_id', '=', 'sales.id')
+            ->join('payment_methods', 'sale_payments.payment_method_id', '=', 'payment_methods.id')
+            ->where('sales.status', 'completed')
+            ->whereDate('sales.created_at', '>=', $startDate)
+            ->whereDate('sales.created_at', '<=', $endDate);
+        if ($branchId) $pmQuery->where('sales.branch_id', $branchId);
+        elseif ($user && !$user->isSuperAdmin()) $pmQuery->where('sales.branch_id', $user->branch_id);
+
+        $paymentMethods = $pmQuery->select('payment_methods.name', DB::raw('SUM(sale_payments.amount) as total'), DB::raw('COUNT(DISTINCT sales.id) as count'))
+            ->groupBy('payment_methods.id', 'payment_methods.name')->orderByDesc('total')->get()->keyBy('name')->toArray();
+
+        return [
+            'rawRevenue' => $rawRevenue,
+            'totalRevenue' => $realRevenue,
+            'totalCost' => $realCost,
+            'totalTax' => $totalTax,
+            'totalDiscount' => $totalDiscount,
+            'totalTransactions' => $totalTransactions,
+            'totalRefunds' => $totalRefunds,
+            'totalRefundsCost' => $totalRefundsCost,
+            'totalRefundsCount' => $totalRefundsCount,
+            'totalCashIncome' => $totalCashIncome,
+            'totalCashExpenses' => $totalCashExpenses,
+            'totalModuleExpenses' => $totalModuleExpenses,
+            'totalPayrollExpenses' => $totalPayrollExpenses,
+            'totalExpenses' => $totalExpenses,
+            'grossProfit' => $grossProfit,
+            'grossMargin' => $grossMargin,
+            'netProfit' => $netProfit,
+            'netMargin' => $netMargin,
+            'totalPurchases' => $totalPurchases,
+            'dailySales' => $dailySales,
+            'dailyCost' => $dailyCost,
+            'categories' => $categories,
+            'paymentMethods' => $paymentMethods,
+        ];
+    }
+
+    /**
+     * Export Profit & Loss Versus (Period A vs Period B) comparison as Excel.
+     */
+    public function profitLossVersusExcel(Request $request)
+    {
+        $startDateA = $request->get('start_date_a', now()->startOfMonth()->format('Y-m-d'));
+        $endDateA = $request->get('end_date_a', now()->format('Y-m-d'));
+        $startDateB = $request->get('start_date_b', now()->subMonth()->startOfMonth()->format('Y-m-d'));
+        $endDateB = $request->get('end_date_b', now()->subMonth()->endOfMonth()->format('Y-m-d'));
+        $labelA = $request->get('label_a', Carbon::parse($startDateA)->translatedFormat('F Y'));
+        $labelB = $request->get('label_b', Carbon::parse($startDateB)->translatedFormat('F Y'));
+        $branchId = $request->get('branch_id');
+
+        $user = auth()->user();
+        $branchName = 'Todas las Sucursales';
+        if ($branchId) {
+            $branchName = Branch::find($branchId)?->name ?? 'Todas';
+        } elseif (!$user->isSuperAdmin()) {
+            $branchId = $user->branch_id;
+            $branchName = Branch::find($branchId)?->name ?? '';
+        }
+
+        $dataA = $this->calculateProfitLossMetrics($startDateA, $endDateA, $branchId, $user);
+        $dataB = $this->calculateProfitLossMetrics($startDateB, $endDateB, $branchId, $user);
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('PyG Versus');
+
+        // Styles
+        $mainHeaderStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 14],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1A1225']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ];
+        $sectionHeaderStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'A855F7']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '9333EA']]],
+        ];
+        $headerAStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FF7261']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ];
+        $headerBStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '7C3AED']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ];
+        $subHeaderStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '1E293B'], 'size' => 10],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F1F5F9']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'CBD5E1']]],
+        ];
+        $dataStyle = [
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E2E8F0']]],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+        $totalHighlight = [
+            'font' => ['bold' => true],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F8FAFC']],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'CBD5E1']]],
+        ];
+
+        $row = 1;
+
+        // Title
+        $sheet->setCellValue('A' . $row, 'MIKPOS - REPORTE COMPARATIVO DE PÉRDIDAS Y GANANCIAS (VERSUS)');
+        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($mainHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(36);
+        $row += 2;
+
+        // Metadata
+        $sheet->setCellValue('A' . $row, 'Período A (Base):');
+        $sheet->setCellValue('B' . $row, ucfirst($labelA) . " ({$startDateA} al {$endDateA})");
+        $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+        $sheet->setCellValue('D' . $row, 'Período B (Comparado):');
+        $sheet->setCellValue('E' . $row, ucfirst($labelB) . " ({$startDateB} al {$endDateB})");
+        $sheet->getStyle('D' . $row)->getFont()->setBold(true);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'Sucursal:');
+        $sheet->setCellValue('B' . $row, $branchName);
+        $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+        $sheet->setCellValue('D' . $row, 'Fecha Generación:');
+        $sheet->setCellValue('E' . $row, now()->format('d/m/Y H:i:s'));
+        $sheet->getStyle('D' . $row)->getFont()->setBold(true);
+        $row += 2;
+
+        // SECTION 1: EXECUTIVE BATTLE CARDS / RESUMEN EJECUTIVO
+        $sheet->setCellValue('A' . $row, '1. RESUMEN EJECUTIVO COMPARATIVO');
+        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($sectionHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(24);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'MÉTRICA / INDICADOR CLAVE');
+        $sheet->setCellValue('B' . $row, 'PERÍODO A (' . strtoupper($labelA) . ')');
+        $sheet->setCellValue('C' . $row, 'PERÍODO B (' . strtoupper($labelB) . ')');
+        $sheet->setCellValue('D' . $row, 'DIFERENCIA (B - A)');
+        $sheet->setCellValue('E' . $row, '% CRECIMIENTO');
+        $sheet->setCellValue('F' . $row, 'PERÍODO GANADOR');
+        $sheet->setCellValue('G' . $row, 'TENDENCIA');
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($subHeaderStyle);
+        $sheet->getStyle('B' . $row)->applyFromArray($headerAStyle);
+        $sheet->getStyle('C' . $row)->applyFromArray($headerBStyle);
+        $sheet->getRowDimension($row)->setRowHeight(22);
+        $row++;
+
+        $kpis = [
+            ['Ingresos Reales (Ventas Netas)', $dataA['totalRevenue'] + $dataA['totalCashIncome'], $dataB['totalRevenue'] + $dataB['totalCashIncome'], true, true],
+            ['Devoluciones y Notas Crédito', $dataA['totalRefunds'], $dataB['totalRefunds'], true, false],
+            ['Costo de Ventas (COGS)', $dataA['totalCost'], $dataB['totalCost'], true, false],
+            ['Utilidad Bruta', $dataA['grossProfit'], $dataB['grossProfit'], true, true],
+            ['Margen Bruto (%)', $dataA['grossMargin'], $dataB['grossMargin'], false, true],
+            ['Gastos Operativos (Caja + Registrados)', $dataA['totalExpenses'], $dataB['totalExpenses'], true, false],
+            ['Gastos de Nómina', $dataA['totalPayrollExpenses'], $dataB['totalPayrollExpenses'], true, false],
+            ['UTILIDAD NETA', $dataA['netProfit'], $dataB['netProfit'], true, true],
+            ['Margen Neto (%)', $dataA['netMargin'], $dataB['netMargin'], false, true],
+            ['Total Transacciones', $dataA['totalTransactions'], $dataB['totalTransactions'], 'int', true],
+            ['Ticket Promedio', $dataA['totalTransactions'] > 0 ? $dataA['totalRevenue'] / $dataA['totalTransactions'] : 0, $dataB['totalTransactions'] > 0 ? $dataB['totalRevenue'] / $dataB['totalTransactions'] : 0, true, true],
+            ['Compras del Período', $dataA['totalPurchases'], $dataB['totalPurchases'], true, false],
+        ];
+
+        foreach ($kpis as $kpi) {
+            $name = $kpi[0];
+            $valA = $kpi[1];
+            $valB = $kpi[2];
+            $isMoney = $kpi[3] === true;
+            $isInt = $kpi[3] === 'int';
+            $isPercent = $kpi[3] === false;
+            $higherIsBetter = $kpi[4];
+
+            $diff = $valB - $valA;
+            $growth = $valA != 0 ? (($valB - $valA) / abs($valA)) * 100 : ($valB > 0 ? 100 : 0);
+
+            $winner = 'Empate';
+            if ($higherIsBetter) {
+                if ($valB > $valA) $winner = ucfirst($labelB) . ' 🏆';
+                elseif ($valA > $valB) $winner = ucfirst($labelA) . ' 🏆';
+            } else {
+                if ($valB < $valA) $winner = ucfirst($labelB) . ' 🏆';
+                elseif ($valA < $valB) $winner = ucfirst($labelA) . ' 🏆';
+            }
+
+            $trend = $growth > 0 ? '▲ Creció' : ($growth < 0 ? '▼ Cayó' : '— Igual');
+
+            $sheet->setCellValue('A' . $row, $name);
+            $sheet->setCellValue('B' . $row, $valA);
+            $sheet->setCellValue('C' . $row, $valB);
+            $sheet->setCellValue('D' . $row, "=C{$row}-B{$row}");
+            $sheet->setCellValue('E' . $row, "=IF(B{$row}<>0, (C{$row}-B{$row})/ABS(B{$row}), 0)");
+            $sheet->setCellValue('F' . $row, $winner);
+            $sheet->setCellValue('G' . $row, $trend);
+
+            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($dataStyle);
+
+            if ($isMoney) {
+                $sheet->getStyle('B' . $row . ':D' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            } elseif ($isPercent) {
+                $sheet->getStyle('B' . $row . ':D' . $row)->getNumberFormat()->setFormatCode('0.0"%"');
+            } elseif ($isInt) {
+                $sheet->getStyle('B' . $row . ':D' . $row)->getNumberFormat()->setFormatCode('#,##0');
+            }
+            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('+0.0%;-0.0%;0.0%');
+
+            if ($name === 'UTILIDAD NETA' || $name === 'Utilidad Bruta' || $name === 'Ingresos Reales (Ventas Netas)') {
+                $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($totalHighlight);
+                if ($growth >= 0) {
+                    $sheet->getStyle('E' . $row)->getFont()->setColor(new Color('059669'))->setBold(true);
+                } else {
+                    $sheet->getStyle('E' . $row)->getFont()->setColor(new Color('DC2626'))->setBold(true);
+                }
+            }
+
+            $row++;
+        }
+        $row += 2;
+
+        // SECTION 2: COMPARATIVE P&L STATEMENT (ESTADO DE RESULTADOS LADO A LADO)
+        $sheet->setCellValue('A' . $row, '2. ESTADO FINANCIERO COMPARATIVO DE PÉRDIDAS Y GANANCIAS');
+        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($sectionHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(24);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'RUBRO / CONCEPTO');
+        $sheet->setCellValue('B' . $row, 'PERÍODO A ($)');
+        $sheet->setCellValue('C' . $row, '% ING. A');
+        $sheet->setCellValue('D' . $row, 'PERÍODO B ($)');
+        $sheet->setCellValue('E' . $row, '% ING. B');
+        $sheet->setCellValue('F' . $row, 'VARIACIÓN ($)');
+        $sheet->setCellValue('G' . $row, 'VARIACIÓN (%)');
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($subHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(22);
+        $row++;
+
+        $incA = ($dataA['totalRevenue'] + $dataA['totalCashIncome']) ?: 1;
+        $incB = ($dataB['totalRevenue'] + $dataB['totalCashIncome']) ?: 1;
+
+        $stmtRows = [
+            ['Ingresos por Ventas (Brutos)', $dataA['rawRevenue'], $dataB['rawRevenue'], false],
+            ['(+) Otros Ingresos (Mov. Caja)', $dataA['totalCashIncome'], $dataB['totalCashIncome'], false],
+            ['(-) Devoluciones y Notas Crédito', $dataA['totalRefunds'], $dataB['totalRefunds'], false],
+            ['(=) INGRESOS REALES', $dataA['totalRevenue'] + $dataA['totalCashIncome'], $dataB['totalRevenue'] + $dataB['totalCashIncome'], true],
+            ['(-) Descuentos Otorgados', $dataA['totalDiscount'], $dataB['totalDiscount'], false],
+            ['    Impuestos Recaudados (IVA/ICO)', $dataA['totalTax'], $dataB['totalTax'], false],
+            ['(-) Costo de Ventas (COGS)', $dataA['totalCost'], $dataB['totalCost'], false],
+            ['(=) UTILIDAD BRUTA', $dataA['grossProfit'], $dataB['grossProfit'], true],
+            ['(-) Gastos Operativos (Caja + Registrados)', $dataA['totalExpenses'], $dataB['totalExpenses'], false],
+            ['    Egresos de Caja', $dataA['totalCashExpenses'], $dataB['totalCashExpenses'], false],
+            ['    Gastos Registrados en Módulo', $dataA['totalModuleExpenses'], $dataB['totalModuleExpenses'], false],
+            ['(-) Gastos de Nómina Pagada', $dataA['totalPayrollExpenses'], $dataB['totalPayrollExpenses'], false],
+            ['(=) UTILIDAD NETA DEL EJERCICIO', $dataA['netProfit'], $dataB['netProfit'], true],
+        ];
+
+        foreach ($stmtRows as $sRow) {
+            $cName = $sRow[0];
+            $cA = $sRow[1];
+            $cB = $sRow[2];
+            $isMain = $sRow[3];
+
+            $sheet->setCellValue('A' . $row, $cName);
+            $sheet->setCellValue('B' . $row, $cA);
+            $sheet->setCellValue('C' . $row, "=IF({$incA}>0, B{$row}/{$incA}, 0)");
+            $sheet->setCellValue('D' . $row, $cB);
+            $sheet->setCellValue('E' . $row, "=IF({$incB}>0, D{$row}/{$incB}, 0)");
+            $sheet->setCellValue('F' . $row, "=D{$row}-B{$row}");
+            $sheet->setCellValue('G' . $row, "=IF(B{$row}<>0, (D{$row}-B{$row})/ABS(B{$row}), 0)");
+
+            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($dataStyle);
+            $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('0.0%');
+            $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('0.0%');
+            $sheet->getStyle('F' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('G' . $row)->getNumberFormat()->setFormatCode('+0.0%;-0.0%;0.0%');
+
+            if ($isMain) {
+                $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($totalHighlight);
+                $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+                $sheet->getStyle('B' . $row)->getFont()->setBold(true);
+                $sheet->getStyle('D' . $row)->getFont()->setBold(true);
+                $sheet->getStyle('F' . $row)->getFont()->setBold(true);
+                $sheet->getStyle('G' . $row)->getFont()->setBold(true);
+            }
+            $row++;
+        }
+        $row += 2;
+
+        // SECTION 3: CATEGORIES COMPARISON
+        $sheet->setCellValue('A' . $row, '3. COMPARATIVA DE RENTABILIDAD POR CATEGORÍA');
+        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($sectionHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(24);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'CATEGORÍA');
+        $sheet->setCellValue('B' . $row, 'VENTAS ' . strtoupper($labelA));
+        $sheet->setCellValue('C' . $row, 'UTILIDAD ' . strtoupper($labelA));
+        $sheet->setCellValue('D' . $row, 'VENTAS ' . strtoupper($labelB));
+        $sheet->setCellValue('E' . $row, 'UTILIDAD ' . strtoupper($labelB));
+        $sheet->setCellValue('F' . $row, 'DIF. VENTAS ($)');
+        $sheet->setCellValue('G' . $row, 'DIF. UTILIDAD ($)');
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($subHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(22);
+        $row++;
+
+        $allCatNames = array_unique(array_merge(array_keys($dataA['categories']), array_keys($dataB['categories'])));
+        sort($allCatNames);
+
+        foreach ($allCatNames as $cName) {
+            $revA = $dataA['categories'][$cName]['revenue'] ?? 0;
+            $costA = $dataA['categories'][$cName]['cost'] ?? 0;
+            $profA = $revA - $costA;
+
+            $revB = $dataB['categories'][$cName]['revenue'] ?? 0;
+            $costB = $dataB['categories'][$cName]['cost'] ?? 0;
+            $profB = $revB - $costB;
+
+            $sheet->setCellValue('A' . $row, $cName);
+            $sheet->setCellValue('B' . $row, $revA);
+            $sheet->setCellValue('C' . $row, $profA);
+            $sheet->setCellValue('D' . $row, $revB);
+            $sheet->setCellValue('E' . $row, $profB);
+            $sheet->setCellValue('F' . $row, "=D{$row}-B{$row}");
+            $sheet->setCellValue('G' . $row, "=E{$row}-C{$row}");
+
+            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($dataStyle);
+            $sheet->getStyle('B' . $row . ':G' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $row++;
+        }
+        $row += 2;
+
+        // SECTION 4: DAILY COMPARISON (DÍA 1 AL 31)
+        $sheet->setCellValue('A' . $row, '4. COMPARATIVA DE INGRESOS Y UTILIDAD DÍA A DÍA (DÍA 1 AL 31)');
+        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($sectionHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(24);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'DÍA');
+        $sheet->setCellValue('B' . $row, 'VENTAS ' . strtoupper($labelA));
+        $sheet->setCellValue('C' . $row, 'UTILIDAD ' . strtoupper($labelA));
+        $sheet->setCellValue('D' . $row, 'VENTAS ' . strtoupper($labelB));
+        $sheet->setCellValue('E' . $row, 'UTILIDAD ' . strtoupper($labelB));
+        $sheet->setCellValue('F' . $row, 'DIFERENCIA VENTAS');
+        $sheet->setCellValue('G' . $row, 'DIFERENCIA UTILIDAD');
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($subHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(22);
+        $row++;
+
+        for ($d = 1; $d <= 31; $d++) {
+            $dRevA = $dataA['dailySales'][$d] ?? 0;
+            $dCostA = $dataA['dailyCost'][$d] ?? 0;
+            $dProfA = $dRevA - $dCostA;
+
+            $dRevB = $dataB['dailySales'][$d] ?? 0;
+            $dCostB = $dataB['dailyCost'][$d] ?? 0;
+            $dProfB = $dRevB - $dCostB;
+
+            $sheet->setCellValue('A' . $row, "Día {$d}");
+            $sheet->setCellValue('B' . $row, $dRevA);
+            $sheet->setCellValue('C' . $row, $dProfA);
+            $sheet->setCellValue('D' . $row, $dRevB);
+            $sheet->setCellValue('E' . $row, $dProfB);
+            $sheet->setCellValue('F' . $row, "=D{$row}-B{$row}");
+            $sheet->setCellValue('G' . $row, "=E{$row}-C{$row}");
+
+            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($dataStyle);
+            $sheet->getStyle('B' . $row . ':G' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $row++;
+        }
+
+        foreach (range('A', 'G') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'pyg-versus-' . $startDateA . '-vs-' . $startDateB . '.xlsx';
+        $tempFile = tempnam(sys_get_temp_dir(), 'excel');
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
+
     public function creditsGroupedExcel(Request $request)
     {
         $dateRange = $request->get('date_range', 'all');
@@ -2166,6 +2784,514 @@ class ReportExportController extends Controller
         $writer = new Xlsx($spreadsheet);
         $filename = 'libro-ventas-' . now()->format('Y-m-d') . '.xlsx';
 
+        $tempFile = tempnam(sys_get_temp_dir(), 'excel');
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Helper to compute full Sales Book metrics for a given period and filters.
+     */
+    private function calculateSalesBookMetrics(
+        string $startDate,
+        string $endDate,
+        ?int $branchId = null,
+        ?int $userId = null,
+        ?int $cashierId = null,
+        ?int $paymentMethodId = null,
+        ?int $cashRegisterId = null,
+        string $statusFilter = 'completed',
+        string $search = '',
+        $user = null
+    ): array {
+        if (!$user) {
+            $user = auth()->user();
+        }
+
+        $query = Sale::query()->with(['items.product', 'seller', 'user', 'payments.paymentMethod', 'cashReconciliation']);
+
+        if ($startDate) $query->whereDate('sales.created_at', '>=', $startDate);
+        if ($endDate) $query->whereDate('sales.created_at', '<=', $endDate);
+
+        if ($branchId) {
+            $query->where('sales.branch_id', $branchId);
+        } elseif ($user && !$user->isSuperAdmin()) {
+            $query->where('sales.branch_id', $user->branch_id);
+        }
+
+        if ($userId) $query->where('sales.seller_id', $userId);
+        if ($cashierId) $query->where('sales.user_id', $cashierId);
+
+        if ($paymentMethodId) {
+            $query->whereHas('payments', fn($q) => $q->where('payment_method_id', $paymentMethodId));
+        }
+
+        if ($user && $user->isSupervisor()) {
+            $supervisorRegisterIds = $user->getSupervisorCashRegisterIds();
+            if (empty($supervisorRegisterIds)) {
+                $query->whereRaw('0 = 1');
+            } else {
+                $filterIds = ($cashRegisterId && in_array((int) $cashRegisterId, $supervisorRegisterIds))
+                    ? [(int) $cashRegisterId]
+                    : $supervisorRegisterIds;
+                $query->whereHas('cashReconciliation', fn($q) => $q->whereIn('cash_register_id', $filterIds));
+            }
+        } elseif ($cashRegisterId) {
+            $query->whereHas('cashReconciliation', fn($q) => $q->where('cash_register_id', $cashRegisterId));
+        }
+
+        if ($statusFilter !== 'all') {
+            $query->where('sales.status', $statusFilter);
+        }
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('sales.invoice_number', 'like', "%{$search}%")
+                  ->orWhere('sales.dian_number', 'like', "%{$search}%")
+                  ->orWhereHas('customer', function ($cq) use ($search) {
+                      $cq->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('business_name', 'like', "%{$search}%")
+                        ->orWhere('document_number', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $sales = $query->orderBy('sales.created_at')->get();
+
+        $completed = $sales->where('status', 'completed');
+        $totalSales = (float) $completed->sum('total');
+        $totalSubtotal = (float) $completed->sum('subtotal');
+        $totalTax = (float) $completed->sum('tax_total');
+        $totalDiscount = (float) $completed->sum('discount');
+        $totalTransactions = (int) $completed->count();
+        $averageTicket = $totalTransactions > 0 ? $totalSales / $totalTransactions : 0;
+
+        $totalProfit = 0;
+        $dailySales = [];
+        $hourlySales = [];
+        $sellerSales = [];
+        $pmSales = [];
+
+        foreach ($completed as $sale) {
+            $saleProfit = 0;
+            foreach ($sale->items as $item) {
+                if ($item->product) {
+                    $saleProfit += ((float) $item->subtotal - ((float) $item->unit_cost * (float) $item->quantity));
+                }
+            }
+            $totalProfit += $saleProfit;
+
+            $day = (int) $sale->created_at->format('j');
+            if (!isset($dailySales[$day])) {
+                $dailySales[$day] = ['count' => 0, 'total' => 0, 'profit' => 0];
+            }
+            $dailySales[$day]['count']++;
+            $dailySales[$day]['total'] += (float) $sale->total;
+            $dailySales[$day]['profit'] += $saleProfit;
+
+            $hour = (int) $sale->created_at->format('G');
+            if (!isset($hourlySales[$hour])) {
+                $hourlySales[$hour] = ['count' => 0, 'total' => 0];
+            }
+            $hourlySales[$hour]['count']++;
+            $hourlySales[$hour]['total'] += (float) $sale->total;
+
+            $sellerName = $sale->seller?->name ?? 'Sin asignar';
+            if (!isset($sellerSales[$sellerName])) {
+                $sellerSales[$sellerName] = ['count' => 0, 'total' => 0];
+            }
+            $sellerSales[$sellerName]['count']++;
+            $sellerSales[$sellerName]['total'] += (float) $sale->total;
+
+            foreach ($sale->payments as $payment) {
+                $pmName = $payment->paymentMethod?->name ?? 'Otro';
+                if (!isset($pmSales[$pmName])) {
+                    $pmSales[$pmName] = ['count' => 0, 'total' => 0];
+                }
+                $pmSales[$pmName]['count']++;
+                $pmSales[$pmName]['total'] += (float) $payment->amount;
+            }
+        }
+
+        return [
+            'totalSales' => $totalSales,
+            'totalSubtotal' => $totalSubtotal,
+            'totalTax' => $totalTax,
+            'totalDiscount' => $totalDiscount,
+            'totalTransactions' => $totalTransactions,
+            'averageTicket' => $averageTicket,
+            'totalProfit' => $totalProfit,
+            'dailySales' => $dailySales,
+            'hourlySales' => $hourlySales,
+            'sellerSales' => $sellerSales,
+            'pmSales' => $pmSales,
+        ];
+    }
+
+    /**
+     * Export Sales Book Versus (Period A vs Period B) comparison as Excel.
+     */
+    public function salesBookVersusExcel(Request $request)
+    {
+        $startDateA = $request->get('start_date_a', now()->startOfMonth()->format('Y-m-d'));
+        $endDateA = $request->get('end_date_a', now()->format('Y-m-d'));
+        $startDateB = $request->get('start_date_b', now()->subMonth()->startOfMonth()->format('Y-m-d'));
+        $endDateB = $request->get('end_date_b', now()->subMonth()->endOfMonth()->format('Y-m-d'));
+        $labelA = $request->get('label_a', Carbon::parse($startDateA)->translatedFormat('F Y'));
+        $labelB = $request->get('label_b', Carbon::parse($startDateB)->translatedFormat('F Y'));
+        $branchId = $request->get('branch_id');
+        $userId = $request->get('user_id');
+        $cashierId = $request->get('cashier_id');
+        $paymentMethodId = $request->get('payment_method_id');
+        $cashRegisterId = $request->get('cash_register_id');
+        $statusFilter = $request->get('status', 'completed');
+        $search = $request->get('search', '');
+
+        $user = auth()->user();
+        $branchName = 'Todas las Sucursales';
+        if ($branchId) {
+            $branchName = Branch::find($branchId)?->name ?? 'Todas';
+        } elseif (!$user->isSuperAdmin()) {
+            $branchId = $user->branch_id;
+            $branchName = Branch::find($branchId)?->name ?? '';
+        }
+
+        $dataA = $this->calculateSalesBookMetrics($startDateA, $endDateA, $branchId, $userId, $cashierId, $paymentMethodId, $cashRegisterId, $statusFilter, $search, $user);
+        $dataB = $this->calculateSalesBookMetrics($startDateB, $endDateB, $branchId, $userId, $cashierId, $paymentMethodId, $cashRegisterId, $statusFilter, $search, $user);
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Ventas Versus');
+
+        $mainHeaderStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 14],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1A1225']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ];
+        $sectionHeaderStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'A855F7']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '9333EA']]],
+        ];
+        $headerAStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FF7261']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ];
+        $headerBStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '7C3AED']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ];
+        $subHeaderStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '1E293B'], 'size' => 10],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F1F5F9']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'CBD5E1']]],
+        ];
+        $dataStyle = [
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E2E8F0']]],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+        $totalHighlight = [
+            'font' => ['bold' => true],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F8FAFC']],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'CBD5E1']]],
+        ];
+
+        $row = 1;
+
+        // Title
+        $sheet->setCellValue('A' . $row, 'MIKPOS - REPORTE COMPARATIVO DE LIBRO DE VENTAS (VERSUS)');
+        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($mainHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(36);
+        $row += 2;
+
+        // Metadata
+        $sheet->setCellValue('A' . $row, 'Período A (Base):');
+        $sheet->setCellValue('B' . $row, ucfirst($labelA) . " ({$startDateA} al {$endDateA})");
+        $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+        $sheet->setCellValue('D' . $row, 'Período B (Comparado):');
+        $sheet->setCellValue('E' . $row, ucfirst($labelB) . " ({$startDateB} al {$endDateB})");
+        $sheet->getStyle('D' . $row)->getFont()->setBold(true);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'Sucursal:');
+        $sheet->setCellValue('B' . $row, $branchName);
+        $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+        $sheet->setCellValue('D' . $row, 'Fecha Generación:');
+        $sheet->setCellValue('E' . $row, now()->format('d/m/Y H:i:s'));
+        $sheet->getStyle('D' . $row)->getFont()->setBold(true);
+        $row += 2;
+
+        // SECTION 1: SALES SUMMARY COMPARISON
+        $sheet->setCellValue('A' . $row, '1. RESUMEN EJECUTIVO DE VENTAS');
+        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($sectionHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(24);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'MÉTRICA / INDICADOR');
+        $sheet->setCellValue('B' . $row, 'PERÍODO A (' . strtoupper($labelA) . ')');
+        $sheet->setCellValue('C' . $row, 'PERÍODO B (' . strtoupper($labelB) . ')');
+        $sheet->setCellValue('D' . $row, 'DIFERENCIA (B - A)');
+        $sheet->setCellValue('E' . $row, '% CRECIMIENTO');
+        $sheet->setCellValue('F' . $row, 'PERÍODO LÍDER');
+        $sheet->setCellValue('G' . $row, 'TENDENCIA');
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($subHeaderStyle);
+        $sheet->getStyle('B' . $row)->applyFromArray($headerAStyle);
+        $sheet->getStyle('C' . $row)->applyFromArray($headerBStyle);
+        $sheet->getRowDimension($row)->setRowHeight(22);
+        $row++;
+
+        $metrics = [
+            ['Total Ventas', $dataA['totalSales'], $dataB['totalSales'], true, true],
+            ['Subtotal sin Impuestos', $dataA['totalSubtotal'], $dataB['totalSubtotal'], true, true],
+            ['Total Impuestos Recaudados', $dataA['totalTax'], $dataB['totalTax'], true, true],
+            ['Total Descuentos Otorgados', $dataA['totalDiscount'], $dataB['totalDiscount'], true, false],
+            ['Transacciones / Facturas', $dataA['totalTransactions'], $dataB['totalTransactions'], 'int', true],
+            ['Ticket Promedio', $dataA['averageTicket'], $dataB['averageTicket'], true, true],
+            ['Ganancia Estimada de Ventas', $dataA['totalProfit'], $dataB['totalProfit'], true, true],
+        ];
+
+        foreach ($metrics as $m) {
+            $name = $m[0];
+            $valA = $m[1];
+            $valB = $m[2];
+            $isMoney = $m[3] === true;
+            $isInt = $m[3] === 'int';
+            $higherIsBetter = $m[4];
+
+            $growth = $valA != 0 ? (($valB - $valA) / abs($valA)) * 100 : ($valB > 0 ? 100 : 0);
+
+            $winner = 'Empate';
+            if ($higherIsBetter) {
+                if ($valB > $valA) $winner = ucfirst($labelB) . ' 🏆';
+                elseif ($valA > $valB) $winner = ucfirst($labelA) . ' 🏆';
+            } else {
+                if ($valB < $valA) $winner = ucfirst($labelB) . ' 🏆';
+                elseif ($valA < $valB) $winner = ucfirst($labelA) . ' 🏆';
+            }
+
+            $trend = $growth > 0 ? '▲ Creció' : ($growth < 0 ? '▼ Cayó' : '— Igual');
+
+            $sheet->setCellValue('A' . $row, $name);
+            $sheet->setCellValue('B' . $row, $valA);
+            $sheet->setCellValue('C' . $row, $valB);
+            $sheet->setCellValue('D' . $row, "=C{$row}-B{$row}");
+            $sheet->setCellValue('E' . $row, "=IF(B{$row}<>0, (C{$row}-B{$row})/ABS(B{$row}), 0)");
+            $sheet->setCellValue('F' . $row, $winner);
+            $sheet->setCellValue('G' . $row, $trend);
+
+            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($dataStyle);
+
+            if ($isMoney) {
+                $sheet->getStyle('B' . $row . ':D' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            } elseif ($isInt) {
+                $sheet->getStyle('B' . $row . ':D' . $row)->getNumberFormat()->setFormatCode('#,##0');
+            }
+            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('+0.0%;-0.0%;0.0%');
+
+            if ($name === 'Total Ventas' || $name === 'Ganancia Estimada de Ventas') {
+                $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($totalHighlight);
+            }
+
+            $row++;
+        }
+        $row += 2;
+
+        // SECTION 2: DAILY SALES COMPARISON (1 AL 31)
+        $sheet->setCellValue('A' . $row, '2. COMPARATIVA DE VENTAS DÍA A DÍA (DÍA 1 AL 31)');
+        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($sectionHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(24);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'DÍA');
+        $sheet->setCellValue('B' . $row, 'TRANS. ' . strtoupper($labelA));
+        $sheet->setCellValue('C' . $row, 'VENTAS ' . strtoupper($labelA));
+        $sheet->setCellValue('D' . $row, 'TRANS. ' . strtoupper($labelB));
+        $sheet->setCellValue('E' . $row, 'VENTAS ' . strtoupper($labelB));
+        $sheet->setCellValue('F' . $row, 'DIF. VENTAS ($)');
+        $sheet->setCellValue('G' . $row, '% CRECIMIENTO');
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($subHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(22);
+        $row++;
+
+        for ($d = 1; $d <= 31; $d++) {
+            $tA = $dataA['dailySales'][$d]['count'] ?? 0;
+            $vA = $dataA['dailySales'][$d]['total'] ?? 0;
+            $tB = $dataB['dailySales'][$d]['count'] ?? 0;
+            $vB = $dataB['dailySales'][$d]['total'] ?? 0;
+
+            $sheet->setCellValue('A' . $row, "Día {$d}");
+            $sheet->setCellValue('B' . $row, $tA);
+            $sheet->setCellValue('C' . $row, $vA);
+            $sheet->setCellValue('D' . $row, $tB);
+            $sheet->setCellValue('E' . $row, $vB);
+            $sheet->setCellValue('F' . $row, "=E{$row}-C{$row}");
+            $sheet->setCellValue('G' . $row, "=IF(C{$row}<>0, (E{$row}-C{$row})/ABS(C{$row}), 0)");
+
+            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($dataStyle);
+            $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('#,##0');
+            $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode('#,##0');
+            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('F' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('G' . $row)->getNumberFormat()->setFormatCode('+0.0%;-0.0%;0.0%');
+            $row++;
+        }
+        $row += 2;
+
+        // SECTION 3: PAYMENT METHODS COMPARISON
+        $sheet->setCellValue('A' . $row, '3. COMPARATIVA POR MÉTODO DE PAGO');
+        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($sectionHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(24);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'MÉTODO DE PAGO');
+        $sheet->setCellValue('B' . $row, 'TRANS. ' . strtoupper($labelA));
+        $sheet->setCellValue('C' . $row, 'TOTAL ' . strtoupper($labelA));
+        $sheet->setCellValue('D' . $row, 'TRANS. ' . strtoupper($labelB));
+        $sheet->setCellValue('E' . $row, 'TOTAL ' . strtoupper($labelB));
+        $sheet->setCellValue('F' . $row, 'VARIACIÓN ($)');
+        $sheet->setCellValue('G' . $row, 'VARIACIÓN (%)');
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($subHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(22);
+        $row++;
+
+        $allPmNames = array_unique(array_merge(array_keys($dataA['pmSales']), array_keys($dataB['pmSales'])));
+        sort($allPmNames);
+
+        foreach ($allPmNames as $pmName) {
+            $tA = $dataA['pmSales'][$pmName]['count'] ?? 0;
+            $vA = $dataA['pmSales'][$pmName]['total'] ?? 0;
+            $tB = $dataB['pmSales'][$pmName]['count'] ?? 0;
+            $vB = $dataB['pmSales'][$pmName]['total'] ?? 0;
+
+            $sheet->setCellValue('A' . $row, $pmName);
+            $sheet->setCellValue('B' . $row, $tA);
+            $sheet->setCellValue('C' . $row, $vA);
+            $sheet->setCellValue('D' . $row, $tB);
+            $sheet->setCellValue('E' . $row, $vB);
+            $sheet->setCellValue('F' . $row, "=E{$row}-C{$row}");
+            $sheet->setCellValue('G' . $row, "=IF(C{$row}<>0, (E{$row}-C{$row})/ABS(C{$row}), 0)");
+
+            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($dataStyle);
+            $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('#,##0');
+            $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode('#,##0');
+            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('F' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('G' . $row)->getNumberFormat()->setFormatCode('+0.0%;-0.0%;0.0%');
+            $row++;
+        }
+        $row += 2;
+
+        // SECTION 4: SELLERS COMPARISON
+        $sheet->setCellValue('A' . $row, '4. COMPARATIVA POR VENDEDOR');
+        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($sectionHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(24);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'VENDEDOR');
+        $sheet->setCellValue('B' . $row, 'TRANS. ' . strtoupper($labelA));
+        $sheet->setCellValue('C' . $row, 'TOTAL ' . strtoupper($labelA));
+        $sheet->setCellValue('D' . $row, 'TRANS. ' . strtoupper($labelB));
+        $sheet->setCellValue('E' . $row, 'TOTAL ' . strtoupper($labelB));
+        $sheet->setCellValue('F' . $row, 'VARIACIÓN ($)');
+        $sheet->setCellValue('G' . $row, 'VARIACIÓN (%)');
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($subHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(22);
+        $row++;
+
+        $allSellerNames = array_unique(array_merge(array_keys($dataA['sellerSales']), array_keys($dataB['sellerSales'])));
+        sort($allSellerNames);
+
+        foreach ($allSellerNames as $sName) {
+            $tA = $dataA['sellerSales'][$sName]['count'] ?? 0;
+            $vA = $dataA['sellerSales'][$sName]['total'] ?? 0;
+            $tB = $dataB['sellerSales'][$sName]['count'] ?? 0;
+            $vB = $dataB['sellerSales'][$sName]['total'] ?? 0;
+
+            $sheet->setCellValue('A' . $row, $sName);
+            $sheet->setCellValue('B' . $row, $tA);
+            $sheet->setCellValue('C' . $row, $vA);
+            $sheet->setCellValue('D' . $row, $tB);
+            $sheet->setCellValue('E' . $row, $vB);
+            $sheet->setCellValue('F' . $row, "=E{$row}-C{$row}");
+            $sheet->setCellValue('G' . $row, "=IF(C{$row}<>0, (E{$row}-C{$row})/ABS(C{$row}), 0)");
+
+            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($dataStyle);
+            $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('#,##0');
+            $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode('#,##0');
+            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('F' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('G' . $row)->getNumberFormat()->setFormatCode('+0.0%;-0.0%;0.0%');
+            $row++;
+        }
+        $row += 2;
+
+        // SECTION 5: HOURLY SALES COMPARISON (00:00 A 23:00)
+        $sheet->setCellValue('A' . $row, '5. COMPARATIVA POR FRANJA HORARIA (HORAS PICO)');
+        $sheet->mergeCells('A' . $row . ':G' . $row);
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($sectionHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(24);
+        $row++;
+
+        $sheet->setCellValue('A' . $row, 'HORA');
+        $sheet->setCellValue('B' . $row, 'TRANS. ' . strtoupper($labelA));
+        $sheet->setCellValue('C' . $row, 'VENTAS ' . strtoupper($labelA));
+        $sheet->setCellValue('D' . $row, 'TRANS. ' . strtoupper($labelB));
+        $sheet->setCellValue('E' . $row, 'VENTAS ' . strtoupper($labelB));
+        $sheet->setCellValue('F' . $row, 'DIFERENCIA ($)');
+        $sheet->setCellValue('G' . $row, '% CRECIMIENTO');
+        $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($subHeaderStyle);
+        $sheet->getRowDimension($row)->setRowHeight(22);
+        $row++;
+
+        for ($h = 0; $h <= 23; $h++) {
+            $hLabel = str_pad($h, 2, '0', STR_PAD_LEFT) . ':00 - ' . str_pad($h, 2, '0', STR_PAD_LEFT) . ':59';
+            $tA = $dataA['hourlySales'][$h]['count'] ?? 0;
+            $vA = $dataA['hourlySales'][$h]['total'] ?? 0;
+            $tB = $dataB['hourlySales'][$h]['count'] ?? 0;
+            $vB = $dataB['hourlySales'][$h]['total'] ?? 0;
+
+            if ($tA == 0 && $tB == 0) continue; // skip completely empty hours
+
+            $sheet->setCellValue('A' . $row, $hLabel);
+            $sheet->setCellValue('B' . $row, $tA);
+            $sheet->setCellValue('C' . $row, $vA);
+            $sheet->setCellValue('D' . $row, $tB);
+            $sheet->setCellValue('E' . $row, $vB);
+            $sheet->setCellValue('F' . $row, "=E{$row}-C{$row}");
+            $sheet->setCellValue('G' . $row, "=IF(C{$row}<>0, (E{$row}-C{$row})/ABS(C{$row}), 0)");
+
+            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray($dataStyle);
+            $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('#,##0');
+            $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode('#,##0');
+            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('F' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('G' . $row)->getNumberFormat()->setFormatCode('+0.0%;-0.0%;0.0%');
+            $row++;
+        }
+
+        foreach (range('A', 'G') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'ventas-versus-' . $startDateA . '-vs-' . $startDateB . '.xlsx';
         $tempFile = tempnam(sys_get_temp_dir(), 'excel');
         $writer->save($tempFile);
 

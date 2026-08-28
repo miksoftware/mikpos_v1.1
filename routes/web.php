@@ -611,12 +611,20 @@ Route::middleware(['auth'])->group(function () {
             ->name('sales-book.excel')
             ->middleware('permission:reports.export');
 
+        Route::get('/sales-book/excel-versus', [App\Http\Controllers\ReportExportController::class, 'salesBookVersusExcel'])
+            ->name('sales-book.excel-versus')
+            ->middleware('permission:reports.export');
+
         Route::get('/profit-loss', App\Livewire\Reports\ProfitLoss::class)
             ->name('profit-loss')
             ->middleware('permission:reports.profit_loss');
 
         Route::get('/profit-loss/excel', [App\Http\Controllers\ReportExportController::class, 'profitLossExcel'])
             ->name('profit-loss.excel')
+            ->middleware('permission:reports.export');
+
+        Route::get('/profit-loss/excel-versus', [App\Http\Controllers\ReportExportController::class, 'profitLossVersusExcel'])
+            ->name('profit-loss.excel-versus')
             ->middleware('permission:reports.export');
 
         Route::get('/credits', App\Livewire\Reports\CreditsReport::class)
