@@ -63,7 +63,7 @@ class Login extends Component
 
         $user = User::where('email', $this->email)->first();
         if ($user && !$user->is_active) {
-            $this->addError('email', 'Tu cuenta se encuentra inactiva. Comunícate con el administrador.');
+            $this->addError('email', 'Algo paso. Intenta mas tarde!');
             $this->loading = false;
             return;
         }
