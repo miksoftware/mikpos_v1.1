@@ -187,4 +187,36 @@ class LoginTest extends TestCase
             'action' => 'login',
         ]);
     }
+
+    public function test_inactive_user_cannot_login(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'inactive@example.com',
+            'password' => bcrypt('password123'),
+            'is_active' => false,
+        ]);
+
+        Livewire::test(Login::class)
+            ->set('email', 'inactive@example.com')
+            ->set('password', 'password123')
+            ->call('login')
+            ->assertHasErrors(['email' => 'Tu cuenta se encuentra inactiva. Comunícate con el administrador.']);
+
+        $this->assertGuest();
+    }
+
+    public function test_inactive_authenticated_user_is_logged_out_by_middleware(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'user@example.com',
+            'password' => bcrypt('password123'),
+            'is_active' => false,
+        ]);
+
+        $response = $this->actingAs($user)->get('/dashboard');
+
+        $response->assertRedirect('/login');
+        $response->assertSessionHas('error', 'Tu cuenta ha sido desactivada. Comunícate con el administrador.');
+        $this->assertGuest();
+    }
 }

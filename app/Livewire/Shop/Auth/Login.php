@@ -28,7 +28,13 @@ class Login extends Component
     {
         $this->validate();
 
-        if (! Auth::guard('customer')->attempt(['email' => $this->email, 'password' => $this->password])) {
+        $customer = \App\Models\Customer::where('email', $this->email)->first();
+        if ($customer && !$customer->is_active) {
+            $this->addError('email', 'Tu cuenta se encuentra inactiva. Comunícate con la administración.');
+            return;
+        }
+
+        if (! Auth::guard('customer')->attempt(['email' => $this->email, 'password' => $this->password, 'is_active' => true])) {
             $this->addError('email', 'Las credenciales proporcionadas son incorrectas.');
             return;
         }

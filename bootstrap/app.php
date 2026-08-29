@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'permission' => \App\Http\Middleware\CheckPermission::class,
+            'user.active' => \App\Http\Middleware\CheckUserActive::class,
             'ecommerce.auth' => \App\Http\Middleware\EcommerceAuth::class,
             'ecommerce.check' => \App\Http\Middleware\CheckEcommerce::class,
         ]);

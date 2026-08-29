@@ -5,6 +5,7 @@ namespace App\Livewire\Auth;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use App\Models\User;
 use App\Services\ActivityLogService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
@@ -60,7 +61,14 @@ class Login extends Component
             return;
         }
 
-        if (Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
+        $user = User::where('email', $this->email)->first();
+        if ($user && !$user->is_active) {
+            $this->addError('email', 'Tu cuenta se encuentra inactiva. Comunícate con el administrador.');
+            $this->loading = false;
+            return;
+        }
+
+        if (Auth::attempt(['email' => $this->email, 'password' => $this->password, 'is_active' => true], $this->remember)) {
             RateLimiter::clear($throttleKey);
             
             if (request()->hasSession()) {

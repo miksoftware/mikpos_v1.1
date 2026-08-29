@@ -31,6 +31,14 @@ class EcommerceAuth
             return redirect('/shop/login');
         }
 
+        $customer = Auth::guard('customer')->user();
+        if ($customer && !$customer->is_active) {
+            Auth::guard('customer')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            return redirect('/shop/login')->with('error', 'Tu cuenta ha sido desactivada.');
+        }
+
         return $next($request);
     }
 }

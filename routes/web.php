@@ -155,7 +155,7 @@ Route::prefix('shop')->middleware('ecommerce.auth')->group(function () {
 });
 
 // Protected routes
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'user.active'])->group(function () {
     Route::get('/dashboard', App\Livewire\Dashboard::class)
         ->name('dashboard')
         ->middleware('permission:dashboard.view');
