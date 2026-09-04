@@ -35,6 +35,7 @@ class Branch extends Model
         'quotes_reserve_inventory',
         'print_qr',
         'enable_costo_fe',
+        'tax_exempt_preserves_price',
         'is_active',
     ];
 
@@ -48,6 +49,7 @@ class Branch extends Model
             'quotes_reserve_inventory' => 'boolean',
             'print_qr' => 'boolean',
             'enable_costo_fe' => 'boolean',
+            'tax_exempt_preserves_price' => 'boolean',
             'is_active' => 'boolean',
         ];
     }

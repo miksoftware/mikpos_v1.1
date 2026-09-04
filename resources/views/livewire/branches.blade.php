@@ -304,6 +304,10 @@
                                 <input wire:model="enable_costo_fe" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
                                 <span class="text-sm text-slate-700">Costo FE / Costo RE en Compras</span>
                             </label>
+                            <label class="flex items-center gap-2 cursor-pointer" title="Al activar esta opción, cuando se quita el IVA en el POS (F8), el precio final al cliente se mantiene intacto ($1.500 sigue en $1.500 con $0 IVA) en lugar de descontar el impuesto">
+                                <input wire:model="tax_exempt_preserves_price" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                                <span class="text-sm text-slate-700">Conservar precio al quitar IVA</span>
+                            </label>
                             @if(str_contains(auth()->user()->email ?? '', 'softwaremik'))
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input wire:model="ecommerce_enabled" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#a855f7] focus:ring-[#a855f7]">
@@ -364,6 +368,12 @@
                             <div>
                                 <p class="text-sm text-slate-500 uppercase">Usuarios</p>
                                 <p class="font-semibold text-slate-800">{{ $viewingBranch->users_count }}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-500 uppercase">Quitar IVA POS</p>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $viewingBranch->tax_exempt_preserves_price ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600' }}">
+                                    {{ $viewingBranch->tax_exempt_preserves_price ? 'Conserva precio final' : 'Descuenta impuesto' }}
+                                </span>
                             </div>
                             @if($viewingBranch->tax_id)
                             <div><p class="text-sm text-slate-500 uppercase">CUIT/RUC</p><p class="font-medium text-slate-800">{{ $viewingBranch->tax_id }}</p></div>

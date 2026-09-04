@@ -372,4 +372,141 @@ class PointOfSaleTaxTest extends TestCase
         $this->assertTrue($cart[$cartKey]['tax_exempt']);
         $this->assertEquals(0, $cart[$cartKey]['tax_amount']);
     }
+
+    public function test_can_toggle_tax_preserving_final_price_single_product(): void
+    {
+        $this->actingAs($this->user);
+
+        // Enable preserve price setting on branch
+        $this->branch->update(['tax_exempt_preserves_price' => true]);
+
+        // Product with 19% tax included (1500 final price -> base ~1260.50, tax ~239.50)
+        $category = \App\Models\Category::first();
+        $unit = \App\Models\Unit::first();
+        $product = Product::create([
+            'branch_id' => $this->branch->id,
+            'category_id' => $category->id,
+            'unit_id' => $unit->id,
+            'name' => 'Producto Prueba 1500',
+            'sku' => 'PROD-1500',
+            'purchase_price' => 800,
+            'sale_price' => 1500,
+            'tax_id' => $this->tax19->id,
+            'price_includes_tax' => true,
+            'current_stock' => 100,
+            'manages_inventory' => true,
+            'is_active' => true,
+        ]);
+
+        $cartKey = $product->id . '-parent';
+
+        $component = Livewire::test(PointOfSale::class)
+            ->call('addToCart', $product->id);
+
+        $this->assertEquals(1500, $component->get('total'));
+        $this->assertEquals(239.50, $component->get('taxTotal'));
+        $this->assertEquals(1260.50, $component->get('subtotal'));
+
+        // Toggle tax OFF: Total should remain 1500, tax 0, subtotal 1500
+        $component->call('toggleItemTax', $cartKey);
+
+        $this->assertEquals(1500, $component->get('total'));
+        $this->assertEquals(0, $component->get('taxTotal'));
+        $this->assertEquals(1500, $component->get('subtotal'));
+        $cart = $component->get('cart');
+        $this->assertTrue($cart[$cartKey]['tax_exempt']);
+        $this->assertEquals(1500, $cart[$cartKey]['price']);
+        $this->assertEquals(1500, $cart[$cartKey]['base_price']);
+        $this->assertEquals(0, $cart[$cartKey]['tax_amount']);
+
+        // Toggle tax ON: Total should still be 1500, tax 239.50, subtotal 1260.50
+        $component->call('toggleItemTax', $cartKey);
+
+        $this->assertEquals(1500, $component->get('total'));
+        $this->assertEquals(239.50, $component->get('taxTotal'));
+        $this->assertEquals(1260.50, $component->get('subtotal'));
+        $cart = $component->get('cart');
+        $this->assertFalse($cart[$cartKey]['tax_exempt']);
+        $this->assertEquals(1500, $cart[$cartKey]['price']);
+        $this->assertEquals(1260.50, $cart[$cartKey]['base_price']);
+    }
+
+    public function test_can_toggle_all_taxes_preserving_final_price(): void
+    {
+        $this->actingAs($this->user);
+
+        // Enable preserve price setting on branch
+        $this->branch->update(['tax_exempt_preserves_price' => true]);
+
+        $cartKey1 = $this->productWithTax->id . '-parent';
+        $cartKey2 = $this->productExempt->id . '-parent';
+
+        $component = Livewire::test(PointOfSale::class)
+            ->call('addToCart', $this->productWithTax->id) // priceWithTax = 119 (base 100, tax 19)
+            ->call('addToCart', $this->productExempt->id);  // price = 50 (tax 0)
+
+        // Initial total: 119 + 50 = 169
+        $this->assertEquals(169, $component->get('total'));
+        $this->assertEquals(19, $component->get('taxTotal'));
+
+        // Toggle all taxes OFF (F8)
+        $component->call('toggleAllTaxes');
+
+        // Total should stay 169! (productWithTax stays 119 with 0 tax, exempt stays 50)
+        $this->assertEquals(169, $component->get('total'));
+        $this->assertEquals(0, $component->get('taxTotal'));
+        $this->assertEquals(169, $component->get('subtotal'));
+
+        $cart = $component->get('cart');
+        $this->assertTrue($cart[$cartKey1]['tax_exempt']);
+        $this->assertEquals(119, $cart[$cartKey1]['price']);
+        $this->assertEquals(119, $cart[$cartKey1]['base_price']);
+        $this->assertEquals(0, $cart[$cartKey1]['tax_amount']);
+
+        // Toggle all taxes ON (F8)
+        $component->call('toggleAllTaxes');
+
+        $this->assertEquals(169, $component->get('total'));
+        $this->assertEquals(19, $component->get('taxTotal'));
+        $this->assertEquals(150, $component->get('subtotal'));
+
+        $cart = $component->get('cart');
+        $this->assertFalse($cart[$cartKey1]['tax_exempt']);
+        $this->assertEquals(119, $cart[$cartKey1]['price']);
+        $this->assertEquals(100, $cart[$cartKey1]['base_price']);
+    }
+
+    public function test_sale_persists_preserved_price_when_exempt(): void
+    {
+        $this->actingAs($this->user);
+
+        $this->branch->update(['tax_exempt_preserves_price' => true]);
+
+        $cartKey = $this->productWithTax->id . '-parent';
+
+        $component = Livewire::test(PointOfSale::class)
+            ->call('addToCart', $this->productWithTax->id)
+            ->call('toggleItemTax', $cartKey)
+            ->call('openPayment')
+            ->set('payments', [
+                ['method_id' => (string)$this->paymentMethod->id, 'amount' => '119']
+            ])
+            ->call('processPayment');
+
+        $this->assertDatabaseHas('sales', [
+            'subtotal' => 119,
+            'tax_total' => 0,
+            'total' => 119,
+            'status' => 'completed',
+        ]);
+
+        $this->assertDatabaseHas('sale_items', [
+            'product_id' => $this->productWithTax->id,
+            'unit_price' => 119,
+            'tax_rate' => 0,
+            'tax_amount' => 0,
+            'total' => 119,
+        ]);
+    }
 }
+

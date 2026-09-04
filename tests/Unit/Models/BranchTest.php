@@ -20,6 +20,7 @@ class BranchTest extends TestCase
         $this->assertEquals([
             'code',
             'name',
+            'logo',
             'tax_id',
             'department_id',
             'municipality_id',
@@ -36,6 +37,12 @@ class BranchTest extends TestCase
             'authorization_date',
             'receipt_header',
             'show_in_pos',
+            'ecommerce_enabled',
+            'show_stock_in_shop',
+            'quotes_reserve_inventory',
+            'print_qr',
+            'enable_costo_fe',
+            'tax_exempt_preserves_price',
             'is_active',
         ], $branch->getFillable());
     }

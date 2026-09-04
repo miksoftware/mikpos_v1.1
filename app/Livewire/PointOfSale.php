@@ -785,7 +785,10 @@ class PointOfSale extends Component
             $isExempt = $item['tax_exempt'] ?? false;
             $taxRate = $isExempt ? 0 : $origTaxRate;
             
-            if ($item['price_includes_tax'] && !$isExempt) {
+            if ($isExempt && $this->preservesPriceOnTaxExempt()) {
+                $priceWithTax = $specialPrice;
+                $basePrice = $specialPrice;
+            } elseif ($item['price_includes_tax'] && !$isExempt) {
                 $priceWithTax = $specialPrice;
                 $basePrice = $taxRate > 0 ? $specialPrice / (1 + ($taxRate / 100)) : $specialPrice;
             } else {
@@ -798,8 +801,13 @@ class PointOfSale extends Component
         } else {
             // Switch back to original price
             $isExempt = $item['tax_exempt'] ?? false;
-            $item['base_price'] = $item['original_base_price'];
-            $item['price'] = $isExempt ? $item['original_base_price'] : $item['original_price'];
+            if ($isExempt && $this->preservesPriceOnTaxExempt()) {
+                $item['base_price'] = $item['original_price'];
+                $item['price'] = $item['original_price'];
+            } else {
+                $item['base_price'] = $item['original_base_price'];
+                $item['price'] = $isExempt ? $item['original_base_price'] : $item['original_price'];
+            }
         }
         
         $this->updateCartItemTotals($cartKey);
@@ -831,7 +839,10 @@ class PointOfSale extends Component
             $isExempt = $item['tax_exempt'] ?? false;
             $taxRate = $isExempt ? 0 : $origTaxRate;
             
-            if ($item['price_includes_tax'] && !$isExempt) {
+            if ($isExempt && $this->preservesPriceOnTaxExempt()) {
+                $priceWithTax = $specialPrice;
+                $basePrice = $specialPrice;
+            } elseif ($item['price_includes_tax'] && !$isExempt) {
                 $priceWithTax = $specialPrice;
                 $basePrice = $taxRate > 0 ? $specialPrice / (1 + ($taxRate / 100)) : $specialPrice;
             } else {
@@ -853,6 +864,18 @@ class PointOfSale extends Component
     }
 
     /**
+     * Check if the current branch preserves final selling price when removing tax.
+     */
+    public function preservesPriceOnTaxExempt(): bool
+    {
+        if (!$this->branchId) {
+            return false;
+        }
+
+        return (bool) (\App\Models\Branch::where('id', $this->branchId)->value('tax_exempt_preserves_price') ?? false);
+    }
+
+    /**
      * Toggle tax exemption for a single cart item.
      */
     public function toggleItemTax($cartKey)
@@ -868,13 +891,39 @@ class PointOfSale extends Component
         }
 
         $item['tax_exempt'] = !($item['tax_exempt'] ?? false);
+        $preservesPrice = $this->preservesPriceOnTaxExempt();
 
         if ($item['tax_exempt']) {
             $item['tax_rate'] = 0;
-            $item['price'] = round($item['base_price'], 2);
+            if ($preservesPrice) {
+                // Keep selling price unchanged: base_price absorbs the tax so final total is preserved
+                $item['base_price'] = round($item['price'], 2);
+            } else {
+                // Legacy: deduct tax from final price
+                $item['price'] = round($item['base_price'], 2);
+            }
         } else {
             $item['tax_rate'] = $originalTaxRate;
-            $item['price'] = round($item['base_price'] * (1 + ($originalTaxRate / 100)), 2);
+            if ($preservesPrice) {
+                // Restore tax rate and revert base_price to pre-tax amount
+                if ($item['using_special_price'] && ($item['special_price'] ?? null)) {
+                    $specialPrice = (float) $item['special_price'];
+                    if ($item['price_includes_tax']) {
+                        $item['base_price'] = round($specialPrice / (1 + ($originalTaxRate / 100)), 2);
+                        $item['price'] = round($specialPrice, 2);
+                    } else {
+                        $item['base_price'] = round($specialPrice, 2);
+                        $item['price'] = round($specialPrice * (1 + ($originalTaxRate / 100)), 2);
+                    }
+                } elseif ($item['price_overridden'] ?? false) {
+                    $item['base_price'] = round($item['price'] / (1 + ($originalTaxRate / 100)), 2);
+                } else {
+                    $item['base_price'] = round($item['original_base_price'], 2);
+                    $item['price'] = round($item['original_price'], 2);
+                }
+            } else {
+                $item['price'] = round($item['base_price'] * (1 + ($originalTaxRate / 100)), 2);
+            }
         }
 
         $this->updateCartItemTotals($cartKey);
@@ -919,6 +968,7 @@ class PointOfSale extends Component
         // If all taxable items are already exempt -> Restore tax on all
         $newExemptState = $currentlyHasActiveTax;
         $modifiedCount = 0;
+        $preservesPrice = $this->preservesPriceOnTaxExempt();
 
         foreach ($this->cart as $cartKey => &$item) {
             $origRate = (float) ($item['original_tax_rate'] ?? $item['tax_rate'] ?? 0);
@@ -926,10 +976,32 @@ class PointOfSale extends Component
                 $item['tax_exempt'] = $newExemptState;
                 if ($newExemptState) {
                     $item['tax_rate'] = 0;
-                    $item['price'] = round($item['base_price'], 2);
+                    if ($preservesPrice) {
+                        $item['base_price'] = round($item['price'], 2);
+                    } else {
+                        $item['price'] = round($item['base_price'], 2);
+                    }
                 } else {
                     $item['tax_rate'] = $origRate;
-                    $item['price'] = round($item['base_price'] * (1 + ($origRate / 100)), 2);
+                    if ($preservesPrice) {
+                        if ($item['using_special_price'] && ($item['special_price'] ?? null)) {
+                            $specialPrice = (float) $item['special_price'];
+                            if ($item['price_includes_tax']) {
+                                $item['base_price'] = round($specialPrice / (1 + ($origRate / 100)), 2);
+                                $item['price'] = round($specialPrice, 2);
+                            } else {
+                                $item['base_price'] = round($specialPrice, 2);
+                                $item['price'] = round($specialPrice * (1 + ($origRate / 100)), 2);
+                            }
+                        } elseif ($item['price_overridden'] ?? false) {
+                            $item['base_price'] = round($item['price'] / (1 + ($origRate / 100)), 2);
+                        } else {
+                            $item['base_price'] = round($item['original_base_price'], 2);
+                            $item['price'] = round($item['original_price'], 2);
+                        }
+                    } else {
+                        $item['price'] = round($item['base_price'] * (1 + ($origRate / 100)), 2);
+                    }
                 }
                 $this->updateCartItemTotals($cartKey);
                 $modifiedCount++;
@@ -1719,8 +1791,13 @@ class PointOfSale extends Component
         $isExempt = $item['tax_exempt'] ?? false;
 
         // Restore original price
-        $item['base_price'] = $item['original_base_price'] ?? $item['base_price'];
-        $item['price'] = $isExempt ? $item['base_price'] : ($item['original_price'] ?? $item['price']);
+        if ($isExempt && $this->preservesPriceOnTaxExempt()) {
+            $item['base_price'] = $item['original_price'] ?? $item['base_price'];
+            $item['price'] = $item['original_price'] ?? $item['price'];
+        } else {
+            $item['base_price'] = $item['original_base_price'] ?? $item['base_price'];
+            $item['price'] = $isExempt ? $item['base_price'] : ($item['original_price'] ?? $item['price']);
+        }
         $item['price_overridden'] = false;
         $item['using_special_price'] = false;
 
