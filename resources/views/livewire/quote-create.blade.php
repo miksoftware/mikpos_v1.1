@@ -248,93 +248,130 @@
         </div>
 
         <!-- Right Panel - Products Grid -->
-        <div class="w-1/2 flex flex-col bg-slate-50">
+        <div class="w-1/2 flex flex-col overflow-hidden bg-slate-50">
             <!-- Product Search -->
-            <div class="p-4 bg-white border-b border-slate-200">
+            <div class="flex-shrink-0 p-4 bg-white border-b border-slate-200">
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
                     </div>
                     <input
                         id="product-search-input"
+                        x-ref="productSearchInput"
                         wire:model.live.debounce.300ms="productSearch"
                         type="text"
-                        class="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm"
-                        placeholder="Buscar productos por nombre o SKU..."
+                        class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]"
+                        placeholder="Buscar productos por nombre, SKU o código..."
                     >
                 </div>
+            </div>
 
-                @if($categories->count() > 0)
-                <div class="flex gap-2 mt-3 overflow-x-auto scrollbar-hide pb-1">
-                    <button wire:click="selectCategory(null)"
-                        class="px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap {{ !$selectedCategory ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white' : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-50' }}">
+            <!-- Categories -->
+            <div class="flex-shrink-0 px-4 py-3 bg-white border-b border-slate-200">
+                <div class="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
+                    <button wire:click="selectCategory(null)" class="px-4 py-2 text-sm font-medium rounded-xl whitespace-nowrap transition flex items-center gap-2 {{ !$selectedCategory ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                        </svg>
                         Todos
                     </button>
-                    @foreach($categories as $cat)
-                    <button wire:click="selectCategory({{ $cat->id }})"
-                        class="px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap {{ $selectedCategory == $cat->id ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white' : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-50' }}">
-                        {{ $cat->name }}
+                    @foreach($categories as $category)
+                    <button wire:click="selectCategory({{ $category->id }})" class="px-4 py-2 text-sm font-medium rounded-xl whitespace-nowrap transition {{ $selectedCategory === $category->id ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
+                        {{ $category->name }}
                     </button>
                     @endforeach
                 </div>
-                @endif
             </div>
 
             <!-- Products Grid -->
-            <div class="flex-1 overflow-y-auto p-4">
+            <div class="flex-1 overflow-y-auto p-4 min-h-0">
                 @if(!$branchId)
-                    <div class="text-center py-16">
+                    <div class="h-full flex flex-col items-center justify-center text-slate-400 py-16">
                         <svg class="w-16 h-16 mx-auto text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z"></path></svg>
                         <p class="text-slate-500 font-medium">Selecciona una sucursal</p>
                         <p class="text-xs text-slate-400 mt-1">Para ver los productos disponibles</p>
                     </div>
-                @elseif($sellableItems->isEmpty())
-                    <div class="text-center py-16">
-                        <p class="text-slate-500 font-medium">No hay productos</p>
-                        <p class="text-xs text-slate-400 mt-1">{{ $productSearch ? 'Sin resultados para tu búsqueda' : 'Esta sucursal no tiene productos activos' }}</p>
-                    </div>
-                @else
-                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
+                @elseif($sellableItems->count() > 0)
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3">
                         @foreach($sellableItems as $item)
-                        <button
-                            wire:click="@if($item['type'] === 'service') addServiceToCart({{ $item['id'] }}) @elseif($item['type'] === 'combo') addComboToCart({{ $item['id'] }}) @else addToCart({{ $item['id'] }}{{ $item['child_id'] ? ', ' . $item['child_id'] : '' }}) @endif"
-                            class="bg-white rounded-xl border border-slate-200 hover:border-[#ff7261] hover:shadow-md transition overflow-hidden text-left relative group">
-                            <div class="absolute top-1 right-1 z-10">
-                                <span class="px-2 py-0.5 bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white text-xs font-bold rounded-md shadow">
-                                    ${{ number_format($item['price'], 0) }}
-                                </span>
-                            </div>
-                            <div class="absolute top-1 left-1 z-10 flex flex-col gap-1">
-                                @if($item['type'] === 'service')
-                                    <span class="px-1.5 py-0.5 bg-indigo-500 text-white text-[10px] font-bold rounded">Serv.</span>
-                                @elseif($item['type'] === 'combo')
-                                    <span class="px-1.5 py-0.5 bg-purple-500 text-white text-[10px] font-bold rounded">Combo</span>
-                                @elseif($item['type'] === 'child')
-                                    <span class="px-1.5 py-0.5 bg-blue-500 text-white text-[10px] font-bold rounded">Var.</span>
-                                @elseif(isset($item['has_variants']) && $item['has_variants'])
-                                    <span class="px-1.5 py-0.5 bg-purple-500 text-white text-[10px] font-bold rounded">{{ $item['variant_count'] }} var.</span>
-                                @endif
-                            </div>
-                            <div class="aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
+                        <button wire:click="{{ $item['type'] === 'service' ? 'addServiceToCart(' . $item['id'] . ')' : ($item['type'] === 'combo' ? 'addComboToCart(' . $item['id'] . ')' : 'addToCart(' . $item['id'] . ', ' . ($item['child_id'] ?? 'null') . ')') }}" class="bg-white rounded-lg border border-slate-200 hover:border-[#ff7261] hover:shadow-md transition-all duration-200 overflow-hidden group text-left">
+                            <div class="aspect-square bg-slate-50 relative overflow-hidden">
                                 @if($item['image'])
-                                    <img src="{{ Storage::url($item['image']) }}" alt="" class="w-full h-full object-cover">
+                                <img src="{{ Storage::url($item['image']) }}" alt="{{ $item['name'] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200">
                                 @else
-                                    <svg class="w-12 h-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                <div class="w-full h-full bg-gradient-to-br from-[#ff7261]/5 to-[#a855f7]/10 flex items-center justify-center">
+                                    <div class="text-center">
+                                        @if($item['type'] === 'service')
+                                        <svg class="w-6 h-6 mx-auto text-[#a855f7]/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                        </svg>
+                                        @elseif($item['type'] === 'combo')
+                                        <svg class="w-6 h-6 mx-auto text-amber-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                                        </svg>
+                                        @else
+                                        <svg class="w-6 h-6 mx-auto text-[#a855f7]/30" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm-1 14H5c-.55 0-1-.45-1-1V7c0-.55.45-1 1-1h14c.55 0 1 .45 1 1v10c0 .55-.45 1-1 1zm-7-7c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z"/>
+                                        </svg>
+                                        @endif
+                                        <span class="text-[9px] text-slate-400 mt-0.5 block">Sin imagen</span>
+                                    </div>
+                                </div>
+                                @endif
+                                <div class="absolute top-1 right-1 px-1.5 py-0.5 bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white text-[10px] font-bold rounded shadow">
+                                    ${{ number_format($item['price'], 0) }}
+                                </div>
+                                @if($item['type'] === 'service')
+                                <div class="absolute top-1 left-1 px-1.5 py-0.5 text-[9px] font-medium rounded bg-indigo-500 text-white">
+                                    Serv.
+                                </div>
+                                @elseif($item['type'] === 'combo')
+                                <div class="absolute top-1 left-1 px-1.5 py-0.5 text-[9px] font-medium rounded bg-amber-500 text-white">
+                                    Combo
+                                </div>
+                                @if(isset($item['savings_pct']) && $item['savings_pct'] > 0)
+                                <div class="absolute bottom-1 left-1 px-1 py-0.5 bg-green-500 text-white text-[8px] font-medium rounded">
+                                    -{{ $item['savings_pct'] }}%
+                                </div>
+                                @endif
+                                @endif
+                                @if($item['type'] === 'child')
+                                <div class="absolute bottom-1 left-1 px-1 py-0.5 bg-blue-500 text-white text-[8px] font-medium rounded">
+                                    Var.
+                                </div>
+                                @elseif(isset($item['has_variants']) && $item['has_variants'])
+                                <div class="absolute bottom-1 left-1 px-1 py-0.5 bg-purple-500 text-white text-[8px] font-medium rounded">
+                                    {{ $item['variant_count'] }} var.
+                                </div>
                                 @endif
                             </div>
-                            <div class="p-2">
-                                <p class="text-xs font-semibold text-slate-800 truncate">{{ $item['name'] }}</p>
-                                <div class="flex items-center justify-between mt-1">
-                                    <p class="text-[10px] text-slate-500 truncate">{{ $item['brand'] ?? $item['sku'] }}</p>
-                                    @if(!is_null($item['stock'] ?? null) && ($item['type'] === 'product' || $item['type'] === 'child'))
-                                        <p class="text-[10px] {{ $item['stock'] > 0 ? 'text-emerald-600' : 'text-red-600' }} font-semibold flex-shrink-0">
-                                            Stock: {{ rtrim(rtrim(number_format($item['stock'], 3), '0'), '.') }}
-                                        </p>
+                            <div class="p-1.5 min-h-[52px] flex flex-col">
+                                <p class="font-medium text-slate-800 text-[10px] leading-tight mb-0.5 break-words hyphens-auto" title="{{ $item['name'] }}">{{ $item['name'] }}</p>
+                                <div class="flex items-center justify-between mt-auto">
+                                    <p class="text-[9px] text-slate-500 truncate">{{ $item['brand'] ?? ($item['type'] === 'combo' ? ($item['items_count'] ?? '') . ' items' : 'Sin marca') }}</p>
+                                    @if($item['type'] !== 'service' && $item['type'] !== 'combo')
+                                        @if($item['manages_inventory'] ?? true)
+                                        <span class="text-[9px] font-semibold {{ $item['stock'] <= 5 ? 'text-red-500' : 'text-green-600' }}">{{ rtrim(rtrim(number_format((float)$item['stock'], 3), '0'), '.') }} {{ $item['unit'] ?? 'uds' }}</span>
+                                        @else
+                                        <span class="text-[9px] font-semibold text-purple-600">∞</span>
+                                        @endif
                                     @endif
                                 </div>
                             </div>
                         </button>
                         @endforeach
+                    </div>
+                @else
+                    <div class="h-full flex flex-col items-center justify-center text-slate-400 py-16">
+                        <div class="w-24 h-24 mb-4 rounded-full bg-gradient-to-br from-[#ff7261]/10 to-[#a855f7]/10 flex items-center justify-center">
+                            <svg class="w-12 h-12 text-[#a855f7]/30" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm-1 14H5c-.55 0-1-.45-1-1V7c0-.55.45-1 1-1h14c.55 0 1 .45 1 1v10c0 .55-.45 1-1 1zm-7-7c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z"/>
+                            </svg>
+                        </div>
+                        <p class="text-lg font-medium">No hay productos</p>
+                        <p class="text-sm">{{ $productSearch ? 'No se encontraron resultados' : 'Selecciona una categoría o busca productos' }}</p>
                     </div>
                 @endif
             </div>

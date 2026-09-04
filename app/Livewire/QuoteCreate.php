@@ -1319,6 +1319,7 @@ class QuoteCreate extends Component
                 $productsQuery->where(function ($q) use ($search) {
                     $q->where('name', 'like', '%' . $search . '%')
                       ->orWhere('sku', 'like', '%' . $search . '%')
+                      ->orWhere('barcode', 'like', '%' . $search . '%')
                       ->orWhereHas('children', function ($cq) use ($search) {
                           $cq->where('is_active', true)
                              ->where(function ($ccq) use ($search) {
