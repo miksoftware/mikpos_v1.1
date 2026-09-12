@@ -1441,7 +1441,8 @@ class Sales extends Component
             $factusService->createInvoice($sale);
             $this->dispatch('notify', message: 'Factura electrónica enviada correctamente', type: 'success');
         } catch (\Exception $e) {
-            $this->dispatch('notify', message: 'Error de validación DIAN', type: 'error');
+            $errorMsg = 'Error DIAN: ' . $e->getMessage();
+            $this->dispatch('notify', message: $errorMsg, type: 'error');
         }
 
         if ($this->selectedSale && $this->selectedSale->id === $saleId) {

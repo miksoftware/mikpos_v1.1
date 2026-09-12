@@ -270,17 +270,48 @@ class FactusV2Service
             $dianCode = $docMapping[$dianCode];
         }
 
+        // Detect if it is a NIT regardless of formatting or legacy codes
+        $isNit = ($dianCode === '31' || $dianCode === '6')
+            || strtoupper((string) ($customer->taxDocument?->abbreviation ?? '')) === 'NIT'
+            || str_contains(strtoupper((string) ($customer->taxDocument?->description ?? '')), 'NIT')
+            || ($customer->customer_type === 'juridico');
+
+        if ($isNit) {
+            $dianCode = '31';
+        }
+
+        // Clean identification number: split if already contains dash with DV
+        $docNumber = trim((string) $customer->document_number);
+        $extractedDv = null;
+        if (str_contains($docNumber, '-')) {
+            $parts = explode('-', $docNumber, 2);
+            $docNumber = trim($parts[0]);
+            $extractedDv = trim($parts[1]);
+        }
+        $cleanDocNumber = preg_replace('/[^0-9]/', '', $docNumber);
+        if (empty($cleanDocNumber)) {
+            $cleanDocNumber = $docNumber;
+        }
+
         $data = [
-            'identification' => $customer->document_number,
+            'identification' => $cleanDocNumber,
             'identification_document_code' => (string) $dianCode,
             'legal_organization_code' => $customer->customer_type === 'juridico' ? '1' : '2',
             'tribute_code' => 'ZZ', // ZZ - No aplica
             'country_code' => 'CO', // Colombia
         ];
 
-        // Add DV for NIT
-        if ($dianCode === '31') {
-            $data['dv'] = (string) $this->calculateDV($customer->document_number);
+        // Add DV for NIT or whenever customer has a DV defined
+        if ($isNit || !empty($customer->dv)) {
+            $dv = null;
+            if (!empty($customer->dv)) {
+                $dv = (string) $customer->dv;
+            } elseif (!empty($extractedDv) && strlen($extractedDv) === 1) {
+                $dv = (string) $extractedDv;
+            } else {
+                $dv = (string) $this->calculateDV($cleanDocNumber);
+            }
+            $data['dv'] = $dv;
         }
 
         // Names based on customer type

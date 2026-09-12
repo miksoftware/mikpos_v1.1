@@ -41,6 +41,7 @@ class Customers extends Component
     public $customer_type = 'natural';
     public $tax_document_id;
     public $document_number;
+    public $dv = '';
     public $first_name;
     public $last_name;
     public $business_name;
@@ -154,6 +155,68 @@ class Customers extends Component
         }
     }
 
+    public function getIsNitProperty(): bool
+    {
+        if (!$this->tax_document_id) {
+            return false;
+        }
+
+        $doc = TaxDocument::find($this->tax_document_id);
+        if (!$doc) {
+            return false;
+        }
+
+        return strtoupper((string) $doc->abbreviation) === 'NIT'
+            || $doc->dian_code === '6'
+            || $doc->dian_code === '31'
+            || str_contains(strtoupper((string) $doc->description), 'NIT');
+    }
+
+    public function calculateDV(?string $nit): ?string
+    {
+        if (!$nit) {
+            return null;
+        }
+
+        $clean = preg_replace('/[^0-9]/', '', $nit);
+        if (empty($clean)) {
+            return null;
+        }
+
+        $primes = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71];
+        $sum = 0;
+        $nitLength = strlen($clean);
+
+        for ($i = 0; $i < $nitLength; $i++) {
+            $sum += (int) $clean[$nitLength - 1 - $i] * $primes[$i];
+        }
+
+        $remainder = $sum % 11;
+        if ($remainder > 1) {
+            return (string) (11 - $remainder);
+        }
+
+        return (string) $remainder;
+    }
+
+    public function updatedTaxDocumentId($value)
+    {
+        if ($this->isNit) {
+            if ($this->document_number && ($this->dv === null || $this->dv === '')) {
+                $this->dv = $this->calculateDV($this->document_number) ?? '';
+            }
+        } else {
+            $this->dv = '';
+        }
+    }
+
+    public function updatedDocumentNumber($value)
+    {
+        if ($this->isNit && ($this->dv === null || $this->dv === '')) {
+            $this->dv = $this->calculateDV($value) ?? '';
+        }
+    }
+
     public function create()
     {
         if (!auth()->user()->hasPermission('customers.create')) {
@@ -187,6 +250,7 @@ class Customers extends Component
         $this->customer_type = $item->customer_type;
         $this->tax_document_id = $item->tax_document_id;
         $this->document_number = $item->document_number;
+        $this->dv = $item->dv ?? ($this->isNit ? $this->calculateDV($item->document_number) : '');
         $this->first_name = $item->first_name;
         $this->last_name = $item->last_name;
         $this->business_name = $item->business_name;
@@ -225,6 +289,7 @@ class Customers extends Component
             'customer_type' => 'required|in:natural,juridico,exonerado',
             'tax_document_id' => 'required|exists:tax_documents,id',
             'document_number' => 'required|string|unique:customers,document_number,' . $this->itemId,
+            'dv' => $this->isNit ? 'required|digits:1' : 'nullable|digits:1',
             'first_name' => 'required|string|min:2',
             'last_name' => 'required|string|min:2',
             'business_name' => $this->customer_type === 'juridico' ? 'required|string|min:2' : 'nullable|string',
@@ -244,6 +309,8 @@ class Customers extends Component
 
         $this->validate($rules, [
             'branch_id.required' => 'Debe seleccionar una sucursal',
+            'dv.required' => 'El dígito de verificación (DV) es obligatorio para NIT',
+            'dv.digits' => 'El DV debe ser de un solo dígito (0-9)',
         ]);
 
         // If setting as default, remove default from other customers
@@ -261,6 +328,7 @@ class Customers extends Component
             'customer_type' => $this->customer_type,
             'tax_document_id' => $this->tax_document_id,
             'document_number' => $this->document_number,
+            'dv' => $this->isNit ? $this->dv : null,
             'first_name' => $this->first_name,
             'last_name' => $this->last_name,
             'business_name' => $this->business_name ?: null,
@@ -399,6 +467,7 @@ class Customers extends Component
         $this->customer_type = 'natural';
         $this->tax_document_id = '';
         $this->document_number = '';
+        $this->dv = '';
         $this->first_name = '';
         $this->last_name = '';
         $this->business_name = '';

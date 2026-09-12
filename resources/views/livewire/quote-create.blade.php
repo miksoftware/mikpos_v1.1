@@ -448,17 +448,28 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 mb-1">Tipo doc.</label>
-                                <select wire:model="newCustomerDocumentType" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                <select wire:model.live="newCustomerDocumentType" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                                     <option value="">Seleccionar...</option>
                                     @foreach($taxDocuments as $td)
                                         <option value="{{ $td->id }}">{{ $td->abbreviation }} - {{ $td->description }}</option>
                                     @endforeach
                                 </select>
                             </div>
+                            @if($this->isNewCustomerNit)
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">NIT y DV <span class="text-red-500">*</span></label>
+                                <div class="flex items-center gap-1.5">
+                                    <input type="text" wire:model.live.debounce.300ms="newCustomerDocument" class="flex-1 min-w-0 px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: 901978671">
+                                    <span class="text-slate-400 font-bold">-</span>
+                                    <input type="text" wire:model="newCustomerDv" maxlength="1" inputmode="numeric" pattern="[0-9]" class="w-12 text-center px-1 py-2 font-mono font-bold text-slate-800 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="0" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 1)" title="Dígito de Verificación (1 dígito)">
+                                </div>
+                            </div>
+                            @else
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 mb-1">Documento *</label>
                                 <input type="text" wire:model="newCustomerDocument" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                             </div>
+                            @endif
                         </div>
 
                         @if($newCustomerType === 'natural')

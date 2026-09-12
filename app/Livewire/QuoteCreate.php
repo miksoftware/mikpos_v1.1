@@ -35,6 +35,7 @@ class QuoteCreate extends Component
     public $newCustomerType = 'natural';
     public $newCustomerDocumentType = null;
     public $newCustomerDocument = '';
+    public $newCustomerDv = '';
     public $newCustomerFirstName = '';
     public $newCustomerLastName = '';
     public $newCustomerBusinessName = '';
@@ -173,6 +174,7 @@ class QuoteCreate extends Component
         $this->newCustomerType = 'natural';
         $this->newCustomerDocumentType = null;
         $this->newCustomerDocument = '';
+        $this->newCustomerDv = '';
         $this->newCustomerFirstName = '';
         $this->newCustomerLastName = '';
         $this->newCustomerBusinessName = '';
@@ -181,6 +183,61 @@ class QuoteCreate extends Component
         $this->newCustomerDepartmentId = '';
         $this->newCustomerMunicipalityId = '';
         $this->newCustomerMunicipalities = [];
+    }
+
+    public function getIsNewCustomerNitProperty(): bool
+    {
+        if (!$this->newCustomerDocumentType) {
+            return false;
+        }
+        $doc = TaxDocument::find($this->newCustomerDocumentType);
+        if (!$doc) {
+            return false;
+        }
+        return strtoupper((string) $doc->abbreviation) === 'NIT'
+            || $doc->dian_code === '6'
+            || $doc->dian_code === '31'
+            || str_contains(strtoupper((string) $doc->description), 'NIT');
+    }
+
+    public function updatedNewCustomerDocumentType($value): void
+    {
+        if ($this->isNewCustomerNit) {
+            if ($this->newCustomerDocument && ($this->newCustomerDv === null || $this->newCustomerDv === '')) {
+                $this->newCustomerDv = $this->calculateNitDv($this->newCustomerDocument) ?? '';
+            }
+        } else {
+            $this->newCustomerDv = '';
+        }
+    }
+
+    public function updatedNewCustomerDocument($value): void
+    {
+        if ($this->isNewCustomerNit && ($this->newCustomerDv === null || $this->newCustomerDv === '')) {
+            $this->newCustomerDv = $this->calculateNitDv($value) ?? '';
+        }
+    }
+
+    protected function calculateNitDv(?string $nit): ?string
+    {
+        if (!$nit) {
+            return null;
+        }
+        $clean = preg_replace('/[^0-9]/', '', $nit);
+        if (empty($clean)) {
+            return null;
+        }
+        $primes = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71];
+        $sum = 0;
+        $nitLength = strlen($clean);
+        for ($i = 0; $i < $nitLength; $i++) {
+            $sum += (int) $clean[$nitLength - 1 - $i] * $primes[$i];
+        }
+        $remainder = $sum % 11;
+        if ($remainder > 1) {
+            return (string) (11 - $remainder);
+        }
+        return (string) $remainder;
     }
 
     public function updatedNewCustomerDepartmentId(): void
@@ -219,6 +276,13 @@ class QuoteCreate extends Component
             return;
         }
 
+        if ($this->isNewCustomerNit) {
+            if ($this->newCustomerDv === null || $this->newCustomerDv === '' || !preg_match('/^[0-9]$/', (string) $this->newCustomerDv)) {
+                $this->dispatch('notify', message: 'El dígito de verificación (DV) es obligatorio para NIT y debe ser un solo dígito (0-9)', type: 'error');
+                return;
+            }
+        }
+
         if (empty($this->newCustomerDepartmentId)) {
             $this->dispatch('notify', message: 'El departamento es obligatorio', type: 'error');
             return;
@@ -244,6 +308,7 @@ class QuoteCreate extends Component
                 'customer_type' => $this->newCustomerType,
                 'tax_document_id' => $this->newCustomerDocumentType,
                 'document_number' => $this->newCustomerDocument,
+                'dv' => $this->isNewCustomerNit ? $this->newCustomerDv : null,
                 'first_name' => $this->newCustomerType === 'natural' ? $this->newCustomerFirstName : null,
                 'last_name' => $this->newCustomerType === 'natural' ? $this->newCustomerLastName : null,
                 'business_name' => $this->newCustomerType === 'juridico' ? $this->newCustomerBusinessName : null,

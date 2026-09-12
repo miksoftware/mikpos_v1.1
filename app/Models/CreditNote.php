@@ -111,4 +111,55 @@ class CreditNote extends Model
         
         return $concepts[$this->correction_concept_code] ?? 'Otros';
     }
+
+    /**
+     * Get extracted main DIAN error message.
+     */
+    public function getDianErrorMessageAttribute(): ?string
+    {
+        if (!$this->dian_response || !is_array($this->dian_response)) {
+            return null;
+        }
+
+        return $this->dian_response['data']['message']
+            ?? $this->dian_response['message']
+            ?? $this->dian_response['error']
+            ?? null;
+    }
+
+    /**
+     * Get extracted DIAN detailed errors array.
+     */
+    public function getDianErrorsListAttribute(): array
+    {
+        if (!$this->dian_response || !is_array($this->dian_response)) {
+            return [];
+        }
+
+        $rawErrors = $this->dian_response['data']['errors']
+            ?? $this->dian_response['errors']
+            ?? [];
+
+        if (!is_array($rawErrors)) {
+            return $rawErrors ? [(string) $rawErrors] : [];
+        }
+
+        $list = [];
+        foreach ($rawErrors as $key => $val) {
+            if (is_array($val)) {
+                $val = implode(', ', $val);
+            }
+            if (is_string($key) && !is_numeric($key)) {
+                $list[] = "{$key}: {$val}";
+            } else {
+                $list[] = (string) $val;
+            }
+        }
+
+        if (empty($list) && isset($this->dian_response['error']) && is_string($this->dian_response['error'])) {
+            $list[] = $this->dian_response['error'];
+        }
+
+        return $list;
+    }
 }

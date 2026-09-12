@@ -97,7 +97,7 @@
                             </div>
                         </td>
                         <td class="px-6 py-4">
-                            <div class="text-sm text-slate-900">{{ $item->document_number }}</div>
+                            <div class="text-sm font-medium text-slate-900">{{ $item->formatted_document }}</div>
                             <div class="text-sm text-slate-500">{{ $item->taxDocument->description }}</div>
                         </td>
                         <td class="px-6 py-4 text-center">
@@ -248,7 +248,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-1">Tipo de Documento *</label>
-                                    <select wire:model="tax_document_id" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                    <select wire:model.live="tax_document_id" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                                         <option value="">Seleccionar...</option>
                                         @foreach($taxDocuments as $doc)
                                         <option value="{{ $doc->id }}">{{ $doc->description }}</option>
@@ -256,11 +256,30 @@
                                     </select>
                                     @error('tax_document_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                                 </div>
+                                @if($this->isNit)
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Número de NIT y DV *</label>
+                                    <div class="flex items-center gap-2">
+                                        <div class="flex-1">
+                                            <input wire:model.live.debounce.300ms="document_number" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Ej: 901978671">
+                                        </div>
+                                        <span class="text-slate-400 font-bold text-lg">-</span>
+                                        <div class="w-16">
+                                            <input wire:model="dv" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="w-full text-center px-2 py-2 font-mono font-bold text-slate-800 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="0" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 1)" title="Dígito de Verificación (1 solo dígito)">
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col gap-0.5 mt-1">
+                                        @error('document_number') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                                        @error('dv') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                                    </div>
+                                </div>
+                                @else
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-1">Número de Documento *</label>
                                     <input wire:model="document_number" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
                                     @error('document_number') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                                 </div>
+                                @endif
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-1">Nombres *</label>
                                     <input wire:model="first_name" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">

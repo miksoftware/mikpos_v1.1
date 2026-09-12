@@ -18,6 +18,7 @@ class Customer extends Authenticatable
         'customer_type',
         'tax_document_id',
         'document_number',
+        'dv',
         'first_name',
         'last_name',
         'business_name',
@@ -107,10 +108,18 @@ class Customer extends Authenticatable
         return trim($this->first_name . ' ' . $this->last_name);
     }
 
+    public function getFormattedDocumentAttribute(): string
+    {
+        if ($this->dv !== null && $this->dv !== '') {
+            return "{$this->document_number}-{$this->dv}";
+        }
+        return (string) $this->document_number;
+    }
+
     public function getDisplayNameAttribute(): string
     {
         $name = $this->getFullNameAttribute();
-        return "{$name} ({$this->document_number})";
+        return "{$name} ({$this->formatted_document})";
     }
 
     /**

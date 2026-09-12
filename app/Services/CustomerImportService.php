@@ -72,6 +72,21 @@ class CustomerImportService
             // Extract row data using mapped column indices
             $docNumberRaw = $this->getCellValue($row, $columnMap, 'document_number');
             $docNumber = trim((string) $docNumberRaw);
+            $dv = null;
+            if (isset($columnMap['dv'])) {
+                $rawDv = trim((string) $this->getCellValue($row, $columnMap, 'dv'));
+                if (strlen($rawDv) === 1 && is_numeric($rawDv)) {
+                    $dv = $rawDv;
+                }
+            }
+
+            if (str_contains($docNumber, '-')) {
+                $parts = explode('-', $docNumber, 2);
+                $docNumber = trim($parts[0]);
+                if (empty($dv) && strlen(trim($parts[1])) === 1 && is_numeric(trim($parts[1]))) {
+                    $dv = trim($parts[1]);
+                }
+            }
 
             // Skip empty rows
             if ($docNumber === '') {
@@ -163,6 +178,7 @@ class CustomerImportService
                     'branch_id' => $branchId,
                     'customer_type' => $customerType,
                     'tax_document_id' => $taxDoc?->id ?: $defaultTaxDoc->id,
+                    'dv' => $dv,
                     'first_name' => $firstName,
                     'last_name' => $lastName,
                     'business_name' => $businessName ?: null,
@@ -231,6 +247,8 @@ class CustomerImportService
                 $map['tax_document'] = $colKey;
             } elseif (in_array($normalized, ['numero_documento', 'numerodocumento', 'documento', 'cedula', 'nit', 'document_number', 'num_doc'])) {
                 $map['document_number'] = $colKey;
+            } elseif (in_array($normalized, ['dv', 'digito_verificacion', 'digitoverificacion', 'digito_de_verificacion'])) {
+                $map['dv'] = $colKey;
             } elseif (in_array($normalized, ['nombres', 'nombre', 'first_name'])) {
                 $map['first_name'] = $colKey;
             } elseif (in_array($normalized, ['apellidos', 'apellido', 'last_name'])) {
@@ -408,5 +426,27 @@ class CustomerImportService
         }
 
         return (float)$clean;
+    }
+
+    private function calculateNitDv(?string $nit): ?string
+    {
+        if (!$nit) {
+            return null;
+        }
+        $clean = preg_replace('/[^0-9]/', '', $nit);
+        if (empty($clean)) {
+            return null;
+        }
+        $primes = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71];
+        $sum = 0;
+        $nitLength = strlen($clean);
+        for ($i = 0; $i < $nitLength; $i++) {
+            $sum += (int) $clean[$nitLength - 1 - $i] * $primes[$i];
+        }
+        $remainder = $sum % 11;
+        if ($remainder > 1) {
+            return (string) (11 - $remainder);
+        }
+        return (string) $remainder;
     }
 }

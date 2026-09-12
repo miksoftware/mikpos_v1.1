@@ -255,17 +255,40 @@
                             <p class="mt-2 text-xs text-green-600 font-mono break-all">CUFE: {{ $selectedSale->cufe }}</p>
                         </div>
                         @elseif($selectedSale->is_electronic && !$selectedSale->cufe)
-                        <div class="p-4 bg-red-50 border border-red-200 rounded-xl">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                                    <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <div class="p-4 bg-red-50 border border-red-200 rounded-xl space-y-3">
+                            <div class="flex items-start sm:items-center justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-red-700">Error en Factura Electrónica</p>
+                                        <p class="text-sm text-red-600 font-medium">{{ $selectedSale->dian_error_message ?? 'La factura no pudo ser validada por la DIAN' }}</p>
+                                    </div>
                                 </div>
-                                <div class="flex-1">
-                                    <p class="font-medium text-red-700">Error en Factura Electrónica</p>
-                                    <p class="text-sm text-red-600">La factura no pudo ser validada por la DIAN</p>
-                                </div>
-                                <button wire:click="retryElectronicInvoice({{ $selectedSale->id }})" class="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">Reintentar</button>
+                                <button wire:click="retryElectronicInvoice({{ $selectedSale->id }})" 
+                                        wire:loading.attr="disabled"
+                                        class="px-3.5 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 shadow-sm transition flex items-center gap-1.5 flex-shrink-0 disabled:opacity-50">
+                                    <svg wire:loading wire:target="retryElectronicInvoice({{ $selectedSale->id }})" class="animate-spin -ml-0.5 mr-1 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Reintentar
+                                </button>
                             </div>
+                            @if(!empty($selectedSale->dian_errors_list))
+                            <div class="mt-2 p-3 bg-white/90 border border-red-200 rounded-lg shadow-sm">
+                                <p class="text-xs font-semibold text-red-800 mb-1.5 flex items-center gap-1.5">
+                                    <svg class="w-4 h-4 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                    Motivos de rechazo / errores reportados por la DIAN:
+                                </p>
+                                <ul class="text-xs text-red-700 space-y-1.5 pl-5 list-disc">
+                                    @foreach($selectedSale->dian_errors_list as $errorItem)
+                                    <li class="font-mono text-[11px] leading-relaxed break-words bg-red-50/60 p-1 rounded border border-red-100">{{ $errorItem }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                            @endif
                         </div>
                         @else
                         <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
@@ -418,13 +441,15 @@
                                             <button wire:click="retryCreditNote({{ $cn->id }})" class="text-xs text-red-600 hover:text-red-800 font-medium">Reintentar</button>
                                         </div>
                                     </div>
-                                    @if($cn->dian_response && isset($cn->dian_response['message']))
-                                    <div class="mt-2 p-2 bg-red-100 rounded-lg">
-                                        <p class="text-xs text-red-700">{{ $cn->dian_response['message'] }}</p>
-                                        @if(isset($cn->dian_response['errors']))
-                                        <ul class="mt-1 text-xs text-red-600 list-disc list-inside">
-                                            @foreach((array) $cn->dian_response['errors'] as $error)
-                                            <li>{{ is_array($error) ? implode(', ', $error) : $error }}</li>
+                                    @if($cn->dian_error_message || !empty($cn->dian_errors_list))
+                                    <div class="mt-2 p-2 bg-red-100/80 rounded-lg border border-red-200/60">
+                                        @if($cn->dian_error_message)
+                                        <p class="text-xs text-red-700 font-medium">{{ $cn->dian_error_message }}</p>
+                                        @endif
+                                        @if(!empty($cn->dian_errors_list))
+                                        <ul class="mt-1 text-xs text-red-600 list-disc list-inside space-y-0.5">
+                                            @foreach($cn->dian_errors_list as $error)
+                                            <li class="font-mono text-[11px]">{{ $error }}</li>
                                             @endforeach
                                         </ul>
                                         @endif
