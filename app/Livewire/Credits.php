@@ -32,6 +32,16 @@ class Credits extends Component
     public ?int $filterBranch = null;
     public ?int $filterSeller = null;
 
+    // Active tab ('credits' | 'payments')
+    public string $activeTab = 'credits';
+
+    // Payments tab filters
+    public string $paymentSearch = '';
+    public string $paymentFilterType = ''; // '', 'receivable', 'payable'
+    public ?string $paymentDateFrom = null;
+    public ?string $paymentDateTo = null;
+    public ?int $paymentMethodFilter = null;
+
     // Payment modal
     public bool $isPaymentModalOpen = false;
     public ?int $paymentReferenceId = null;
@@ -85,6 +95,41 @@ class Credits extends Component
         }
 
         $this->paymentMethods = PaymentMethod::where('is_active', true)->orderBy('name')->get();
+    }
+
+    public function setActiveTab(string $tab): void
+    {
+        $this->activeTab = in_array($tab, ['credits', 'payments']) ? $tab : 'credits';
+    }
+
+    public function updatedPaymentSearch(): void
+    {
+        $this->resetPage('paymentsPage');
+    }
+
+    public function updatedPaymentFilterType(): void
+    {
+        $this->resetPage('paymentsPage');
+    }
+
+    public function updatedPaymentDateFrom(): void
+    {
+        $this->resetPage('paymentsPage');
+    }
+
+    public function updatedPaymentDateTo(): void
+    {
+        $this->resetPage('paymentsPage');
+    }
+
+    public function updatedPaymentMethodFilter(): void
+    {
+        $this->resetPage('paymentsPage');
+    }
+
+    public function printReceipt(string $receiptNumber): void
+    {
+        $this->dispatch('print-credit-payment', receiptNumber: $receiptNumber);
     }
 
     public function render()
@@ -255,12 +300,106 @@ class Credits extends Component
             'receivable_count' => $saleTotals['count'],
         ];
 
+        // Receipts & Payments Query
+        $paymentsQuery = CreditPayment::query();
+
+        if ($branchId) {
+            $paymentsQuery->where('credit_payments.branch_id', $branchId);
+        } elseif (!$user->isSuperAdmin()) {
+            $paymentsQuery->where('credit_payments.branch_id', $user->branch_id);
+        }
+
+        if ($this->paymentFilterType) {
+            $paymentsQuery->where('credit_payments.credit_type', $this->paymentFilterType);
+        }
+
+        if ($this->paymentDateFrom) {
+            $paymentsQuery->whereDate('credit_payments.created_at', '>=', $this->paymentDateFrom);
+        }
+
+        if ($this->paymentDateTo) {
+            $paymentsQuery->whereDate('credit_payments.created_at', '<=', $this->paymentDateTo);
+        }
+
+        if ($this->paymentMethodFilter) {
+            $paymentsQuery->where('credit_payments.payment_method_id', $this->paymentMethodFilter);
+        }
+
+        if (trim($this->paymentSearch)) {
+            $pSearch = trim($this->paymentSearch);
+            $paymentsQuery->where(function ($q) use ($pSearch) {
+                $q->where('credit_payments.receipt_number', 'like', "%{$pSearch}%")
+                    ->orWhere('credit_payments.payment_number', 'like', "%{$pSearch}%")
+                    ->orWhereHas('customer', function ($cq) use ($pSearch) {
+                        $cq->where('first_name', 'like', "%{$pSearch}%")
+                            ->orWhere('last_name', 'like', "%{$pSearch}%")
+                            ->orWhere('business_name', 'like', "%{$pSearch}%")
+                            ->orWhere('document_number', 'like', "%{$pSearch}%")
+                            ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$pSearch}%"]);
+                    })
+                    ->orWhereHas('supplier', function ($sq) use ($pSearch) {
+                        $sq->where('name', 'like', "%{$pSearch}%")
+                            ->orWhere('business_name', 'like', "%{$pSearch}%")
+                            ->orWhere('document_number', 'like', "%{$pSearch}%");
+                    })
+                    ->orWhereHas('sale', function ($saleQ) use ($pSearch) {
+                        $saleQ->where('invoice_number', 'like', "%{$pSearch}%");
+                    })
+                    ->orWhereHas('purchase', function ($purQ) use ($pSearch) {
+                        $purQ->where('purchase_number', 'like', "%{$pSearch}%");
+                    });
+            });
+        }
+
+        $receipts = $paymentsQuery->select(
+                'credit_payments.receipt_number',
+                DB::raw('MAX(credit_payments.created_at) as payment_date'),
+                DB::raw('MAX(credit_payments.credit_type) as credit_type'),
+                DB::raw('SUM(credit_payments.amount) as total_amount'),
+                DB::raw('COUNT(DISTINCT COALESCE(credit_payments.sale_id, credit_payments.purchase_id)) as total_invoices')
+            )
+            ->groupBy('credit_payments.receipt_number')
+            ->orderByDesc('payment_date')
+            ->paginate(15, ['*'], 'paymentsPage');
+
+        $receiptNumbers = $receipts->pluck('receipt_number')->filter()->toArray();
+        $receiptDetails = collect();
+        if (!empty($receiptNumbers)) {
+            $receiptDetails = CreditPayment::whereIn('receipt_number', $receiptNumbers)
+                ->orWhereIn('payment_number', $receiptNumbers)
+                ->with(['customer', 'supplier', 'sale', 'purchase', 'paymentMethod', 'user', 'branch'])
+                ->get()
+                ->groupBy(function ($item) {
+                    return $item->receipt_number ?: $item->payment_number;
+                });
+        }
+
+        // Summary totals for payments
+        $paymentTotalsQuery = CreditPayment::query();
+        if ($branchId) {
+            $paymentTotalsQuery->where('credit_payments.branch_id', $branchId);
+        } elseif (!$user->isSuperAdmin()) {
+            $paymentTotalsQuery->where('credit_payments.branch_id', $user->branch_id);
+        }
+        $receivableTotalCollected = (float) (clone $paymentTotalsQuery)->where('credit_type', 'receivable')->sum('amount');
+        $payableTotalPaid = (float) (clone $paymentTotalsQuery)->where('credit_type', 'payable')->sum('amount');
+        $totalReceiptsCount = (int) (clone $paymentTotalsQuery)->distinct('receipt_number')->count('receipt_number');
+
+        $paymentsSummary = [
+            'total_collected' => $receivableTotalCollected,
+            'total_paid' => $payableTotalPaid,
+            'receipts_count' => $totalReceiptsCount,
+        ];
+
         $sellers = User::where('is_active', true)->orderBy('name')->get();
 
         return view('livewire.credits', [
             'items' => $items,
             'totals' => $totals,
             'sellers' => $sellers,
+            'receipts' => $receipts,
+            'receiptDetails' => $receiptDetails,
+            'paymentsSummary' => $paymentsSummary,
         ]);
     }
 
@@ -415,6 +554,7 @@ class Credits extends Component
 
         $creditType = $this->paymentReferenceType === 'purchase' ? 'payable' : 'receivable';
         $paymentNumber = CreditPayment::generatePaymentNumber();
+        $receiptNumber = CreditPayment::generateReceiptNumber($creditType);
         $lastCreditPayment = null;
 
         // Create one CreditPayment per payment line
@@ -436,6 +576,7 @@ class Credits extends Component
                 : $paymentNumber;
 
             $lastCreditPayment = CreditPayment::create([
+                'receipt_number' => $receiptNumber,
                 'payment_number' => $linePaymentNumber,
                 'credit_type' => $creditType,
                 'purchase_id' => $this->paymentReferenceType === 'purchase' ? $record->id : null,
@@ -490,6 +631,7 @@ class Credits extends Component
         $this->isPaymentModalOpen = false;
         $statusLabel = $newStatus === 'paid' ? 'Crédito pagado completamente' : 'Abono registrado correctamente';
         $this->dispatch('notify', message: $statusLabel, type: 'success');
+        $this->dispatch('print-credit-payment', receiptNumber: $receiptNumber);
     }
 
     public function viewHistory(int $id, string $type)
@@ -839,6 +981,7 @@ class Credits extends Component
 
         $user = auth()->user();
         $entityName = $this->bulkSelectedEntity['name'];
+        $receiptNumber = CreditPayment::generateReceiptNumber($this->bulkType);
         $totalProcessed = 0;
         $invoicesAffected = 0;
 
@@ -870,6 +1013,7 @@ class Credits extends Component
                     $creditType = $inv['record_type'] === 'sale' ? 'receivable' : 'payable';
 
                     $cp = CreditPayment::create([
+                        'receipt_number' => $receiptNumber,
                         'payment_number' => $paymentNumber,
                         'credit_type' => $creditType,
                         'purchase_id' => $inv['record_type'] === 'purchase' ? $record->id : null,
@@ -936,6 +1080,7 @@ class Credits extends Component
         $this->dispatch('notify',
             message: "Pago múltiple registrado: $" . number_format($totalProcessed, 2) . " a {$invoicesAffected} factura(s)",
             type: 'success');
+        $this->dispatch('print-credit-payment', receiptNumber: $receiptNumber);
     }
 
     private function findOpenReconciliation($user): ?CashReconciliation

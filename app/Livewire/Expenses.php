@@ -185,10 +185,16 @@ class Expenses extends Component
             ]);
             ActivityLogService::logCreate('expenses', $expense, "Gasto '{$this->description}' registrado por \${$this->amount}");
             $this->dispatch('notify', message: 'Gasto registrado correctamente', type: 'success');
+            $this->dispatch('print-expense', expenseId: $expense->id);
         }
 
         $this->isModalOpen = false;
         $this->resetForm();
+    }
+
+    public function printExpense(int $id): void
+    {
+        $this->dispatch('print-expense', expenseId: $id);
     }
 
     public function confirmDelete(int $id)

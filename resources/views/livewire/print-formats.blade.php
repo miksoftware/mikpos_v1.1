@@ -123,10 +123,12 @@
                 </h4>
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     @php
+                        $isExpense = $setting->document_type === 'expense';
+                        $isCreditPayment = $setting->document_type === 'credit_payment';
                         $optionsList = [
                             'show_business' => ['label' => 'Datos del negocio', 'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'],
-                            'show_customer' => ['label' => 'Datos del cliente', 'icon' => 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'],
-                            'show_sale_info' => ['label' => 'Info. de venta', 'icon' => 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],
+                            'show_customer' => ['label' => $isExpense ? 'Datos del beneficiario' : ($isCreditPayment ? 'Datos del cliente / proveedor' : 'Datos del cliente'), 'icon' => 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'],
+                            'show_sale_info' => ['label' => $isExpense ? 'Info. del gasto' : ($isCreditPayment ? 'Info. del comprobante' : 'Info. de venta'), 'icon' => 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],
                             'show_payment_info' => ['label' => 'Info. de pago', 'icon' => 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z'],
                             'show_amount_words' => ['label' => 'Monto en letras', 'icon' => 'M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129'],
                             'show_footer' => ['label' => 'Pie de página', 'icon' => 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z'],
@@ -284,6 +286,114 @@
                                 <div style="font-size: 10px; color: #666;">Comprobante de Devolución</div>
                             </div>
                         </div>
+                        @elseif($previewDocumentType === 'expense')
+                        <div style="width: 300px; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.4; background: #fff; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <div style="text-align: center; padding-bottom: 8px; border-bottom: 1px dashed #000; margin-bottom: 8px;">
+                                @if($logo80mmOptions['expense'] ?? false)
+                                <div style="text-align:center; margin-bottom:6px;">
+                                    <div style="display:inline-block; padding: 3px 8px; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:4px; font-size:9px; font-weight:bold; color:#475569;">[ LOGO SUCURSAL ]</div>
+                                </div>
+                                @endif
+                                <div style="font-size: 15px; font-weight: bold; text-transform: uppercase;">DROGUERÍA EL PUNTO DE TU SALUD</div>
+                                <div style="font-size: 10px;"><p>NIT: 700128834</p><p>CR 28E 122-14</p><p>Tel: 3016 966163</p></div>
+                            </div>
+                            <div style="text-align: center; padding: 6px 0; border-bottom: 1px dashed #000; margin-bottom: 6px;">
+                                <span style="display: inline-block; padding: 2px 8px; background: #ea580c; color: #fff; font-size: 9px; font-weight: bold; border-radius: 3px;">COMPROBANTE DE GASTO</span>
+                                <div style="font-size: 13px; font-weight: bold; margin-top: 2px;">EXP-000001</div>
+                                <div style="font-size: 10px;">{{ date('d/m/Y H:i') }}</div>
+                            </div>
+                            <div style="padding: 4px 0; border-bottom: 1px dashed #000; margin-bottom: 6px;">
+                                <div style="font-size: 9px; color: #666; font-weight: bold;">BENEFICIARIO:</div>
+                                <div style="font-weight: bold; font-size: 10px;">DISTRIBUIDORA FARMACÉUTICA S.A.S</div>
+                                <div style="font-size: 9px; color: #555;">NIT: 900.123.456-7</div>
+                            </div>
+                            <div style="padding: 4px 0; border-bottom: 1px dashed #000; margin-bottom: 6px;">
+                                <div style="font-size: 9px; color: #666; font-weight: bold;">RESPONSABLE:</div>
+                                <div style="font-size: 10px;">Admin Sucursal</div>
+                            </div>
+                            <div style="margin-bottom: 6px;">
+                                <div style="font-size: 9px; font-weight: bold; text-transform: uppercase; padding-bottom: 2px; border-bottom: 1px solid #000; margin-bottom: 4px;">CONCEPTO / DESCRIPCIÓN</div>
+                                <div style="font-size: 10px; margin-bottom: 4px; line-height: 1.3;">Pago de suministros de aseo y papelería para la sucursal</div>
+                            </div>
+                            <div style="border-top: 1px solid #000; padding-top: 6px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 2px;"><span>Forma de Pago:</span><span style="font-weight:bold;">Efectivo</span></div>
+                                <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; padding-top: 4px; border-top: 1px dashed #000; margin-top: 4px; color: #ea580c;"><span>TOTAL:</span><span>$85,000.00</span></div>
+                            </div>
+                            @if($observations80mmOptions['expense'] ?? true)
+                            <div style="margin-top: 6px; padding: 4px 6px; background: #f9fafb; border: 1px solid #e5e7eb; font-size: 9px; border-radius: 4px;">
+                                <span style="font-weight: bold;">Obs:</span> Factura proveedor #FAC-4421 cancelada en sucursal.
+                            </div>
+                            @endif
+                            <div style="display: flex; justify-content: space-between; margin-top: 25px; margin-bottom: 5px;">
+                                <div style="width: 46%; text-align: center; border-top: 1px solid #000; padding-top: 2px; font-size: 8px;">Firma Entrega</div>
+                                <div style="width: 46%; text-align: center; border-top: 1px solid #000; padding-top: 2px; font-size: 8px;">Firma Recibe</div>
+                            </div>
+                        @elseif($previewDocumentType === 'credit_payment')
+                        <div style="width: 300px; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.4; background: #fff; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <div style="text-align: center; padding-bottom: 8px; border-bottom: 1px dashed #000; margin-bottom: 8px;">
+                                @if($logo80mmOptions['credit_payment'] ?? false)
+                                <div style="text-align:center; margin-bottom:6px;">
+                                    <div style="display:inline-block; padding: 3px 8px; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:4px; font-size:9px; font-weight:bold; color:#475569;">[ LOGO SUCURSAL ]</div>
+                                </div>
+                                @endif
+                                <div style="font-size: 15px; font-weight: bold; text-transform: uppercase;">DROGUERÍA EL PUNTO DE TU SALUD</div>
+                                <div style="font-size: 10px;"><p>NIT: 700128834</p><p>CR 28E 122-14</p><p>Tel: 3016 966163</p></div>
+                            </div>
+                            <div style="text-align: center; padding: 6px 0; border-bottom: 1px dashed #000; margin-bottom: 6px;">
+                                <span style="display: inline-block; padding: 2px 8px; background: #0284c7; color: #fff; font-size: 9px; font-weight: bold; border-radius: 3px;">RECIBO DE CAJA / ABONO</span>
+                                <div style="font-size: 13px; font-weight: bold; margin-top: 2px;">RC-20260912-0001</div>
+                                <div style="font-size: 10px;">{{ date('d/m/Y H:i') }}</div>
+                            </div>
+                            <div style="padding: 4px 0; border-bottom: 1px dashed #000; margin-bottom: 6px;">
+                                <div style="font-size: 9px; color: #666; font-weight: bold;">CLIENTE / DEUDOR:</div>
+                                <div style="font-weight: bold; font-size: 10px;">ANGIE KARINA GOMEZ</div>
+                                <div style="font-size: 9px; color: #555;">CC: 1006208593 - Tel: 3154 083002</div>
+                            </div>
+                            <div style="padding: 4px 0; border-bottom: 1px dashed #000; margin-bottom: 6px;">
+                                <div style="font-size: 9px; color: #666; font-weight: bold;">CAJERO / RESPONSABLE:</div>
+                                <div style="font-size: 10px;">Admin Sucursal</div>
+                            </div>
+                            <div style="margin-bottom: 6px;">
+                                <div style="font-size: 9px; font-weight: bold; text-transform: uppercase; padding-bottom: 2px; border-bottom: 1px solid #000; margin-bottom: 4px;">FACTURAS AFECTADAS</div>
+                                <div style="margin-bottom: 4px; padding-bottom: 3px; border-bottom: 1px dotted #999;">
+                                    <div style="font-weight: bold; font-size: 10px; display: flex; justify-content: space-between;">
+                                        <span>FAC #F1-3518 (01/09/26)</span>
+                                        <span style="color:#0284c7;">$50,000</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; font-size: 9px; color: #555;">
+                                        <span>Total: $150,000</span>
+                                        <span>Saldo: $0.00 (Pagada)</span>
+                                    </div>
+                                </div>
+                                <div style="margin-bottom: 4px; padding-bottom: 3px; border-bottom: 1px dotted #999;">
+                                    <div style="font-weight: bold; font-size: 10px; display: flex; justify-content: space-between;">
+                                        <span>FAC #F1-3520 (05/09/26)</span>
+                                        <span style="color:#0284c7;">$100,000</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; font-size: 9px; color: #555;">
+                                        <span>Total: $200,000</span>
+                                        <span>Saldo: $50,000.00</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="border-top: 1px solid #000; padding-top: 6px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 2px;"><span>Forma de Pago:</span><span style="font-weight:bold;">Efectivo</span></div>
+                                <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; padding-top: 4px; border-top: 1px dashed #000; margin-top: 4px; color: #0284c7;"><span>TOTAL ABONADO:</span><span>$150,000.00</span></div>
+                                <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; color: #ef4444; margin-top: 3px;"><span>SALDO RESTANTE:</span><span>$50,000.00</span></div>
+                            </div>
+                            @if($observations80mmOptions['credit_payment'] ?? true)
+                            <div style="margin-top: 6px; padding: 4px 6px; background: #f9fafb; border: 1px solid #e5e7eb; font-size: 9px; border-radius: 4px;">
+                                <span style="font-weight: bold;">Obs:</span> Abono parcial liquidado en ventanilla.
+                            </div>
+                            @endif
+                            <div style="display: flex; justify-content: space-between; margin-top: 25px; margin-bottom: 5px;">
+                                <div style="width: 46%; text-align: center; border-top: 1px solid #000; padding-top: 2px; font-size: 8px;">Firma Cliente</div>
+                                <div style="width: 46%; text-align: center; border-top: 1px solid #000; padding-top: 2px; font-size: 8px;">Firma Cajero</div>
+                            </div>
+                            <div style="text-align: center; padding-top: 6px; border-top: 1px dashed #000; margin-top: 6px;">
+                                <div style="font-size: 9px; color: #666;">Comprobante de Pago a Crédito - MikPOS</div>
+                            </div>
+                        </div>
                         @else
                         <div style="width: 300px; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.4; background: #fff; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                             <div style="text-align: center; padding-bottom: 8px; border-bottom: 1px dashed #000; margin-bottom: 8px;">
@@ -428,6 +538,264 @@
                             @if($opts['show_footer'] ?? true)
                             <div style="text-align: center; padding-top: 10px; border-top: 1px solid #ddd; font-size: 11px; color: #777;">
                                 <div style="font-size: 13px; font-weight: bold; color: #333;">Este documento es un comprobante de devolución</div>
+                            </div>
+                            @endif
+                        </div>
+                        @elseif($previewDocumentType === 'expense')
+                        <div style="width: 100%; max-width: 680px; font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5; background: #fff; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <!-- Header -->
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 2px solid #ea580c; margin-bottom: 15px;">
+                                <div>
+                                    @if($opts['show_logo'] ?? true)
+                                    <div style="display: inline-block; padding: 4px 10px; background: #fff7ed; border: 1px solid #ffedd5; border-radius: 4px; font-size: 10px; font-weight: bold; color: #ea580c; margin-bottom: 6px;">[ LOGO SUCURSAL ]</div>
+                                    @endif
+                                    <div style="font-size: 22px; font-weight: bold; letter-spacing: 1px; color: #1e293b;">COMPROBANTE DE EGRESO</div>
+                                    <span style="display: inline-block; background: #ea580c; color: #fff; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-top: 4px;">GASTO OPERATIVO</span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 14px; font-weight: bold; color: #ea580c;">EXP-000001</div>
+                                    <div style="font-size: 11px; color: #555;">{{ date('d/m/Y H:i') }}</div>
+                                </div>
+                            </div>
+
+                            <!-- 3-column info row -->
+                            <div style="display: flex; gap: 20px; margin-bottom: 15px;">
+                                @if($opts['show_business'] ?? true)
+                                <div style="flex: 1;">
+                                    <div style="font-size: 10px; color: #777; text-transform: uppercase; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 2px; margin-bottom: 4px;">Negocio / Emisor</div>
+                                    <div style="font-size: 11px; color: #333; line-height: 1.5;">
+                                        <strong>DROGUERÍA EL PUNTO DE TU SALUD</strong><br>
+                                        NIT: 700128834<br>
+                                        CR 28E 122-14, Tercer Milenio<br>
+                                        Tel: 3016 966163
+                                    </div>
+                                </div>
+                                @endif
+
+                                @if($opts['show_customer'] ?? true)
+                                <div style="flex: 1;">
+                                    <div style="font-size: 10px; color: #777; text-transform: uppercase; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 2px; margin-bottom: 4px;">Beneficiario / Proveedor</div>
+                                    <div style="font-size: 11px; color: #333; line-height: 1.5;">
+                                        <strong>DISTRIBUIDORA FARMACÉUTICA S.A.S</strong><br>
+                                        NIT: 900.123.456-7<br>
+                                        Tel: 310 555 1234<br>
+                                        Cra 15 #45-20, Bogotá D.C.
+                                    </div>
+                                </div>
+                                @endif
+
+                                @if($opts['show_sale_info'] ?? true)
+                                <div style="flex: 1;">
+                                    <div style="font-size: 10px; color: #777; text-transform: uppercase; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 2px; margin-bottom: 4px;">Información del Gasto</div>
+                                    <div style="font-size: 11px; color: #333; line-height: 1.5;">
+                                        <strong>Fecha gasto:</strong> {{ date('d/m/Y') }}<br>
+                                        <strong>Responsable:</strong> Admin Sucursal<br>
+                                        <strong>Sucursal:</strong> Principal<br>
+                                        <strong>Estado:</strong> Pagado
+                                    </div>
+                                </div>
+                                @endif
+                            </div>
+
+                            <!-- Expense concept table -->
+                            <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                                <thead>
+                                    <tr>
+                                        <th style="background: #fff7ed; border: 1px solid #fed7aa; padding: 6px 8px; font-size: 10px; font-weight: bold; text-align: center; color: #9a3412; width: 30px;">#</th>
+                                        <th style="background: #fff7ed; border: 1px solid #fed7aa; padding: 6px 8px; font-size: 10px; font-weight: bold; text-align: left; color: #9a3412;">CONCEPTO / DESCRIPCIÓN DEL GASTO</th>
+                                        <th style="background: #fff7ed; border: 1px solid #fed7aa; padding: 6px 8px; font-size: 10px; font-weight: bold; text-align: right; color: #9a3412; width: 140px;">MONTO</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style="border: 1px solid #fed7aa; padding: 8px; font-size: 11px; text-align: center;">1</td>
+                                        <td style="border: 1px solid #fed7aa; padding: 8px; font-size: 11px;">Pago de suministros de aseo, papelería y mantenimiento general para la sucursal</td>
+                                        <td style="border: 1px solid #fed7aa; padding: 8px; font-size: 11px; text-align: right; font-weight: bold;">$85,000.00</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <!-- Totals & Payment -->
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                                @if($opts['show_payment_info'] ?? true)
+                                <div style="font-size: 11px; color: #444; line-height: 1.8;">
+                                    <strong>FORMA DE PAGO:</strong><br>
+                                    <span>• Efectivo: $85,000.00</span>
+                                </div>
+                                @else
+                                <div></div>
+                                @endif
+                                <div style="width: 260px; background: #fff7ed; border: 1px solid #fed7aa; padding: 10px 15px;">
+                                    <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 3px 0; color: #444;"><span>Subtotal:</span><span>$85,000.00</span></div>
+                                    <div style="display: flex; justify-content: space-between; font-size: 16px; font-weight: bold; color: #ea580c; border-top: 2px solid #ea580c; margin-top: 6px; padding-top: 8px;"><span>TOTAL GASTO:</span><span>$85,000.00</span></div>
+                                </div>
+                            </div>
+
+                            @if($opts['show_amount_words'] ?? true)
+                            <div style="font-size: 10px; color: #555; font-style: italic; margin-bottom: 12px; padding: 6px 10px; background: #f8f8f8; border-left: 3px solid #ea580c;">
+                                Monto en letras: OCHENTA Y CINCO MIL PESOS CON 00/100 M/CTE
+                            </div>
+                            @endif
+
+                            @if($opts['show_observations'] ?? true)
+                            <div style="font-size: 10px; color: #374151; margin-bottom: 15px; padding: 8px 12px; background: #fefce8; border: 1px solid #fef08a; border-radius: 4px;">
+                                <strong>Observaciones:</strong> Comprobante de egreso respaldado con factura de venta #4421. Aprobado por administración.
+                            </div>
+                            @endif
+
+                            <!-- Signatures -->
+                            <div style="display: flex; justify-content: space-around; margin-top: 35px; margin-bottom: 15px;">
+                                <div style="width: 200px; text-align: center; border-top: 1px solid #000; padding-top: 4px; font-size: 10px; font-weight: bold;">
+                                    Elaborado por (Responsable)<br>
+                                    <span style="font-size: 9px; font-weight: normal; color: #666;">Admin Sucursal</span>
+                                </div>
+                                <div style="width: 200px; text-align: center; border-top: 1px solid #000; padding-top: 4px; font-size: 10px; font-weight: bold;">
+                                    Recibí Conforme (Beneficiario)<br>
+                                    <span style="font-size: 9px; font-weight: normal; color: #666;">C.C. / NIT</span>
+                                </div>
+                            </div>
+
+                            @if($opts['show_footer'] ?? true)
+                            <div style="text-align: center; padding-top: 12px; border-top: 1px solid #ddd; font-size: 10px; color: #777;">
+                                Este documento es un comprobante interno de egreso y soporte de egresos de caja.
+                            </div>
+                            @endif
+                        </div>
+                        @elseif($previewDocumentType === 'credit_payment')
+                        <div style="width: 100%; max-width: 680px; font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5; background: #fff; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <!-- Header -->
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 2px solid #0284c7; margin-bottom: 15px;">
+                                <div>
+                                    @if($opts['show_logo'] ?? true)
+                                    <div style="display: inline-block; padding: 4px 10px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 4px; font-size: 10px; font-weight: bold; color: #0284c7; margin-bottom: 6px;">[ LOGO SUCURSAL ]</div>
+                                    @endif
+                                    <div style="font-size: 22px; font-weight: bold; letter-spacing: 1px; color: #1e293b;">COMPROBANTE DE PAGO / RECAUDO</div>
+                                    <span style="display: inline-block; background: #0284c7; color: #fff; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-top: 4px;">CRÉDITO A CLIENTE</span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 14px; font-weight: bold; color: #0284c7;">RC-20260912-0001</div>
+                                    <div style="font-size: 11px; color: #555;">{{ date('d/m/Y H:i') }}</div>
+                                </div>
+                            </div>
+
+                            <!-- 3-column info row -->
+                            <div style="display: flex; gap: 20px; margin-bottom: 15px;">
+                                @if($opts['show_business'] ?? true)
+                                <div style="flex: 1;">
+                                    <div style="font-size: 10px; color: #777; text-transform: uppercase; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 2px; margin-bottom: 4px;">Negocio / Emisor</div>
+                                    <div style="font-size: 11px; color: #333; line-height: 1.5;">
+                                        <strong>DROGUERÍA EL PUNTO DE TU SALUD</strong><br>
+                                        NIT: 700128834<br>
+                                        CR 28E 122-14, Tercer Milenio<br>
+                                        Tel: 3016 966163
+                                    </div>
+                                </div>
+                                @endif
+
+                                @if($opts['show_customer'] ?? true)
+                                <div style="flex: 1;">
+                                    <div style="font-size: 10px; color: #777; text-transform: uppercase; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 2px; margin-bottom: 4px;">Cliente / Deudor</div>
+                                    <div style="font-size: 11px; color: #333; line-height: 1.5;">
+                                        <strong>ANGIE KARINA GOMEZ</strong><br>
+                                        CC: 1006208593<br>
+                                        Tel: 3154 083002<br>
+                                        Cra 15 #45-20, Cúcuta
+                                    </div>
+                                </div>
+                                @endif
+
+                                @if($opts['show_sale_info'] ?? true)
+                                <div style="flex: 1;">
+                                    <div style="font-size: 10px; color: #777; text-transform: uppercase; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 2px; margin-bottom: 4px;">Información de Pago</div>
+                                    <div style="font-size: 11px; color: #333; line-height: 1.5;">
+                                        <strong>Fecha pago:</strong> {{ date('d/m/Y') }}<br>
+                                        <strong>Cajero:</strong> Admin Sucursal<br>
+                                        <strong>Sucursal:</strong> Principal<br>
+                                        <strong>Estado:</strong> Confirmado
+                                    </div>
+                                </div>
+                                @endif
+                            </div>
+
+                            <!-- Invoices breakdown table -->
+                            <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                                <thead>
+                                    <tr>
+                                        <th style="background: #f0f9ff; border: 1px solid #bae6fd; padding: 6px 8px; font-size: 10px; font-weight: bold; text-align: center; color: #0369a1; width: 25px;">#</th>
+                                        <th style="background: #f0f9ff; border: 1px solid #bae6fd; padding: 6px 8px; font-size: 10px; font-weight: bold; text-align: left; color: #0369a1;">FACTURA / OBLIGACIÓN</th>
+                                        <th style="background: #f0f9ff; border: 1px solid #bae6fd; padding: 6px 8px; font-size: 10px; font-weight: bold; text-align: center; color: #0369a1; width: 75px;">FECHA FAC.</th>
+                                        <th style="background: #f0f9ff; border: 1px solid #bae6fd; padding: 6px 8px; font-size: 10px; font-weight: bold; text-align: right; color: #0369a1; width: 85px;">TOTAL FAC.</th>
+                                        <th style="background: #f0f9ff; border: 1px solid #bae6fd; padding: 6px 8px; font-size: 10px; font-weight: bold; text-align: right; color: #0369a1; width: 85px;">SALDO ANT.</th>
+                                        <th style="background: #f0f9ff; border: 1px solid #bae6fd; padding: 6px 8px; font-size: 10px; font-weight: bold; text-align: right; color: #0369a1; width: 95px;">VALOR ABONADO</th>
+                                        <th style="background: #f0f9ff; border: 1px solid #bae6fd; padding: 6px 8px; font-size: 10px; font-weight: bold; text-align: right; color: #0369a1; width: 85px;">NUEVO SALDO</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style="border: 1px solid #e0f2fe; padding: 7px 8px; font-size: 11px; text-align: center;">1</td>
+                                        <td style="border: 1px solid #e0f2fe; padding: 7px 8px; font-size: 11px; font-weight: bold;">F1-3518</td>
+                                        <td style="border: 1px solid #e0f2fe; padding: 7px 8px; font-size: 11px; text-align: center; color: #64748b;">01/09/2026</td>
+                                        <td style="border: 1px solid #e0f2fe; padding: 7px 8px; font-size: 11px; text-align: right;">$150,000.00</td>
+                                        <td style="border: 1px solid #e0f2fe; padding: 7px 8px; font-size: 11px; text-align: right; color: #64748b;">$50,000.00</td>
+                                        <td style="border: 1px solid #e0f2fe; padding: 7px 8px; font-size: 11px; text-align: right; font-weight: bold; color: #0284c7;">$50,000.00</td>
+                                        <td style="border: 1px solid #e0f2fe; padding: 7px 8px; font-size: 11px; text-align: right; color: #16a34a; font-weight: bold;">$0.00</td>
+                                    </tr>
+                                    <tr style="background: #f8fafc;">
+                                        <td style="border: 1px solid #e0f2fe; padding: 7px 8px; font-size: 11px; text-align: center;">2</td>
+                                        <td style="border: 1px solid #e0f2fe; padding: 7px 8px; font-size: 11px; font-weight: bold;">F1-3520</td>
+                                        <td style="border: 1px solid #e0f2fe; padding: 7px 8px; font-size: 11px; text-align: center; color: #64748b;">05/09/2026</td>
+                                        <td style="border: 1px solid #e0f2fe; padding: 7px 8px; font-size: 11px; text-align: right;">$200,000.00</td>
+                                        <td style="border: 1px solid #e0f2fe; padding: 7px 8px; font-size: 11px; text-align: right; color: #64748b;">$150,000.00</td>
+                                        <td style="border: 1px solid #e0f2fe; padding: 7px 8px; font-size: 11px; text-align: right; font-weight: bold; color: #0284c7;">$100,000.00</td>
+                                        <td style="border: 1px solid #e0f2fe; padding: 7px 8px; font-size: 11px; text-align: right; color: #ef4444; font-weight: bold;">$50,000.00</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <!-- Totals & Payment Methods -->
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                                @if($opts['show_payment_info'] ?? true)
+                                <div style="font-size: 11px; color: #444; line-height: 1.8;">
+                                    <strong>MÉTODO DE PAGO:</strong><br>
+                                    <span>• Efectivo: $150,000.00</span>
+                                </div>
+                                @else
+                                <div></div>
+                                @endif
+                                <div style="width: 270px; background: #f0f9ff; border: 1px solid #bae6fd; padding: 10px 15px; border-radius: 4px;">
+                                    <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0; color: #444;"><span>Facturas canceladas:</span><span style="font-weight: bold; color: #16a34a;">1</span></div>
+                                    <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0; color: #444;"><span>Saldo Total Pendiente:</span><span style="font-weight: bold; color: #ef4444;">$50,000.00</span></div>
+                                    <div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: bold; color: #0284c7; border-top: 2px solid #0284c7; margin-top: 6px; padding-top: 8px;"><span>TOTAL ABONADO:</span><span>$150,000.00</span></div>
+                                </div>
+                            </div>
+
+                            @if($opts['show_amount_words'] ?? true)
+                            <div style="font-size: 10px; color: #555; font-style: italic; margin-bottom: 12px; padding: 6px 10px; background: #f8f8f8; border-left: 3px solid #0284c7;">
+                                Monto en letras: CIENTO CINCUENTA MIL PESOS CON 00/100 M/CTE
+                            </div>
+                            @endif
+
+                            @if($opts['show_observations'] ?? true)
+                            <div style="font-size: 10px; color: #374151; margin-bottom: 15px; padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
+                                <strong>Observaciones:</strong> Pago recibido a satisfacción correspondiente al acuerdo de crédito quincenal.
+                            </div>
+                            @endif
+
+                            <!-- Signatures -->
+                            <div style="display: flex; justify-content: space-around; margin-top: 35px; margin-bottom: 15px;">
+                                <div style="width: 200px; text-align: center; border-top: 1px solid #000; padding-top: 4px; font-size: 10px; font-weight: bold;">
+                                    Entregado por (Cliente / Pagador)<br>
+                                    <span style="font-size: 9px; font-weight: normal; color: #666;">C.C. / Firma</span>
+                                </div>
+                                <div style="width: 200px; text-align: center; border-top: 1px solid #000; padding-top: 4px; font-size: 10px; font-weight: bold;">
+                                    Recibido por (Cajero / Responsable)<br>
+                                    <span style="font-size: 9px; font-weight: normal; color: #666;">Admin Sucursal</span>
+                                </div>
+                            </div>
+
+                            @if($opts['show_footer'] ?? true)
+                            <div style="text-align: center; padding-top: 12px; border-top: 1px solid #ddd; font-size: 10px; color: #777;">
+                                Este documento es un comprobante de abono / cancelación de créditos comerciales.
                             </div>
                             @endif
                         </div>

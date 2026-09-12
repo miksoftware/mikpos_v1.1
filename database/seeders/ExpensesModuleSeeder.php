@@ -46,5 +46,20 @@ class ExpensesModuleSeeder extends Seeder
         if ($branchAdmin) {
             $branchAdmin->permissions()->syncWithoutDetaching($permissionIds);
         }
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('print_format_settings')) {
+            \App\Models\PrintFormatSetting::firstOrCreate(
+                ['document_type' => 'expense'],
+                [
+                    'display_name' => 'Comprobante de Gastos',
+                    'format' => '80mm',
+                    'letter_options' => \App\Models\PrintFormatSetting::DEFAULT_LETTER_OPTIONS,
+                    'open_cash_drawer_on_skip' => false,
+                    'show_logo_80mm' => false,
+                    'show_observations_80mm' => true,
+                ]
+            );
+        }
     }
 }
+

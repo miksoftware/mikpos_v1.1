@@ -507,6 +507,37 @@ Route::middleware(['auth', 'user.active'])->group(function () {
         }
     })->name('credit-receipt.show');
 
+    // Credit Payment Receipt (Abonos individuales y múltiples)
+    Route::get('/credit-payment-receipt/{receiptNumber}', function (string $receiptNumber) {
+        $payments = App\Models\CreditPayment::where('receipt_number', $receiptNumber)
+            ->orWhere('payment_number', $receiptNumber)
+            ->with([
+                'branch.department',
+                'branch.municipality',
+                'customer.taxDocument',
+                'customer.municipality',
+                'customer.department',
+                'supplier.taxDocument',
+                'supplier.municipality',
+                'supplier.department',
+                'sale',
+                'purchase',
+                'paymentMethod',
+                'user',
+            ])->get();
+
+        if ($payments->isEmpty()) {
+            abort(404, 'Comprobante de abono no encontrado');
+        }
+
+        $format = App\Models\PrintFormatSetting::getFormat('credit_payment');
+        $view = $format === 'letter' ? 'receipts.credit-payment-receipt-letter' : 'receipts.credit-payment-receipt';
+        $showLogo = $format === '80mm' && App\Models\PrintFormatSetting::shouldShowLogo80mm('credit_payment');
+        $showObservations = $format === '80mm' ? App\Models\PrintFormatSetting::shouldShowObservations80mm('credit_payment') : true;
+
+        return view($view, compact('payments', 'receiptNumber', 'showLogo', 'showObservations'));
+    })->name('credit-payment-receipt.show')->middleware('permission:credits.view');
+
     // Refund Receipt
     Route::get('/refund-receipt/{refund}', function (App\Models\Refund $refund) {
         $refund->load([
@@ -525,6 +556,25 @@ Route::middleware(['auth', 'user.active'])->group(function () {
 
         return view($view, compact('refund', 'showLogo'));
     })->name('refund-receipt.show');
+
+    // Expense Receipt
+    Route::get('/expense-receipt/{expense}', function (App\Models\Expense $expense) {
+        $expense->load([
+            'branch.department',
+            'branch.municipality',
+            'user',
+            'paymentMethod',
+        ]);
+
+        $contact = $expense->contact_details;
+
+        $format = App\Models\PrintFormatSetting::getFormat('expense');
+        $view = $format === 'letter' ? 'receipts.expense-receipt-letter' : 'receipts.expense-receipt';
+        $showLogo = $format === '80mm' && App\Models\PrintFormatSetting::shouldShowLogo80mm('expense');
+        $showObservations = $format === '80mm' ? App\Models\PrintFormatSetting::shouldShowObservations80mm('expense') : true;
+
+        return view($view, compact('expense', 'contact', 'showLogo', 'showObservations'));
+    })->name('expense-receipt.show')->middleware('permission:expenses.view');
 
     // Purchase Receipt
     Route::get('/purchase-receipt/{purchase}', function (App\Models\Purchase $purchase) {

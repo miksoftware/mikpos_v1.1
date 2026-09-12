@@ -72,4 +72,51 @@ class Expense extends Model
         }
         return null;
     }
+
+    public function getExpenseNumberAttribute(): string
+    {
+        return 'EXP-' . str_pad((string) $this->id, 6, '0', STR_PAD_LEFT);
+    }
+
+    public function getContactDetailsAttribute(): ?array
+    {
+        if (!$this->contact_type || !$this->contact_id) {
+            return null;
+        }
+
+        if ($this->contact_type === 'customer') {
+            $customer = Customer::with(['taxDocument', 'municipality', 'department'])->find($this->contact_id);
+            if (!$customer) return null;
+            return [
+                'type' => 'Cliente',
+                'name' => $customer->customer_type === 'juridico' ? $customer->business_name : $customer->full_name,
+                'document_type' => $customer->taxDocument?->abbreviation ?? 'Doc',
+                'document_number' => $customer->document_number,
+                'phone' => $customer->phone,
+                'address' => $customer->address,
+                'city' => $customer->municipality?->name,
+                'department' => $customer->department?->name,
+                'email' => $customer->email,
+            ];
+        }
+
+        if ($this->contact_type === 'supplier') {
+            $supplier = Supplier::with(['taxDocument', 'municipality', 'department'])->find($this->contact_id);
+            if (!$supplier) return null;
+            return [
+                'type' => 'Proveedor',
+                'name' => $supplier->name,
+                'document_type' => $supplier->taxDocument?->abbreviation ?? 'Doc',
+                'document_number' => $supplier->document_number,
+                'phone' => $supplier->phone,
+                'address' => $supplier->address,
+                'city' => $supplier->municipality?->name,
+                'department' => $supplier->department?->name,
+                'email' => $supplier->email,
+            ];
+        }
+
+        return null;
+    }
 }
+

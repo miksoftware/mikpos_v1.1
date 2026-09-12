@@ -1,16 +1,16 @@
-<div class="p-4 sm:p-6 lg:p-8">
+<div class="p-4 sm:p-6 lg:p-8" x-data x-on:print-credit-payment.window="(e) => { window.open('/credit-payment-receipt/' + e.detail.receiptNumber, '_blank'); }">
     {{-- Header --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-            <h1 class="text-2xl font-bold text-slate-800">Créditos y Pagos</h1>
-            <p class="text-slate-500 mt-1">Gestiona cuentas por pagar y por cobrar</p>
+            <h1 class="text-2xl font-bold text-slate-800">Créditos y Comprobantes</h1>
+            <p class="text-slate-500 mt-1">Gestiona cuentas por pagar, por cobrar y comprobantes de abono</p>
         </div>
         @if(auth()->user()->hasPermission('credits.pay'))
         <div class="flex flex-wrap items-center gap-2">
             <button wire:click="openPortfolioModal"
                 class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl hover:from-emerald-600 hover:to-teal-700 transition-all shadow-sm">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                Importar Cartera (Excel/CSV)
+                Importar Cartera
             </button>
             <button wire:click="openBulkPaymentModal('receivable')"
                 class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all shadow-sm">
@@ -26,6 +26,34 @@
         @endif
     </div>
 
+    {{-- Tabs Navigation --}}
+    <div class="flex border-b border-slate-200 mb-6 gap-4">
+        <button wire:click="setActiveTab('credits')" type="button"
+            class="pb-3 px-2 font-semibold text-sm transition-all duration-200 flex items-center gap-2 border-b-2 {{ $activeTab === 'credits' ? 'border-[#ff7261] text-[#ff7261]' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300' }}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+            </svg>
+            <span>Créditos Pendientes</span>
+            @if(($totals['payable_count'] + $totals['receivable_count']) > 0)
+            <span class="px-2 py-0.5 text-xs font-bold rounded-full {{ $activeTab === 'credits' ? 'bg-[#ff7261]/10 text-[#ff7261]' : 'bg-slate-100 text-slate-600' }}">
+                {{ $totals['payable_count'] + $totals['receivable_count'] }}
+            </span>
+            @endif
+        </button>
+
+        <button wire:click="setActiveTab('payments')" type="button"
+            class="pb-3 px-2 font-semibold text-sm transition-all duration-200 flex items-center gap-2 border-b-2 {{ $activeTab === 'payments' ? 'border-[#a855f7] text-[#a855f7]' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300' }}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <span>Comprobantes de Pago / Historial</span>
+            <span class="px-2 py-0.5 text-xs font-bold rounded-full {{ $activeTab === 'payments' ? 'bg-[#a855f7]/10 text-[#a855f7]' : 'bg-slate-100 text-slate-600' }}">
+                {{ $paymentsSummary['receipts_count'] ?? 0 }}
+            </span>
+        </button>
+    </div>
+
+    @if($activeTab === 'credits')
     {{-- Summary Cards --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
@@ -207,6 +235,224 @@
             </table>
         </div>
     </div>
+    @elseif($activeTab === 'payments')
+    {{-- Payments Tab Content --}}
+
+    {{-- Summary Cards for Payments --}}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500 uppercase font-semibold">Total Cobrado (Clientes)</p>
+                    <p class="text-xl font-bold text-emerald-600">${{ number_format($paymentsSummary['total_collected'] ?? 0, 2) }}</p>
+                    <p class="text-xs text-slate-400">Recaudos de cartera</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500 uppercase font-semibold">Total Pagado (Proveedores)</p>
+                    <p class="text-xl font-bold text-amber-600">${{ number_format($paymentsSummary['total_paid'] ?? 0, 2) }}</p>
+                    <p class="text-xs text-slate-400">Egresos a proveedores</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500 uppercase font-semibold">Comprobantes Emitidos</p>
+                    <p class="text-xl font-bold text-[#a855f7]">{{ number_format($paymentsSummary['receipts_count'] ?? 0) }}</p>
+                    <p class="text-xs text-slate-400">Recibos de caja y egresos</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Payments Filters --}}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div class="lg:col-span-2">
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                    <input wire:model.live.debounce.300ms="paymentSearch" type="text"
+                        placeholder="Buscar por N° comprobante, cliente, factura..."
+                        class="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                </div>
+            </div>
+
+            <div>
+                <select wire:model.live="paymentFilterType" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                    <option value="">Todos los tipos</option>
+                    <option value="receivable">Cobros a Clientes (Recibos)</option>
+                    <option value="payable">Pagos a Proveedores (Egresos)</option>
+                </select>
+            </div>
+
+            <div>
+                <select wire:model.live="paymentMethodFilter" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                    <option value="">Todos los medios</option>
+                    @foreach($paymentMethods as $pm)
+                    <option value="{{ $pm->id }}">{{ $pm->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <input wire:model.live="paymentDateFrom" type="date" title="Fecha Desde"
+                    class="w-1/2 px-2 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-xs">
+                <input wire:model.live="paymentDateTo" type="date" title="Fecha Hasta"
+                    class="w-1/2 px-2 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-xs">
+            </div>
+        </div>
+    </div>
+
+    {{-- Receipts Table --}}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Fecha / Hora</th>
+                        <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">N° Comprobante</th>
+                        <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Tipo</th>
+                        <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente / Proveedor</th>
+                        <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Facturas Afectadas</th>
+                        <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Medio(s) de Pago</th>
+                        <th class="px-5 py-3.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Abonado</th>
+                        <th class="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Cajero / Registro</th>
+                        <th class="px-5 py-3.5 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @forelse($receipts as $r)
+                    @php
+                        $lines = $receiptDetails[$r->receipt_number] ?? collect();
+                        $firstLine = $lines->first();
+                        $isReceivable = $r->credit_type === 'receivable';
+                        $entityName = $isReceivable
+                            ? ($firstLine?->customer ? $firstLine->customer->full_name : 'Cliente')
+                            : ($firstLine?->supplier ? $firstLine->supplier->name : 'Proveedor');
+                        $docNum = $isReceivable
+                            ? ($firstLine?->customer?->document_number)
+                            : ($firstLine?->supplier?->document_number);
+                        $invoices = $lines->map(function($l) {
+                            return $l->sale ? $l->sale->invoice_number : ($l->purchase ? $l->purchase->purchase_number : null);
+                        })->filter()->unique();
+                        $methods = $lines->map(fn($l) => $l->paymentMethod?->name)->filter()->unique();
+                    @endphp
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="px-5 py-4 whitespace-nowrap text-xs text-slate-500">
+                            {{ \Carbon\Carbon::parse($r->payment_date)->format('d/m/Y') }}
+                            <span class="block text-[11px] text-slate-400">{{ \Carbon\Carbon::parse($r->payment_date)->format('H:i') }}</span>
+                        </td>
+                        <td class="px-5 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center font-mono font-bold text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 border border-slate-200">
+                                #{{ $r->receipt_number }}
+                            </span>
+                            @if($r->total_invoices > 1)
+                            <span class="block mt-1 text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded w-fit">
+                                {{ $r->total_invoices }} facturas
+                            </span>
+                            @endif
+                        </td>
+                        <td class="px-5 py-4 whitespace-nowrap">
+                            @if($isReceivable)
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                Cobro Cliente
+                            </span>
+                            @else
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                Pago Proveedor
+                            </span>
+                            @endif
+                        </td>
+                        <td class="px-5 py-4">
+                            <div class="font-medium text-slate-800 text-sm">{{ $entityName }}</div>
+                            @if($docNum)
+                            <div class="text-xs text-slate-400">CC/NIT: {{ $docNum }}</div>
+                            @endif
+                        </td>
+                        <td class="px-5 py-4">
+                            <div class="flex flex-wrap gap-1 max-w-xs">
+                                @forelse($invoices as $inv)
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                    {{ $inv }}
+                                </span>
+                                @empty
+                                <span class="text-xs text-slate-400">-</span>
+                                @endforelse
+                            </div>
+                        </td>
+                        <td class="px-5 py-4 whitespace-nowrap">
+                            <div class="text-xs font-medium text-slate-700">
+                                {{ $methods->implode(', ') ?: 'Efectivo' }}
+                            </div>
+                        </td>
+                        <td class="px-5 py-4 whitespace-nowrap text-right">
+                            <span class="text-sm font-bold text-slate-900">${{ number_format($r->total_amount, 2) }}</span>
+                        </td>
+                        <td class="px-5 py-4 whitespace-nowrap">
+                            <div class="text-xs text-slate-700">{{ $firstLine?->user?->name ?? 'Usuario' }}</div>
+                            @if($firstLine?->branch)
+                            <div class="text-[11px] text-slate-400">{{ $firstLine->branch->name }}</div>
+                            @endif
+                        </td>
+                        <td class="px-5 py-4 whitespace-nowrap text-center">
+                            <button wire:click="printReceipt('{{ $r->receipt_number }}')" type="button"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e06252] hover:to-[#9333ea] rounded-xl shadow-sm hover:shadow transition-all duration-150">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                                </svg>
+                                Imprimir
+                            </button>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="9" class="px-6 py-12 text-center">
+                            <svg class="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <p class="text-slate-500 font-medium">No se encontraron comprobantes de pago</p>
+                            <p class="text-sm text-slate-400">Los abonos registrados a créditos aparecerán en este historial</p>
+                        </td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        @if($receipts->hasPages())
+        <div class="px-6 py-4 border-t border-slate-200">
+            {{ $receipts->links() }}
+        </div>
+        @endif
+    </div>
+    @endif
 
     {{-- Payment Modal --}}
     @if($isPaymentModalOpen)
@@ -567,8 +813,17 @@
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center justify-between">
-                                        <p class="text-sm font-semibold text-slate-800">${{ number_format($payment->amount, 2) }}</p>
-                                        <span class="text-xs text-slate-400">{{ $payment->created_at->format('d/m/Y H:i') }}</span>
+                                        <div>
+                                            <p class="text-sm font-semibold text-slate-800">${{ number_format($payment->amount, 2) }}</p>
+                                            <span class="font-mono text-[10px] text-slate-400">#{{ $payment->receipt_number ?: $payment->payment_number }}</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs text-slate-400">{{ $payment->created_at->format('d/m/Y H:i') }}</span>
+                                            <button wire:click="printReceipt('{{ $payment->receipt_number ?: $payment->payment_number }}')" type="button"
+                                                class="p-1.5 text-slate-400 hover:text-[#a855f7] hover:bg-[#a855f7]/10 rounded-lg transition-colors" title="Imprimir Comprobante">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                                            </button>
+                                        </div>
                                     </div>
                                     <p class="text-xs text-slate-500">{{ $payment->paymentMethod->name ?? '-' }} · {{ $payment->user->name ?? '-' }}</p>
                                     @if($payment->affects_cash)

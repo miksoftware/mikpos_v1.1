@@ -12,6 +12,7 @@ class CreditPayment extends Model
 
     protected $fillable = [
         'payment_number',
+        'receipt_number',
         'credit_type',
         'purchase_id',
         'sale_id',
@@ -84,6 +85,30 @@ class CreditPayment extends Model
         return $this->credit_type === 'payable';
     }
 
+    public function getEntityNameAttribute(): string
+    {
+        if ($this->customer) {
+            return $this->customer->customer_type === 'juridico'
+                ? ($this->customer->business_name ?: $this->customer->full_name)
+                : $this->customer->full_name;
+        }
+        if ($this->supplier) {
+            return $this->supplier->name;
+        }
+        return 'Consumidor Final / General';
+    }
+
+    public function getInvoiceNumberAttribute(): ?string
+    {
+        if ($this->sale) {
+            return $this->sale->invoice_number;
+        }
+        if ($this->purchase) {
+            return $this->purchase->purchase_number;
+        }
+        return null;
+    }
+
     public static function generatePaymentNumber(): string
     {
         $prefix = 'PAG';
@@ -92,6 +117,23 @@ class CreditPayment extends Model
         $sequence = 1;
         if ($last) {
             $parts = explode('-', $last->payment_number);
+            if (count($parts) === 3 && is_numeric($parts[2])) {
+                $sequence = (int) $parts[2] + 1;
+            }
+        }
+        return sprintf('%s-%s-%04d', $prefix, $date, $sequence);
+    }
+
+    public static function generateReceiptNumber(string $type = 'receivable'): string
+    {
+        $prefix = $type === 'payable' ? 'EGR' : 'RC';
+        $date = now()->format('Ymd');
+        $last = static::where('receipt_number', 'like', "{$prefix}-{$date}-%")
+            ->orderByDesc('id')
+            ->first();
+        $sequence = 1;
+        if ($last && $last->receipt_number) {
+            $parts = explode('-', $last->receipt_number);
             if (count($parts) === 3 && is_numeric($parts[2])) {
                 $sequence = (int) $parts[2] + 1;
             }

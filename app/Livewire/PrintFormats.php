@@ -37,6 +37,32 @@ class PrintFormats extends Component
             ]
         );
 
+        PrintFormatSetting::firstOrCreate(
+            ['document_type' => 'expense'],
+            [
+                'display_name' => 'Comprobante de Gastos',
+                'format' => '80mm',
+                'letter_options' => PrintFormatSetting::DEFAULT_LETTER_OPTIONS,
+                'open_cash_drawer_on_skip' => false,
+                'show_logo_80mm' => false,
+                'show_observations_80mm' => true,
+            ]
+        );
+
+        PrintFormatSetting::firstOrCreate(
+            ['document_type' => 'credit_payment'],
+            [
+                'display_name' => 'Comprobante de Abono / Crédito',
+                'format' => '80mm',
+                'letter_options' => PrintFormatSetting::DEFAULT_LETTER_OPTIONS,
+                'open_cash_drawer_on_skip' => false,
+                'show_logo_80mm' => true,
+                'show_observations_80mm' => true,
+            ]
+        );
+
+
+
         $settings = PrintFormatSetting::all();
         $this->formats = [];
         $this->letterOptions = [];
