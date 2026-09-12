@@ -252,9 +252,9 @@ class CashReport extends Component
             ->where('refunds.status', 'completed')
             ->sum('refunds.total');
 
-        // Credit notes (for electronic invoices)
+        // Credit notes (for electronic invoices, excluding those originated from refunds to avoid double expense)
         $branchFilter = $this->selectedBranchId ?? (auth()->user()->isSuperAdmin() ? null : auth()->user()->branch_id);
-        $creditNotesQuery = CreditNote::whereIn('status', ['validated', 'pending']);
+        $creditNotesQuery = CreditNote::whereIn('status', ['validated', 'pending'])->whereNull('refund_id');
         if ($branchFilter) {
             $creditNotesQuery->where('branch_id', $branchFilter);
         }

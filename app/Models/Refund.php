@@ -23,6 +23,7 @@ class Refund extends Model
         'tax_total',
         'total',
         'status',
+        'credit_note_id',
     ];
 
     protected function casts(): array
@@ -35,6 +36,11 @@ class Refund extends Model
     }
 
     // Relationships
+
+    public function creditNote(): BelongsTo
+    {
+        return $this->belongsTo(CreditNote::class);
+    }
 
     public function sale(): BelongsTo
     {

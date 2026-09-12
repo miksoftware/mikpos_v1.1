@@ -85,6 +85,13 @@ class Sales extends Component
         '5' => 'Otros',
     ];
 
+    // Transmit Refund to DIAN
+    public $showTransmitRefundModal = false;
+    public $selectedRefund = null;
+    public $transmitConceptCode = '2';
+    public $transmitReason = '';
+    public $isTransmittingRefund = false;
+
     // E-commerce order management
     public $showEcommerceDetailModal = false;
     public $ecommerceOrder = null;
@@ -114,7 +121,9 @@ class Sales extends Component
             'cashReconciliation.cashRegister',
             'reprints.user',
             'creditNotes.user',
+            'creditNotes.refund',
             'refunds.user',
+            'refunds.creditNote',
         ])->find($saleId);
         
         $this->showDetailModal = true;
@@ -244,7 +253,7 @@ class Sales extends Component
 
     public function openCreditNoteModal($saleId)
     {
-        $sale = Sale::with(['items', 'creditNotes.items'])->find($saleId);
+        $sale = Sale::with(['items', 'creditNotes.items', 'refunds.items'])->find($saleId);
         
         if (!$sale) {
             $this->dispatch('notify', message: 'Venta no encontrada', type: 'error');
@@ -260,6 +269,13 @@ class Sales extends Component
         foreach ($sale->creditNotes as $cn) {
             foreach ($cn->items as $item) {
                 $creditedQuantities[$item->sale_item_id] = ($creditedQuantities[$item->sale_item_id] ?? 0) + $item->quantity;
+            }
+        }
+        foreach ($sale->refunds as $refund) {
+            if (!$refund->credit_note_id) {
+                foreach ($refund->items as $item) {
+                    $creditedQuantities[$item->sale_item_id] = ($creditedQuantities[$item->sale_item_id] ?? 0) + $item->quantity;
+                }
             }
         }
 
@@ -288,7 +304,12 @@ class Sales extends Component
         }
 
         if (empty($this->creditNoteItems)) {
-            $this->dispatch('notify', message: 'Esta factura ya tiene notas crédito por el total', type: 'warning');
+            $hasPendingRefunds = $sale->refunds->whereNull('credit_note_id')->isNotEmpty();
+            if ($hasPendingRefunds) {
+                $this->dispatch('notify', message: 'Esta factura ya tiene devoluciones POS por el total. Utilice el botón "Transmitir a la DIAN" en la devolución para no duplicar inventario ni caja.', type: 'warning');
+            } else {
+                $this->dispatch('notify', message: 'Esta factura ya tiene notas crédito por el total', type: 'warning');
+            }
             return;
         }
 
@@ -546,9 +567,171 @@ class Sales extends Component
             $this->selectedSale = Sale::with([
                 'customer.taxDocument', 'user', 'branch', 'items.product',
                 'payments.paymentMethod', 'cashReconciliation.cashRegister',
-                'reprints.user', 'creditNotes.user', 'refunds.user',
+                'reprints.user', 'creditNotes.user', 'creditNotes.refund',
+                'refunds.user', 'refunds.creditNote',
             ])->find($this->selectedSale->id);
         }
+    }
+
+    // ==================== TRANSMIT REFUND TO DIAN ====================
+
+    public function openTransmitRefundModal($refundId)
+    {
+        $refund = Refund::with(['items', 'sale'])->find($refundId);
+        if (!$refund) {
+            $this->dispatch('notify', message: 'Devolución no encontrada', type: 'error');
+            return;
+        }
+
+        if (!$refund->sale->is_electronic || !$refund->sale->cufe) {
+            $this->dispatch('notify', message: 'La factura electrónica debe estar validada ante la DIAN antes de transmitir la nota crédito', type: 'error');
+            return;
+        }
+
+        if ($refund->credit_note_id) {
+            $this->dispatch('notify', message: 'Esta devolución ya fue transmitida como Nota Crédito a la DIAN', type: 'warning');
+            return;
+        }
+
+        $this->selectedRefund = $refund;
+        $this->transmitConceptCode = $refund->type === 'total' ? '2' : '1';
+
+        $reason = trim($refund->reason ?? '');
+        if (strlen($reason) < 10) {
+            $reason = "Devolución {$refund->number}: " . ($reason ?: 'Devolución de productos');
+        }
+        if (strlen($reason) < 10) {
+            $reason = "Devolución {$refund->number} de la factura {$refund->sale->dian_number}";
+        }
+        $this->transmitReason = $reason;
+        $this->showTransmitRefundModal = true;
+    }
+
+    public function closeTransmitRefundModal()
+    {
+        $this->showTransmitRefundModal = false;
+        $this->selectedRefund = null;
+        $this->transmitReason = '';
+        $this->isTransmittingRefund = false;
+    }
+
+    public function transmitRefundToDian()
+    {
+        $this->validate([
+            'transmitReason' => 'required|min:10',
+            'transmitConceptCode' => 'required|in:1,2,3,4,5',
+        ], [
+            'transmitReason.required' => 'Debe indicar el motivo de la nota crédito',
+            'transmitReason.min' => 'El motivo debe tener al menos 10 caracteres',
+        ]);
+
+        if (!$this->selectedRefund) {
+            $this->dispatch('notify', message: 'No hay devolución seleccionada', type: 'error');
+            return;
+        }
+
+        $refund = Refund::with(['items', 'sale'])->find($this->selectedRefund->id);
+        if (!$refund || $refund->credit_note_id) {
+            $this->dispatch('notify', message: 'La devolución ya fue transmitida o no es válida', type: 'error');
+            return;
+        }
+
+        $sale = $refund->sale;
+        if (!$sale->is_electronic || !$sale->cufe) {
+            $this->dispatch('notify', message: 'La factura debe tener CUFE para emitir nota crédito', type: 'error');
+            return;
+        }
+
+        $this->isTransmittingRefund = true;
+
+        try {
+            DB::beginTransaction();
+
+            $creditNote = CreditNote::create([
+                'sale_id' => $sale->id,
+                'branch_id' => $sale->branch_id,
+                'user_id' => auth()->id(),
+                'refund_id' => $refund->id,
+                'number' => CreditNote::generateNumber($sale->branch_id),
+                'type' => $refund->type,
+                'correction_concept_code' => $this->transmitConceptCode,
+                'reason' => $this->transmitReason,
+                'subtotal' => $refund->subtotal,
+                'tax_total' => $refund->tax_total,
+                'total' => $refund->total,
+                'status' => 'pending',
+            ]);
+
+            foreach ($refund->items as $item) {
+                CreditNoteItem::create([
+                    'credit_note_id' => $creditNote->id,
+                    'sale_item_id' => $item->sale_item_id,
+                    'combo_id' => $item->combo_id ?? null,
+                    'product_id' => $item->product_id ?? null,
+                    'product_name' => $item->product_name,
+                    'product_sku' => $item->product_sku,
+                    'unit_price' => $item->unit_price,
+                    'quantity' => $item->quantity,
+                    'original_quantity' => $item->original_quantity,
+                    'tax_rate' => $item->tax_rate,
+                    'tax_amount' => $item->tax_amount,
+                    'subtotal' => $item->subtotal,
+                    'total' => $item->total,
+                ]);
+            }
+
+            // Link refund to credit note
+            $refund->update(['credit_note_id' => $creditNote->id]);
+
+            // NOTE: We deliberately do NOT call registerCashMovement() nor modify inventory,
+            // because both stock and cash return were already processed when the refund was created.
+
+            // Send to Factus / DIAN
+            $factusService = new FactusV2Service();
+            $dianSuccess = false;
+            $dianErrorMsg = '';
+
+            if ($factusService->isEnabled()) {
+                try {
+                    $factusService->createCreditNote($creditNote);
+                    $dianSuccess = true;
+                } catch (\Exception $e) {
+                    $creditNote->update([
+                        'status' => 'rejected',
+                        'dian_response' => ['error' => $e->getMessage()]
+                    ]);
+                    $dianErrorMsg = $e->getMessage();
+                }
+            }
+
+            ActivityLogService::logCreate('sales', $creditNote, "Nota crédito {$creditNote->number} emitida desde devolución {$refund->number} para factura {$sale->invoice_number}");
+
+            DB::commit();
+
+            if ($dianSuccess) {
+                $this->dispatch('notify', message: "Nota Crédito {$creditNote->number} transmitida y validada por la DIAN exitosamente", type: 'success');
+            } elseif ($dianErrorMsg) {
+                $this->dispatch('notify', message: "Nota Crédito {$creditNote->number} creada pero falló validación DIAN: {$dianErrorMsg}", type: 'warning');
+            } else {
+                $this->dispatch('notify', message: "Nota Crédito {$creditNote->number} creada (facturación electrónica deshabilitada)", type: 'warning');
+            }
+
+            $this->closeTransmitRefundModal();
+
+            // Refresh selected sale
+            $this->selectedSale = Sale::with([
+                'customer.taxDocument', 'user', 'branch', 'items.product',
+                'payments.paymentMethod', 'cashReconciliation.cashRegister',
+                'reprints.user', 'creditNotes.user', 'creditNotes.refund',
+                'refunds.user', 'refunds.creditNote',
+            ])->find($sale->id);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->dispatch('notify', message: 'Error al transmitir devolución a la DIAN: ' . $e->getMessage(), type: 'error');
+        }
+
+        $this->isTransmittingRefund = false;
     }
 
     // ==================== REFUND METHODS (POS) ====================
@@ -1449,7 +1632,8 @@ class Sales extends Component
             $this->selectedSale = Sale::with([
                 'customer.taxDocument', 'user', 'branch', 'items.product',
                 'payments.paymentMethod', 'cashReconciliation.cashRegister',
-                'reprints.user', 'creditNotes.user', 'refunds.user',
+                'reprints.user', 'creditNotes.user', 'creditNotes.refund',
+                'refunds.user', 'refunds.creditNote',
             ])->find($saleId);
         }
 

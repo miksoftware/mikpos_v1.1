@@ -406,7 +406,7 @@
                         <div class="border-t border-slate-200 pt-4">
                             <h4 class="text-sm font-semibold text-slate-700 mb-3">Notas Crédito / Devoluciones</h4>
                             <div class="space-y-2">
-                                @foreach($selectedSale->creditNotes as $cn)
+                                @foreach($selectedSale->creditNotes->whereNull('refund_id') as $cn)
                                 @if($cn->status === 'validated' && $cn->cufe)
                                 <div class="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-xl">
                                     <div>
@@ -459,16 +459,79 @@
                                 @endif
                                 @endforeach
                                 @foreach($selectedSale->refunds as $refund)
+                                @if($refund->creditNote)
+                                <div class="p-3 bg-amber-50/80 border border-amber-200 rounded-xl">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <p class="font-medium text-amber-900">{{ $refund->number }}</p>
+                                                <span class="text-xs text-amber-500">&rarr;</span>
+                                                <p class="font-semibold text-purple-800">{{ $refund->creditNote->number }}</p>
+                                                @if($refund->creditNote->status === 'validated' && $refund->creditNote->cufe)
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">✓ Validada DIAN</span>
+                                                @elseif($refund->creditNote->status === 'rejected')
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">Error DIAN en NC</span>
+                                                @else
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">Pendiente DIAN</span>
+                                                @endif
+                                            </div>
+                                            <p class="text-xs text-amber-700 mt-0.5">{{ $refund->created_at->format('d/m/Y H:i') }} - {{ $refund->type === 'total' ? 'Total' : 'Parcial' }}</p>
+                                            @if($refund->creditNote->dian_number)
+                                                <p class="text-xs text-amber-600 font-mono mt-0.5">DIAN: {{ $refund->creditNote->dian_number }}</p>
+                                            @endif
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="font-bold text-amber-800">-${{ number_format($refund->total, 0, ',', '.') }}</p>
+                                            <div class="flex items-center justify-end gap-2 mt-1">
+                                                <button wire:click="printRefund({{ $refund->id }})" class="text-xs text-slate-500 hover:text-slate-700 font-medium">Imprimir Ticket</button>
+                                                @if($refund->creditNote->dian_public_url)
+                                                    <a href="{{ $refund->creditNote->dian_public_url }}" target="_blank" class="inline-flex items-center text-xs font-semibold text-blue-600 hover:text-blue-800">PDF DIAN &rarr;</a>
+                                                @elseif($refund->creditNote->status === 'rejected')
+                                                    <button wire:click="retryCreditNote({{ $refund->creditNote->id }})" class="text-xs text-red-600 hover:text-red-800 font-medium">Reintentar</button>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @if($refund->creditNote->status === 'rejected' && ($refund->creditNote->dian_error_message || !empty($refund->creditNote->dian_errors_list)))
+                                    <div class="mt-2 p-2 bg-red-100/80 rounded-lg border border-red-200/60">
+                                        @if($refund->creditNote->dian_error_message)
+                                        <p class="text-xs text-red-700 font-medium">{{ $refund->creditNote->dian_error_message }}</p>
+                                        @endif
+                                        @if(!empty($refund->creditNote->dian_errors_list))
+                                        <ul class="mt-1 text-xs text-red-600 list-disc list-inside space-y-0.5">
+                                            @foreach($refund->creditNote->dian_errors_list as $error)
+                                            <li class="font-mono text-[11px]">{{ $error }}</li>
+                                            @endforeach
+                                        </ul>
+                                        @endif
+                                    </div>
+                                    @endif
+                                </div>
+                                @else
                                 <div class="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-xl">
                                     <div>
-                                        <p class="font-medium text-red-800">{{ $refund->number }}</p>
+                                        <div class="flex items-center gap-2">
+                                            <p class="font-medium text-red-800">{{ $refund->number }}</p>
+                                            @if($selectedSale->is_electronic && $selectedSale->cufe)
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">No transmitida a DIAN</span>
+                                            @endif
+                                        </div>
                                         <p class="text-xs text-red-600">{{ $refund->created_at->format('d/m/Y H:i') }} - {{ $refund->type === 'total' ? 'Total' : 'Parcial' }}</p>
                                     </div>
                                     <div class="text-right">
                                         <p class="font-bold text-red-800">-${{ number_format($refund->total, 0, ',', '.') }}</p>
-                                        <button wire:click="printRefund({{ $refund->id }})" class="text-xs text-red-600 hover:text-red-800">Imprimir</button>
+                                        <div class="flex items-center justify-end gap-2 mt-1">
+                                            <button wire:click="printRefund({{ $refund->id }})" class="text-xs text-red-600 hover:text-red-800 font-medium">Imprimir</button>
+                                            @if($selectedSale->is_electronic && $selectedSale->cufe)
+                                            <button wire:click="openTransmitRefundModal({{ $refund->id }})" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-amber-900 bg-amber-200 hover:bg-amber-300 border border-amber-300 rounded-lg shadow-sm transition-colors">
+                                                <svg class="w-3.5 h-3.5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                                Transmitir a la DIAN
+                                            </button>
+                                            @endif
+                                        </div>
                                     </div>
                                 </div>
+                                @endif
                                 @endforeach
                             </div>
                         </div>
@@ -762,6 +825,92 @@
                         <button wire:click="processRefund" wire:loading.attr="disabled" wire:target="processRefund" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-rose-500 rounded-xl hover:from-red-600 hover:to-rose-600 disabled:opacity-50">
                             <span wire:loading.remove wire:target="processRefund">Crear Devolución</span>
                             <span wire:loading wire:target="processRefund">Procesando...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Transmit Refund to DIAN Modal -->
+    @if($showTransmitRefundModal && $selectedRefund && $selectedSale)
+    <div class="relative z-[105]">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[105]" wire:click="closeTransmitRefundModal"></div>
+        <div class="fixed inset-0 z-[106] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden">
+                    <!-- Header -->
+                    <div class="px-6 py-4 bg-gradient-to-r from-amber-500 to-amber-600 text-white flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-white/20 backdrop-blur flex items-center justify-center">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Transmitir Nota Crédito a la DIAN</h3>
+                                <p class="text-xs text-amber-100">Devolución: {{ $selectedRefund->number }} &bull; Factura: {{ $selectedSale->dian_number ?? $selectedSale->invoice_number }}</p>
+                            </div>
+                        </div>
+                        <button wire:click="closeTransmitRefundModal" class="text-white/80 hover:text-white">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="p-6 space-y-4">
+                        <!-- Info Alert -->
+                        <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
+                            <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <div class="text-xs text-blue-800">
+                                <p class="font-semibold">Sin duplicar movimientos de caja ni inventario</p>
+                                <p class="mt-0.5 text-blue-700">El reintegro físico a inventario y la salida de dinero ya fueron procesados con la devolución POS. Esta acción únicamente generará y transmitirá la <strong>Nota Crédito oficial ante la DIAN</strong> para anular la factura legalmente.</p>
+                            </div>
+                        </div>
+
+                        <!-- Items Summary -->
+                        <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                            <p class="text-xs font-semibold text-slate-600 mb-2">Productos a reportar a la DIAN:</p>
+                            <div class="space-y-1.5 max-h-36 overflow-y-auto">
+                                @foreach($selectedRefund->items as $rItem)
+                                <div class="flex justify-between text-xs text-slate-700">
+                                    <span>{{ number_format($rItem->quantity, 0) }}x {{ $rItem->product_name }}</span>
+                                    <span class="font-medium">${{ number_format($rItem->total, 0, ',', '.') }}</span>
+                                </div>
+                                @endforeach
+                            </div>
+                            <div class="mt-2 pt-2 border-t border-slate-200 flex justify-between text-sm font-bold text-slate-800">
+                                <span>Total Nota Crédito DIAN:</span>
+                                <span class="text-amber-700">${{ number_format($selectedRefund->total, 0, ',', '.') }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Concept -->
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Concepto de Corrección DIAN</label>
+                            <select wire:model="transmitConceptCode" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500">
+                                @foreach($correctionConcepts as $code => $name)
+                                <option value="{{ $code }}">{{ $code }}. {{ $name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <!-- Reason -->
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Motivo ante la DIAN (mínimo 10 caracteres)</label>
+                            <textarea wire:model="transmitReason" rows="2" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500" placeholder="Indique el motivo de la anulación para la DIAN..."></textarea>
+                            @error('transmitReason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+                        <button wire:click="closeTransmitRefundModal" type="button" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors">
+                            Cancelar
+                        </button>
+                        <button wire:click="transmitRefundToDian" type="button" wire:loading.attr="disabled" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 rounded-xl shadow-sm transition-colors">
+                            <span wire:loading wire:target="transmitRefundToDian" class="inline-block animate-spin">&#8987;</span>
+                            <span wire:loading.remove wire:target="transmitRefundToDian">Transmitir a la DIAN</span>
+                            <span wire:loading wire:target="transmitRefundToDian">Transmitiendo a la DIAN...</span>
                         </button>
                     </div>
                 </div>

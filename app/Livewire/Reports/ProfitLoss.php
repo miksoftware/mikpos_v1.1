@@ -283,6 +283,7 @@ class ProfitLoss extends Component
         // Refunds & Credit Notes
         $refundsQuery = Refund::query()
             ->where('refunds.status', 'completed')
+            ->whereNull('refunds.credit_note_id')
             ->whereDate('refunds.created_at', '>=', $start)
             ->whereDate('refunds.created_at', '<=', $end)
             ->whereHas('sale', fn($q) => $q->where('sales.status', 'completed'));

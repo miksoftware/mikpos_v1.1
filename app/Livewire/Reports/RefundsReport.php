@@ -131,10 +131,11 @@ class RefundsReport extends Component
     {
         $rows = collect();
 
-        // Refunds
+        // Refunds (excluding those converted to Credit Notes to avoid double counting)
         if ($this->filterType !== 'credit_note') {
             $refundsQuery = Refund::with(['sale.customer', 'user', 'branch'])
                 ->where('refunds.status', 'completed')
+                ->whereNull('refunds.credit_note_id')
                 ->whereDate('refunds.created_at', '>=', $this->startDate)
                 ->whereDate('refunds.created_at', '<=', $this->endDate);
             $this->applyBranchFilter($refundsQuery, 'refunds');

@@ -30,6 +30,7 @@ class CreditNote extends Model
         'dian_response',
         'reference_code',
         'status',
+        'refund_id',
     ];
 
     protected function casts(): array
@@ -44,6 +45,11 @@ class CreditNote extends Model
     }
 
     // Relationships
+
+    public function refund(): BelongsTo
+    {
+        return $this->belongsTo(Refund::class);
+    }
 
     public function sale(): BelongsTo
     {
