@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @php
-        $shopBranch = \App\Models\Branch::find(config('ecommerce.branch_id'));
+        $shopBranch = \App\Models\Branch::getEcommerceBranch();
         $shopName = $shopBranch->name ?? 'Tienda';
     @endphp
     <title>{{ $title ?? $shopName }}</title>
@@ -29,7 +29,7 @@
 </head>
 
 <body class="antialiased bg-slate-50 font-sans min-h-screen flex flex-col">
-    @if(!config('ecommerce.branch_id'))
+    @if(!$shopBranch || !$shopBranch->is_active || !$shopBranch->ecommerce_enabled)
         {{-- Tienda no disponible --}}
         <div class="min-h-screen flex items-center justify-center px-4">
             <div class="text-center max-w-md">

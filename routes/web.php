@@ -28,8 +28,7 @@ Route::get('/manifest.json', function () {
 
     $branch = null;
     if ($context === 'shop') {
-        $branchId = (int) config('ecommerce.branch_id');
-        $branch = $branchId ? \App\Models\Branch::find($branchId) : null;
+        $branch = \App\Models\Branch::getEcommerceBranch();
     } else {
         $branch = auth()->user()?->branch;
     }
@@ -50,10 +49,12 @@ Route::get('/manifest.json', function () {
         }
     }
 
+    $shopStartUrl = $branch ? $branch->shop_url : url('/shop');
+
     $manifest = [
         'name' => $name,
         'short_name' => $name,
-        'start_url' => $context === 'shop' ? url('/shop') : url('/dashboard'),
+        'start_url' => $context === 'shop' ? $shopStartUrl : url('/dashboard'),
         'display' => 'standalone',
         'background_color' => '#ffffff',
         'theme_color' => '#1a1225',
@@ -128,30 +129,42 @@ Route::post('/logout', function () {
     return redirect('/login');
 })->name('logout');
 
-// E-commerce routes (guest - customer guard)
-Route::prefix('shop')->middleware(['guest:customer', 'ecommerce.check'])->group(function () {
-    Route::get('/login', App\Livewire\Shop\Auth\Login::class)->name('shop.login');
-    Route::get('/register', App\Livewire\Shop\Auth\Register::class)->name('shop.register');
-    Route::get('/forgot-password', App\Livewire\Shop\Auth\ForgotPassword::class)->name('shop.forgot-password');
+// Fallback generic /shop: Redirect to active or first available branch store
+Route::get('/shop', function () {
+    $branch = \App\Models\Branch::getEcommerceBranch();
+    if ($branch) {
+        return redirect()->route('shop.catalog', ['branch_slug' => $branch->slug]);
+    }
+    abort(503, 'La tienda en línea no está disponible en este momento.');
 });
 
-// E-commerce routes (authenticated - customer guard)
-Route::prefix('shop')->middleware('ecommerce.auth')->group(function () {
-    Route::get('/', App\Livewire\Shop\Catalog::class)->name('shop.catalog');
-    Route::get('/catalog-pdf', [App\Http\Controllers\ReportExportController::class, 'ecommerceCatalogPdf'])->name('shop.catalog.pdf');
-    Route::get('/product/{product}', App\Livewire\Shop\ProductDetail::class)->name('shop.product');
-    Route::get('/cart', App\Livewire\Shop\Cart::class)->name('shop.cart');
-    Route::get('/checkout', App\Livewire\Shop\Checkout::class)->name('shop.checkout');
-    Route::get('/order/{sale}', App\Livewire\Shop\OrderConfirmation::class)->name('shop.order');
-    Route::get('/orders', App\Livewire\Shop\Orders::class)->name('shop.orders');
-    Route::get('/profile', App\Livewire\Shop\Profile::class)->name('shop.profile');
+// E-commerce routes per branch (/{branch_slug}/shop)
+Route::prefix('{branch_slug}/shop')->group(function () {
+    // Guest routes
+    Route::middleware(['guest:customer', 'ecommerce.check'])->group(function () {
+        Route::get('/login', App\Livewire\Shop\Auth\Login::class)->name('shop.login');
+        Route::get('/register', App\Livewire\Shop\Auth\Register::class)->name('shop.register');
+        Route::get('/forgot-password', App\Livewire\Shop\Auth\ForgotPassword::class)->name('shop.forgot-password');
+    });
 
-    Route::post('/logout', function () {
-        Auth::guard('customer')->logout();
-        request()->session()->invalidate();
-        request()->session()->regenerateToken();
-        return redirect('/shop/login');
-    })->name('shop.logout');
+    // Authenticated routes
+    Route::middleware('ecommerce.auth')->group(function () {
+        Route::get('/', App\Livewire\Shop\Catalog::class)->name('shop.catalog');
+        Route::get('/catalog-pdf', [App\Http\Controllers\ReportExportController::class, 'ecommerceCatalogPdf'])->name('shop.catalog.pdf');
+        Route::get('/product/{product}', App\Livewire\Shop\ProductDetail::class)->name('shop.product');
+        Route::get('/cart', App\Livewire\Shop\Cart::class)->name('shop.cart');
+        Route::get('/checkout', App\Livewire\Shop\Checkout::class)->name('shop.checkout');
+        Route::get('/order/{sale}', App\Livewire\Shop\OrderConfirmation::class)->name('shop.order');
+        Route::get('/orders', App\Livewire\Shop\Orders::class)->name('shop.orders');
+        Route::get('/profile', App\Livewire\Shop\Profile::class)->name('shop.profile');
+
+        Route::post('/logout', function ($branch_slug) {
+            Auth::guard('customer')->logout();
+            request()->session()->invalidate();
+            request()->session()->regenerateToken();
+            return redirect()->route('shop.login', ['branch_slug' => $branch_slug]);
+        })->name('shop.logout');
+    });
 });
 
 // Protected routes

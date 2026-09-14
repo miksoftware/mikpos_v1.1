@@ -12,6 +12,7 @@ class Branch extends Model
     use HasFactory;
     protected $fillable = [
         'code',
+        'slug',
         'name',
         'logo',
         'tax_id',
@@ -39,6 +40,22 @@ class Branch extends Model
         'is_active',
     ];
 
+    protected static function booted()
+    {
+        static::saving(function ($branch) {
+            if (empty($branch->slug) && !empty($branch->name)) {
+                $base = \Illuminate\Support\Str::slug($branch->name);
+                $slug = $base ?: ('sucursal-' . ($branch->id ?? rand(100, 999)));
+                $count = 1;
+                while (static::where('slug', $slug)->where('id', '!=', $branch->id ?? 0)->exists()) {
+                    $slug = "{$base}-{$count}";
+                    $count++;
+                }
+                $branch->slug = $slug;
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [
@@ -52,6 +69,12 @@ class Branch extends Model
             'tax_exempt_preserves_price' => 'boolean',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function getShopUrlAttribute(): string
+    {
+        $slug = $this->slug ?: \Illuminate\Support\Str::slug($this->name ?: 'sucursal-' . $this->id);
+        return url("/{$slug}/shop");
     }
 
     public function department(): BelongsTo
@@ -75,25 +98,52 @@ class Branch extends Model
     }
 
     /**
-     * Get the active ecommerce branch. 
-     * Falls back to the first available ecommerce branch if config is not set or invalid.
+     * Get the active ecommerce branch.
+     * Resolves dynamically from:
+     * 1. Application container binding
+     * 2. Route slug parameter ({branch_slug})
+     * 3. Customer session ('ecommerce_branch_id')
+     * 4. Database fallback: first active branch with ecommerce_enabled = true.
+     * 
+     * No dependency on .env!
      */
-    public static function getEcommerceBranch(): ?self
+    public static function getEcommerceBranch(?string $slug = null): ?self
     {
-        $envBranchId = config('ecommerce.branch_id');
-        
-        if ($envBranchId) {
-            $branch = self::where('id', $envBranchId)
-                ->where('is_active', true)
-                ->where('ecommerce_enabled', true)
-                ->first();
-                
+        if (app()->bound('ecommerce_branch')) {
+            $bound = app('ecommerce_branch');
+            if ($bound instanceof self && $bound->is_active && $bound->ecommerce_enabled) {
+                return $bound;
+            }
+        }
+
+        $targetSlug = $slug ?: request()->route('branch_slug');
+
+        if ($targetSlug) {
+            $branch = self::where(function ($q) use ($targetSlug) {
+                $q->where('slug', $targetSlug)->orWhere('code', $targetSlug);
+            })
+            ->where('is_active', true)
+            ->where('ecommerce_enabled', true)
+            ->first();
+
             if ($branch) {
                 return $branch;
             }
         }
-        
-        // Fallback
+
+        $sessionBranchId = session('ecommerce_branch_id');
+        if ($sessionBranchId) {
+            $branch = self::where('id', $sessionBranchId)
+                ->where('is_active', true)
+                ->where('ecommerce_enabled', true)
+                ->first();
+
+            if ($branch) {
+                return $branch;
+            }
+        }
+
+        // Fallback: First active branch with ecommerce_enabled in DB
         return self::where('is_active', true)
             ->where('ecommerce_enabled', true)
             ->first();

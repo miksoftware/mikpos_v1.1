@@ -83,6 +83,15 @@ class Branches extends Component
     #[Rule('required|min:3')]
     public $name;
 
+    public $slug = '';
+
+    public function updatedName($value)
+    {
+        if (empty($this->branchId)) {
+            $this->slug = \Illuminate\Support\Str::slug($value);
+        }
+    }
+
     public $tax_id;
     public $department_id = '';
     public $municipality_id = '';
@@ -183,6 +192,7 @@ class Branches extends Component
         $this->branchId = $branch->id;
         $this->code = $branch->code;
         $this->name = $branch->name;
+        $this->slug = $branch->slug ?: \Illuminate\Support\Str::slug($branch->name);
         $this->tax_id = $branch->tax_id;
         $this->department_id = $branch->department_id ?? '';
         
@@ -239,6 +249,7 @@ class Branches extends Component
         $rules = [
             'code' => 'required|max:10|unique:branches,code,' . $this->branchId,
             'name' => 'required|min:3',
+            'slug' => 'nullable|max:100|unique:branches,slug,' . $this->branchId,
             'tax_id' => 'nullable|max:25',
             'email' => 'nullable|email|max:120',
             'phone' => 'nullable|max:20',
@@ -256,8 +267,12 @@ class Branches extends Component
             $logoPath = $this->logo->store('branches', 'public');
         }
 
+        $baseSlug = $this->slug ? \Illuminate\Support\Str::slug($this->slug) : \Illuminate\Support\Str::slug($this->name);
+        $slugToSave = $baseSlug ?: ('sucursal-' . ($this->branchId ?? rand(100, 999)));
+
         $data = [
             'code' => strtoupper($this->code),
+            'slug' => $slugToSave,
             'name' => $this->name,
             'logo' => $logoPath,
             'tax_id' => $this->tax_id,
@@ -1103,6 +1118,7 @@ class Branches extends Component
         $this->branchId = null;
         $this->code = '';
         $this->name = '';
+        $this->slug = '';
         $this->logo = null;
         $this->existingLogo = null;
         $this->tax_id = '';

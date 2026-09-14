@@ -36,7 +36,7 @@ class EcommerceCheckoutService
         return DB::transaction(function () use ($customer, $cartItems, $paymentMethodId, $shippingData, $isCredit) {
             $this->validateStock($cartItems);
 
-            $branchId = (int) config('ecommerce.branch_id');
+            $branchId = Branch::getEcommerceBranchId();
 
             // Calculate totals
             $subtotal = 0;
@@ -251,7 +251,7 @@ class EcommerceCheckoutService
      */
     private function reserveStock(Sale $sale, array $cartItems): void
         {
-            $branchId = (int) config('ecommerce.branch_id');
+            $branchId = $sale->branch_id ?: Branch::getEcommerceBranchId();
             $systemDocument = SystemDocument::findByCode('ecommerce-sale');
 
             foreach ($cartItems as $item) {
@@ -297,7 +297,7 @@ class EcommerceCheckoutService
      */
     private function returnStock(Sale $sale): void
     {
-        $branchId = (int) config('ecommerce.branch_id');
+        $branchId = $sale->branch_id ?: Branch::getEcommerceBranchId();
         $systemDocument = SystemDocument::findByCode('ecommerce-sale');
 
         if (!$systemDocument) {
@@ -350,7 +350,7 @@ class EcommerceCheckoutService
             }
 
             // Email to all active POS users with email
-            $branchId = (int) config('ecommerce.branch_id');
+            $branchId = $sale->branch_id ?: Branch::getEcommerceBranchId();
             $posUsers = User::where('is_active', true)
                 ->where(function ($q) use ($branchId) {
                     $q->where('branch_id', $branchId)

@@ -6,6 +6,7 @@ use App\Models\Branch;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\Response;
 
 class EcommerceAuth
@@ -16,19 +17,22 @@ class EcommerceAuth
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $branchId = config('ecommerce.branch_id');
+        $branchSlug = $request->route('branch_slug');
+        $branch = Branch::getEcommerceBranch($branchSlug);
 
-        if ($branchId) {
-            $branch = Branch::find($branchId);
-            if (!$branch || !$branch->is_active || !$branch->ecommerce_enabled) {
-                abort(503, 'La tienda en línea no está disponible en este momento.');
-            }
-        } else {
+        if (!$branch || !$branch->is_active || !$branch->ecommerce_enabled) {
             abort(503, 'La tienda en línea no está disponible en este momento.');
         }
 
+        URL::defaults(['branch_slug' => $branch->slug]);
+        session([
+            'ecommerce_branch_id' => $branch->id,
+            'ecommerce_branch_slug' => $branch->slug,
+        ]);
+        app()->instance('ecommerce_branch', $branch);
+
         if (!Auth::guard('customer')->check()) {
-            return redirect('/shop/login');
+            return redirect()->route('shop.login', ['branch_slug' => $branch->slug]);
         }
 
         $customer = Auth::guard('customer')->user();
@@ -36,7 +40,7 @@ class EcommerceAuth
             Auth::guard('customer')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
-            return redirect('/shop/login')->with('error', 'Tu cuenta ha sido desactivada.');
+            return redirect()->route('shop.login', ['branch_slug' => $branch->slug])->with('error', 'Tu cuenta ha sido desactivada.');
         }
 
         return $next($request);

@@ -120,7 +120,9 @@ class Register extends Component
 
         Auth::guard('customer')->login($customer);
 
-        $this->redirect('/shop', navigate: true);
+        $branch = \App\Models\Branch::getEcommerceBranch();
+        $targetUrl = $branch ? $branch->shop_url : '/shop';
+        $this->redirect($targetUrl, navigate: true);
     }
 
     public function render()

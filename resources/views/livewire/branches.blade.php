@@ -85,7 +85,19 @@
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-700">POS</span>
                                 @endif
                                 @if($branch->ecommerce_enabled)
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium bg-purple-100 text-purple-700">Tienda</span>
+                                <div class="inline-flex items-center gap-1 bg-purple-50 border border-purple-200/80 px-2 py-0.5 rounded-full shadow-sm" x-data="{ copied: false }">
+                                    <a href="{{ $branch->shop_url }}" target="_blank" class="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 hover:text-purple-900 transition-colors" title="Abrir tienda en línea">
+                                        <svg class="w-3.5 h-3.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                                        <span>Tienda</span>
+                                    </a>
+                                    <button type="button" 
+                                        @click="navigator.clipboard.writeText('{{ $branch->shop_url }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                                        class="p-0.5 text-purple-500 hover:text-purple-800 rounded transition-colors"
+                                        :title="copied ? '¡Copiado!' : 'Copiar enlace de tienda'">
+                                        <svg x-show="!copied" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                        <svg x-show="copied" class="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    </button>
+                                </div>
                                 @endif
                             </div>
                         </td>
@@ -308,18 +320,66 @@
                                 <input wire:model="tax_exempt_preserves_price" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
                                 <span class="text-sm text-slate-700">Conservar precio al quitar IVA</span>
                             </label>
-                            @if(str_contains(auth()->user()->email ?? '', 'softwaremik'))
                             <label class="flex items-center gap-2 cursor-pointer">
-                                <input wire:model="ecommerce_enabled" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#a855f7] focus:ring-[#a855f7]">
-                                <span class="text-sm text-slate-700">Tienda en Línea</span>
+                                <input wire:model.live="ecommerce_enabled" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#a855f7] focus:ring-[#a855f7]">
+                                <span class="text-sm font-semibold text-purple-700">Tienda en Línea</span>
                             </label>
-                            @if($ecommerce_enabled)
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input wire:model="show_stock_in_shop" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#a855f7] focus:ring-[#a855f7]">
-                                <span class="text-sm text-slate-700">Mostrar cantidad disponible en tienda</span>
-                            </label>
-                            @endif
-                            @endif
+                        </div>
+
+                        @if($ecommerce_enabled)
+                        <div class="mt-4 p-4 rounded-2xl bg-gradient-to-br from-purple-50/90 to-indigo-50/50 border border-purple-200/90 shadow-sm space-y-3"
+                             x-data="{ copied: false, shopUrl: '{{ url('/' . ($slug ?: \Illuminate\Support\Str::slug($name ?: 'sucursal')) . '/shop') }}' }"
+                             x-effect="shopUrl = '{{ url('/') }}/' + ($wire.slug ? $wire.slug : ($wire.name ? $wire.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : 'sucursal')) + '/shop'">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <h5 class="text-sm font-bold text-purple-950">Tienda en Línea Activada</h5>
+                                        <p class="text-xs text-purple-700">Esta sucursal tiene tienda pública disponible para ventas web</p>
+                                    </div>
+                                </div>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5 animate-pulse"></span>
+                                    Enlace Único
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                                <div class="sm:col-span-1">
+                                    <label class="block text-xs font-medium text-purple-900 mb-1">Identificador Web (Slug)</label>
+                                    <input wire:model.live.debounce.400ms="slug" type="text" class="w-full px-3 py-2 text-sm border border-purple-200 rounded-xl bg-white focus:ring-2 focus:ring-purple-400 focus:border-purple-400 font-mono text-purple-900" placeholder="ej: cali-centro">
+                                    @error('slug') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="block text-xs font-medium text-purple-900 mb-1">Enlace público de la tienda</label>
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="relative flex-1">
+                                            <input type="text" readonly :value="shopUrl" class="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-purple-200 rounded-xl text-slate-700 font-mono select-all focus:outline-none focus:ring-2 focus:ring-purple-400">
+                                        </div>
+                                        <button type="button" 
+                                            @click="navigator.clipboard.writeText(shopUrl); copied = true; setTimeout(() => copied = false, 2500)"
+                                            class="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-[#a855f7] to-[#7c3aed] rounded-xl shadow-sm hover:from-[#9333ea] hover:to-[#6d28d9] transition-all shrink-0">
+                                            <svg x-show="!copied" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                            <svg x-show="copied" class="w-4 h-4 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                            <span x-text="copied ? '¡Copiado!' : 'Copiar Enlace'"></span>
+                                        </button>
+                                        <a :href="shopUrl" target="_blank" class="p-2 text-purple-700 hover:text-purple-900 hover:bg-purple-100 rounded-xl transition-colors shrink-0" title="Abrir tienda en nueva pestaña">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pt-2 border-t border-purple-100/80">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input wire:model="show_stock_in_shop" type="checkbox" class="w-4 h-4 rounded border-purple-300 text-[#a855f7] focus:ring-[#a855f7]">
+                                    <span class="text-xs sm:text-sm text-purple-900">Mostrar cantidad disponible (stock) a los clientes en la tienda</span>
+                                </label>
+                            </div>
+                        </div>
+                        @endif
                         </div>
                     </div>
 
@@ -386,6 +446,23 @@
                             @endif
                             @if($viewingBranch->address)
                             <div class="col-span-2"><p class="text-sm text-slate-500 uppercase">Dirección</p><p class="font-medium text-slate-800">{{ $viewingBranch->address }}{{ $viewingBranch->municipality ? ', ' . $viewingBranch->municipality->name : '' }}{{ $viewingBranch->department ? ' - ' . $viewingBranch->department->name : '' }}</p></div>
+                            @endif
+                            @if($viewingBranch->ecommerce_enabled)
+                            <div class="col-span-2 pt-2" x-data="{ copied: false }">
+                                <p class="text-xs font-semibold text-purple-600 uppercase tracking-wider mb-1">Tienda en Línea</p>
+                                <div class="flex items-center gap-2 p-2.5 bg-purple-50 rounded-xl border border-purple-100">
+                                    <svg class="w-5 h-5 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                                    <span class="text-xs sm:text-sm font-medium text-purple-900 truncate flex-1 font-mono">{{ $viewingBranch->shop_url }}</span>
+                                    <button type="button" 
+                                        @click="navigator.clipboard.writeText('{{ $viewingBranch->shop_url }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                                        class="px-2.5 py-1 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-sm transition-all flex items-center gap-1">
+                                        <span x-text="copied ? '¡Copiado!' : 'Copiar'"></span>
+                                    </button>
+                                    <a href="{{ $viewingBranch->shop_url }}" target="_blank" class="p-1 text-purple-600 hover:text-purple-800" title="Abrir tienda">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                    </a>
+                                </div>
+                            </div>
                             @endif
                         </div>
                     </div>
