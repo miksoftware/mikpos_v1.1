@@ -7,20 +7,36 @@
             <h1 class="text-2xl font-bold text-slate-800">Reporte de Créditos</h1>
             <p class="text-slate-500 mt-1">Análisis de cuentas por pagar y por cobrar</p>
         </div>
-        @if(in_array($viewMode, ['by_customer_grouped', 'by_seller']))
-        <a href="{{ route('reports.credits.excel', [
-            'date_range' => $dateRange,
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-            'branch_id' => $selectedBranchId,
-            'seller_id' => $selectedSellerId,
-            'payment_status' => $paymentStatus,
-            'search' => $search,
-        ]) }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all shadow-sm">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-            Exportar Excel
-        </a>
-        @endif
+        <div class="flex items-center gap-2">
+            <a href="{{ route('reports.credits.pdf', [
+                'date_range' => $dateRange,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'branch_id' => $selectedBranchId,
+                'seller_id' => $selectedSellerId,
+                'payment_status' => $paymentStatus,
+                'search' => $search,
+            ]) }}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 rounded-xl transition-all shadow-sm hover:shadow-md hover:shadow-rose-500/20 active:scale-95">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-6 4h4" />
+                </svg>
+                Exportar PDF
+            </a>
+
+            <a href="{{ route('reports.credits.excel', [
+                'date_range' => $dateRange,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'branch_id' => $selectedBranchId,
+                'seller_id' => $selectedSellerId,
+                'payment_status' => $paymentStatus,
+                'search' => $search,
+            ]) }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-xl transition-all shadow-sm hover:shadow-md hover:shadow-emerald-500/20 active:scale-95">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                Exportar Excel
+            </a>
+        </div>
     </div>
 
     {{-- Filters --}}
@@ -543,6 +559,8 @@
                             <tr class="bg-slate-100">
                                 <th class="px-5 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Factura</th>
                                 <th class="px-5 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Fecha</th>
+                                <th class="px-5 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Vencimiento</th>
+                                <th class="px-5 py-2 text-center text-xs font-semibold text-slate-500 uppercase">Días en Mora</th>
                                 <th class="px-5 py-2 text-right text-xs font-semibold text-slate-500 uppercase">Total Crédito</th>
                                 <th class="px-5 py-2 text-right text-xs font-semibold text-slate-500 uppercase">Pagado</th>
                                 <th class="px-5 py-2 text-right text-xs font-semibold text-slate-500 uppercase">Pendiente</th>
@@ -551,10 +569,44 @@
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             @foreach($expandedInvoices as $invoice)
-                            @php $invRemaining = (float)$invoice->credit_amount - (float)$invoice->paid_amount; @endphp
+                            @php
+                                $invRemaining = (float)$invoice->credit_amount - (float)$invoice->paid_amount;
+                                $dueDate = $invoice->payment_due_date ?? ($invoice->created_at ? $invoice->created_at->copy()->addDays(30) : null);
+                                $daysOverdue = $invoice->days_overdue;
+                            @endphp
                             <tr class="hover:bg-white transition-colors">
                                 <td class="px-5 py-2.5 text-sm font-semibold text-slate-800">{{ $invoice->invoice_number }}</td>
                                 <td class="px-5 py-2.5 text-sm text-slate-600">{{ $invoice->created_at->format('d/m/Y') }}</td>
+                                <td class="px-5 py-2.5 text-sm text-slate-600">
+                                    {{ $dueDate ? $dueDate->format('d/m/Y') : '-' }}
+                                </td>
+                                <td class="px-5 py-2.5 text-center">
+                                    @if($invoice->payment_status === 'paid' || $invRemaining <= 0)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                                            Saldado
+                                        </span>
+                                    @elseif($daysOverdue === 0)
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                            Al día
+                                        </span>
+                                    @elseif($daysOverdue <= 30)
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shadow-sm">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                            {{ $daysOverdue }} {{ $daysOverdue == 1 ? 'día' : 'días' }}
+                                        </span>
+                                    @elseif($daysOverdue <= 60)
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-700 border border-orange-200 shadow-sm">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                                            {{ $daysOverdue }} días
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 shadow-sm">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                                            {{ $daysOverdue }} días
+                                        </span>
+                                    @endif
+                                </td>
                                 <td class="px-5 py-2.5 text-right text-sm font-semibold">${{ number_format($invoice->credit_amount, 2) }}</td>
                                 <td class="px-5 py-2.5 text-right text-sm text-green-600">${{ number_format($invoice->paid_amount, 2) }}</td>
                                 <td class="px-5 py-2.5 text-right text-sm font-bold text-red-600">${{ number_format($invRemaining, 2) }}</td>
@@ -572,7 +624,7 @@
                         </tbody>
                         <tfoot class="bg-slate-100">
                             <tr>
-                                <td colspan="2" class="px-5 py-2.5 text-sm font-bold text-slate-700">Totales</td>
+                                <td colspan="4" class="px-5 py-2.5 text-sm font-bold text-slate-700">Totales</td>
                                 <td class="px-5 py-2.5 text-right text-sm font-bold text-slate-700">${{ number_format($expandedInvoices->sum('credit_amount'), 2) }}</td>
                                 <td class="px-5 py-2.5 text-right text-sm font-bold text-green-600">${{ number_format($expandedInvoices->sum('paid_amount'), 2) }}</td>
                                 <td class="px-5 py-2.5 text-right text-sm font-bold text-red-600">${{ number_format($expandedInvoices->sum('credit_amount') - $expandedInvoices->sum('paid_amount'), 2) }}</td>
@@ -684,6 +736,7 @@
                                 <th class="px-5 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Cliente</th>
                                 <th class="px-5 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Fecha</th>
                                 <th class="px-5 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Vencimiento</th>
+                                <th class="px-5 py-2 text-center text-xs font-semibold text-slate-500 uppercase">Días en Mora</th>
                                 <th class="px-5 py-2 text-right text-xs font-semibold text-slate-500 uppercase">Total Crédito</th>
                                 <th class="px-5 py-2 text-right text-xs font-semibold text-slate-500 uppercase">Cobrado</th>
                                 <th class="px-5 py-2 text-right text-xs font-semibold text-slate-500 uppercase">Por Cobrar</th>
@@ -692,7 +745,11 @@
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             @foreach($expandedInvoices as $invoice)
-                            @php $invRemaining = (float)$invoice->credit_amount - (float)$invoice->paid_amount; @endphp
+                            @php
+                                $invRemaining = (float)$invoice->credit_amount - (float)$invoice->paid_amount;
+                                $dueDate = $invoice->payment_due_date ?? ($invoice->created_at ? $invoice->created_at->copy()->addDays(30) : null);
+                                $daysOverdue = $invoice->days_overdue;
+                            @endphp
                             <tr class="hover:bg-white transition-colors">
                                 <td class="px-5 py-2.5 text-sm font-semibold text-slate-800">{{ $invoice->invoice_number }}</td>
                                 <td class="px-5 py-2.5 text-sm text-slate-700">
@@ -702,10 +759,34 @@
                                     @endif
                                 </td>
                                 <td class="px-5 py-2.5 text-sm text-slate-600">{{ $invoice->created_at->format('d/m/Y') }}</td>
-                                <td class="px-5 py-2.5 text-sm {{ $invoice->payment_due_date && $invoice->payment_due_date->isPast() ? 'text-red-500 font-semibold' : 'text-slate-600' }}">
-                                    {{ $invoice->payment_due_date ? $invoice->payment_due_date->format('d/m/Y') : '-' }}
-                                    @if($invoice->payment_due_date && $invoice->payment_due_date->isPast() && $invRemaining > 0)
-                                    <span class="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-semibold ml-1">Vencido</span>
+                                <td class="px-5 py-2.5 text-sm {{ $dueDate && $dueDate->isPast() && $invRemaining > 0 ? 'text-red-500 font-semibold' : 'text-slate-600' }}">
+                                    {{ $dueDate ? $dueDate->format('d/m/Y') : '-' }}
+                                </td>
+                                <td class="px-5 py-2.5 text-center">
+                                    @if($invoice->payment_status === 'paid' || $invRemaining <= 0)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                                            Saldado
+                                        </span>
+                                    @elseif($daysOverdue === 0)
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                            Al día
+                                        </span>
+                                    @elseif($daysOverdue <= 30)
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shadow-sm">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                            {{ $daysOverdue }} {{ $daysOverdue == 1 ? 'día' : 'días' }}
+                                        </span>
+                                    @elseif($daysOverdue <= 60)
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-700 border border-orange-200 shadow-sm">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                                            {{ $daysOverdue }} días
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 shadow-sm">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                                            {{ $daysOverdue }} días
+                                        </span>
                                     @endif
                                 </td>
                                 <td class="px-5 py-2.5 text-right text-sm font-semibold">${{ number_format($invoice->credit_amount, 2) }}</td>
@@ -725,7 +806,7 @@
                         </tbody>
                         <tfoot class="bg-slate-100">
                             <tr>
-                                <td colspan="4" class="px-5 py-2.5 text-sm font-bold text-slate-700">Totales</td>
+                                <td colspan="5" class="px-5 py-2.5 text-sm font-bold text-slate-700">Totales</td>
                                 <td class="px-5 py-2.5 text-right text-sm font-bold text-slate-700">${{ number_format($expandedInvoices->sum('credit_amount'), 2) }}</td>
                                 <td class="px-5 py-2.5 text-right text-sm font-bold text-green-600">${{ number_format($expandedInvoices->sum('paid_amount'), 2) }}</td>
                                 <td class="px-5 py-2.5 text-right text-sm font-bold text-red-600">${{ number_format($expandedInvoices->sum('credit_amount') - $expandedInvoices->sum('paid_amount'), 2) }}</td>
@@ -767,6 +848,8 @@
                         <th class="px-6 py-3 text-left text-sm font-semibold text-slate-500 uppercase">Cliente</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold text-slate-500 uppercase">Vendedor</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold text-slate-500 uppercase">Fecha</th>
+                        <th class="px-6 py-3 text-left text-sm font-semibold text-slate-500 uppercase">Vencimiento</th>
+                        <th class="px-6 py-3 text-center text-sm font-semibold text-slate-500 uppercase">Días en Mora</th>
                         <th class="px-6 py-3 text-right text-sm font-semibold text-slate-500 uppercase">Total</th>
                         <th class="px-6 py-3 text-right text-sm font-semibold text-slate-500 uppercase">Pagado</th>
                         <th class="px-6 py-3 text-right text-sm font-semibold text-slate-500 uppercase">Pendiente</th>
@@ -775,7 +858,11 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     @forelse($detailData as $item)
-                    @php $rem = (float)$item->credit_amount - (float)$item->paid_amount; @endphp
+                    @php
+                        $rem = (float)$item->credit_amount - (float)$item->paid_amount;
+                        $dueDate = $item->payment_due_date ?? ($item->created_at ? $item->created_at->copy()->addDays(30) : null);
+                        $daysOverdue = $item->days_overdue;
+                    @endphp
                     <tr class="hover:bg-slate-50/50 transition-colors">
                         <td class="px-6 py-3 text-sm font-semibold text-slate-800">{{ $item->invoice_number }}</td>
                         <td class="px-6 py-3">
@@ -784,6 +871,36 @@
                         </td>
                         <td class="px-6 py-3 text-sm text-slate-600">{{ $item->seller_name ?? '-' }}</td>
                         <td class="px-6 py-3 text-sm text-slate-600">{{ $item->created_at->format('d/m/Y') }}</td>
+                        <td class="px-6 py-3 text-sm {{ $dueDate && $dueDate->isPast() && $rem > 0 ? 'text-red-500 font-semibold' : 'text-slate-600' }}">
+                            {{ $dueDate ? $dueDate->format('d/m/Y') : '-' }}
+                        </td>
+                        <td class="px-6 py-3 text-center">
+                            @if($item->payment_status === 'paid' || $rem <= 0)
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                                    Saldado
+                                </span>
+                            @elseif($daysOverdue === 0)
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    Al día
+                                </span>
+                            @elseif($daysOverdue <= 30)
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shadow-sm">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                    {{ $daysOverdue }} {{ $daysOverdue == 1 ? 'día' : 'días' }}
+                                </span>
+                            @elseif($daysOverdue <= 60)
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-700 border border-orange-200 shadow-sm">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                                    {{ $daysOverdue }} días
+                                </span>
+                            @else
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 shadow-sm">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                                    {{ $daysOverdue }} días
+                                </span>
+                            @endif
+                        </td>
                         <td class="px-6 py-3 text-right text-sm font-semibold">${{ number_format($item->credit_amount, 2) }}</td>
                         <td class="px-6 py-3 text-right text-sm text-green-600">${{ number_format($item->paid_amount, 2) }}</td>
                         <td class="px-6 py-3 text-right text-sm font-bold text-blue-600">${{ number_format($rem, 2) }}</td>
@@ -798,7 +915,7 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="8" class="px-6 py-12 text-center text-slate-400">No hay datos</td></tr>
+                    <tr><td colspan="10" class="px-6 py-12 text-center text-slate-400">No hay datos</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -819,6 +936,8 @@
                         <th class="px-6 py-3 text-left text-sm font-semibold text-slate-500 uppercase">Compra</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold text-slate-500 uppercase">Proveedor</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold text-slate-500 uppercase">Fecha</th>
+                        <th class="px-6 py-3 text-left text-sm font-semibold text-slate-500 uppercase">Vencimiento</th>
+                        <th class="px-6 py-3 text-center text-sm font-semibold text-slate-500 uppercase">Días en Mora</th>
                         <th class="px-6 py-3 text-right text-sm font-semibold text-slate-500 uppercase">Total</th>
                         <th class="px-6 py-3 text-right text-sm font-semibold text-slate-500 uppercase">Pagado</th>
                         <th class="px-6 py-3 text-right text-sm font-semibold text-slate-500 uppercase">Pendiente</th>
@@ -827,11 +946,45 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     @forelse($detailData as $item)
-                    @php $rem = (float)$item->credit_amount - (float)$item->paid_amount; @endphp
+                    @php
+                        $rem = (float)$item->credit_amount - (float)$item->paid_amount;
+                        $dueDate = $item->payment_due_date ?? $item->due_date ?? ($item->purchase_date ? $item->purchase_date->copy()->addDays(30) : ($item->created_at ? $item->created_at->copy()->addDays(30) : null));
+                        $daysOverdue = $item->days_overdue;
+                    @endphp
                     <tr class="hover:bg-slate-50/50 transition-colors">
                         <td class="px-6 py-3 text-sm font-semibold text-slate-800">{{ $item->purchase_number }}</td>
                         <td class="px-6 py-3 text-sm font-medium text-slate-700">{{ $item->supplier_name }}</td>
                         <td class="px-6 py-3 text-sm text-slate-600">{{ $item->created_at->format('d/m/Y') }}</td>
+                        <td class="px-6 py-3 text-sm {{ $dueDate && $dueDate->isPast() && $rem > 0 ? 'text-red-500 font-semibold' : 'text-slate-600' }}">
+                            {{ $dueDate ? $dueDate->format('d/m/Y') : '-' }}
+                        </td>
+                        <td class="px-6 py-3 text-center">
+                            @if($item->payment_status === 'paid' || $rem <= 0)
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                                    Saldado
+                                </span>
+                            @elseif($daysOverdue === 0)
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    Al día
+                                </span>
+                            @elseif($daysOverdue <= 30)
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shadow-sm">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                    {{ $daysOverdue }} {{ $daysOverdue == 1 ? 'día' : 'días' }}
+                                </span>
+                            @elseif($daysOverdue <= 60)
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-700 border border-orange-200 shadow-sm">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                                    {{ $daysOverdue }} días
+                                </span>
+                            @else
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 shadow-sm">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                                    {{ $daysOverdue }} días
+                                </span>
+                            @endif
+                        </td>
                         <td class="px-6 py-3 text-right text-sm font-semibold">${{ number_format($item->credit_amount, 2) }}</td>
                         <td class="px-6 py-3 text-right text-sm text-green-600">${{ number_format($item->paid_amount, 2) }}</td>
                         <td class="px-6 py-3 text-right text-sm font-bold text-red-600">${{ number_format($rem, 2) }}</td>
@@ -846,7 +999,7 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="7" class="px-6 py-12 text-center text-slate-400">No hay datos</td></tr>
+                    <tr><td colspan="9" class="px-6 py-12 text-center text-slate-400">No hay datos</td></tr>
                     @endforelse
                 </tbody>
             </table>

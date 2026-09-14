@@ -1008,22 +1008,49 @@ class Sales extends Component
         $this->replicateCustomerResults = [];
         $this->replicateIsCredit = $sale->payment_type === 'credit';
 
-        // Load original payments
+        // Load payments only for cash sales; credit sales default to empty (no initial payment)
         $this->replicatePayments = [];
-        foreach ($sale->payments as $payment) {
-            $this->replicatePayments[] = [
-                'method_id' => $payment->payment_method_id,
-                'amount' => (float) $payment->amount,
-                'reference' => $payment->reference,
-            ];
-        }
+        if (!$this->replicateIsCredit) {
+            foreach ($sale->payments as $payment) {
+                $this->replicatePayments[] = [
+                    'method_id' => $payment->payment_method_id,
+                    'amount' => (float) $payment->amount,
+                    'reference' => $payment->reference,
+                ];
+            }
 
-        // Ensure at least one payment row
-        if (empty($this->replicatePayments)) {
-            $this->replicatePayments[] = ['method_id' => '', 'amount' => $this->replicateIsCredit ? 0 : (float) $sale->total, 'reference' => ''];
+            if (empty($this->replicatePayments)) {
+                $this->replicatePayments[] = ['method_id' => '', 'amount' => (float) $sale->total, 'reference' => ''];
+            }
         }
 
         $this->showReplicateConfigModal = true;
+    }
+
+    public function setReplicatePaymentType(bool $isCredit): void
+    {
+        $this->replicateIsCredit = $isCredit;
+        if ($isCredit) {
+            // When switching to credit, clear payments so it defaults to 100% credit (no upfront payment)
+            $this->replicatePayments = [];
+        } else {
+            // When switching to cash, reload original sale's payments or full total
+            $sale = Sale::with('payments')->find($this->replicateSaleId);
+            $this->replicatePayments = [];
+            if ($sale && $sale->payments->isNotEmpty()) {
+                foreach ($sale->payments as $payment) {
+                    $this->replicatePayments[] = [
+                        'method_id' => $payment->payment_method_id,
+                        'amount' => (float) $payment->amount,
+                        'reference' => $payment->reference,
+                    ];
+                }
+            }
+            if (empty($this->replicatePayments)) {
+                $total = $sale ? (float) $sale->total : 0;
+                $this->replicatePayments[] = ['method_id' => '', 'amount' => $total, 'reference' => ''];
+            }
+        }
     }
 
     public function updatedReplicateCustomerSearch()
@@ -1057,8 +1084,8 @@ class Sales extends Component
             $this->replicateCustomerSearch = '';
             $this->replicateCustomerResults = [];
             // Reset credit if new customer doesn't have credit
-            if (!$customer->has_credit) {
-                $this->replicateIsCredit = false;
+            if (!$customer->has_credit && $this->replicateIsCredit) {
+                $this->setReplicatePaymentType(false);
             }
         }
     }
@@ -1067,7 +1094,9 @@ class Sales extends Component
     {
         $this->replicateCustomerId = null;
         $this->replicateSelectedCustomer = null;
-        $this->replicateIsCredit = false;
+        if ($this->replicateIsCredit) {
+            $this->setReplicatePaymentType(false);
+        }
     }
 
     public function addReplicatePayment()
@@ -1125,6 +1154,12 @@ class Sales extends Component
             }
             if ($totalPayments < (float) $sale->total) {
                 $this->dispatch('notify', message: 'El total de pagos no cubre el total de la venta ($' . number_format($sale->total, 0, ',', '.') . ')', type: 'error');
+                return;
+            }
+        } else {
+            // Credit sale: upfront payment cannot exceed total
+            if ($totalPayments > (float) $sale->total) {
+                $this->dispatch('notify', message: 'El abono inicial no puede ser mayor al total de la venta ($' . number_format($sale->total, 0, ',', '.') . ')', type: 'error');
                 return;
             }
         }
@@ -1192,6 +1227,7 @@ class Sales extends Component
             'cash_reconciliation_id' => $cashReconciliation?->id,
             'customer_id' => $customerId ?? $originalSale->customer_id,
             'user_id' => auth()->id(),
+            'seller_id' => $originalSale->seller_id ?? auth()->id(),
             'invoice_number' => Sale::generateInvoiceNumber($originalSale->branch_id),
             'subtotal' => $originalSale->subtotal,
             'tax_total' => $originalSale->tax_total,
@@ -1279,37 +1315,55 @@ class Sales extends Component
             }
         }
 
-        // Create payments (use overrides if provided)
-        if ($payments) {
-            $saleTotal = (float) $originalSale->total;
-            $paymentsSoFar = 0;
-
-            foreach ($payments as $i => $payment) {
-                $isLast = ($i === count($payments) - 1);
-                if ($isLast) {
-                    $paymentAmount = round($saleTotal - $paymentsSoFar, 2);
-                } else {
-                    $paymentAmount = min((float) $payment['amount'], round($saleTotal - $paymentsSoFar, 2));
-                }
-
-                if ($paymentAmount > 0) {
-                    SalePayment::create([
-                        'sale_id' => $newSale->id,
-                        'payment_method_id' => $payment['method_id'],
-                        'amount' => $paymentAmount,
-                        'reference' => $payment['reference'] ?? null,
-                    ]);
-                    $paymentsSoFar += $paymentAmount;
+        // Create payments
+        if ($isCredit) {
+            // Credit sales: store upfront payments as-is (abonos iniciales)
+            if (!empty($payments)) {
+                foreach ($payments as $payment) {
+                    $paymentAmount = (float) ($payment['amount'] ?? 0);
+                    if ($paymentAmount > 0 && !empty($payment['method_id'])) {
+                        SalePayment::create([
+                            'sale_id' => $newSale->id,
+                            'payment_method_id' => $payment['method_id'],
+                            'amount' => $paymentAmount,
+                            'reference' => $payment['reference'] ?? null,
+                        ]);
+                    }
                 }
             }
         } else {
-            foreach ($originalSale->payments as $payment) {
-                SalePayment::create([
-                    'sale_id' => $newSale->id,
-                    'payment_method_id' => $payment->payment_method_id,
-                    'amount' => $payment->amount,
-                    'reference' => $payment->reference,
-                ]);
+            // Cash sales: payments must cover total
+            if ($payments) {
+                $saleTotal = (float) $originalSale->total;
+                $paymentsSoFar = 0;
+
+                foreach ($payments as $i => $payment) {
+                    $isLast = ($i === count($payments) - 1);
+                    if ($isLast) {
+                        $paymentAmount = round($saleTotal - $paymentsSoFar, 2);
+                    } else {
+                        $paymentAmount = min((float) $payment['amount'], round($saleTotal - $paymentsSoFar, 2));
+                    }
+
+                    if ($paymentAmount > 0) {
+                        SalePayment::create([
+                            'sale_id' => $newSale->id,
+                            'payment_method_id' => $payment['method_id'],
+                            'amount' => $paymentAmount,
+                            'reference' => $payment['reference'] ?? null,
+                        ]);
+                        $paymentsSoFar += $paymentAmount;
+                    }
+                }
+            } else {
+                foreach ($originalSale->payments as $payment) {
+                    SalePayment::create([
+                        'sale_id' => $newSale->id,
+                        'payment_method_id' => $payment->payment_method_id,
+                        'amount' => $payment->amount,
+                        'reference' => $payment->reference,
+                    ]);
+                }
             }
         }
 

@@ -977,7 +977,7 @@
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-2">Tipo de Pago</label>
                             <div class="grid grid-cols-2 gap-3">
-                                <button type="button" wire:click="$set('replicateIsCredit', false)"
+                                <button type="button" wire:click="setReplicatePaymentType(false)"
                                     class="p-3 rounded-xl border-2 transition-all text-left {{ !$replicateIsCredit ? 'border-green-500 bg-green-50' : 'border-slate-200 hover:border-green-300' }}">
                                     <div class="flex items-center gap-2">
                                         <div class="w-8 h-8 rounded-full {{ !$replicateIsCredit ? 'bg-green-100' : 'bg-slate-100' }} flex items-center justify-center">
@@ -986,7 +986,7 @@
                                         <span class="text-sm font-medium {{ !$replicateIsCredit ? 'text-green-700' : 'text-slate-600' }}">Contado</span>
                                     </div>
                                 </button>
-                                <button type="button" wire:click="$set('replicateIsCredit', true)"
+                                <button type="button" wire:click="setReplicatePaymentType(true)"
                                     class="p-3 rounded-xl border-2 transition-all text-left {{ $replicateIsCredit ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-300' }}">
                                     <div class="flex items-center gap-2">
                                         <div class="w-8 h-8 rounded-full {{ $replicateIsCredit ? 'bg-blue-100' : 'bg-slate-100' }} flex items-center justify-center">
@@ -1007,6 +1007,11 @@
                                 </label>
                                 <button wire:click="addReplicatePayment" class="text-xs text-[#ff7261] hover:text-[#e55a4a] font-medium">+ Agregar método</button>
                             </div>
+                            @if($replicateIsCredit && count($replicatePayments) === 0)
+                            <div class="p-3 mb-2 bg-blue-50/60 border border-blue-200 rounded-xl text-xs text-blue-700">
+                                Sin abono inicial (100% a crédito). Si el cliente entregó un adelanto, haz clic en "+ Agregar método".
+                            </div>
+                            @endif
                             <div class="space-y-2">
                                 @foreach($replicatePayments as $index => $payment)
                                 <div class="flex items-center gap-2">
@@ -1017,7 +1022,7 @@
                                         @endforeach
                                     </select>
                                     <input wire:model="replicatePayments.{{ $index }}.amount" type="number" step="1" min="0" class="w-32 px-3 py-2 border border-slate-300 rounded-xl text-sm text-right focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Monto">
-                                    @if(count($replicatePayments) > 1)
+                                    @if(count($replicatePayments) > 1 || $replicateIsCredit)
                                     <button wire:click="removeReplicatePayment({{ $index }})" class="p-1.5 text-slate-400 hover:text-red-500">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                     </button>

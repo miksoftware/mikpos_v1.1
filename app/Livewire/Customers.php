@@ -10,6 +10,7 @@ use App\Models\TaxDocument;
 use App\Services\ActivityLogService;
 use App\Services\CustomerImportService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -288,7 +289,13 @@ class Customers extends Component
             'seller_id' => 'nullable|exists:users,id',
             'customer_type' => 'required|in:natural,juridico,exonerado',
             'tax_document_id' => 'required|exists:tax_documents,id',
-            'document_number' => 'required|string|unique:customers,document_number,' . $this->itemId,
+            'document_number' => [
+                'required',
+                'string',
+                Rule::unique('customers', 'document_number')
+                    ->where(fn ($query) => $this->branch_id ? $query->where('branch_id', $this->branch_id) : $query)
+                    ->ignore($this->itemId),
+            ],
             'dv' => $this->isNit ? 'required|digits:1' : 'nullable|digits:1',
             'first_name' => 'required|string|min:2',
             'last_name' => 'required|string|min:2',

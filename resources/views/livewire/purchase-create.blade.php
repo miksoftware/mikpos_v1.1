@@ -275,7 +275,7 @@
     </div>
 
     {{-- Right Panel: Purchase Details & Summary --}}
-    <div class="w-full lg:w-96 flex flex-col gap-4 overflow-y-auto">
+    <div class="w-full lg:w-[420px] xl:w-[440px] flex flex-col gap-4 overflow-y-auto">
         {{-- Supplier & Details --}}
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
             <h3 class="font-semibold text-slate-800 mb-4 flex items-center gap-2">
@@ -368,24 +368,44 @@
                     </div>
 
                     @foreach($purchasePayments as $index => $payment)
-                    <div class="flex gap-2 items-start">
-                        <select wire:model="purchasePayments.{{ $index }}.method_id" class="flex-1 px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
-                            <option value="">Método...</option>
-                            @foreach($paymentMethods as $method)
-                            <option value="{{ $method->id }}">{{ $method->name }}</option>
-                            @endforeach
-                        </select>
-                        <div class="relative flex-1">
-                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-sm">$</span>
-                            <input wire:model.blur="purchasePayments.{{ $index }}.amount" type="number" step="0.01" min="0" class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm" placeholder="Monto">
+                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 relative transition-all hover:border-slate-300">
+                        {{-- Row 1: Method Selector & Action Buttons --}}
+                        <div class="flex items-center gap-2">
+                            <div class="flex-1 min-w-0">
+                                <select wire:model.live="purchasePayments.{{ $index }}.method_id" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-xs font-medium text-slate-700">
+                                    <option value="">Seleccionar método...</option>
+                                    @foreach($paymentMethods as $method)
+                                    <option value="{{ $method->id }}">{{ $method->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-1 flex-shrink-0">
+                                <button type="button" wire:click="fillRemainingPayment({{ $index }})" class="px-2 py-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-100/60 bg-blue-50 border border-blue-200 rounded-lg transition-colors flex items-center gap-1 font-medium" title="Asignar el saldo restante a este método">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                    <span>Restante</span>
+                                </button>
+                                @if(count($purchasePayments) > 1)
+                                <button type="button" wire:click="removePaymentRow({{ $index }})" class="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar método">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                                @endif
+                            </div>
                         </div>
-                        <button type="button" wire:click="fillRemainingPayment({{ $index }})" class="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0" title="Llenar restante">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                        </button>
-                        @if(count($purchasePayments) > 1)
-                        <button type="button" wire:click="removePaymentRow({{ $index }})" class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0" title="Eliminar">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </button>
+
+                        {{-- Row 2: Amount Input (Full width, clear, large numbers) --}}
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-sm">$</span>
+                            <input wire:model.live.debounce.300ms="purchasePayments.{{ $index }}.amount" type="number" step="0.01" min="0" 
+                                class="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-base font-bold text-slate-800 text-right placeholder:text-slate-300 placeholder:font-normal" 
+                                placeholder="0.00">
+                        </div>
+
+                        {{-- Formatted preview if amount is entered --}}
+                        @if((float)($payment['amount'] ?? 0) > 0)
+                        <div class="flex justify-between items-center text-[11px] text-slate-500 pt-0.5 px-0.5">
+                            <span>Monto asignado:</span>
+                            <span class="font-bold text-slate-700">${{ number_format((float)$payment['amount'], 0, ',', '.') }} COP</span>
+                        </div>
                         @endif
                     </div>
                     @endforeach
@@ -394,61 +414,84 @@
                         $paymentAllocated = array_sum(array_map(fn($p) => floatval($p['amount'] ?? 0), $purchasePayments));
                         $paymentRemaining = round($total - $paymentAllocated, 2);
                     @endphp
-                    @if($total > 0 && abs($paymentRemaining) > 0.01)
-                    <div class="p-2 rounded-lg {{ $paymentRemaining > 0 ? 'bg-amber-50' : 'bg-red-50' }}">
-                        <p class="text-xs {{ $paymentRemaining > 0 ? 'text-amber-600' : 'text-red-600' }}">
-                            {{ $paymentRemaining > 0 ? 'Falta por asignar: $' . number_format($paymentRemaining, 2) : 'Excede el total por: $' . number_format(abs($paymentRemaining), 2) }}
-                        </p>
+                    
+                    <div class="p-3 rounded-xl border {{ abs($paymentRemaining) <= 0.01 && $total > 0 ? 'bg-emerald-50/80 border-emerald-200 text-emerald-800' : ($paymentRemaining > 0 ? 'bg-amber-50/80 border-amber-200 text-amber-800' : 'bg-rose-50/80 border-rose-200 text-rose-800') }}">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-medium text-slate-600">Total asignado:</span>
+                            <span class="font-bold text-slate-800">${{ number_format($paymentAllocated, 0, ',', '.') }}</span>
+                        </div>
+                        @if($total > 0 && abs($paymentRemaining) > 0.01)
+                        <div class="flex justify-between items-center text-xs mt-1.5 pt-1.5 border-t {{ $paymentRemaining > 0 ? 'border-amber-200' : 'border-rose-200' }}">
+                            <span class="font-semibold {{ $paymentRemaining > 0 ? 'text-amber-700' : 'text-rose-700' }}">
+                                {{ $paymentRemaining > 0 ? 'Falta por asignar:' : 'Excede el total por:' }}
+                            </span>
+                            <span class="font-bold text-sm {{ $paymentRemaining > 0 ? 'text-amber-700' : 'text-rose-700' }}">
+                                ${{ number_format(abs($paymentRemaining), 0, ',', '.') }}
+                            </span>
+                        </div>
+                        @elseif($total > 0 && abs($paymentRemaining) <= 0.01)
+                        <div class="flex items-center gap-1.5 text-xs text-emerald-700 font-semibold mt-1.5 pt-1.5 border-t border-emerald-200">
+                            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            <span>Total cubierto correctamente</span>
+                        </div>
+                        @endif
                     </div>
-                    @elseif($total > 0 && abs($paymentRemaining) <= 0.01)
-                    <div class="p-2 rounded-lg bg-green-50">
-                        <p class="text-xs text-green-600">Total cubierto correctamente</p>
-                    </div>
-                    @endif
                 </div>
                 @else
                 {{-- Credit Payment --}}
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Monto del Crédito *</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">$</span>
-                        <input wire:model="credit_amount" type="number" step="0.01" min="0" class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] @error('credit_amount') border-red-300 @enderror">
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Monto del Crédito *</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-sm">$</span>
+                            <input wire:model.live.debounce.300ms="credit_amount" type="number" step="0.01" min="0" class="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-base font-bold text-slate-800 text-right @error('credit_amount') border-red-300 @enderror">
+                        </div>
+                        @if((float)($credit_amount ?? 0) > 0)
+                        <div class="text-[11px] text-right text-slate-500 font-medium mt-0.5">
+                            ${{ number_format((float)$credit_amount, 0, ',', '.') }} COP
+                        </div>
+                        @endif
+                        @error('credit_amount') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                     </div>
-                    @error('credit_amount') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Fecha de Pago *</label>
-                    <input wire:model="payment_due_date" type="date" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] @error('payment_due_date') border-red-300 @enderror">
-                    @error('payment_due_date') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                </div>
-
-                <div class="pt-3 border-t border-slate-200">
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Abono Realizado</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">$</span>
-                        <input wire:model="paid_amount" type="number" step="0.01" min="0" class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="0.00">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Fecha de Pago *</label>
+                        <input wire:model="payment_due_date" type="date" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] @error('payment_due_date') border-red-300 @enderror">
+                        @error('payment_due_date') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                     </div>
-                </div>
 
-                @if($paid_amount > 0)
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Método de Pago del Abono</label>
-                    <select wire:model="partial_payment_method_id" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
-                        <option value="">Seleccionar...</option>
-                        @foreach($paymentMethods as $method)
-                        <option value="{{ $method->id }}">{{ $method->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div class="p-3 bg-blue-50 rounded-xl">
-                    <div class="flex justify-between text-sm">
-                        <span class="text-blue-600">Saldo pendiente:</span>
-                        <span class="font-bold text-blue-700">${{ number_format(($credit_amount ?? 0) - $paid_amount, 2) }}</span>
+                    <div class="pt-3 border-t border-slate-200">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Abono Inicial (opcional)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-sm">$</span>
+                            <input wire:model.live.debounce.300ms="paid_amount" type="number" step="0.01" min="0" class="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-base font-bold text-slate-800 text-right placeholder:text-slate-300 placeholder:font-normal" placeholder="0.00">
+                        </div>
+                        @if((float)($paid_amount ?? 0) > 0)
+                        <div class="text-[11px] text-right text-slate-500 font-medium mt-0.5">
+                            ${{ number_format((float)$paid_amount, 0, ',', '.') }} COP
+                        </div>
+                        @endif
                     </div>
+
+                    @if($paid_amount > 0)
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Método de Pago del Abono</label>
+                        <select wire:model="partial_payment_method_id" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                            <option value="">Seleccionar...</option>
+                            @foreach($paymentMethods as $method)
+                            <option value="{{ $method->id }}">{{ $method->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="p-3 bg-blue-50/80 border border-blue-200 rounded-xl">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-blue-700 font-medium">Saldo pendiente:</span>
+                            <span class="font-bold text-blue-800">${{ number_format(($credit_amount ?? 0) - $paid_amount, 0, ',', '.') }}</span>
+                        </div>
+                    </div>
+                    @endif
                 </div>
-                @endif
                 @endif
             </div>
         </div>

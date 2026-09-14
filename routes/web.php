@@ -693,6 +693,10 @@ Route::middleware(['auth', 'user.active'])->group(function () {
             ->name('credits.excel')
             ->middleware('permission:reports.export');
 
+        Route::get('/credits/pdf', [App\Http\Controllers\ReportExportController::class, 'creditsPdf'])
+            ->name('credits.pdf')
+            ->middleware('permission:reports.export');
+
         Route::get('/purchases', App\Livewire\Reports\PurchasesReport::class)
             ->name('purchases')
             ->middleware('permission:reports.purchases');

@@ -315,4 +315,29 @@ class Purchase extends Model
 
         return true;
     }
+
+    /**
+     * Get days overdue for credit purchases.
+     */
+    public function getDaysOverdueAttribute(): int
+    {
+        if ($this->payment_type !== 'credit') {
+            return 0;
+        }
+
+        $remaining = (float) $this->credit_amount - (float) $this->paid_amount;
+        if ($remaining <= 0 || $this->payment_status === 'paid') {
+            return 0;
+        }
+
+        $dueDate = $this->payment_due_date ?? $this->due_date ?? ($this->purchase_date ? $this->purchase_date->copy()->addDays(30) : ($this->created_at ? $this->created_at->copy()->addDays(30) : null));
+        if (!$dueDate) {
+            return 0;
+        }
+
+        $today = now()->startOfDay();
+        $due = $dueDate->copy()->startOfDay();
+
+        return $today->greaterThan($due) ? (int) $due->diffInDays($today) : 0;
+    }
 }

@@ -9,7 +9,7 @@
             @if(auth()->user()->hasPermission('branches.copy_products'))
             <button wire:click="openCopyModal" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200">
                 <svg class="w-5 h-5 mr-2 text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
-                Copiar Productos
+                Copiar Datos entre Sucursales
             </button>
             @endif
             @if(auth()->user()->hasPermission('branches.create'))
@@ -95,7 +95,7 @@
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                 </button>
                                 @if(auth()->user()->hasPermission('branches.copy_products'))
-                                <button wire:click="openCopyModal({{ $branch->id }})" class="p-2 text-slate-400 hover:text-[#a855f7] hover:bg-purple-50 rounded-lg transition-colors" title="Copiar productos desde esta sucursal">
+                                <button wire:click="openCopyModal({{ $branch->id }})" class="p-2 text-slate-400 hover:text-[#a855f7] hover:bg-purple-50 rounded-lg transition-colors" title="Copiar datos desde esta sucursal">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
                                 </button>
                                 @endif
@@ -452,7 +452,7 @@
     </div>
     @endif
 
-    <!-- Copy Products Modal -->
+    <!-- Copy Data Modal -->
     @if($isCopyModalOpen)
     <div class="relative z-[100]" role="dialog" aria-modal="true">
         <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="closeCopyModal"></div>
@@ -466,8 +466,8 @@
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
                             </div>
                             <div>
-                                <h3 class="text-lg font-bold text-slate-900">Copiar Catálogo de Productos</h3>
-                                <p class="text-xs text-slate-500">Clona productos de una sucursal a otra sin afectar los datos originales</p>
+                                <h3 class="text-lg font-bold text-slate-900">Copiar Catálogo y Datos entre Sucursales</h3>
+                                <p class="text-xs text-slate-500">Clona productos, clientes y proveedores de una sucursal a otra sin afectar los datos originales</p>
                             </div>
                         </div>
                         <button wire:click="closeCopyModal" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors">
@@ -494,9 +494,12 @@
                                 @error('copyFromBranchId') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
 
                                 @if($copyFromBranchId)
-                                <div class="mt-2 flex items-center gap-1.5 text-xs text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                                    <svg class="w-3.5 h-3.5 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-                                    <span><strong>{{ $copySourceCount }}</strong> productos disponibles para copiar</span>
+                                <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
+                                    <span class="inline-flex items-center gap-1"><strong class="text-purple-600">{{ $copySourceProductsCount }}</strong> productos</span>
+                                    <span class="text-slate-300">•</span>
+                                    <span class="inline-flex items-center gap-1"><strong class="text-blue-600">{{ $copySourceCustomersCount }}</strong> clientes</span>
+                                    <span class="text-slate-300">•</span>
+                                    <span class="inline-flex items-center gap-1"><strong class="text-emerald-600">{{ $copySourceSuppliersCount }}</strong> proveedores</span>
                                 </div>
                                 @endif
                             </div>
@@ -511,106 +514,286 @@
                                     <option value="">Selecciona sucursal destino...</option>
                                     @foreach($allBranches as $ab)
                                         @if($ab->id != $copyFromBranchId)
-                                            <option value="{{ $ab->id }}">{{ $ab->name }} ({{ $ab->code }})</option>
+                                             <option value="{{ $ab->id }}">{{ $ab->name }} ({{ $ab->code }})</option>
                                         @endif
                                     @endforeach
                                 </select>
                                 @error('copyToBranchId') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
 
                                 @if($copyToBranchId)
-                                <div class="mt-2 flex items-center gap-1.5 text-xs text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                                    <svg class="w-3.5 h-3.5 text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                    <span><strong>{{ $copyTargetCount }}</strong> productos registrados actualmente</span>
+                                <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
+                                    <span class="inline-flex items-center gap-1"><strong class="text-purple-600">{{ $copyTargetProductsCount }}</strong> productos</span>
+                                    <span class="text-slate-300">•</span>
+                                    <span class="inline-flex items-center gap-1"><strong class="text-blue-600">{{ $copyTargetCustomersCount }}</strong> clientes</span>
+                                    <span class="text-slate-300">•</span>
+                                    <span class="inline-flex items-center gap-1"><strong class="text-emerald-600">{{ $copyTargetSuppliersCount }}</strong> proveedores</span>
                                 </div>
                                 @endif
                             </div>
                         </div>
 
-                        <!-- Configuration Options -->
-                        <div class="space-y-4">
-                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Opciones de Copiado</h4>
+                        <!-- Entity Selection (What to copy) -->
+                        <div class="space-y-2">
+                            <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+                                ¿Qué elementos deseas copiar? *
+                            </label>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <!-- Products Card -->
+                                <label class="relative flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all {{ $copyProducts ? 'border-[#a855f7] bg-purple-50/50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300' }}">
+                                    <input type="checkbox" wire:model.live="copyProducts" class="w-4 h-4 rounded border-slate-300 text-[#a855f7] focus:ring-[#a855f7]">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-1.5">
+                                            <svg class="w-4 h-4 text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                            <span class="text-xs font-bold text-slate-800">Productos</span>
+                                        </div>
+                                        <p class="text-[11px] text-slate-500 truncate mt-0.5">
+                                            @if($copyFromBranchId)
+                                                {{ $copySourceProductsCount }} disponibles
+                                            @else
+                                                Catálogo e inventario
+                                            @endif
+                                        </p>
+                                    </div>
+                                </label>
 
-                            <!-- Filter: All vs Active only -->
-                            <div class="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2">
-                                <label class="block text-xs font-semibold text-slate-700">Filtro de Productos de Origen</label>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    <label class="flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all {{ $copyFilter === 'all' ? 'border-[#a855f7] bg-purple-50/40 text-purple-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
-                                        <input type="radio" wire:model.live="copyFilter" value="all" class="text-[#a855f7] focus:ring-[#a855f7]">
-                                        <div class="text-xs">
-                                            <p class="font-semibold">Todos los productos</p>
-                                            <p class="text-slate-500">Incluye activos e inactivos</p>
+                                <!-- Customers Card -->
+                                <label class="relative flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all {{ $copyCustomers ? 'border-[#3b82f6] bg-blue-50/50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300' }}">
+                                    <input type="checkbox" wire:model.live="copyCustomers" class="w-4 h-4 rounded border-slate-300 text-[#3b82f6] focus:ring-[#3b82f6]">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-1.5">
+                                            <svg class="w-4 h-4 text-[#3b82f6]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                            <span class="text-xs font-bold text-slate-800">Clientes</span>
                                         </div>
-                                    </label>
-                                    <label class="flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all {{ $copyFilter === 'active_only' ? 'border-[#a855f7] bg-purple-50/40 text-purple-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
-                                        <input type="radio" wire:model.live="copyFilter" value="active_only" class="text-[#a855f7] focus:ring-[#a855f7]">
-                                        <div class="text-xs">
-                                            <p class="font-semibold">Solo productos activos</p>
-                                            <p class="text-slate-500">Omite productos desactivados</p>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
+                                        <p class="text-[11px] text-slate-500 truncate mt-0.5">
+                                            @if($copyFromBranchId)
+                                                {{ $copySourceCustomersCount }} disponibles
+                                            @else
+                                                Base de clientes
+                                            @endif
+                                        </p>
+                                    </div>
+                                </label>
 
-                            <!-- Duplicates handling -->
-                            <div class="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2">
-                                <label class="block text-xs font-semibold text-slate-700">Si un producto ya existe en la sucursal destino (mismo nombre)</label>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    <label class="flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all {{ $copyDuplicateHandling === 'skip' ? 'border-[#ff7261] bg-orange-50/40 text-orange-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
-                                        <input type="radio" wire:model="copyDuplicateHandling" value="skip" class="text-[#ff7261] focus:ring-[#ff7261]">
-                                        <div class="text-xs">
-                                            <p class="font-semibold">Omitir existentes (Recomendado)</p>
-                                            <p class="text-slate-500">No altera productos ya creados</p>
+                                <!-- Suppliers Card -->
+                                <label class="relative flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all {{ $copySuppliers ? 'border-[#10b981] bg-emerald-50/50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300' }}">
+                                    <input type="checkbox" wire:model.live="copySuppliers" class="w-4 h-4 rounded border-slate-300 text-[#10b981] focus:ring-[#10b981]">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-1.5">
+                                            <svg class="w-4 h-4 text-[#10b981]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                            <span class="text-xs font-bold text-slate-800">Proveedores</span>
                                         </div>
-                                    </label>
-                                    <label class="flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all {{ $copyDuplicateHandling === 'overwrite' ? 'border-[#ff7261] bg-orange-50/40 text-orange-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
-                                        <input type="radio" wire:model="copyDuplicateHandling" value="overwrite" class="text-[#ff7261] focus:ring-[#ff7261]">
-                                        <div class="text-xs">
-                                            <p class="font-semibold">Actualizar existentes</p>
-                                            <p class="text-slate-500">Sobrescribe precios y atributos</p>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <!-- Initial stock mode -->
-                            <div class="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2">
-                                <label class="block text-xs font-semibold text-slate-700">Inventario / Stock Inicial en Destino</label>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    <label class="flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all {{ $copyStockMode === 'zero' ? 'border-[#a855f7] bg-purple-50/40 text-purple-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
-                                        <input type="radio" wire:model="copyStockMode" value="zero" class="text-[#a855f7] focus:ring-[#a855f7]">
-                                        <div class="text-xs">
-                                            <p class="font-semibold">Iniciar con Stock en 0 (Recomendado)</p>
-                                            <p class="text-slate-500">Para ingresar nuevo inventario físico</p>
-                                        </div>
-                                    </label>
-                                    <label class="flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all {{ $copyStockMode === 'copy' ? 'border-[#a855f7] bg-purple-50/40 text-purple-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
-                                        <input type="radio" wire:model="copyStockMode" value="copy" class="text-[#a855f7] focus:ring-[#a855f7]">
-                                        <div class="text-xs">
-                                            <p class="font-semibold">Copiar stock actual de origen</p>
-                                            <p class="text-slate-500">Clona las cantidades actuales</p>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <!-- Variants option -->
-                            <div class="bg-white p-3.5 rounded-xl border border-slate-200">
-                                <label class="flex items-center gap-2.5 cursor-pointer">
-                                    <input type="checkbox" wire:model="copyVariants" class="w-4 h-4 rounded border-slate-300 text-[#a855f7] focus:ring-[#a855f7]">
-                                    <div class="text-xs">
-                                        <span class="font-semibold text-slate-800">Copiar variantes y presentaciones</span>
-                                        <p class="text-slate-500">Copia también las variantes (hijos), tallas, colores y precios asociados a cada producto.</p>
+                                        <p class="text-[11px] text-slate-500 truncate mt-0.5">
+                                            @if($copyFromBranchId)
+                                                {{ $copySourceSuppliersCount }} disponibles
+                                            @else
+                                                Directorio de proveedores
+                                            @endif
+                                        </p>
                                     </div>
                                 </label>
                             </div>
+                            @if(!$copyProducts && !$copyCustomers && !$copySuppliers)
+                                <p class="text-xs text-amber-600 font-medium mt-1">⚠️ Debes seleccionar al menos un elemento para copiar.</p>
+                            @endif
+                        </div>
+
+                        <!-- Configuration Options per selected entity -->
+                        <div class="space-y-4">
+                            <!-- Product Options -->
+                            @if($copyProducts)
+                            <div class="bg-purple-50/40 border border-purple-200/80 p-4 rounded-2xl space-y-3.5">
+                                <div class="flex items-center gap-2 text-purple-900 font-bold text-xs uppercase tracking-wider">
+                                    <svg class="w-4 h-4 text-[#a855f7]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                    <span>Opciones de Productos ({{ $copySourceProductsCount }} disponibles)</span>
+                                </div>
+
+                                <!-- Filter: All vs Active only -->
+                                <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                                    <label class="block text-xs font-semibold text-slate-700">Filtro de Productos en Origen</label>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <label class="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all {{ $copyFilter === 'all' ? 'border-[#a855f7] bg-purple-50/40 text-purple-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                            <input type="radio" wire:model.live="copyFilter" value="all" class="text-[#a855f7] focus:ring-[#a855f7]">
+                                            <div class="text-xs">
+                                                <p class="font-semibold">Todos los productos</p>
+                                                <p class="text-slate-500 text-[11px]">Incluye activos e inactivos</p>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all {{ $copyFilter === 'active_only' ? 'border-[#a855f7] bg-purple-50/40 text-purple-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                            <input type="radio" wire:model.live="copyFilter" value="active_only" class="text-[#a855f7] focus:ring-[#a855f7]">
+                                            <div class="text-xs">
+                                                <p class="font-semibold">Solo productos activos</p>
+                                                <p class="text-slate-500 text-[11px]">Omite productos desactivados</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Duplicates handling -->
+                                <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                                    <label class="block text-xs font-semibold text-slate-700">Si un producto ya existe en destino (mismo nombre)</label>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <label class="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all {{ $copyDuplicateHandling === 'skip' ? 'border-[#ff7261] bg-orange-50/40 text-orange-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                            <input type="radio" wire:model="copyDuplicateHandling" value="skip" class="text-[#ff7261] focus:ring-[#ff7261]">
+                                            <div class="text-xs">
+                                                <p class="font-semibold">Omitir existentes (Recomendado)</p>
+                                                <p class="text-slate-500 text-[11px]">No altera productos ya creados</p>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all {{ $copyDuplicateHandling === 'overwrite' ? 'border-[#ff7261] bg-orange-50/40 text-orange-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                            <input type="radio" wire:model="copyDuplicateHandling" value="overwrite" class="text-[#ff7261] focus:ring-[#ff7261]">
+                                            <div class="text-xs">
+                                                <p class="font-semibold">Actualizar existentes</p>
+                                                <p class="text-slate-500 text-[11px]">Sobrescribe precios y atributos</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Initial stock mode -->
+                                <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                                    <label class="block text-xs font-semibold text-slate-700">Inventario / Stock Inicial en Destino</label>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <label class="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all {{ $copyStockMode === 'zero' ? 'border-[#a855f7] bg-purple-50/40 text-purple-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                            <input type="radio" wire:model="copyStockMode" value="zero" class="text-[#a855f7] focus:ring-[#a855f7]">
+                                            <div class="text-xs">
+                                                <p class="font-semibold">Iniciar con Stock en 0 (Recomendado)</p>
+                                                <p class="text-slate-500 text-[11px]">Para nuevo inventario físico</p>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all {{ $copyStockMode === 'copy' ? 'border-[#a855f7] bg-purple-50/40 text-purple-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                            <input type="radio" wire:model="copyStockMode" value="copy" class="text-[#a855f7] focus:ring-[#a855f7]">
+                                            <div class="text-xs">
+                                                <p class="font-semibold">Copiar stock actual de origen</p>
+                                                <p class="text-slate-500 text-[11px]">Clona las cantidades actuales</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Variants option -->
+                                <div class="bg-white p-3 rounded-xl border border-slate-200">
+                                    <label class="flex items-center gap-2.5 cursor-pointer">
+                                        <input type="checkbox" wire:model="copyVariants" class="w-4 h-4 rounded border-slate-300 text-[#a855f7] focus:ring-[#a855f7]">
+                                        <div class="text-xs">
+                                            <span class="font-semibold text-slate-800">Copiar variantes y presentaciones</span>
+                                            <p class="text-slate-500 text-[11px]">Copia también variantes (hijos), tallas, colores y precios asociados.</p>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                            @endif
+
+                            <!-- Customer Options -->
+                            @if($copyCustomers)
+                            <div class="bg-blue-50/40 border border-blue-200/80 p-4 rounded-2xl space-y-3.5">
+                                <div class="flex items-center gap-2 text-blue-900 font-bold text-xs uppercase tracking-wider">
+                                    <svg class="w-4 h-4 text-[#3b82f6]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                    <span>Opciones de Clientes ({{ $copySourceCustomersCount }} disponibles)</span>
+                                </div>
+
+                                <!-- Filter: All vs Active only -->
+                                <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                                    <label class="block text-xs font-semibold text-slate-700">Filtro de Clientes en Origen</label>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <label class="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all {{ $copyCustomerFilter === 'all' ? 'border-[#3b82f6] bg-blue-50/40 text-blue-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                            <input type="radio" wire:model.live="copyCustomerFilter" value="all" class="text-[#3b82f6] focus:ring-[#3b82f6]">
+                                            <div class="text-xs">
+                                                <p class="font-semibold">Todos los clientes</p>
+                                                <p class="text-slate-500 text-[11px]">Incluye activos e inactivos</p>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all {{ $copyCustomerFilter === 'active_only' ? 'border-[#3b82f6] bg-blue-50/40 text-blue-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                            <input type="radio" wire:model.live="copyCustomerFilter" value="active_only" class="text-[#3b82f6] focus:ring-[#3b82f6]">
+                                            <div class="text-xs">
+                                                <p class="font-semibold">Solo clientes activos</p>
+                                                <p class="text-slate-500 text-[11px]">Omite clientes desactivados</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Duplicates handling -->
+                                <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                                    <label class="block text-xs font-semibold text-slate-700">Si un cliente ya existe en destino (mismo documento)</label>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <label class="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all {{ $copyCustomerDuplicateHandling === 'skip' ? 'border-[#3b82f6] bg-blue-50/40 text-blue-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                            <input type="radio" wire:model="copyCustomerDuplicateHandling" value="skip" class="text-[#3b82f6] focus:ring-[#3b82f6]">
+                                            <div class="text-xs">
+                                                <p class="font-semibold">Omitir existentes (Recomendado)</p>
+                                                <p class="text-slate-500 text-[11px]">Conserva datos existentes del cliente</p>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all {{ $copyCustomerDuplicateHandling === 'overwrite' ? 'border-[#3b82f6] bg-blue-50/40 text-blue-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                            <input type="radio" wire:model="copyCustomerDuplicateHandling" value="overwrite" class="text-[#3b82f6] focus:ring-[#3b82f6]">
+                                            <div class="text-xs">
+                                                <p class="font-semibold">Actualizar existentes</p>
+                                                <p class="text-slate-500 text-[11px]">Sobrescribe nombres, contacto y dirección</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+
+                            <!-- Supplier Options -->
+                            @if($copySuppliers)
+                            <div class="bg-emerald-50/40 border border-emerald-200/80 p-4 rounded-2xl space-y-3.5">
+                                <div class="flex items-center gap-2 text-emerald-900 font-bold text-xs uppercase tracking-wider">
+                                    <svg class="w-4 h-4 text-[#10b981]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                    <span>Opciones de Proveedores ({{ $copySourceSuppliersCount }} disponibles)</span>
+                                </div>
+
+                                <!-- Filter: All vs Active only -->
+                                <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                                    <label class="block text-xs font-semibold text-slate-700">Filtro de Proveedores en Origen</label>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <label class="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all {{ $copySupplierFilter === 'all' ? 'border-[#10b981] bg-emerald-50/40 text-emerald-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                            <input type="radio" wire:model.live="copySupplierFilter" value="all" class="text-[#10b981] focus:ring-[#10b981]">
+                                            <div class="text-xs">
+                                                <p class="font-semibold">Todos los proveedores</p>
+                                                <p class="text-slate-500 text-[11px]">Incluye activos e inactivos</p>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all {{ $copySupplierFilter === 'active_only' ? 'border-[#10b981] bg-emerald-50/40 text-emerald-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                            <input type="radio" wire:model.live="copySupplierFilter" value="active_only" class="text-[#10b981] focus:ring-[#10b981]">
+                                            <div class="text-xs">
+                                                <p class="font-semibold">Solo proveedores activos</p>
+                                                <p class="text-slate-500 text-[11px]">Omite proveedores desactivados</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Duplicates handling -->
+                                <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                                    <label class="block text-xs font-semibold text-slate-700">Si un proveedor ya existe en destino (mismo documento)</label>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <label class="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all {{ $copySupplierDuplicateHandling === 'skip' ? 'border-[#10b981] bg-emerald-50/40 text-emerald-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                            <input type="radio" wire:model="copySupplierDuplicateHandling" value="skip" class="text-[#10b981] focus:ring-[#10b981]">
+                                            <div class="text-xs">
+                                                <p class="font-semibold">Omitir existentes (Recomendado)</p>
+                                                <p class="text-slate-500 text-[11px]">Conserva datos existentes del proveedor</p>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all {{ $copySupplierDuplicateHandling === 'overwrite' ? 'border-[#10b981] bg-emerald-50/40 text-emerald-900 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700' }}">
+                                            <input type="radio" wire:model="copySupplierDuplicateHandling" value="overwrite" class="text-[#10b981] focus:ring-[#10b981]">
+                                            <div class="text-xs">
+                                                <p class="font-semibold">Actualizar existentes</p>
+                                                <p class="text-slate-500 text-[11px]">Sobrescribe nombres, contacto y dirección</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
                         </div>
 
                         <!-- Important Security Notice -->
                         <div class="bg-blue-50 border border-blue-200 rounded-xl p-3.5 flex items-start gap-3">
                             <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             <div class="text-xs text-blue-800">
-                                <p class="font-semibold">Protección del Catálogo Original</p>
-                                <p class="text-blue-700 mt-0.5">Los productos de la sucursal de origen <strong>no se borrarán ni se modificarán</strong>. Se crearán copias independientes en la sucursal de destino con sus propios códigos SKU correlativos.</p>
+                                <p class="font-semibold">Protección de Datos Originales</p>
+                                <p class="text-blue-700 mt-0.5">Los datos de la sucursal de origen <strong>no se borrarán ni se modificarán</strong>. Se crearán copias independientes en la sucursal de destino.</p>
                             </div>
                         </div>
                     </div>
@@ -633,8 +816,18 @@
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                <span wire:loading.remove wire:target="executeCopyProducts">Copiar Productos</span>
-                                <span wire:loading wire:target="executeCopyProducts">Copiando productos...</span>
+                                <span wire:loading.remove wire:target="executeCopyProducts">
+                                    @if($copyProducts && !$copyCustomers && !$copySuppliers)
+                                        Copiar Productos
+                                    @elseif(!$copyProducts && $copyCustomers && !$copySuppliers)
+                                        Copiar Clientes
+                                    @elseif(!$copyProducts && !$copyCustomers && $copySuppliers)
+                                        Copiar Proveedores
+                                    @else
+                                        Copiar Datos Seleccionados
+                                    @endif
+                                </span>
+                                <span wire:loading wire:target="executeCopyProducts">Copiando datos...</span>
                             </button>
                         </div>
                     </div>

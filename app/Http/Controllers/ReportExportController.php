@@ -1657,7 +1657,7 @@ class ReportExportController extends Controller
 
         $row = 1;
         $sheet->setCellValue('A' . $row, 'REPORTE DE CRÉDITOS POR CLIENTE');
-        $sheet->mergeCells('A' . $row . ':H' . $row);
+        $sheet->mergeCells('A' . $row . ':J' . $row);
         $sheet->getStyle('A' . $row)->applyFromArray($titleStyle);
         $sheet->getRowDimension($row)->setRowHeight(30);
         $row += 2;
@@ -1734,24 +1734,26 @@ class ReportExportController extends Controller
         foreach ($customerSummaries as $customer) {
             // Customer header row
             $sheet->setCellValue('A' . $row, $customer->customer_name);
-            $sheet->setCellValue('C' . $row, 'Doc: ' . $customer->document_number);
-            $sheet->setCellValue('F' . $row, 'Tel: ' . ($customer->phone ?? '-'));
-            $sheet->mergeCells('A' . $row . ':B' . $row);
-            $sheet->mergeCells('C' . $row . ':E' . $row);
-            $sheet->mergeCells('F' . $row . ':H' . $row);
-            $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($customerHeaderStyle);
+            $sheet->setCellValue('D' . $row, 'Doc: ' . $customer->document_number);
+            $sheet->setCellValue('G' . $row, 'Tel: ' . ($customer->phone ?? '-'));
+            $sheet->mergeCells('A' . $row . ':C' . $row);
+            $sheet->mergeCells('D' . $row . ':F' . $row);
+            $sheet->mergeCells('G' . $row . ':J' . $row);
+            $sheet->getStyle('A' . $row . ':J' . $row)->applyFromArray($customerHeaderStyle);
             $row++;
 
             // Invoice headers
             $sheet->setCellValue('A' . $row, 'Factura');
             $sheet->setCellValue('B' . $row, 'Fecha');
-            $sheet->setCellValue('C' . $row, 'Vendedor');
-            $sheet->setCellValue('D' . $row, 'Total Venta');
-            $sheet->setCellValue('E' . $row, 'Total Crédito');
-            $sheet->setCellValue('F' . $row, 'Pagado');
-            $sheet->setCellValue('G' . $row, 'Pendiente');
-            $sheet->setCellValue('H' . $row, 'Estado');
-            $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($headerStyle);
+            $sheet->setCellValue('C' . $row, 'Vencimiento');
+            $sheet->setCellValue('D' . $row, 'Días en Mora');
+            $sheet->setCellValue('E' . $row, 'Vendedor');
+            $sheet->setCellValue('F' . $row, 'Total Venta');
+            $sheet->setCellValue('G' . $row, 'Total Crédito');
+            $sheet->setCellValue('H' . $row, 'Pagado');
+            $sheet->setCellValue('I' . $row, 'Pendiente');
+            $sheet->setCellValue('J' . $row, 'Estado');
+            $sheet->getStyle('A' . $row . ':J' . $row)->applyFromArray($headerStyle);
             $row++;
 
             // Invoice rows
@@ -1759,39 +1761,48 @@ class ReportExportController extends Controller
             foreach ($invoices as $invoice) {
                 $remaining = (float) $invoice->credit_amount - (float) $invoice->paid_amount;
                 $statusLabels = ['pending' => 'Pendiente', 'partial' => 'Parcial', 'paid' => 'Pagado'];
+                $dueDateStr = $invoice->payment_due_date ? $invoice->payment_due_date->format('d/m/Y') : ($invoice->created_at ? $invoice->created_at->copy()->addDays(30)->format('d/m/Y') : '-');
+                $daysOverdue = $invoice->days_overdue;
+                $moraStr = $remaining <= 0 || $invoice->payment_status === 'paid' ? 'Saldado' : ($daysOverdue === 0 ? 'Al día' : "{$daysOverdue} días");
 
                 $sheet->setCellValue('A' . $row, $invoice->invoice_number);
                 $sheet->setCellValue('B' . $row, $invoice->created_at->format('d/m/Y'));
-                $sheet->setCellValue('C' . $row, $invoice->seller?->name ?? '-');
-                $sheet->setCellValue('D' . $row, (float) $invoice->total);
-                $sheet->setCellValue('E' . $row, (float) $invoice->credit_amount);
-                $sheet->setCellValue('F' . $row, (float) $invoice->paid_amount);
-                $sheet->setCellValue('G' . $row, $remaining);
-                $sheet->setCellValue('H' . $row, $statusLabels[$invoice->payment_status] ?? $invoice->payment_status);
-                $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($dataStyle);
-                $sheet->getStyle('D' . $row . ':G' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+                $sheet->setCellValue('C' . $row, $dueDateStr);
+                $sheet->setCellValue('D' . $row, $moraStr);
+                $sheet->setCellValue('E' . $row, $invoice->seller?->name ?? '-');
+                $sheet->setCellValue('F' . $row, (float) $invoice->total);
+                $sheet->setCellValue('G' . $row, (float) $invoice->credit_amount);
+                $sheet->setCellValue('H' . $row, (float) $invoice->paid_amount);
+                $sheet->setCellValue('I' . $row, $remaining);
+                $sheet->setCellValue('J' . $row, $statusLabels[$invoice->payment_status] ?? $invoice->payment_status);
+                $sheet->getStyle('A' . $row . ':J' . $row)->applyFromArray($dataStyle);
+                $sheet->getStyle('F' . $row . ':I' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+
+                if ($daysOverdue > 0 && $remaining > 0) {
+                    $sheet->getStyle('D' . $row)->getFont()->setColor(new Color('DC2626'))->setBold(true);
+                }
 
                 if ($remaining > 0) {
-                    $sheet->getStyle('G' . $row)->getFont()->setColor(new Color('DC2626'));
+                    $sheet->getStyle('I' . $row)->getFont()->setColor(new Color('DC2626'));
                 }
                 $row++;
             }
 
             // Customer subtotal
             $sheet->setCellValue('A' . $row, 'Subtotal ' . $customer->customer_name);
-            $sheet->mergeCells('A' . $row . ':C' . $row);
-            $sheet->setCellValue('D' . $row, '');
-            $sheet->setCellValue('E' . $row, (float) $customer->total_credit);
-            $sheet->setCellValue('F' . $row, (float) $customer->total_paid);
-            $sheet->setCellValue('G' . $row, (float) $customer->total_remaining);
-            $sheet->setCellValue('H' . $row, $customer->total_invoices . ' factura(s)');
-            $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($subtotalStyle);
-            $sheet->getStyle('E' . $row . ':G' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
-            $sheet->getStyle('G' . $row)->getFont()->setBold(true)->setColor(new Color('DC2626'));
+            $sheet->mergeCells('A' . $row . ':E' . $row);
+            $sheet->setCellValue('F' . $row, '');
+            $sheet->setCellValue('G' . $row, (float) $customer->total_credit);
+            $sheet->setCellValue('H' . $row, (float) $customer->total_paid);
+            $sheet->setCellValue('I' . $row, (float) $customer->total_remaining);
+            $sheet->setCellValue('J' . $row, $customer->total_invoices . ' factura(s)');
+            $sheet->getStyle('A' . $row . ':J' . $row)->applyFromArray($subtotalStyle);
+            $sheet->getStyle('G' . $row . ':I' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('I' . $row)->getFont()->setBold(true)->setColor(new Color('DC2626'));
             $row += 2;
         }
 
-        foreach (range('A', 'H') as $col) {
+        foreach (range('A', 'J') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
@@ -1803,6 +1814,167 @@ class ReportExportController extends Controller
         return response()->download($tempFile, $filename, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ])->deleteFileAfterSend(true);
+    }
+
+    public function creditsPdf(Request $request)
+    {
+        $dateRange = $request->get('date_range', 'all');
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
+        $branchId = $request->get('branch_id');
+        $sellerId = $request->get('seller_id');
+        $paymentStatus = $request->get('payment_status', '');
+        $search = $request->get('search', '');
+        $user = auth()->user();
+
+        $branch = null;
+        $branchName = 'Todas las sucursales';
+        if ($branchId) {
+            $branch = Branch::find($branchId);
+            $branchName = $branch?->name ?? 'Todas';
+        } elseif (!$user->isSuperAdmin()) {
+            $branchId = $user->branch_id;
+            $branch = Branch::find($branchId);
+            $branchName = $branch?->name ?? '';
+        }
+
+        $seller = $sellerId ? User::find($sellerId) : null;
+
+        // Build base query for credit sales grouped by customer
+        $query = Sale::where('sales.payment_type', 'credit')
+            ->where('sales.status', 'completed')
+            ->whereNotNull('sales.customer_id')
+            ->join('customers', 'sales.customer_id', '=', 'customers.id');
+
+        if ($branchId) {
+            $query->where('sales.branch_id', $branchId);
+        } elseif (!$user->isSuperAdmin()) {
+            $query->where('sales.branch_id', $user->branch_id);
+        }
+
+        if ($sellerId) {
+            $query->where('sales.seller_id', $sellerId);
+        }
+
+        if ($startDate) {
+            $query->whereDate('sales.created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $query->whereDate('sales.created_at', '<=', $endDate);
+        }
+        if ($paymentStatus) {
+            $query->where('sales.payment_status', $paymentStatus);
+        }
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('customers.first_name', 'like', "%{$search}%")
+                    ->orWhere('customers.last_name', 'like', "%{$search}%")
+                    ->orWhere('customers.business_name', 'like', "%{$search}%")
+                    ->orWhere('customers.document_number', 'like', "%{$search}%");
+            });
+        }
+
+        // Get customer summaries
+        $customerSummaries = (clone $query)
+            ->select(
+                'customers.id',
+                'customers.document_number',
+                'customers.phone',
+                DB::raw("CASE WHEN customers.customer_type = 'juridico' THEN customers.business_name ELSE CONCAT(customers.first_name, ' ', customers.last_name) END as customer_name"),
+                DB::raw('COUNT(sales.id) as total_invoices'),
+                DB::raw('SUM(sales.credit_amount) as total_credit'),
+                DB::raw('SUM(sales.paid_amount) as total_paid'),
+                DB::raw('SUM(sales.credit_amount - sales.paid_amount) as total_remaining')
+            )
+            ->groupBy('customers.id', 'customers.customer_type', 'customers.business_name', 'customers.first_name', 'customers.last_name', 'customers.document_number', 'customers.phone')
+            ->orderByDesc('total_remaining')
+            ->get();
+
+        // Invoices by customer
+        $allInvoices = Sale::with(['seller', 'customer'])
+            ->where('sales.payment_type', 'credit')
+            ->where('sales.status', 'completed')
+            ->whereIn('sales.customer_id', $customerSummaries->pluck('id'));
+
+        if ($branchId) {
+            $allInvoices->where('sales.branch_id', $branchId);
+        } elseif (!$user->isSuperAdmin()) {
+            $allInvoices->where('sales.branch_id', $user->branch_id);
+        }
+        if ($sellerId) {
+            $allInvoices->where('sales.seller_id', $sellerId);
+        }
+        if ($startDate) {
+            $allInvoices->whereDate('sales.created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $allInvoices->whereDate('sales.created_at', '<=', $endDate);
+        }
+        if ($paymentStatus) {
+            $allInvoices->where('sales.payment_status', $paymentStatus);
+        }
+
+        $invoicesByCustomer = $allInvoices->orderBy('sales.created_at', 'desc')
+            ->get()
+            ->groupBy('customer_id');
+
+        // Totals & Overdue analytics
+        $grandTotalCredit = (float) $customerSummaries->sum('total_credit');
+        $grandTotalPaid = (float) $customerSummaries->sum('total_paid');
+        $grandTotalRemaining = (float) $customerSummaries->sum('total_remaining');
+        $grandTotalInvoices = (int) $customerSummaries->sum('total_invoices');
+
+        $totalOverdueAmount = 0;
+        $totalCurrentAmount = 0;
+        $overdueInvoicesCount = 0;
+        $currentInvoicesCount = 0;
+
+        foreach ($invoicesByCustomer as $custId => $invoices) {
+            foreach ($invoices as $inv) {
+                $rem = (float) $inv->credit_amount - (float) $inv->paid_amount;
+                if ($rem > 0) {
+                    if ($inv->days_overdue > 0) {
+                        $totalOverdueAmount += $rem;
+                        $overdueInvoicesCount++;
+                    } else {
+                        $totalCurrentAmount += $rem;
+                        $currentInvoicesCount++;
+                    }
+                }
+            }
+        }
+
+        $pdf = Pdf::loadView('reports.credits-pdf', [
+            'customerSummaries' => $customerSummaries,
+            'invoicesByCustomer' => $invoicesByCustomer,
+            'branch' => $branch,
+            'branchName' => $branchName,
+            'seller' => $seller,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'dateRange' => $dateRange,
+            'paymentStatus' => $paymentStatus,
+            'search' => $search,
+            'generatedAt' => now()->format('d/m/Y h:i A'),
+            'generatedBy' => $user->name,
+            'grandTotalCredit' => $grandTotalCredit,
+            'grandTotalPaid' => $grandTotalPaid,
+            'grandTotalRemaining' => $grandTotalRemaining,
+            'grandTotalInvoices' => $grandTotalInvoices,
+            'totalOverdueAmount' => $totalOverdueAmount,
+            'totalCurrentAmount' => $totalCurrentAmount,
+            'overdueInvoicesCount' => $overdueInvoicesCount,
+            'currentInvoicesCount' => $currentInvoicesCount,
+        ]);
+
+        $pdf->setPaper('a4', 'landscape');
+        $filename = 'reporte-creditos-cartera-' . now()->format('Y-m-d') . '.pdf';
+
+        if ($request->has('download')) {
+            return $pdf->download($filename);
+        }
+
+        return $pdf->stream($filename);
     }
 
     public function paymentMethodsExcel(Request $request)
