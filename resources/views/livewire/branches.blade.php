@@ -295,91 +295,96 @@
                         </div>
 
                         <!-- Settings -->
-                        <div class="flex flex-wrap gap-6">
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input wire:model="show_in_pos" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
-                                <span class="text-sm text-slate-700">Mostrar en POS</span>
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input wire:model="is_active" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
-                                <span class="text-sm text-slate-700">Sucursal Activa</span>
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input wire:model="quotes_reserve_inventory" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
-                                <span class="text-sm text-slate-700">Cotizaciones reservan inventario</span>
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input wire:model="print_qr" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
-                                <span class="text-sm text-slate-700">Imprimir QR</span>
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input wire:model="enable_costo_fe" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
-                                <span class="text-sm text-slate-700">Costo FE / Costo RE en Compras</span>
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer" title="Al activar esta opción, cuando se quita el IVA en el POS (F8), el precio final al cliente se mantiene intacto ($1.500 sigue en $1.500 con $0 IVA) en lugar de descontar el impuesto">
-                                <input wire:model="tax_exempt_preserves_price" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
-                                <span class="text-sm text-slate-700">Conservar precio al quitar IVA</span>
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input wire:model.live="ecommerce_enabled" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#a855f7] focus:ring-[#a855f7]">
-                                <span class="text-sm font-semibold text-purple-700">Tienda en Línea</span>
-                            </label>
-                        </div>
-
-                        @if($ecommerce_enabled)
-                        <div class="mt-4 p-4 rounded-2xl bg-gradient-to-br from-purple-50/90 to-indigo-50/50 border border-purple-200/90 shadow-sm space-y-3"
-                             x-data="{ copied: false, shopUrl: '{{ url('/' . ($slug ?: \Illuminate\Support\Str::slug($name ?: 'sucursal')) . '/shop') }}' }"
-                             x-effect="shopUrl = '{{ url('/') }}/' + ($wire.slug ? $wire.slug : ($wire.name ? $wire.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : 'sucursal')) + '/shop'">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-2.5">
-                                    <div class="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
-                                    </div>
-                                    <div>
-                                        <h5 class="text-sm font-bold text-purple-950">Tienda en Línea Activada</h5>
-                                        <p class="text-xs text-purple-700">Esta sucursal tiene tienda pública disponible para ventas web</p>
-                                    </div>
-                                </div>
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5 animate-pulse"></span>
-                                    Enlace Único
-                                </span>
-                            </div>
-
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                                <div class="sm:col-span-1">
-                                    <label class="block text-xs font-medium text-purple-900 mb-1">Identificador Web (Slug)</label>
-                                    <input wire:model.live.debounce.400ms="slug" type="text" class="w-full px-3 py-2 text-sm border border-purple-200 rounded-xl bg-white focus:ring-2 focus:ring-purple-400 focus:border-purple-400 font-mono text-purple-900" placeholder="ej: cali-centro">
-                                    @error('slug') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                                </div>
-                                <div class="sm:col-span-2">
-                                    <label class="block text-xs font-medium text-purple-900 mb-1">Enlace público de la tienda</label>
-                                    <div class="flex items-center gap-1.5">
-                                        <div class="relative flex-1">
-                                            <input type="text" readonly :value="shopUrl" class="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-purple-200 rounded-xl text-slate-700 font-mono select-all focus:outline-none focus:ring-2 focus:ring-purple-400">
-                                        </div>
-                                        <button type="button" 
-                                            @click="navigator.clipboard.writeText(shopUrl); copied = true; setTimeout(() => copied = false, 2500)"
-                                            class="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-[#a855f7] to-[#7c3aed] rounded-xl shadow-sm hover:from-[#9333ea] hover:to-[#6d28d9] transition-all shrink-0">
-                                            <svg x-show="!copied" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                                            <svg x-show="copied" class="w-4 h-4 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                                            <span x-text="copied ? '¡Copiado!' : 'Copiar Enlace'"></span>
-                                        </button>
-                                        <a :href="shopUrl" target="_blank" class="p-2 text-purple-700 hover:text-purple-900 hover:bg-purple-100 rounded-xl transition-colors shrink-0" title="Abrir tienda en nueva pestaña">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="pt-2 border-t border-purple-100/80">
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input wire:model="show_stock_in_shop" type="checkbox" class="w-4 h-4 rounded border-purple-300 text-[#a855f7] focus:ring-[#a855f7]">
-                                    <span class="text-xs sm:text-sm text-purple-900">Mostrar cantidad disponible (stock) a los clientes en la tienda</span>
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                Configuraciones
+                            </h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label class="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors">
+                                    <input wire:model="show_in_pos" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                                    <span class="text-sm font-medium text-slate-700">Mostrar en POS</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors">
+                                    <input wire:model="is_active" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                                    <span class="text-sm font-medium text-slate-700">Sucursal Activa</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors">
+                                    <input wire:model="quotes_reserve_inventory" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                                    <span class="text-sm font-medium text-slate-700">Cotizaciones reservan inventario</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors">
+                                    <input wire:model="print_qr" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                                    <span class="text-sm font-medium text-slate-700">Imprimir QR</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors">
+                                    <input wire:model="enable_costo_fe" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                                    <span class="text-sm font-medium text-slate-700">Costo FE / Costo RE en Compras</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors" title="Al activar esta opción, cuando se quita el IVA en el POS (F8), el precio final al cliente se mantiene intacto en lugar de descontar el impuesto">
+                                    <input wire:model="tax_exempt_preserves_price" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                                    <span class="text-sm font-medium text-slate-700">Conservar precio al quitar IVA</span>
                                 </label>
                             </div>
                         </div>
-                        @endif
+
+                        <!-- Ecommerce Section -->
+                        <div class="border-t border-slate-200 pt-4">
+                            <div class="p-4 rounded-2xl border transition-all {{ $ecommerce_enabled ? 'bg-gradient-to-br from-purple-50/90 via-indigo-50/40 to-purple-50/70 border-purple-200 shadow-sm' : 'bg-slate-50 border-slate-200' }}">
+                                <div class="flex items-center justify-between">
+                                    <label class="flex items-center gap-3 cursor-pointer">
+                                        <input wire:model.live="ecommerce_enabled" type="checkbox" class="w-5 h-5 rounded border-slate-300 text-[#a855f7] focus:ring-[#a855f7]">
+                                        <div>
+                                            <span class="text-sm font-bold text-slate-800">Tienda en Línea</span>
+                                            <p class="text-xs text-slate-500">Habilita un catálogo web público con enlace único para esta sucursal</p>
+                                        </div>
+                                    </label>
+                                    @if($ecommerce_enabled)
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5 animate-pulse"></span>
+                                        Tienda Activa
+                                    </span>
+                                    @endif
+                                </div>
+
+                                @if($ecommerce_enabled)
+                                <div class="mt-4 pt-4 border-t border-purple-200/60 space-y-4"
+                                     x-data="{ copied: false, shopUrl: '{{ url('/' . ($slug ?: \Illuminate\Support\Str::slug($name ?: 'sucursal')) . '/shop') }}' }"
+                                     x-effect="shopUrl = '{{ url('/') }}/' + ($wire.slug ? $wire.slug : ($wire.name ? $wire.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : 'sucursal')) + '/shop'">
+                                    
+                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        <div class="sm:col-span-1">
+                                            <label class="block text-xs font-semibold text-purple-900 mb-1">Identificador Web (Slug)</label>
+                                            <input wire:model.live.debounce.400ms="slug" type="text" class="w-full px-3 py-2 text-sm border border-purple-200 rounded-xl bg-white focus:ring-2 focus:ring-purple-400 focus:border-purple-400 font-mono text-purple-900" placeholder="ej: cali-centro">
+                                            @error('slug') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                        </div>
+                                        <div class="sm:col-span-2">
+                                            <label class="block text-xs font-semibold text-purple-900 mb-1">Enlace público de la tienda</label>
+                                            <div class="flex items-center gap-1.5">
+                                                <input type="text" readonly :value="shopUrl" class="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-purple-200 rounded-xl text-slate-700 font-mono select-all focus:outline-none focus:ring-2 focus:ring-purple-400">
+                                                <button type="button" 
+                                                    @click="navigator.clipboard.writeText(shopUrl); copied = true; setTimeout(() => copied = false, 2500)"
+                                                    class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-[#a855f7] to-[#7c3aed] rounded-xl shadow-sm hover:from-[#9333ea] hover:to-[#6d28d9] transition-all shrink-0">
+                                                    <svg x-show="!copied" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                                    <svg x-show="copied" class="w-4 h-4 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                                    <span x-text="copied ? '¡Copiado!' : 'Copiar Enlace'"></span>
+                                                </button>
+                                                <a :href="shopUrl" target="_blank" class="p-2 text-purple-700 hover:text-purple-900 hover:bg-purple-100/80 rounded-xl transition-colors shrink-0" title="Abrir tienda en nueva pestaña">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="pt-2 border-t border-purple-100">
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input wire:model="show_stock_in_shop" type="checkbox" class="w-4 h-4 rounded border-purple-300 text-[#a855f7] focus:ring-[#a855f7]">
+                                            <span class="text-xs sm:text-sm text-purple-900">Mostrar cantidad disponible (stock) a los clientes en la tienda</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                @endif
+                            </div>
                         </div>
                     </div>
 
