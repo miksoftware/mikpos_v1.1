@@ -224,7 +224,12 @@
                                 @endphp
                                 <tr class="hover:bg-slate-50/50">
                                     <td class="px-3 py-2 font-medium text-slate-900">{{ $detail->employee->full_name }}</td>
-                                    <td class="px-3 py-2 text-right">{{ number_format($detail->worked_days, 0) }}</td>
+                                    <td class="px-3 py-2 text-right">
+                                        <span>{{ number_format($detail->worked_days, 0) }}</span>
+                                        @if((float)$detail->vacation_days > 0)
+                                        <span class="block text-[10px] text-amber-600 font-medium" title="Días de vacaciones">({{ $detail->vacation_days }} vac.)</span>
+                                        @endif
+                                    </td>
                                     <td class="px-3 py-2 text-right">${{ number_format($detail->base_salary_earned, 0, ',', '.') }}</td>
                                     <td class="px-3 py-2 text-right">${{ number_format($detail->transport_allowance_earned, 0, ',', '.') }}</td>
                                     <td class="px-3 py-2 text-right {{ $totalExtras > 0 ? 'text-blue-600 font-medium' : '' }}">${{ number_format($totalExtras, 0, ',', '.') }}</td>
@@ -369,6 +374,26 @@
                             <div>
                                 <label class="block text-xs font-medium text-slate-600 mb-1">Otros Ingresos</label>
                                 <input type="number" wire:model="novedad_other_income" step="1" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                            </div>
+                        </div>
+
+                        <h4 class="text-sm font-semibold text-slate-700 pt-2 flex items-center gap-2">
+                            <span>Vacaciones</span>
+                            <span class="text-xs font-normal text-slate-400">(CST Art. 186-192)</span>
+                        </h4>
+                        <div class="bg-amber-50/60 border border-amber-200/70 rounded-xl p-3.5">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-700 mb-1">Días de Vacaciones a Disfrutar</label>
+                                    <div class="relative">
+                                        <input type="number" wire:model="novedad_vacation_days" step="0.5" min="0" max="30" placeholder="0" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 mt-1">Días remunerados de descanso en este período.</p>
+                                </div>
+                                <div class="text-xs text-slate-600 bg-white/80 rounded-lg p-2.5 border border-amber-200/50 flex gap-2 items-start">
+                                    <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <span>Resta automáticamente de los días laborados. El valor es <strong>Salario Base ÷ 30 × Días</strong> (sin auxilio de transporte según Art. 192 CST).</span>
+                                </div>
                             </div>
                         </div>
 

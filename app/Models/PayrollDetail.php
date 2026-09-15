@@ -42,6 +42,8 @@ class PayrollDetail extends Model
             'commissions' => 'decimal:2',
             'bonuses' => 'decimal:2',
             'non_salary_bonuses' => 'decimal:2',
+            'vacation_days' => 'decimal:2',
+            'vacation_value' => 'decimal:2',
             'other_income' => 'decimal:2',
             'health_employee' => 'decimal:2',
             'pension_employee' => 'decimal:2',

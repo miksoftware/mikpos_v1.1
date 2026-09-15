@@ -75,6 +75,9 @@ class PayrollCalculatorService
             };
         }
 
+        // Merge con los días de vacaciones ingresados directamente en la novedad del detalle
+        $vacationDays = max($vacationDays, (float) ($detail->vacation_days ?? 0));
+
         $workedDays = max(0, $totalDays - $disabilityDays - $vacationDays - $unpaidDays);
         $detail->worked_days = $workedDays;
 

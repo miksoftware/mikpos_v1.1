@@ -60,6 +60,7 @@ class Payrolls extends Component
     // Novedad form
     public $isNovedadModalOpen = false;
     public $selectedDetailId = null;
+    public $novedad_vacation_days = 0;
     public $novedad_overtime_daytime_hours = 0;
     public $novedad_overtime_nighttime_hours = 0;
     public $novedad_overtime_sunday_daytime_hours = 0;
@@ -492,6 +493,7 @@ class Payrolls extends Component
         $detail = PayrollDetail::with('employee')->findOrFail($detailId);
         $this->selectedDetailId = $detailId;
         $this->novedadEmployeeName = $detail->employee->full_name;
+        $this->novedad_vacation_days = (float) $detail->vacation_days;
         $this->novedad_overtime_daytime_hours = (float) $detail->overtime_daytime_hours;
         $this->novedad_overtime_nighttime_hours = (float) $detail->overtime_nighttime_hours;
         $this->novedad_overtime_sunday_daytime_hours = (float) $detail->overtime_sunday_daytime_hours;
@@ -530,6 +532,7 @@ class Payrolls extends Component
             return;
         }
 
+        $detail->vacation_days = (float) $this->novedad_vacation_days;
         $detail->overtime_daytime_hours = (float) $this->novedad_overtime_daytime_hours;
         $detail->overtime_nighttime_hours = (float) $this->novedad_overtime_nighttime_hours;
         $detail->overtime_sunday_daytime_hours = (float) $this->novedad_overtime_sunday_daytime_hours;
