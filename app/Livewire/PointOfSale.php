@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use Livewire\Component;
+use App\Models\Branch;
 use App\Models\Product;
 use App\Models\Discount;
 use App\Models\ProductChild;
@@ -95,6 +96,9 @@ class PointOfSale extends Component
     
     // Branch
     public $branchId = null;
+    public $availableBranches = [];
+    public $availableCashRegisters = [];
+    public $cashRegisterId = null;
 
     // Variant selection modal
     public $showVariantModal = false;
@@ -148,26 +152,23 @@ class PointOfSale extends Component
     public function mount()
     {
         $user = auth()->user();
-        $this->branchId = $user->branch_id;
+
+        if ($user->isSuperAdmin()) {
+            $this->availableBranches = Branch::where('is_active', true)->orderBy('name')->get()->toArray();
+            $this->branchId = $user->branch_id ?: null;
+        } else {
+            $this->branchId = $user->branch_id;
+        }
         
         // Load held orders from session
         $this->heldOrders = session()->get('pos_held_orders_' . $user->id, []);
         
-        // Check if user has assigned cash register
-        $this->cashRegister = CashRegister::where('user_id', $user->id)
-            ->where('is_active', true)
-            ->first();
-        
-        if ($this->cashRegister) {
-            $this->branchId = $this->cashRegister->branch_id;
-            $this->openReconciliation = CashReconciliation::getOpenReconciliation($this->cashRegister->id);
-            $this->needsReconciliation = !$this->openReconciliation;
-        } else {
-            $this->needsReconciliation = true;
-        }
+        $this->loadCashRegisterForBranch();
         
         // Load default customer
-        $this->loadDefaultCustomer();
+        if ($this->branchId) {
+            $this->loadDefaultCustomer();
+        }
 
         // Check if POS was opened from a quote conversion
         $quoteId = request()->query('from_quote');
@@ -176,18 +177,132 @@ class PointOfSale extends Component
         }
 
         // Load branch users for seller dropdown
-        $this->branchUsers = \App\Models\User::where(function($query) use ($user) {
-                $query->where('branch_id', $this->branchId)
-                      ->orWhereNull('branch_id');
-            })
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
+        $this->loadBranchUsers();
             
         // Set default seller to current user
         if (!$this->sellerId) {
             $this->sellerId = $user->id;
         }
+    }
+
+    public function loadCashRegisterForBranch(): void
+    {
+        $user = auth()->user();
+        $this->availableCashRegisters = [];
+        $this->cashRegister = null;
+        $this->openReconciliation = null;
+        $this->needsReconciliation = true;
+
+        if (!$this->branchId) {
+            $this->cashRegisterId = null;
+            return;
+        }
+
+        $branchRegisters = CashRegister::where('branch_id', $this->branchId)
+            ->where('is_active', true)
+            ->get();
+
+        $this->availableCashRegisters = $branchRegisters->toArray();
+
+        // If a specific register was previously selected and is in this branch
+        if ($this->cashRegisterId) {
+            $selected = $branchRegisters->firstWhere('id', (int) $this->cashRegisterId);
+            if ($selected) {
+                $this->cashRegister = $selected;
+            }
+        }
+
+        // 1. Check if user has an assigned register in this branch
+        if (!$this->cashRegister) {
+            $this->cashRegister = $branchRegisters->firstWhere('user_id', $user->id);
+        }
+
+        // 2. If super admin, check if any register in this branch currently has an open reconciliation
+        if (!$this->cashRegister && $user->isSuperAdmin()) {
+            $openRecon = CashReconciliation::where('branch_id', $this->branchId)
+                ->where('status', 'open')
+                ->latest()
+                ->first();
+            if ($openRecon) {
+                $this->cashRegister = $branchRegisters->firstWhere('id', $openRecon->cash_register_id);
+            }
+        }
+
+        // 3. Fallback to first active register in branch
+        if (!$this->cashRegister && $branchRegisters->isNotEmpty()) {
+            $this->cashRegister = $branchRegisters->first();
+        }
+
+        if ($this->cashRegister) {
+            $this->cashRegisterId = $this->cashRegister->id;
+            $this->openReconciliation = CashReconciliation::getOpenReconciliation($this->cashRegister->id);
+            $this->needsReconciliation = !$this->openReconciliation;
+        } else {
+            $this->cashRegisterId = null;
+            $this->needsReconciliation = true;
+        }
+    }
+
+    public function updatedBranchId(): void
+    {
+        // When super_admin changes branch, clear cart and reload dependencies
+        $this->cart = [];
+        $this->customerId = null;
+        $this->selectedCustomer = null;
+        $this->productSearch = '';
+        $this->customerSearch = '';
+        $this->selectedCategory = null;
+        $this->globalDiscountApplied = false;
+        $this->globalDiscountAmount = 0;
+        $this->globalDiscountValue = '';
+        $this->globalDiscountReason = '';
+        $this->cashRegisterId = null;
+
+        $this->loadCashRegisterForBranch();
+        $this->loadBranchUsers();
+
+        if ($this->branchId) {
+            $this->loadDefaultCustomer();
+        }
+    }
+
+    public function updatedCashRegisterId(): void
+    {
+        if ($this->cashRegisterId) {
+            $this->cashRegister = CashRegister::find($this->cashRegisterId);
+            if ($this->cashRegister) {
+                $this->openReconciliation = CashReconciliation::getOpenReconciliation($this->cashRegister->id);
+                $this->needsReconciliation = !$this->openReconciliation;
+            }
+        }
+    }
+
+    public function loadBranchUsers(): void
+    {
+        $this->branchUsers = \App\Models\User::where(function($query) {
+                if ($this->branchId) {
+                    $query->where('branch_id', $this->branchId)
+                          ->orWhereNull('branch_id');
+                } else {
+                    $query->whereNull('branch_id');
+                }
+            })
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function getSelectedBranchNameProperty(): string
+    {
+        if ($this->branchId) {
+            foreach ($this->availableBranches as $b) {
+                if ($b['id'] == $this->branchId) {
+                    return $b['name'];
+                }
+            }
+            return auth()->user()->branch?->name ?? (Branch::find($this->branchId)?->name ?? 'MikPOS');
+        }
+        return auth()->user()->branch?->name ?? 'MikPOS';
     }
 
     /**
@@ -301,6 +416,12 @@ class PointOfSale extends Component
 
     public function loadDefaultCustomer()
     {
+        if (!$this->branchId) {
+            $this->customerId = null;
+            $this->selectedCustomer = null;
+            return;
+        }
+
         $defaultCustomer = Customer::where('is_default', true)
             ->forBranch($this->branchId)
             ->first();
@@ -311,6 +432,9 @@ class PointOfSale extends Component
             if ($defaultCustomer->seller_id) {
                 $this->sellerId = $defaultCustomer->seller_id;
             }
+        } else {
+            $this->customerId = null;
+            $this->selectedCustomer = null;
         }
     }
 
@@ -524,6 +648,11 @@ class PointOfSale extends Component
             return;
         }
 
+        if (!$this->branchId) {
+            $this->dispatch('notify', message: 'Selecciona una sucursal primero', type: 'warning');
+            return;
+        }
+
         // Search in product_barcodes table (case-insensitive for safety)
         $barcodeRecord = ProductBarcode::where(DB::raw('LOWER(barcode)'), strtolower($barcode))
             ->where(function ($q) {
@@ -704,6 +833,11 @@ class PointOfSale extends Component
 
     public function addToCart($productId, $childId = null, $locationId = null, $locationName = null, $locationMaxStock = null)
     {
+        if (!$this->branchId) {
+            $this->dispatch('notify', message: 'Selecciona una sucursal primero', type: 'warning');
+            return;
+        }
+
         $product = Product::with(['tax', 'unit', 'locations', 'children' => function ($q) {
             $q->where('is_active', true);
         }])->find($productId);
@@ -1082,6 +1216,11 @@ class PointOfSale extends Component
 
     public function addServiceToCart($serviceId)
     {
+        if (!$this->branchId) {
+            $this->dispatch('notify', message: 'Selecciona una sucursal primero', type: 'warning');
+            return;
+        }
+
         $service = Service::with('tax')->find($serviceId);
         
         if (!$service) return;
@@ -1143,6 +1282,11 @@ class PointOfSale extends Component
 
     public function addComboToCart($comboId)
     {
+        if (!$this->branchId) {
+            $this->dispatch('notify', message: 'Selecciona una sucursal primero', type: 'warning');
+            return;
+        }
+
         $combo = Combo::with(['items.product', 'items.productChild'])->find($comboId);
         
         if (!$combo || !$combo->isAvailable()) {
@@ -1505,7 +1649,7 @@ class PointOfSale extends Component
     protected function applyAutoDiscount(string $cartKey, Product $product): void
     {
         $user = auth()->user();
-        $branchId = $user->isSuperAdmin() ? ($user->branch_id ?? $product->branch_id) : $user->branch_id;
+        $branchId = $this->branchId ?? ($user->isSuperAdmin() ? ($user->branch_id ?? $product->branch_id) : $user->branch_id);
 
         $discount = Discount::findBestForProduct($product, $branchId);
         if (!$discount) return;
@@ -1949,6 +2093,11 @@ class PointOfSale extends Component
             return;
         }
         
+        if (!$this->branchId) {
+            $this->dispatch('notify', message: 'Debes seleccionar una sucursal para continuar', type: 'error');
+            return;
+        }
+
         if ($this->needsReconciliation) {
             $this->dispatch('notify', message: 'Debes abrir caja antes de vender', type: 'error');
             return;
@@ -2554,172 +2703,174 @@ class PointOfSale extends Component
         // Build combined list of sellable items (parents without children + all children)
         $sellableItems = collect();
         
-        // Query for products with stock or products that don't manage inventory
-        $productsQuery = Product::with(['category', 'brand', 'tax', 'unit', 'children' => function ($q) {
-                $q->where('is_active', true);
-            }])
-            ->where('is_active', true)
-            ->where('show_in_pos', true)
-            ->where(function ($q) {
-                $q->where('manages_inventory', false)
-                  ->orWhere('current_stock', '>', 0);
-            })
-            ->forBranch($this->branchId);
-        
-        if ($this->selectedCategory) {
-            $productsQuery->where('category_id', $this->selectedCategory);
-        }
-        
-        if (strlen(trim($this->productSearch)) >= 2) {
-            $search = trim($this->productSearch);
-            $productsQuery->where(function ($q) use ($search) {
-                $q->where('name', 'like', '%' . $search . '%')
-                  ->orWhere('sku', 'like', '%' . $search . '%')
-                  ->orWhere('barcode', 'like', '%' . $search . '%')
-                  ->orWhereHas('children', function ($cq) use ($search) {
-                      $cq->where('is_active', true)
-                         ->where(function ($ccq) use ($search) {
-                             $ccq->where('name', 'like', '%' . $search . '%')
-                                 ->orWhere('sku', 'like', '%' . $search . '%')
-                                 ->orWhere('barcode', 'like', '%' . $search . '%');
-                         });
-                  });
-            });
-        }
-        
-        $products = $productsQuery->orderBy('name')->limit(50)->get();
-        
-        // Build sellable items list
-        foreach ($products as $product) {
-            if ($product->children->isEmpty()) {
-                // Product without children - add as sellable item
-                $sellableItems->push([
-                    'type' => 'product',
-                    'id' => $product->id,
-                    'child_id' => null,
-                    'name' => $product->name,
-                    'sku' => $product->sku,
-                    'brand' => $product->brand?->name,
-                    'price' => $product->price_includes_tax 
-                        ? $product->sale_price 
-                        : $product->getSalePriceWithTax(),
-                    'stock' => (float) $product->current_stock,
-                    'manages_inventory' => (bool) $product->manages_inventory,
-                    'image' => $product->image,
-                    'unit' => $product->unit?->abbreviation ?? 'UND',
-                ]);
-            } else {
-                // Product with children - add parent AND each child separately
-                // Add parent (can be sold at parent price)
-                $sellableItems->push([
-                    'type' => 'product',
-                    'id' => $product->id,
-                    'child_id' => null,
-                    'name' => $product->name,
-                    'sku' => $product->sku,
-                    'brand' => $product->brand?->name,
-                    'price' => $product->price_includes_tax 
-                        ? $product->sale_price 
-                        : $product->getSalePriceWithTax(),
-                    'stock' => (float) $product->current_stock,
-                    'manages_inventory' => (bool) $product->manages_inventory,
-                    'image' => $product->image,
-                    'unit' => $product->unit?->abbreviation ?? 'UND',
-                    'has_variants' => true,
-                    'variant_count' => $product->children->count(),
-                ]);
-                
-                // Add each child
-                foreach ($product->children as $child) {
+        if ($this->branchId) {
+            // Query for products with stock or products that don't manage inventory
+            $productsQuery = Product::with(['category', 'brand', 'tax', 'unit', 'children' => function ($q) {
+                    $q->where('is_active', true);
+                }])
+                ->where('is_active', true)
+                ->where('show_in_pos', true)
+                ->where(function ($q) {
+                    $q->where('manages_inventory', false)
+                      ->orWhere('current_stock', '>', 0);
+                })
+                ->forBranch($this->branchId);
+            
+            if ($this->selectedCategory) {
+                $productsQuery->where('category_id', $this->selectedCategory);
+            }
+            
+            if (strlen(trim($this->productSearch)) >= 2) {
+                $search = trim($this->productSearch);
+                $productsQuery->where(function ($q) use ($search) {
+                    $q->where('name', 'like', '%' . $search . '%')
+                      ->orWhere('sku', 'like', '%' . $search . '%')
+                      ->orWhere('barcode', 'like', '%' . $search . '%')
+                      ->orWhereHas('children', function ($cq) use ($search) {
+                          $cq->where('is_active', true)
+                             ->where(function ($ccq) use ($search) {
+                                 $ccq->where('name', 'like', '%' . $search . '%')
+                                     ->orWhere('sku', 'like', '%' . $search . '%')
+                                     ->orWhere('barcode', 'like', '%' . $search . '%');
+                             });
+                      });
+                });
+            }
+            
+            $products = $productsQuery->orderBy('name')->limit(50)->get();
+            
+            // Build sellable items list
+            foreach ($products as $product) {
+                if ($product->children->isEmpty()) {
+                    // Product without children - add as sellable item
                     $sellableItems->push([
-                        'type' => 'child',
+                        'type' => 'product',
                         'id' => $product->id,
-                        'child_id' => $child->id,
-                        'name' => $child->name,
-                        'parent_name' => $product->name,
-                        'sku' => $child->sku,
+                        'child_id' => null,
+                        'name' => $product->name,
+                        'sku' => $product->sku,
                         'brand' => $product->brand?->name,
-                        'price' => $child->price_includes_tax 
-                            ? $child->sale_price 
-                            : $child->getSalePriceWithTax(),
-                        'stock' => (float) $product->current_stock, // Stock is at parent level
+                        'price' => $product->price_includes_tax 
+                            ? $product->sale_price 
+                            : $product->getSalePriceWithTax(),
+                        'stock' => (float) $product->current_stock,
                         'manages_inventory' => (bool) $product->manages_inventory,
-                        'image' => $child->image ?? $product->image,
+                        'image' => $product->image,
                         'unit' => $product->unit?->abbreviation ?? 'UND',
                     ]);
+                } else {
+                    // Product with children - add parent AND each child separately
+                    // Add parent (can be sold at parent price)
+                    $sellableItems->push([
+                        'type' => 'product',
+                        'id' => $product->id,
+                        'child_id' => null,
+                        'name' => $product->name,
+                        'sku' => $product->sku,
+                        'brand' => $product->brand?->name,
+                        'price' => $product->price_includes_tax 
+                            ? $product->sale_price 
+                            : $product->getSalePriceWithTax(),
+                        'stock' => (float) $product->current_stock,
+                        'manages_inventory' => (bool) $product->manages_inventory,
+                        'image' => $product->image,
+                        'unit' => $product->unit?->abbreviation ?? 'UND',
+                        'has_variants' => true,
+                        'variant_count' => $product->children->count(),
+                    ]);
+                    
+                    // Add each child
+                    foreach ($product->children as $child) {
+                        $sellableItems->push([
+                            'type' => 'child',
+                            'id' => $product->id,
+                            'child_id' => $child->id,
+                            'name' => $child->name,
+                            'parent_name' => $product->name,
+                            'sku' => $child->sku,
+                            'brand' => $product->brand?->name,
+                            'price' => $child->price_includes_tax 
+                                ? $child->sale_price 
+                                : $child->getSalePriceWithTax(),
+                            'stock' => (float) $product->current_stock, // Stock is at parent level
+                            'manages_inventory' => (bool) $product->manages_inventory,
+                            'image' => $child->image ?? $product->image,
+                            'unit' => $product->unit?->abbreviation ?? 'UND',
+                        ]);
+                    }
                 }
             }
-        }
-        
-        // Add services to sellable items
-        $servicesQuery = Service::with(['category', 'tax'])
-            ->where('is_active', true)
-            ->forBranch($this->branchId);
-        
-        if ($this->selectedCategory) {
-            $servicesQuery->where('category_id', $this->selectedCategory);
-        }
-        
-        if (strlen(trim($this->productSearch)) >= 2) {
-            $search = trim($this->productSearch);
-            $servicesQuery->where(function ($q) use ($search) {
-                $q->where('name', 'like', '%' . $search . '%')
-                  ->orWhere('sku', 'like', '%' . $search . '%')
-                  ->orWhere('description', 'like', '%' . $search . '%');
-            });
-        }
-        
-        $services = $servicesQuery->orderBy('name')->limit(20)->get();
-        
-        foreach ($services as $service) {
-            $sellableItems->push([
-                'type' => 'service',
-                'id' => $service->id,
-                'child_id' => null,
-                'name' => $service->name,
-                'sku' => $service->sku,
-                'brand' => null,
-                'price' => $service->price_includes_tax 
-                    ? $service->sale_price 
-                    : $service->getSalePriceWithTax(),
-                'stock' => null, // Services have no stock
-                'image' => $service->image,
-                'unit' => 'SRV',
-            ]);
-        }
-
-        // Add combos to sellable items
-        $combosQuery = Combo::with(['items.product'])
-            ->available()
-            ->forBranch($this->branchId);
-
-        if (strlen(trim($this->productSearch)) >= 2) {
-            $search = trim($this->productSearch);
-            $combosQuery->where(function ($q) use ($search) {
-                $q->where('name', 'like', '%' . $search . '%')
-                  ->orWhere('description', 'like', '%' . $search . '%');
-            });
-        }
-
-        $combos = $combosQuery->orderBy('name')->limit(20)->get();
-
-        foreach ($combos as $combo) {
-            if ($combo->hasStock()) {
+            
+            // Add services to sellable items
+            $servicesQuery = Service::with(['category', 'tax'])
+                ->where('is_active', true)
+                ->forBranch($this->branchId);
+            
+            if ($this->selectedCategory) {
+                $servicesQuery->where('category_id', $this->selectedCategory);
+            }
+            
+            if (strlen(trim($this->productSearch)) >= 2) {
+                $search = trim($this->productSearch);
+                $servicesQuery->where(function ($q) use ($search) {
+                    $q->where('name', 'like', '%' . $search . '%')
+                      ->orWhere('sku', 'like', '%' . $search . '%')
+                      ->orWhere('description', 'like', '%' . $search . '%');
+                });
+            }
+            
+            $services = $servicesQuery->orderBy('name')->limit(20)->get();
+            
+            foreach ($services as $service) {
                 $sellableItems->push([
-                    'type' => 'combo',
-                    'id' => $combo->id,
+                    'type' => 'service',
+                    'id' => $service->id,
                     'child_id' => null,
-                    'name' => $combo->name,
-                    'sku' => 'COMBO-' . $combo->id,
+                    'name' => $service->name,
+                    'sku' => $service->sku,
                     'brand' => null,
-                    'price' => (float) $combo->combo_price,
-                    'original_price' => (float) $combo->original_price,
-                    'savings_pct' => $combo->getSavingsPercentage(),
-                    'stock' => null,
-                    'image' => $combo->image,
-                    'unit' => 'COMBO',
-                    'items_count' => $combo->getTotalProductsCount(),
+                    'price' => $service->price_includes_tax 
+                        ? $service->sale_price 
+                        : $service->getSalePriceWithTax(),
+                    'stock' => null, // Services have no stock
+                    'image' => $service->image,
+                    'unit' => 'SRV',
                 ]);
+            }
+
+            // Add combos to sellable items
+            $combosQuery = Combo::with(['items.product'])
+                ->available()
+                ->forBranch($this->branchId);
+
+            if (strlen(trim($this->productSearch)) >= 2) {
+                $search = trim($this->productSearch);
+                $combosQuery->where(function ($q) use ($search) {
+                    $q->where('name', 'like', '%' . $search . '%')
+                      ->orWhere('description', 'like', '%' . $search . '%');
+                });
+            }
+
+            $combos = $combosQuery->orderBy('name')->limit(20)->get();
+
+            foreach ($combos as $combo) {
+                if ($combo->hasStock()) {
+                    $sellableItems->push([
+                        'type' => 'combo',
+                        'id' => $combo->id,
+                        'child_id' => null,
+                        'name' => $combo->name,
+                        'sku' => 'COMBO-' . $combo->id,
+                        'brand' => null,
+                        'price' => (float) $combo->combo_price,
+                        'original_price' => (float) $combo->original_price,
+                        'savings_pct' => $combo->getSavingsPercentage(),
+                        'stock' => null,
+                        'image' => $combo->image,
+                        'unit' => 'COMBO',
+                        'items_count' => $combo->getTotalProductsCount(),
+                    ]);
+                }
             }
         }
         

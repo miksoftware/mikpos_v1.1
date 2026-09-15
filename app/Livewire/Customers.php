@@ -320,13 +320,15 @@ class Customers extends Component
             'dv.digits' => 'El DV debe ser de un solo dígito (0-9)',
         ]);
 
-        // If setting as default, remove default from other customers
-        if ($this->is_default) {
-            Customer::where('is_default', true)->update(['is_default' => false]);
-        }
-
         // Determine branch_id
         $branchId = $this->needsBranchSelection ? $this->branch_id : auth()->user()->branch_id;
+
+        // If setting as default, remove default from other customers in this branch
+        if ($this->is_default) {
+            Customer::where('branch_id', $branchId)
+                ->where('is_default', true)
+                ->update(['is_default' => false]);
+        }
 
         $oldValues = $isNew ? null : Customer::find($this->itemId)->toArray();
         $item = Customer::updateOrCreate(['id' => $this->itemId], [

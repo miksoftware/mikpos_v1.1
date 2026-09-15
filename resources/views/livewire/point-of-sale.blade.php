@@ -21,7 +21,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
                     </svg>
                 </div>
-                <span class="text-white font-bold">{{ auth()->user()->branch?->name ?? 'MikPOS' }}</span>
+                <span class="text-white font-bold">{{ $this->selectedBranchName }}</span>
             </div>
         </div>
         <div class="flex items-center gap-4">
@@ -48,6 +48,37 @@
         </div>
     </header>
 
+    <!-- Branch selector for super_admin -->
+    @if(auth()->user()->isSuperAdmin() && count($availableBranches) > 0)
+    <div class="bg-amber-50 border-b border-amber-200 px-4 py-2 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+        <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            <span class="text-sm font-medium text-amber-800">Sucursal:</span>
+            <select wire:model.live="branchId" class="px-3 py-1.5 border border-amber-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-medium">
+                <option value="">Seleccionar sucursal...</option>
+                @foreach($availableBranches as $branch)
+                    <option value="{{ $branch['id'] }}">{{ $branch['name'] }}</option>
+                @endforeach
+            </select>
+            @if(!$branchId)
+                <span class="text-xs text-amber-700">Debes seleccionar una sucursal para operar en el POS</span>
+            @endif
+        </div>
+        @if($branchId && count($availableCashRegisters) > 1)
+        <div class="flex items-center gap-2">
+            <span class="text-xs font-medium text-amber-800">Caja:</span>
+            <select wire:model.live="cashRegisterId" class="px-2.5 py-1 border border-amber-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-amber-500 font-medium">
+                @foreach($availableCashRegisters as $cr)
+                    <option value="{{ $cr['id'] }}">{{ $cr['name'] }}</option>
+                @endforeach
+            </select>
+        </div>
+        @endif
+    </div>
+    @endif
+
     <!-- Main Content -->
     <div class="flex-1 flex overflow-hidden relative">
         <!-- Left Panel - Cart (50%) -->
@@ -69,7 +100,7 @@
             </div>
             @endif
 
-            @if($needsReconciliation)
+            @if($needsReconciliation && $branchId)
             <div class="p-2 sm:p-4 bg-amber-50 border-b border-amber-200">
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-2 sm:gap-3 text-amber-700">
@@ -556,14 +587,20 @@
                     @endforeach
                 </div>
                 @else
-                <div class="h-full flex flex-col items-center justify-center text-slate-400">
+                <div class="h-full flex flex-col items-center justify-center text-slate-400 py-16">
                     <div class="w-24 h-24 mb-4 rounded-full bg-gradient-to-br from-[#ff7261]/10 to-[#a855f7]/10 flex items-center justify-center">
+                        @if(!$branchId)
+                        <svg class="w-12 h-12 text-amber-500/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                        @else
                         <svg class="w-12 h-12 text-[#a855f7]/30" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm-1 14H5c-.55 0-1-.45-1-1V7c0-.55.45-1 1-1h14c.55 0 1 .45 1 1v10c0 .55-.45 1-1 1z"/>
                         </svg>
+                        @endif
                     </div>
-                    <p class="text-lg font-medium">No hay productos</p>
-                    <p class="text-sm">{{ $productSearch ? 'No se encontraron resultados' : 'Selecciona una categoría o busca productos' }}</p>
+                    <p class="text-lg font-medium text-slate-700">{{ !$branchId ? 'Selecciona una sucursal' : 'No hay productos' }}</p>
+                    <p class="text-sm text-slate-500 mt-1">{{ !$branchId ? 'Debes seleccionar una sucursal en la barra superior para ver los productos y operar la caja' : ($productSearch ? 'No se encontraron resultados' : 'Selecciona una categoría o busca productos') }}</p>
                 </div>
                 @endif
             </div>

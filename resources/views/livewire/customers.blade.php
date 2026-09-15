@@ -396,9 +396,9 @@
                                 <div class="pt-2 border-t border-slate-100">
                                     <label class="flex items-center gap-2 cursor-pointer">
                                         <input wire:model="is_default" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
-                                        <span class="text-sm text-slate-700">Marcar como cliente por defecto (DIAN)</span>
+                                        <span class="text-sm text-slate-700">Marcar como cliente por defecto para esta sucursal (DIAN)</span>
                                     </label>
-                                    <p class="text-xs text-slate-500 mt-1 ml-6">Solo puede haber un cliente por defecto en el sistema</p>
+                                    <p class="text-xs text-slate-500 mt-1 ml-6">Solo puede haber un cliente por defecto por cada sucursal</p>
                                 </div>
                             </div>
                         </div>
