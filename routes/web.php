@@ -129,14 +129,16 @@ Route::post('/logout', function () {
     return redirect('/login');
 })->name('logout');
 
-// Fallback generic /shop: Redirect to active or first available branch store
-Route::get('/shop', function () {
+// Fallback generic /shop routes: Redirect to active or first available branch store
+Route::get('/shop/{path?}', function (?string $path = null) {
     $branch = \App\Models\Branch::getEcommerceBranch();
     if ($branch) {
-        return redirect()->route('shop.catalog', ['branch_slug' => $branch->slug]);
+        $branchSlug = $branch->slug ?: \Illuminate\Support\Str::slug($branch->name ?: 'sucursal-' . $branch->id);
+        $target = $path ? "/{$branchSlug}/shop/{$path}" : "/{$branchSlug}/shop";
+        return redirect($target);
     }
     abort(503, 'La tienda en línea no está disponible en este momento.');
-});
+})->where('path', '.*');
 
 // E-commerce routes per branch (/{branch_slug}/shop)
 Route::prefix('{branch_slug}/shop')->group(function () {

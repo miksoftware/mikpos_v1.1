@@ -10,10 +10,12 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use App\Livewire\Shop\Concerns\WithShopBranch;
 
 #[Layout('layouts.shop')]
 class Profile extends Component
 {
+    use WithShopBranch;
     public string $customer_type = 'natural';
     public string $tax_document_id = '';
     public string $document_number = '';

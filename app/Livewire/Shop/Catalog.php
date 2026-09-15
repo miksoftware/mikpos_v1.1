@@ -12,11 +12,13 @@ use Livewire\Attributes\Url;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
+use App\Livewire\Shop\Concerns\WithShopBranch;
 
 #[Layout('layouts.shop')]
 class Catalog extends Component
 {
     use WithPagination;
+    use WithShopBranch;
 
     #[Url(as: 'q')]
     public string $search = '';
@@ -315,6 +317,7 @@ class Catalog extends Component
             'categories' => $categories,
             'brands' => $brands,
             'showStockInShop' => $showStockInShop,
+            'branch' => $branch,
         ]);
     }
 

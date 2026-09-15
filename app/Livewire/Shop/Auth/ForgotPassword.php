@@ -8,10 +8,12 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use App\Livewire\Shop\Concerns\WithShopBranch;
 
 #[Layout('layouts.shop')]
 class ForgotPassword extends Component
 {
+    use WithShopBranch;
     // Step 1: Verify identity
     public string $document_number = '';
     public string $email = '';

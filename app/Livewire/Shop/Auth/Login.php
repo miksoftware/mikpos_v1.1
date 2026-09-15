@@ -5,10 +5,12 @@ namespace App\Livewire\Shop\Auth;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use App\Livewire\Shop\Concerns\WithShopBranch;
 
 #[Layout('layouts.shop')]
 class Login extends Component
 {
+    use WithShopBranch;
     public string $email = '';
     public string $password = '';
 

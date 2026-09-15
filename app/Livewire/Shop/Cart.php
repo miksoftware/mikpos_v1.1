@@ -6,10 +6,12 @@ use App\Models\Product;
 use App\Models\ProductChild;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use App\Livewire\Shop\Concerns\WithShopBranch;
 
 #[Layout('layouts.shop')]
 class Cart extends Component
 {
+    use WithShopBranch;
     public array $items = [];
 
     public function mount(): void

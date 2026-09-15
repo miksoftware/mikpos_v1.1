@@ -3,12 +3,14 @@
 namespace App\Livewire\Shop;
 
 use App\Models\Product;
+use App\Livewire\Shop\Concerns\WithShopBranch;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
 #[Layout('layouts.shop')]
 class ProductDetail extends Component
 {
+    use WithShopBranch;
     public Product $product;
     public ?int $selectedVariantId = null;
     public int $quantity = 1;

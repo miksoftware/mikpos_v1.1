@@ -6,10 +6,12 @@ use App\Models\Sale;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use App\Livewire\Shop\Concerns\WithShopBranch;
 
 #[Layout('layouts.shop')]
 class OrderConfirmation extends Component
 {
+    use WithShopBranch;
     public Sale $sale;
 
     public function mount(Sale $sale): void

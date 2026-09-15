@@ -7,11 +7,13 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
+use App\Livewire\Shop\Concerns\WithShopBranch;
 
 #[Layout('layouts.shop')]
 class Orders extends Component
 {
     use WithPagination;
+    use WithShopBranch;
 
     public ?int $selectedSaleId = null;
 

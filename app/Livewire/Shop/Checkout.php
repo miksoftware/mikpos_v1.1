@@ -9,10 +9,12 @@ use App\Services\EcommerceCheckoutService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use App\Livewire\Shop\Concerns\WithShopBranch;
 
 #[Layout('layouts.shop')]
 class Checkout extends Component
 {
+    use WithShopBranch;
     public array $items = [];
 
     // Shipping
@@ -33,7 +35,8 @@ class Checkout extends Component
 
         if (empty($this->items)) {
             $this->dispatch('notify', message: 'Tu carrito está vacío', type: 'warning');
-            $this->redirect('/shop', navigate: true);
+            $branchSlug = session('ecommerce_branch_slug') ?: \App\Models\Branch::getEcommerceBranch()?->slug;
+            $this->redirectRoute('shop.catalog', ['branch_slug' => $branchSlug], navigate: true);
             return;
         }
 
@@ -112,7 +115,8 @@ class Checkout extends Component
             session()->forget('ecommerce_cart');
             $this->dispatch('cart-updated', count: 0);
 
-            $this->redirect("/shop/order/{$sale->id}", navigate: true);
+            $branchSlug = session('ecommerce_branch_slug') ?: \App\Models\Branch::getEcommerceBranch()?->slug;
+            $this->redirectRoute('shop.order', ['branch_slug' => $branchSlug, 'sale' => $sale->id], navigate: true);
         } catch (\Exception $e) {
             $this->dispatch('notify', message: $e->getMessage(), type: 'error');
         }

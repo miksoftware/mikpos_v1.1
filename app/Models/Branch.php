@@ -112,11 +112,23 @@ class Branch extends Model
         if (app()->bound('ecommerce_branch')) {
             $bound = app('ecommerce_branch');
             if ($bound instanceof self && $bound->is_active && $bound->ecommerce_enabled) {
+                $boundSlug = $bound->slug ?: \Illuminate\Support\Str::slug($bound->name ?: 'sucursal-' . $bound->id);
+                \Illuminate\Support\Facades\URL::defaults(['branch_slug' => $boundSlug]);
                 return $bound;
             }
         }
 
         $targetSlug = $slug ?: request()->route('branch_slug');
+
+        if (!$targetSlug && request()->is('livewire/*')) {
+            $referer = request()->header('referer');
+            if ($referer) {
+                $path = parse_url($referer, PHP_URL_PATH) ?? '';
+                if (preg_match('#/([^/]+)/shop#', $path, $matches)) {
+                    $targetSlug = $matches[1];
+                }
+            }
+        }
 
         if ($targetSlug) {
             $branch = self::where(function ($q) use ($targetSlug) {
@@ -127,6 +139,26 @@ class Branch extends Model
             ->first();
 
             if ($branch) {
+                $branchSlug = $branch->slug ?: \Illuminate\Support\Str::slug($branch->name ?: 'sucursal-' . $branch->id);
+                \Illuminate\Support\Facades\URL::defaults(['branch_slug' => $branchSlug]);
+                app()->instance('ecommerce_branch', $branch);
+                return $branch;
+            }
+        }
+
+        $sessionBranchSlug = session('ecommerce_branch_slug');
+        if ($sessionBranchSlug) {
+            $branch = self::where(function ($q) use ($sessionBranchSlug) {
+                $q->where('slug', $sessionBranchSlug)->orWhere('code', $sessionBranchSlug);
+            })
+            ->where('is_active', true)
+            ->where('ecommerce_enabled', true)
+            ->first();
+
+            if ($branch) {
+                $branchSlug = $branch->slug ?: \Illuminate\Support\Str::slug($branch->name ?: 'sucursal-' . $branch->id);
+                \Illuminate\Support\Facades\URL::defaults(['branch_slug' => $branchSlug]);
+                app()->instance('ecommerce_branch', $branch);
                 return $branch;
             }
         }
@@ -139,14 +171,25 @@ class Branch extends Model
                 ->first();
 
             if ($branch) {
+                $branchSlug = $branch->slug ?: \Illuminate\Support\Str::slug($branch->name ?: 'sucursal-' . $branch->id);
+                \Illuminate\Support\Facades\URL::defaults(['branch_slug' => $branchSlug]);
+                app()->instance('ecommerce_branch', $branch);
                 return $branch;
             }
         }
 
         // Fallback: First active branch with ecommerce_enabled in DB
-        return self::where('is_active', true)
+        $fallback = self::where('is_active', true)
             ->where('ecommerce_enabled', true)
             ->first();
+
+        if ($fallback) {
+            $fallbackSlug = $fallback->slug ?: \Illuminate\Support\Str::slug($fallback->name ?: 'sucursal-' . $fallback->id);
+            \Illuminate\Support\Facades\URL::defaults(['branch_slug' => $fallbackSlug]);
+            app()->instance('ecommerce_branch', $fallback);
+        }
+
+        return $fallback;
     }
 
     /**
