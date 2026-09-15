@@ -1,185 +1,216 @@
-<div class="h-[calc(100vh-4rem)] flex flex-col lg:flex-row gap-4 p-4 bg-slate-100">
-    {{-- Left Panel: Product Search & Cart --}}
-    <div class="flex-1 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        {{-- Header --}}
-        <div class="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-[#ff7261]/10 to-[#a855f7]/10">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <a href="{{ route('purchases') }}" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-white rounded-lg transition-colors" title="Volver al listado">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                    </a>
-                    <div>
-                        <h1 class="text-xl font-bold text-slate-800">
-                            @if($isEditing)
-                                Editar Compra {{ $purchase->purchase_number }}
-                            @else
-                                Nueva Compra
-                            @endif
-                        </h1>
-                        <p class="text-sm text-slate-500">
-                            @if($isCompletedEdit)
-                                <span class="text-amber-600 font-medium">⚠️ Editando compra completada</span>
-                            @else
-                                Registra la compra de productos
-                            @endif
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
+<div x-data="{ activeTab: 'products' }" class="flex flex-col gap-3 sm:gap-4">
+    {{-- Mobile / Compact View Switcher (< lg) --}}
+    <div class="lg:hidden flex bg-white rounded-xl p-1 border border-slate-200 shadow-sm shrink-0">
+        <button type="button" @click="activeTab = 'products'" 
+            :class="activeTab === 'products' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow' : 'text-slate-600 hover:text-slate-900'"
+            class="flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+            <span>Productos y Carrito</span>
+            @if(count($cartItems) > 0)
+            <span class="px-1.5 py-0.5 text-[10px] rounded-full bg-white/20 font-bold">{{ count($cartItems) }}</span>
+            @endif
+        </button>
+        <button type="button" @click="activeTab = 'details'" 
+            :class="activeTab === 'details' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow' : 'text-slate-600 hover:text-slate-900'"
+            class="flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <span>Datos y Pago</span>
+            @if($total > 0)
+            <span class="px-1.5 py-0.5 text-[10px] rounded-full bg-white/20 font-bold">${{ number_format($total, 0, ',', '.') }}</span>
+            @endif
+        </button>
+    </div>
 
-        {{-- Warning for completed edit --}}
-        @if($isCompletedEdit)
-        <div class="px-6 py-3 bg-amber-50 border-b border-amber-200">
-            <div class="flex items-center gap-2 text-amber-700">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                <span class="text-sm font-medium">Los cambios en esta compra afectarán el inventario de los productos.</span>
-            </div>
-        </div>
-        @endif
-
-        {{-- Product Search --}}
-        <div class="px-6 py-4 border-b border-slate-100">
-            @if($needsBranchSelection && !$branch_id)
-            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
-                <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <p class="text-sm text-amber-700">Selecciona una sucursal en el panel derecho para buscar productos</p>
-            </div>
-            @else
-            <div class="relative">
-                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                </div>
-                <input 
-                    wire:model.live.debounce.300ms="productSearch" 
-                    wire:keydown.enter="addProductByBarcode"
-                    type="text" 
-                    class="block w-full pl-12 pr-4 py-3 border border-slate-200 rounded-xl bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] transition-all text-lg" 
-                    placeholder="Buscar producto por nombre, SKU o código de barras..."
-                    autofocus>
-                
-                {{-- Search Results Dropdown --}}
-                @if(count($searchResults) > 0)
-                <div class="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl max-h-80 overflow-y-auto">
-                    @foreach($searchResults as $result)
-                    <button type="button" wire:click="addProduct({{ $result['id'] }})" class="w-full px-4 py-3 flex items-center gap-4 hover:bg-gradient-to-r hover:from-[#ff7261]/5 hover:to-[#a855f7]/5 transition-colors text-left border-b border-slate-100 last:border-0">
-                        @if($result['image'])
-                        <img src="{{ Storage::url($result['image']) }}" class="w-12 h-12 rounded-lg object-cover">
-                        @else
-                        <div class="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center">
-                            <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-                        </div>
-                        @endif
-                        <div class="flex-1 min-w-0">
-                            <p class="font-semibold text-slate-800 truncate">{{ $result['name'] }}</p>
-                            <p class="text-sm text-slate-500">
-                                @if($result['sku'])SKU: {{ $result['sku'] }} · @endif
-                                @if($result['category']){{ $result['category'] }} · @endif
-                                Stock: {{ $result['current_stock'] }} {{ $result['unit'] }}
+    {{-- Main Container (Side-by-side on desktop/laptop, toggled/stacked on mobile) --}}
+    <div class="flex flex-col lg:flex-row gap-4 lg:h-[calc(100vh-7.5rem)] lg:min-h-[500px]">
+        {{-- Left Panel: Product Search & Cart --}}
+        <div class="flex-1 min-w-0 flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden"
+             :class="{ 'hidden lg:flex': activeTab !== 'products', 'flex': activeTab === 'products' }">
+            {{-- Header --}}
+            <div class="px-4 sm:px-6 py-3 sm:py-3.5 border-b border-slate-200 bg-gradient-to-r from-[#ff7261]/10 to-[#a855f7]/10 shrink-0">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 sm:gap-4">
+                        <a href="{{ route('purchases') }}" class="p-1.5 sm:p-2 text-slate-400 hover:text-slate-600 hover:bg-white rounded-lg transition-colors" title="Volver al listado">
+                            <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        </a>
+                        <div>
+                            <h1 class="text-lg sm:text-xl font-bold text-slate-800 leading-tight">
+                                @if($isEditing)
+                                    Editar Compra {{ $purchase->purchase_number }}
+                                @else
+                                    Nueva Compra
+                                @endif
+                            </h1>
+                            <p class="text-xs sm:text-sm text-slate-500 leading-tight">
+                                @if($isCompletedEdit)
+                                    <span class="text-amber-600 font-medium">⚠️ Editando compra completada</span>
+                                @else
+                                    Registra la compra de productos
+                                @endif
                             </p>
                         </div>
-                        <div class="text-right">
-                            <span class="text-lg font-bold text-[#ff7261]">${{ number_format($result['purchase_price'], 2) }}</span>
-                            <p class="text-xs text-slate-400">Costo actual</p>
-                        </div>
-                    </button>
-                    @endforeach
-                </div>
-                @elseif(strlen($productSearch) >= 2)
-                {{-- No results - show create option --}}
-                <div class="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl p-4">
-                    <div class="text-center">
-                        <svg class="w-10 h-10 text-slate-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                        <p class="text-sm text-slate-500 mb-3">No se encontró "<span class="font-medium text-slate-700">{{ $productSearch }}</span>"</p>
-                        @if(auth()->user()->hasPermission('products.create'))
-                        <button type="button" wire:click="openQuickCreate" class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] text-white text-sm font-medium rounded-xl transition-all">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                            Crear Producto
-                        </button>
-                        @endif
                     </div>
+                </div>
+            </div>
+
+            {{-- Warning for completed edit --}}
+            @if($isCompletedEdit)
+            <div class="px-4 sm:px-6 py-2.5 bg-amber-50 border-b border-amber-200 shrink-0">
+                <div class="flex items-center gap-2 text-amber-700">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    <span class="text-xs sm:text-sm font-medium">Los cambios en esta compra afectarán el inventario de los productos.</span>
+                </div>
+            </div>
+            @endif
+
+            {{-- Product Search --}}
+            <div class="px-4 sm:px-6 py-3 sm:py-3.5 border-b border-slate-100 shrink-0">
+                @if($needsBranchSelection && !$branch_id)
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 sm:p-4 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2.5 text-amber-700 text-xs sm:text-sm">
+                        <svg class="w-5 h-5 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <span>Selecciona una sucursal en el panel derecho para buscar productos</span>
+                    </div>
+                    <button type="button" @click="activeTab = 'details'" class="lg:hidden px-2.5 py-1 text-xs font-semibold bg-amber-200 text-amber-900 rounded-lg hover:bg-amber-300 transition-colors shrink-0">
+                        Ir a Sucursal &rarr;
+                    </button>
+                </div>
+                @else
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                    <input 
+                        wire:model.live.debounce.300ms="productSearch" 
+                        wire:keydown.enter="addProductByBarcode"
+                        type="text" 
+                        class="block w-full pl-10 sm:pl-11 pr-4 py-2 sm:py-2.5 border border-slate-200 rounded-xl bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] transition-all text-xs sm:text-sm" 
+                        placeholder="Buscar producto por nombre, SKU o código de barras..."
+                        autofocus>
+                    
+                    {{-- Search Results Dropdown --}}
+                    @if(count($searchResults) > 0)
+                    <div class="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl max-h-72 overflow-y-auto">
+                        @foreach($searchResults as $result)
+                        <button type="button" wire:click="addProduct({{ $result['id'] }})" class="w-full px-3 sm:px-4 py-2.5 flex items-center gap-3 hover:bg-gradient-to-r hover:from-[#ff7261]/5 hover:to-[#a855f7]/5 transition-colors text-left border-b border-slate-100 last:border-0">
+                            @if($result['image'])
+                            <img src="{{ Storage::url($result['image']) }}" class="w-10 h-10 sm:w-11 sm:h-11 rounded-lg object-cover shrink-0">
+                            @else
+                            <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                            </div>
+                            @endif
+                            <div class="flex-1 min-w-0">
+                                <p class="font-semibold text-slate-800 text-xs sm:text-sm truncate">{{ $result['name'] }}</p>
+                                <p class="text-[11px] sm:text-xs text-slate-500 truncate">
+                                    @if($result['sku'])SKU: {{ $result['sku'] }} · @endif
+                                    @if($result['category']){{ $result['category'] }} · @endif
+                                    Stock: {{ $result['current_stock'] }} {{ $result['unit'] }}
+                                </p>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <span class="text-sm sm:text-base font-bold text-[#ff7261]">${{ number_format($result['purchase_price'], 2) }}</span>
+                                <p class="text-[10px] text-slate-400">Costo actual</p>
+                            </div>
+                        </button>
+                        @endforeach
+                    </div>
+                    @elseif(strlen($productSearch) >= 2)
+                    {{-- No results - show create option --}}
+                    <div class="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl p-4">
+                        <div class="text-center">
+                            <svg class="w-8 h-8 sm:w-10 sm:h-10 text-slate-300 mx-auto mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            <p class="text-xs sm:text-sm text-slate-500 mb-2.5">No se encontró "<span class="font-medium text-slate-700">{{ $productSearch }}</span>"</p>
+                            @if(auth()->user()->hasPermission('products.create'))
+                            <button type="button" wire:click="openQuickCreate" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] text-white text-xs sm:text-sm font-medium rounded-xl transition-all">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                Crear Producto
+                            </button>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
                 </div>
                 @endif
             </div>
-            @endif
-        </div>
 
-        {{-- Cart Items --}}
-        <div class="flex-1 overflow-y-auto px-6 py-4">
-            @if(count($cartItems) > 0)
-            <div class="space-y-3">
+            {{-- Cart Items List --}}
+            <div class="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 space-y-2.5">
+                @if(count($cartItems) > 0)
                 @foreach($cartItems as $index => $item)
-                <div class="p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors" x-data="{ showDiscount: {{ ($item['discount_type_value'] ?? 0) > 0 ? 'true' : 'false' }} }">
-                    <div class="flex items-center gap-4">
-                        @if($item['image'])
-                        <img src="{{ Storage::url($item['image']) }}" class="w-14 h-14 rounded-lg object-cover">
-                        @else
-                        <div class="w-14 h-14 rounded-lg bg-slate-200 flex items-center justify-center">
-                            <svg class="w-7 h-7 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-                        </div>
-                        @endif
-                        
-                        <div class="flex-1 min-w-0">
-                            <p class="font-semibold text-slate-800 truncate">{{ $item['name'] }}</p>
-                            <p class="text-sm text-slate-500">{{ $item['sku'] ?? 'Sin SKU' }} · {{ $item['unit'] }}</p>
+                <div class="p-3 bg-slate-50 border border-slate-200/80 rounded-xl hover:bg-slate-100/70 transition-colors" x-data="{ showDiscount: {{ ($item['discount_type_value'] ?? 0) > 0 ? 'true' : 'false' }} }">
+                    <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3">
+                        {{-- Product Image & Name --}}
+                        <div class="flex items-center gap-2.5 min-w-0 flex-1 basis-full sm:basis-auto">
+                            @if($item['image'])
+                            <img src="{{ Storage::url($item['image']) }}" class="w-10 h-10 rounded-lg object-cover shrink-0">
+                            @else
+                            <div class="w-10 h-10 rounded-lg bg-slate-200 flex items-center justify-center shrink-0">
+                                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                            </div>
+                            @endif
+                            <div class="min-w-0 flex-1">
+                                <p class="font-semibold text-slate-800 text-xs sm:text-sm truncate">{{ $item['name'] }}</p>
+                                <p class="text-[11px] text-slate-500 truncate">{{ $item['sku'] ?? 'Sin SKU' }} · {{ $item['unit'] }}</p>
+                            </div>
                         </div>
 
                         {{-- Quantity --}}
-                        <div class="flex items-center gap-1">
-                            <button type="button" wire:click="updateQuantity({{ $index }}, {{ $item['quantity'] - 1 }})" class="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                        <div class="flex items-center gap-0.5 shrink-0">
+                            <button type="button" wire:click="updateQuantity({{ $index }}, {{ $item['quantity'] - 1 }})" class="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-600">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
                             </button>
-                            <input type="number" wire:change="updateQuantity({{ $index }}, $event.target.value)" value="{{ $item['quantity'] }}" min="1" class="w-16 text-center py-1.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
-                            <button type="button" wire:click="updateQuantity({{ $index }}, {{ $item['quantity'] + 1 }})" class="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            <input type="number" wire:change="updateQuantity({{ $index }}, $event.target.value)" value="{{ $item['quantity'] }}" min="1" class="w-12 text-center py-1 border border-slate-200 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                            <button type="button" wire:click="updateQuantity({{ $index }}, {{ $item['quantity'] + 1 }})" class="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition-colors text-slate-600">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                             </button>
                         </div>
 
                         @if($hasCostoFe)
                         {{-- Costo FE --}}
-                        <div class="w-24">
-                            <label class="text-xs font-semibold text-purple-600 block mb-1" title="Costo Factura (cálculo de factura de compra)">Costo FE</label>
+                        <div class="w-20 sm:w-22 shrink-0">
+                            <label class="text-[10px] font-semibold text-purple-600 block leading-tight mb-0.5" title="Costo Factura">Costo FE</label>
                             <div class="relative">
-                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-purple-400 text-sm">$</span>
-                                <input type="number" wire:change="updateUnitCostFe({{ $index }}, $event.target.value)" value="{{ $item['unit_cost_fe'] ?? $item['unit_cost'] }}" step="0.01" min="0" class="w-full pl-6 pr-1 py-1.5 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 text-right text-sm bg-purple-50/50 font-medium">
+                                <span class="absolute inset-y-0 left-0 pl-1.5 flex items-center text-purple-400 text-xs">$</span>
+                                <input type="number" wire:change="updateUnitCostFe({{ $index }}, $event.target.value)" value="{{ $item['unit_cost_fe'] ?? $item['unit_cost'] }}" step="0.01" min="0" class="w-full pl-4 pr-1 py-1 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 text-right text-xs bg-purple-50/50 font-medium">
                             </div>
                         </div>
 
                         {{-- Costo RE --}}
-                        <div class="w-24">
-                            <label class="text-xs font-semibold text-slate-600 block mb-1" title="Costo Real (costo del producto y costo promedio)">Costo RE</label>
+                        <div class="w-20 sm:w-22 shrink-0">
+                            <label class="text-[10px] font-semibold text-slate-600 block leading-tight mb-0.5" title="Costo Real">Costo RE</label>
                             <div class="relative">
-                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-slate-400 text-sm">$</span>
-                                <input type="number" wire:change="updateUnitCost({{ $index }}, $event.target.value)" value="{{ $item['unit_cost'] }}" step="0.01" min="0" class="w-full pl-6 pr-1 py-1.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-right text-sm">
+                                <span class="absolute inset-y-0 left-0 pl-1.5 flex items-center text-slate-400 text-xs">$</span>
+                                <input type="number" wire:change="updateUnitCost({{ $index }}, $event.target.value)" value="{{ $item['unit_cost'] }}" step="0.01" min="0" class="w-full pl-4 pr-1 py-1 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-right text-xs">
                             </div>
                         </div>
                         @else
                         {{-- Unit Cost --}}
-                        <div class="w-24">
-                            <label class="text-xs text-slate-500 block mb-1">Costo</label>
+                        <div class="w-20 sm:w-22 shrink-0">
+                            <label class="text-[10px] text-slate-500 block leading-tight mb-0.5">Costo</label>
                             <div class="relative">
-                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-slate-400 text-sm">$</span>
-                                <input type="number" wire:change="updateUnitCost({{ $index }}, $event.target.value)" value="{{ $item['unit_cost'] }}" step="0.01" min="0" class="w-full pl-6 pr-1 py-1.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-right text-sm">
+                                <span class="absolute inset-y-0 left-0 pl-1.5 flex items-center text-slate-400 text-xs">$</span>
+                                <input type="number" wire:change="updateUnitCost({{ $index }}, $event.target.value)" value="{{ $item['unit_cost'] }}" step="0.01" min="0" class="w-full pl-4 pr-1 py-1 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-right text-xs">
                             </div>
                         </div>
                         @endif
 
                         {{-- Sale Price --}}
-                        <div class="w-24">
-                            <label class="text-xs text-slate-500 block mb-1">P. Venta</label>
+                        <div class="w-20 sm:w-22 shrink-0">
+                            <label class="text-[10px] text-slate-500 block leading-tight mb-0.5">P. Venta</label>
                             <div class="relative">
-                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-slate-400 text-sm">$</span>
-                                <input type="number" wire:change="updateSalePrice({{ $index }}, $event.target.value)" value="{{ $item['sale_price'] ?? 0 }}" step="0.01" min="0" class="w-full pl-6 pr-1 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/50 focus:border-green-500 text-right text-sm bg-green-50">
+                                <span class="absolute inset-y-0 left-0 pl-1.5 flex items-center text-slate-400 text-xs">$</span>
+                                <input type="number" wire:change="updateSalePrice({{ $index }}, $event.target.value)" value="{{ $item['sale_price'] ?? 0 }}" step="0.01" min="0" class="w-full pl-4 pr-1 py-1 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/50 focus:border-green-500 text-right text-xs bg-green-50">
                             </div>
                         </div>
 
                         {{-- Location --}}
                         @if(count($locations) > 0)
-                        <div class="w-32">
-                            <label class="text-xs text-slate-500 block mb-1">Ubicación</label>
-                            <select wire:change="updateLocation({{ $index }}, $event.target.value)" class="w-full px-2 py-1.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
+                        <div class="w-24 sm:w-28 shrink-0">
+                            <label class="text-[10px] text-slate-500 block leading-tight mb-0.5">Ubicación</label>
+                            <select wire:change="updateLocation({{ $index }}, $event.target.value)" class="w-full px-1.5 py-1 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-xs">
                                 <option value="">General</option>
                                 @foreach($locations as $location)
                                     <option value="{{ $location->id }}" {{ ($item['location_id'] ?? null) == $location->id ? 'selected' : '' }}>
@@ -191,59 +222,59 @@
                         @endif
 
                         {{-- Subtotal --}}
-                        <div class="w-24 text-right">
-                            <p class="text-xs text-slate-500">Subtotal</p>
-                            <p class="font-bold text-slate-800">${{ number_format($item['subtotal'], 2) }}</p>
+                        <div class="min-w-[70px] text-right shrink-0">
+                            <p class="text-[10px] text-slate-500">Subtotal</p>
+                            <p class="font-bold text-slate-800 text-xs sm:text-sm">${{ number_format($item['subtotal'], 2) }}</p>
                             @if(($item['discount'] ?? 0) > 0)
-                            <p class="text-xs text-amber-600 font-medium">-${{ number_format($item['discount'], 2) }}</p>
+                            <p class="text-[10px] text-amber-600 font-medium">-${{ number_format($item['discount'], 2) }}</p>
                             @endif
                         </div>
 
                         {{-- Discount Toggle + Remove --}}
-                        <div class="flex items-center gap-1">
-                            <button type="button" @click="showDiscount = !showDiscount" class="p-2 rounded-lg transition-colors" :class="showDiscount || {{ ($item['discount_type_value'] ?? 0) > 0 ? 'true' : 'false' }} ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'" title="Descuento">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                        <div class="flex items-center gap-1 shrink-0 ml-auto sm:ml-0">
+                            <button type="button" @click="showDiscount = !showDiscount" class="p-1.5 rounded-lg transition-colors" :class="showDiscount || {{ ($item['discount_type_value'] ?? 0) > 0 ? 'true' : 'false' }} ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'" title="Descuento">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
                             </button>
-                            <button type="button" wire:click="removeItem({{ $index }})" class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            <button type="button" wire:click="removeItem({{ $index }})" class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                             </button>
                         </div>
                     </div>
 
                     {{-- Inline Discount Row --}}
-                    <div x-show="showDiscount" x-collapse class="mt-3 pt-3 border-t border-slate-200">
-                        <div class="flex items-center gap-3">
-                            <span class="text-sm font-medium text-amber-600 flex items-center gap-1.5 whitespace-nowrap">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                    <div x-show="showDiscount" x-collapse class="mt-2 pt-2 border-t border-slate-200">
+                        <div class="flex items-center gap-2 sm:gap-3">
+                            <span class="text-xs font-medium text-amber-600 flex items-center gap-1 whitespace-nowrap">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
                                 Descuento
                             </span>
 
                             {{-- Type Toggle --}}
-                            <div class="flex rounded-lg border border-slate-200 overflow-hidden">
-                                <button type="button" wire:click="updateDiscountType({{ $index }}, 'percentage')" class="px-3 py-1.5 text-xs font-medium transition-colors {{ ($item['discount_type'] ?? 'percentage') === 'percentage' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50' }}">
+                            <div class="flex rounded-lg border border-slate-200 overflow-hidden shrink-0">
+                                <button type="button" wire:click="updateDiscountType({{ $index }}, 'percentage')" class="px-2.5 py-1 text-xs font-medium transition-colors {{ ($item['discount_type'] ?? 'percentage') === 'percentage' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50' }}">
                                     %
                                 </button>
-                                <button type="button" wire:click="updateDiscountType({{ $index }}, 'fixed')" class="px-3 py-1.5 text-xs font-medium transition-colors border-l border-slate-200 {{ ($item['discount_type'] ?? 'percentage') === 'fixed' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50' }}">
+                                <button type="button" wire:click="updateDiscountType({{ $index }}, 'fixed')" class="px-2.5 py-1 text-xs font-medium transition-colors border-l border-slate-200 {{ ($item['discount_type'] ?? 'percentage') === 'fixed' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50' }}">
                                     $
                                 </button>
                             </div>
 
                             {{-- Value Input --}}
-                            <div class="relative w-32">
-                                <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center text-amber-500 text-sm font-medium">{{ ($item['discount_type'] ?? 'percentage') === 'percentage' ? '%' : '$' }}</span>
+                            <div class="relative w-28 shrink-0">
+                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-amber-500 text-xs font-medium">{{ ($item['discount_type'] ?? 'percentage') === 'percentage' ? '%' : '$' }}</span>
                                 <input type="number" 
                                     wire:change="updateDiscount({{ $index }}, $event.target.value)" 
                                     value="{{ ($item['discount_type_value'] ?? 0) > 0 ? $item['discount_type_value'] : '' }}" 
                                     step="0.01" 
                                     min="0" 
                                     max="{{ ($item['discount_type'] ?? 'percentage') === 'percentage' ? '100' : $item['subtotal'] }}"
-                                    class="w-full pl-7 pr-2 py-1.5 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 text-right text-sm bg-amber-50" 
+                                    class="w-full pl-6 pr-2 py-1 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 text-right text-xs bg-amber-50" 
                                     placeholder="0">
                             </div>
 
                             {{-- Calculated discount display --}}
                             @if(($item['discount'] ?? 0) > 0)
-                            <span class="text-sm text-amber-700 font-semibold whitespace-nowrap">
+                            <span class="text-xs text-amber-700 font-semibold whitespace-nowrap">
                                 = -${{ number_format($item['discount'], 2) }}
                             </span>
                             @endif
@@ -251,328 +282,332 @@
                     </div>
                 </div>
                 @endforeach
+                @else
+                <div class="h-full min-h-[220px] flex flex-col items-center justify-center text-slate-400 py-8">
+                    <svg class="w-16 h-16 sm:w-20 sm:h-20 mb-3 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    <p class="text-base sm:text-lg font-medium text-slate-600">Carrito vacío</p>
+                    <p class="text-xs sm:text-sm text-slate-400">Busca productos para agregarlos a la compra</p>
+                </div>
+                @endif
             </div>
-            @else
-            <div class="h-full flex flex-col items-center justify-center text-slate-400">
-                <svg class="w-20 h-20 mb-4 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                <p class="text-lg font-medium">Carrito vacío</p>
-                <p class="text-sm">Busca productos para agregarlos a la compra</p>
+
+            {{-- Cart Footer --}}
+            @if(count($cartItems) > 0)
+            <div class="px-4 sm:px-6 py-2.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+                <button type="button" wire:click="clearCart" class="text-xs sm:text-sm text-red-500 hover:text-red-600 font-medium">
+                    Vaciar carrito
+                </button>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs sm:text-sm text-slate-500 font-medium">{{ count($cartItems) }} producto(s)</span>
+                    <button type="button" @click="activeTab = 'details'" class="lg:hidden px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-lg shadow-sm">
+                        Continuar &rarr;
+                    </button>
+                </div>
             </div>
             @endif
         </div>
 
-        {{-- Cart Footer --}}
-        @if(count($cartItems) > 0)
-        <div class="px-6 py-3 border-t border-slate-200 bg-slate-50">
-            <div class="flex items-center justify-between">
-                <button type="button" wire:click="clearCart" class="text-sm text-red-500 hover:text-red-600 font-medium">
-                    Vaciar carrito
-                </button>
-                <span class="text-sm text-slate-500">{{ count($cartItems) }} producto(s)</span>
-            </div>
-        </div>
-        @endif
-    </div>
-
-    {{-- Right Panel: Purchase Details & Summary --}}
-    <div class="w-full lg:w-[420px] xl:w-[440px] flex flex-col gap-4 overflow-y-auto">
-        {{-- Supplier & Details --}}
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <h3 class="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                <svg class="w-5 h-5 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                Datos de la Compra
-            </h3>
-            
-            <div class="space-y-4">
-                {{-- Branch Selector for Super Admin --}}
-                @if($needsBranchSelection)
-                <div class="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                    <div class="flex items-start gap-2">
-                        <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                        </svg>
-                        <div class="flex-1">
-                            <p class="text-xs font-medium text-amber-800">Selecciona la sucursal</p>
-                            <select wire:model.live="branch_id" class="mt-1.5 w-full px-3 py-2 border border-amber-300 rounded-lg bg-white focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 text-sm @error('branch_id') border-red-300 @enderror">
-                                <option value="">Seleccionar sucursal...</option>
-                                @foreach($branches as $branch)
-                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                            @error('branch_id') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                        </div>
-                    </div>
-                </div>
-                @endif
-
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Proveedor *</label>
-                    <div class="flex gap-2 items-center">
-                        <select wire:model="supplier_id" class="min-w-0 flex-1 px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] @error('supplier_id') border-red-300 @enderror">
-                            <option value="">Seleccionar proveedor...</option>
-                            @foreach($suppliers as $supplier)
-                            <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
-                            @endforeach
-                        </select>
-                        <button type="button" wire:click="openSupplierCreate" class="p-2 bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all flex-shrink-0" title="Crear proveedor">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                        </button>
-                    </div>
-                    @error('supplier_id') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Fecha de Compra *</label>
-                    <input wire:model="purchase_date" type="date" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Factura Proveedor</label>
-                    <input wire:model="supplier_invoice" type="text" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Número de factura">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Notas</label>
-                    <textarea wire:model="notes" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Observaciones..."></textarea>
-                </div>
-            </div>
-        </div>
-
-        {{-- Payment Type --}}
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <h3 class="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                <svg class="w-5 h-5 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                Tipo de Pago
-            </h3>
-
-            <div class="space-y-4">
-                {{-- Payment Type Toggle --}}
-                <div class="flex gap-2">
-                    <button type="button" wire:click="$set('payment_type', 'cash')" class="flex-1 py-2.5 px-4 rounded-xl font-medium transition-all {{ $payment_type === 'cash' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-lg' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
-                        Contado
-                    </button>
-                    <button type="button" wire:click="$set('payment_type', 'credit')" class="flex-1 py-2.5 px-4 rounded-xl font-medium transition-all {{ $payment_type === 'credit' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-lg' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
-                        Crédito
-                    </button>
-                </div>
-
-                @if($payment_type === 'cash')
-                {{-- Multiple Payment Methods --}}
+        {{-- Right Panel: Purchase Details & Summary --}}
+        <div class="w-full lg:w-[380px] xl:w-[410px] shrink-0 flex-col gap-3.5 overflow-y-auto"
+             :class="{ 'hidden lg:flex': activeTab !== 'details', 'flex': activeTab === 'details' }">
+            {{-- Supplier & Details --}}
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-3.5 sm:p-4">
+                <h3 class="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm sm:text-base">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                    Datos de la Compra
+                </h3>
+                
                 <div class="space-y-3">
-                    <div class="flex items-center justify-between">
-                        <label class="block text-sm font-medium text-slate-700">Métodos de Pago *</label>
-                        <button type="button" wire:click="addPaymentRow" class="text-xs text-[#a855f7] hover:text-[#9333ea] font-medium flex items-center gap-1">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                            Agregar método
-                        </button>
-                    </div>
-
-                    @foreach($purchasePayments as $index => $payment)
-                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 relative transition-all hover:border-slate-300">
-                        {{-- Row 1: Method Selector & Action Buttons --}}
-                        <div class="flex items-center gap-2">
+                    {{-- Branch Selector for Super Admin --}}
+                    @if($needsBranchSelection)
+                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-2.5">
+                        <div class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                            </svg>
                             <div class="flex-1 min-w-0">
-                                <select wire:model.live="purchasePayments.{{ $index }}.method_id" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-xs font-medium text-slate-700">
-                                    <option value="">Seleccionar método...</option>
-                                    @foreach($paymentMethods as $method)
-                                    <option value="{{ $method->id }}">{{ $method->name }}</option>
+                                <p class="text-[11px] font-medium text-amber-800">Selecciona la sucursal</p>
+                                <select wire:model.live="branch_id" class="mt-1 w-full px-2.5 py-1.5 border border-amber-300 rounded-lg bg-white focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 text-xs @error('branch_id') border-red-300 @enderror">
+                                    <option value="">Seleccionar sucursal...</option>
+                                    @foreach($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
                                     @endforeach
                                 </select>
+                                @error('branch_id') <span class="text-[11px] text-red-500">{{ $message }}</span> @enderror
                             </div>
-                            <div class="flex items-center gap-1 flex-shrink-0">
-                                <button type="button" wire:click="fillRemainingPayment({{ $index }})" class="px-2 py-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-100/60 bg-blue-50 border border-blue-200 rounded-lg transition-colors flex items-center gap-1 font-medium" title="Asignar el saldo restante a este método">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                                    <span>Restante</span>
-                                </button>
-                                @if(count($purchasePayments) > 1)
-                                <button type="button" wire:click="removePaymentRow({{ $index }})" class="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar método">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                </button>
-                                @endif
-                            </div>
-                        </div>
-
-                        {{-- Row 2: Amount Input (Full width, clear, large numbers) --}}
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-sm">$</span>
-                            <input wire:model.live.debounce.300ms="purchasePayments.{{ $index }}.amount" type="number" step="0.01" min="0" 
-                                class="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-base font-bold text-slate-800 text-right placeholder:text-slate-300 placeholder:font-normal" 
-                                placeholder="0.00">
-                        </div>
-
-                        {{-- Formatted preview if amount is entered --}}
-                        @if((float)($payment['amount'] ?? 0) > 0)
-                        <div class="flex justify-between items-center text-[11px] text-slate-500 pt-0.5 px-0.5">
-                            <span>Monto asignado:</span>
-                            <span class="font-bold text-slate-700">${{ number_format((float)$payment['amount'], 0, ',', '.') }} COP</span>
-                        </div>
-                        @endif
-                    </div>
-                    @endforeach
-
-                    @php
-                        $paymentAllocated = array_sum(array_map(fn($p) => floatval($p['amount'] ?? 0), $purchasePayments));
-                        $paymentRemaining = round($total - $paymentAllocated, 2);
-                    @endphp
-                    
-                    <div class="p-3 rounded-xl border {{ abs($paymentRemaining) <= 0.01 && $total > 0 ? 'bg-emerald-50/80 border-emerald-200 text-emerald-800' : ($paymentRemaining > 0 ? 'bg-amber-50/80 border-amber-200 text-amber-800' : 'bg-rose-50/80 border-rose-200 text-rose-800') }}">
-                        <div class="flex justify-between items-center text-xs">
-                            <span class="font-medium text-slate-600">Total asignado:</span>
-                            <span class="font-bold text-slate-800">${{ number_format($paymentAllocated, 0, ',', '.') }}</span>
-                        </div>
-                        @if($total > 0 && abs($paymentRemaining) > 0.01)
-                        <div class="flex justify-between items-center text-xs mt-1.5 pt-1.5 border-t {{ $paymentRemaining > 0 ? 'border-amber-200' : 'border-rose-200' }}">
-                            <span class="font-semibold {{ $paymentRemaining > 0 ? 'text-amber-700' : 'text-rose-700' }}">
-                                {{ $paymentRemaining > 0 ? 'Falta por asignar:' : 'Excede el total por:' }}
-                            </span>
-                            <span class="font-bold text-sm {{ $paymentRemaining > 0 ? 'text-amber-700' : 'text-rose-700' }}">
-                                ${{ number_format(abs($paymentRemaining), 0, ',', '.') }}
-                            </span>
-                        </div>
-                        @elseif($total > 0 && abs($paymentRemaining) <= 0.01)
-                        <div class="flex items-center gap-1.5 text-xs text-emerald-700 font-semibold mt-1.5 pt-1.5 border-t border-emerald-200">
-                            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            <span>Total cubierto correctamente</span>
-                        </div>
-                        @endif
-                    </div>
-                </div>
-                @else
-                {{-- Credit Payment --}}
-                <div class="space-y-3">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Monto del Crédito *</label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-sm">$</span>
-                            <input wire:model.live.debounce.300ms="credit_amount" type="number" step="0.01" min="0" class="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-base font-bold text-slate-800 text-right @error('credit_amount') border-red-300 @enderror">
-                        </div>
-                        @if((float)($credit_amount ?? 0) > 0)
-                        <div class="text-[11px] text-right text-slate-500 font-medium mt-0.5">
-                            ${{ number_format((float)$credit_amount, 0, ',', '.') }} COP
-                        </div>
-                        @endif
-                        @error('credit_amount') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Fecha de Pago *</label>
-                        <input wire:model="payment_due_date" type="date" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] @error('payment_due_date') border-red-300 @enderror">
-                        @error('payment_due_date') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                    </div>
-
-                    <div class="pt-3 border-t border-slate-200">
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Abono Inicial (opcional)</label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-semibold text-sm">$</span>
-                            <input wire:model.live.debounce.300ms="paid_amount" type="number" step="0.01" min="0" class="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-base font-bold text-slate-800 text-right placeholder:text-slate-300 placeholder:font-normal" placeholder="0.00">
-                        </div>
-                        @if((float)($paid_amount ?? 0) > 0)
-                        <div class="text-[11px] text-right text-slate-500 font-medium mt-0.5">
-                            ${{ number_format((float)$paid_amount, 0, ',', '.') }} COP
-                        </div>
-                        @endif
-                    </div>
-
-                    @if($paid_amount > 0)
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Método de Pago del Abono</label>
-                        <select wire:model="partial_payment_method_id" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm">
-                            <option value="">Seleccionar...</option>
-                            @foreach($paymentMethods as $method)
-                            <option value="{{ $method->id }}">{{ $method->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="p-3 bg-blue-50/80 border border-blue-200 rounded-xl">
-                        <div class="flex justify-between items-center text-sm">
-                            <span class="text-blue-700 font-medium">Saldo pendiente:</span>
-                            <span class="font-bold text-blue-800">${{ number_format(($credit_amount ?? 0) - $paid_amount, 0, ',', '.') }}</span>
                         </div>
                     </div>
                     @endif
-                </div>
-                @endif
-            </div>
-        </div>
 
-        {{-- Summary --}}
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <h3 class="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                <svg class="w-5 h-5 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                Resumen
-            </h3>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Proveedor *</label>
+                        <div class="flex gap-1.5 items-center">
+                            <select wire:model="supplier_id" class="min-w-0 flex-1 px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] @error('supplier_id') border-red-300 @enderror">
+                                <option value="">Seleccionar proveedor...</option>
+                                @foreach($suppliers as $supplier)
+                                <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
+                                @endforeach
+                            </select>
+                            <button type="button" wire:click="openSupplierCreate" class="p-1.5 bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all shrink-0" title="Crear proveedor">
+                                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            </button>
+                        </div>
+                        @error('supplier_id') <span class="text-[11px] text-red-500">{{ $message }}</span> @enderror
+                    </div>
 
-            <div class="space-y-3">
-                <div class="flex justify-between text-sm">
-                    <span class="text-slate-500">Subtotal</span>
-                    <span class="font-medium text-slate-700">${{ number_format($subtotal, 2) }}</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                    <span class="text-slate-500">Impuestos</span>
-                    <span class="font-medium text-slate-700">${{ number_format($taxAmount, 2) }}</span>
-                </div>
-                @if($discountAmount > 0)
-                <div class="flex justify-between text-sm">
-                    <span class="text-slate-500">Desc. productos</span>
-                    <span class="font-medium text-green-600">-${{ number_format($discountAmount, 2) }}</span>
-                </div>
-                @endif
-                @if($globalDiscountApplied && $globalDiscountAmount > 0)
-                <div class="flex justify-between text-sm items-center">
-                    <span class="text-purple-600 flex items-center gap-1">
-                        Desc. compra
-                        <button wire:click="removeGlobalDiscount" class="text-red-400 hover:text-red-600 transition" title="Quitar descuento">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </button>
-                    </span>
-                    <span class="font-medium text-purple-600">-${{ number_format($globalDiscountAmount, 2) }}</span>
-                </div>
-                @endif
-                <div class="pt-3 border-t border-slate-200">
-                    <div class="flex justify-between">
-                        <span class="text-lg font-semibold text-slate-800">Total</span>
-                        <span class="text-2xl font-bold text-[#ff7261]">${{ number_format($total, 2) }}</span>
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Fecha de Compra *</label>
+                            <input wire:model="purchase_date" type="date" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Factura Proveedor</label>
+                            <input wire:model="supplier_invoice" type="text" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Nº de factura">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Notas</label>
+                        <textarea wire:model="notes" rows="1" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]" placeholder="Observaciones..."></textarea>
                     </div>
                 </div>
             </div>
 
-            {{-- Global Discount Button --}}
-            @if(count($cartItems) > 0)
-            <button wire:click="openGlobalDiscountModal" class="w-full px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl transition flex items-center justify-center gap-2 {{ $globalDiscountApplied ? 'ring-2 ring-purple-400' : '' }}">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
-                </svg>
-                {{ $globalDiscountApplied ? 'Editar Desc. Compra' : 'Desc. a Compra' }}
-            </button>
-            @endif
-        </div>
+            {{-- Payment Type --}}
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-3.5 sm:p-4">
+                <h3 class="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm sm:text-base">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    Tipo de Pago
+                </h3>
 
-        {{-- Actions --}}
-        <div class="space-y-3">
-            <button 
-                wire:click="completePurchase" 
-                @if(count($cartItems) === 0) disabled @endif
-                class="w-full py-4 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
-                <span wire:loading.remove wire:target="completePurchase">
-                    <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                    {{ $isEditing ? 'Guardar Cambios' : 'Completar Compra' }}
-                </span>
-                <span wire:loading wire:target="completePurchase">Procesando...</span>
-            </button>
+                <div class="space-y-3">
+                    {{-- Payment Type Toggle --}}
+                    <div class="flex gap-2">
+                        <button type="button" wire:click="$set('payment_type', 'cash')" class="flex-1 py-1.5 sm:py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all {{ $payment_type === 'cash' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
+                            Contado
+                        </button>
+                        <button type="button" wire:click="$set('payment_type', 'credit')" class="flex-1 py-1.5 sm:py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all {{ $payment_type === 'credit' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
+                            Crédito
+                        </button>
+                    </div>
 
-            @if(!$isCompletedEdit)
-            <button 
-                wire:click="saveDraft" 
-                @if(count($cartItems) === 0) disabled @endif
-                class="w-full py-3 bg-white border-2 border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                <span wire:loading.remove wire:target="saveDraft">
-                    <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-                    Guardar Borrador
-                </span>
-                <span wire:loading wire:target="saveDraft">Guardando...</span>
-            </button>
-            @endif
+                    @if($payment_type === 'cash')
+                    {{-- Multiple Payment Methods --}}
+                    <div class="space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <label class="block text-xs font-medium text-slate-700">Métodos de Pago *</label>
+                            <button type="button" wire:click="addPaymentRow" class="text-xs text-[#a855f7] hover:text-[#9333ea] font-medium flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                Agregar método
+                            </button>
+                        </div>
+
+                        @foreach($purchasePayments as $index => $payment)
+                        <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 relative transition-all hover:border-slate-300">
+                            {{-- Row 1: Method Selector & Action Buttons --}}
+                            <div class="flex items-center gap-1.5">
+                                <div class="flex-1 min-w-0">
+                                    <select wire:model.live="purchasePayments.{{ $index }}.method_id" class="w-full px-2 py-1 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-xs font-medium text-slate-700">
+                                        <option value="">Seleccionar método...</option>
+                                        @foreach($paymentMethods as $method)
+                                        <option value="{{ $method->id }}">{{ $method->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="flex items-center gap-1 shrink-0">
+                                    <button type="button" wire:click="fillRemainingPayment({{ $index }})" class="px-2 py-0.5 text-[11px] text-blue-600 hover:text-blue-700 hover:bg-blue-100/60 bg-blue-50 border border-blue-200 rounded-lg transition-colors flex items-center gap-1 font-medium" title="Asignar el saldo restante a este método">
+                                        <span>Restante</span>
+                                    </button>
+                                    @if(count($purchasePayments) > 1)
+                                    <button type="button" wire:click="removePaymentRow({{ $index }})" class="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar método">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                    @endif
+                                </div>
+                            </div>
+
+                            {{-- Row 2: Amount Input --}}
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400 font-semibold text-xs">$</span>
+                                <input wire:model.live.debounce.300ms="purchasePayments.{{ $index }}.amount" type="number" step="0.01" min="0" 
+                                    class="w-full pl-6 pr-2.5 py-1.5 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm font-bold text-slate-800 text-right placeholder:text-slate-300 placeholder:font-normal" 
+                                    placeholder="0.00">
+                            </div>
+
+                            {{-- Formatted preview if amount is entered --}}
+                            @if((float)($payment['amount'] ?? 0) > 0)
+                            <div class="flex justify-between items-center text-[10px] text-slate-500 pt-0.5 px-0.5">
+                                <span>Monto asignado:</span>
+                                <span class="font-bold text-slate-700">${{ number_format((float)$payment['amount'], 0, ',', '.') }} COP</span>
+                            </div>
+                            @endif
+                        </div>
+                        @endforeach
+
+                        @php
+                            $paymentAllocated = array_sum(array_map(fn($p) => floatval($p['amount'] ?? 0), $purchasePayments));
+                            $paymentRemaining = round($total - $paymentAllocated, 2);
+                        @endphp
+                        
+                        <div class="p-2.5 rounded-xl border {{ abs($paymentRemaining) <= 0.01 && $total > 0 ? 'bg-emerald-50/80 border-emerald-200 text-emerald-800' : ($paymentRemaining > 0 ? 'bg-amber-50/80 border-amber-200 text-amber-800' : 'bg-rose-50/80 border-rose-200 text-rose-800') }}">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="font-medium text-slate-600">Total asignado:</span>
+                                <span class="font-bold text-slate-800">${{ number_format($paymentAllocated, 0, ',', '.') }}</span>
+                            </div>
+                            @if($total > 0 && abs($paymentRemaining) > 0.01)
+                            <div class="flex justify-between items-center text-xs mt-1 pt-1 border-t {{ $paymentRemaining > 0 ? 'border-amber-200' : 'border-rose-200' }}">
+                                <span class="font-semibold {{ $paymentRemaining > 0 ? 'text-amber-700' : 'text-rose-700' }}">
+                                    {{ $paymentRemaining > 0 ? 'Falta por asignar:' : 'Excede el total por:' }}
+                                </span>
+                                <span class="font-bold text-xs {{ $paymentRemaining > 0 ? 'text-amber-700' : 'text-rose-700' }}">
+                                    ${{ number_format(abs($paymentRemaining), 0, ',', '.') }}
+                                </span>
+                            </div>
+                            @elseif($total > 0 && abs($paymentRemaining) <= 0.01)
+                            <div class="flex items-center gap-1 text-[11px] text-emerald-700 font-semibold mt-1 pt-1 border-t border-emerald-200">
+                                <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                <span>Total cubierto correctamente</span>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @else
+                    {{-- Credit Payment --}}
+                    <div class="space-y-2.5">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Monto del Crédito *</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400 font-semibold text-xs">$</span>
+                                <input wire:model.live.debounce.300ms="credit_amount" type="number" step="0.01" min="0" class="w-full pl-6 pr-2.5 py-1.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm font-bold text-slate-800 text-right @error('credit_amount') border-red-300 @enderror">
+                            </div>
+                            @if((float)($credit_amount ?? 0) > 0)
+                            <div class="text-[10px] text-right text-slate-500 font-medium mt-0.5">
+                                ${{ number_format((float)$credit_amount, 0, ',', '.') }} COP
+                            </div>
+                            @endif
+                            @error('credit_amount') <span class="text-[11px] text-red-500">{{ $message }}</span> @enderror
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Fecha de Pago *</label>
+                            <input wire:model="payment_due_date" type="date" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] @error('payment_due_date') border-red-300 @enderror">
+                            @error('payment_due_date') <span class="text-[11px] text-red-500">{{ $message }}</span> @enderror
+                        </div>
+
+                        <div class="pt-2 border-t border-slate-200">
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Abono Inicial (opcional)</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400 font-semibold text-xs">$</span>
+                                <input wire:model.live.debounce.300ms="paid_amount" type="number" step="0.01" min="0" class="w-full pl-6 pr-2.5 py-1.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm font-bold text-slate-800 text-right placeholder:text-slate-300 placeholder:font-normal" placeholder="0.00">
+                            </div>
+                            @if((float)($paid_amount ?? 0) > 0)
+                            <div class="text-[10px] text-right text-slate-500 font-medium mt-0.5">
+                                ${{ number_format((float)$paid_amount, 0, ',', '.') }} COP
+                            </div>
+                            @endif
+                        </div>
+
+                        @if($paid_amount > 0)
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Método de Pago del Abono</label>
+                            <select wire:model="partial_payment_method_id" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261]">
+                                <option value="">Seleccionar...</option>
+                                @foreach($paymentMethods as $method)
+                                <option value="{{ $method->id }}">{{ $method->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="p-2.5 bg-blue-50/80 border border-blue-200 rounded-xl">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-blue-700 font-medium">Saldo pendiente:</span>
+                                <span class="font-bold text-blue-800">${{ number_format(($credit_amount ?? 0) - $paid_amount, 0, ',', '.') }}</span>
+                            </div>
+                        </div>
+                        @endif
+                    </div>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Summary --}}
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-3.5 sm:p-4">
+                <h3 class="font-semibold text-slate-800 mb-2.5 flex items-center gap-2 text-sm sm:text-base">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    Resumen
+                </h3>
+
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs sm:text-sm">
+                        <span class="text-slate-500">Subtotal</span>
+                        <span class="font-medium text-slate-700">${{ number_format($subtotal, 2) }}</span>
+                    </div>
+                    <div class="flex justify-between text-xs sm:text-sm">
+                        <span class="text-slate-500">Impuestos</span>
+                        <span class="font-medium text-slate-700">${{ number_format($taxAmount, 2) }}</span>
+                    </div>
+                    @if($discountAmount > 0)
+                    <div class="flex justify-between text-xs sm:text-sm">
+                        <span class="text-slate-500">Desc. productos</span>
+                        <span class="font-medium text-green-600">-${{ number_format($discountAmount, 2) }}</span>
+                    </div>
+                    @endif
+                    @if($globalDiscountApplied && $globalDiscountAmount > 0)
+                    <div class="flex justify-between text-xs sm:text-sm items-center">
+                        <span class="text-purple-600 flex items-center gap-1">
+                            Desc. compra
+                            <button wire:click="removeGlobalDiscount" class="text-red-400 hover:text-red-600 transition" title="Quitar descuento">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </span>
+                        <span class="font-medium text-purple-600">-${{ number_format($globalDiscountAmount, 2) }}</span>
+                    </div>
+                    @endif
+                    <div class="pt-2 border-t border-slate-200">
+                        <div class="flex justify-between items-baseline">
+                            <span class="text-sm sm:text-base font-semibold text-slate-800">Total</span>
+                            <span class="text-xl sm:text-2xl font-bold text-[#ff7261]">${{ number_format($total, 2) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Global Discount Button --}}
+                @if(count($cartItems) > 0)
+                <button wire:click="openGlobalDiscountModal" class="w-full mt-2.5 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl transition flex items-center justify-center gap-1.5 {{ $globalDiscountApplied ? 'ring-2 ring-purple-400' : '' }}">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                    </svg>
+                    {{ $globalDiscountApplied ? 'Editar Desc. Compra' : 'Desc. a Compra' }}
+                </button>
+                @endif
+            </div>
+
+            {{-- Actions --}}
+            <div class="space-y-2 pb-2">
+                <button 
+                    wire:click="completePurchase" 
+                    @if(count($cartItems) === 0) disabled @endif
+                    class="w-full py-3 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] text-white text-sm sm:text-base font-bold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span wire:loading.remove wire:target="completePurchase">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5 inline mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        {{ $isEditing ? 'Guardar Cambios' : 'Completar Compra' }}
+                    </span>
+                    <span wire:loading wire:target="completePurchase">Procesando...</span>
+                </button>
+
+                @if(!$isCompletedEdit)
+                <button 
+                    wire:click="saveDraft" 
+                    @if(count($cartItems) === 0) disabled @endif
+                    class="w-full py-2 bg-white border border-slate-200 text-slate-700 text-xs sm:text-sm font-semibold rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span wire:loading.remove wire:target="saveDraft">
+                        <svg class="w-4 h-4 inline mr-1.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                        Guardar Borrador
+                    </span>
+                    <span wire:loading wire:target="saveDraft">Guardando...</span>
+                </button>
+                @endif
+            </div>
         </div>
     </div>
 
