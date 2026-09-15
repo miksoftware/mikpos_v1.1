@@ -1,6 +1,6 @@
 <div x-data="{ activeTab: 'products' }" class="flex flex-col gap-3 sm:gap-4">
     {{-- Mobile / Compact View Switcher (< lg) --}}
-    <div class="lg:hidden flex bg-white rounded-xl p-1 border border-slate-200 shadow-sm shrink-0">
+    <div class="min-[1450px]:hidden flex bg-white rounded-xl p-1 border border-slate-200 shadow-sm shrink-0">
         <button type="button" @click="activeTab = 'products'" 
             :class="activeTab === 'products' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow' : 'text-slate-600 hover:text-slate-900'"
             class="flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5">
@@ -22,10 +22,10 @@
     </div>
 
     {{-- Main Container (Side-by-side on desktop/laptop, toggled/stacked on mobile) --}}
-    <div class="flex flex-col lg:flex-row gap-4 lg:h-[calc(100vh-7.5rem)] lg:min-h-[500px]">
+    <div class="flex flex-col min-[1450px]:flex-row gap-4 min-[1450px]:h-[calc(100vh-7.5rem)] min-[1450px]:min-h-[500px]">
         {{-- Left Panel: Product Search & Cart --}}
         <div class="flex-1 min-w-0 flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden"
-             :class="{ 'hidden lg:flex': activeTab !== 'products', 'flex': activeTab === 'products' }">
+             :class="{ 'hidden min-[1450px]:flex': activeTab !== 'products', 'flex': activeTab === 'products' }">
             {{-- Header --}}
             <div class="px-4 sm:px-6 py-3 sm:py-3.5 border-b border-slate-200 bg-gradient-to-r from-[#ff7261]/10 to-[#a855f7]/10 shrink-0">
                 <div class="flex items-center justify-between">
@@ -73,7 +73,7 @@
                         </svg>
                         <span>Selecciona una sucursal en el panel derecho para buscar productos</span>
                     </div>
-                    <button type="button" @click="activeTab = 'details'" class="lg:hidden px-2.5 py-1 text-xs font-semibold bg-amber-200 text-amber-900 rounded-lg hover:bg-amber-300 transition-colors shrink-0">
+                    <button type="button" @click="activeTab = 'details'" class="min-[1450px]:hidden px-2.5 py-1 text-xs font-semibold bg-amber-200 text-amber-900 rounded-lg hover:bg-amber-300 transition-colors shrink-0">
                         Ir a Sucursal &rarr;
                     </button>
                 </div>
@@ -299,7 +299,7 @@
                 </button>
                 <div class="flex items-center gap-3">
                     <span class="text-xs sm:text-sm text-slate-500 font-medium">{{ count($cartItems) }} producto(s)</span>
-                    <button type="button" @click="activeTab = 'details'" class="lg:hidden px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-lg shadow-sm">
+                    <button type="button" @click="activeTab = 'details'" class="min-[1450px]:hidden px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-lg shadow-sm">
                         Continuar &rarr;
                     </button>
                 </div>
@@ -308,8 +308,8 @@
         </div>
 
         {{-- Right Panel: Purchase Details & Summary --}}
-        <div class="w-full lg:w-[380px] xl:w-[410px] shrink-0 flex-col gap-3.5 overflow-y-auto"
-             :class="{ 'hidden lg:flex': activeTab !== 'details', 'flex': activeTab === 'details' }">
+        <div class="w-full min-[1450px]:w-[380px] min-[1550px]:w-[410px] shrink-0 flex-col gap-3.5 overflow-y-auto"
+             :class="{ 'hidden min-[1450px]:flex': activeTab !== 'details', 'flex': activeTab === 'details' }">
             {{-- Supplier & Details --}}
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-3.5 sm:p-4">
                 <h3 class="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm sm:text-base">
