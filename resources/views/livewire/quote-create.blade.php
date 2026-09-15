@@ -7,8 +7,8 @@
     x-on:keydown.window.f4.prevent="$wire.openGlobalDiscountModal()"
     x-on:keydown.window.f6.prevent="$wire.togglePriceOverride()"
     x-on:close-customer-modal.window="showCustomerSearch = false"
-    x-on:focus-product-search.window="$nextTick(() => document.getElementById('product-search-input')?.focus())"
-    x-on:focus-barcode-search.window="$nextTick(() => document.getElementById('barcode-search-input')?.focus())"
+    x-on:focus-product-search.window="$nextTick(() => document.getElementById('product-search-input')?.focus({ preventScroll: true }))"
+    x-on:focus-barcode-search.window="$nextTick(() => document.getElementById('barcode-search-input')?.focus({ preventScroll: true }))"
     x-on:print-quote.window="(e) => { window.open('/quote-receipt/' + e.detail.quoteId, '_blank'); }"
 >
     <!-- Header -->
@@ -63,7 +63,7 @@
         <!-- Left Panel - Cart -->
         <div class="w-1/2 bg-white flex flex-col border-r border-slate-200">
             <!-- Customer Section -->
-            <div class="p-4 border-b border-slate-200">
+            <div class="p-4 border-b border-slate-200 flex-shrink-0">
                 <div class="flex items-center justify-between mb-2">
                     <span class="text-xs font-semibold text-slate-500 uppercase">Cliente</span>
                     <button @click="showCustomerSearch = true; $nextTick(() => document.getElementById('customer-search-input')?.focus())"
@@ -92,17 +92,15 @@
             </div>
 
             <!-- Barcode Scanner -->
-            <div class="p-4 border-b border-slate-200">
-                <div class="relative" x-data="{ value: @entangle('barcodeSearch') }">
+            <div class="p-4 border-b border-slate-200 flex-shrink-0">
+                <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6v12m4-12v12m4-12v12m4-12v12m4-12v12"></path></svg>
                     </div>
                     <input
                         id="barcode-search-input"
-                        x-model="value"
                         wire:model="barcodeSearch"
-                        @keydown.enter.prevent="$wire.searchByBarcode()"
-                        x-on:input.debounce.300ms="if (value && value.length >= 8) { $wire.set('barcodeSearch', value); $wire.searchByBarcode() }"
+                        wire:keydown.enter.prevent="searchByBarcode"
                         type="text"
                         autofocus
                         class="block w-full pl-10 pr-3 py-3 border-2 border-[#ff7261]/30 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm font-medium"
@@ -112,7 +110,7 @@
             </div>
 
             <!-- Cart Items -->
-            <div class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2">
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2 min-h-0">
                 @if(empty($cart))
                     <div class="text-center py-12">
                         <div class="w-16 h-16 mx-auto rounded-full bg-slate-100 flex items-center justify-center mb-3">
@@ -199,15 +197,15 @@
             </div>
 
             <!-- Cart Summary -->
-            <div class="border-t border-slate-200 p-4 bg-slate-50 space-y-2">
+            <div class="border-t border-slate-200 p-4 bg-slate-50 space-y-2 flex-shrink-0">
                 <div class="flex items-center justify-between text-sm">
                     <span class="text-slate-600">Subtotal</span>
                     <span class="font-medium text-slate-800">${{ number_format($subtotal, 2) }}</span>
                 </div>
-                @if($this->discountTotal > 0)
+                @if($discountTotal > 0)
                 <div class="flex items-center justify-between text-sm">
                     <span class="text-slate-600">Descuentos items</span>
-                    <span class="font-medium text-orange-600">-${{ number_format($this->discountTotal, 2) }}</span>
+                    <span class="font-medium text-orange-600">-${{ number_format($discountTotal, 2) }}</span>
                 </div>
                 @endif
                 @if($taxTotal > 0)
@@ -278,7 +276,7 @@
                         Todos
                     </button>
                     @foreach($categories as $category)
-                    <button wire:click="selectCategory({{ $category->id }})" class="px-4 py-2 text-sm font-medium rounded-xl whitespace-nowrap transition {{ $selectedCategory === $category->id ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
+                    <button wire:key="quote-cat-{{ $category->id }}" wire:click="selectCategory({{ $category->id }})" class="px-4 py-2 text-sm font-medium rounded-xl whitespace-nowrap transition {{ $selectedCategory === $category->id ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
                         {{ $category->name }}
                     </button>
                     @endforeach
@@ -296,7 +294,7 @@
                 @elseif($sellableItems->count() > 0)
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3">
                         @foreach($sellableItems as $item)
-                        <button wire:click="{{ $item['type'] === 'service' ? 'addServiceToCart(' . $item['id'] . ')' : ($item['type'] === 'combo' ? 'addComboToCart(' . $item['id'] . ')' : 'addToCart(' . $item['id'] . ', ' . ($item['child_id'] ?? 'null') . ')') }}" class="bg-white rounded-lg border border-slate-200 hover:border-[#ff7261] hover:shadow-md transition-all duration-200 overflow-hidden group text-left">
+                        <button wire:key="quote-item-{{ $item['type'] }}-{{ $item['id'] }}-{{ $item['child_id'] ?? 'parent' }}" wire:click="{{ $item['type'] === 'service' ? 'addServiceToCart(' . $item['id'] . ')' : ($item['type'] === 'combo' ? 'addComboToCart(' . $item['id'] . ')' : 'addToCart(' . $item['id'] . ', ' . ($item['child_id'] ?? 'null') . ')') }}" class="bg-white rounded-lg border border-slate-200 hover:border-[#ff7261] hover:shadow-md transition-all duration-200 overflow-hidden group text-left">
                             <div class="aspect-square bg-slate-50 relative overflow-hidden">
                                 @if($item['image'])
                                 <img src="{{ Storage::url($item['image']) }}" alt="{{ $item['name'] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200">

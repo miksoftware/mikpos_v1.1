@@ -169,7 +169,7 @@
                 @if(count($cart) > 0)
                 <div class="space-y-1">
                     @foreach($cart as $key => $item)
-                    <div class="bg-slate-50 rounded-lg p-2 border {{ ($item['price_overridden'] ?? false) ? 'border-blue-300 bg-blue-50/50' : (($item['discount_amount'] ?? 0) > 0 ? 'border-amber-300 bg-amber-50/50' : (($item['using_special_price'] ?? false) ? 'border-green-300 bg-green-50/50' : (($item['tax_exempt'] ?? false) ? 'border-indigo-300 bg-indigo-50/40' : 'border-slate-100'))) }} hover:border-slate-200 transition">
+                    <div wire:key="pos-cart-{{ $key }}" class="bg-slate-50 rounded-lg p-2 border {{ ($item['price_overridden'] ?? false) ? 'border-blue-300 bg-blue-50/50' : (($item['discount_amount'] ?? 0) > 0 ? 'border-amber-300 bg-amber-50/50' : (($item['using_special_price'] ?? false) ? 'border-green-300 bg-green-50/50' : (($item['tax_exempt'] ?? false) ? 'border-indigo-300 bg-indigo-50/40' : 'border-slate-100'))) }} hover:border-slate-200 transition">
                         <div class="flex items-center gap-2">
                             <div class="w-10 h-10 rounded-md bg-white border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                                 @if($item['image'])
@@ -343,10 +343,10 @@
                         <span class="text-slate-500">Subtotal ({{ $itemCount }} items)</span>
                         <span class="font-bold">${{ number_format($subtotal, 2) }}</span>
                     </div>
-                    @if($this->getDiscountTotalProperty() > 0)
+                    @if($discountTotal > 0)
                     <div class="flex justify-between text-[10px] sm:text-sm">
                         <span class="text-amber-600 font-bold">Desc. productos</span>
-                        <span class="font-bold text-amber-600">-${{ number_format($this->getDiscountTotalProperty(), 2) }}</span>
+                        <span class="font-bold text-amber-600">-${{ number_format($discountTotal, 2) }}</span>
                     </div>
                     @endif
                     <div class="flex justify-between text-[10px] sm:text-sm">
@@ -456,7 +456,7 @@
         <!-- Right Panel - Products (50%) -->
         <div class="w-full lg:w-7/12 xl:w-1/2 flex flex-col overflow-hidden bg-slate-50" 
             :class="{ 'hidden lg:flex': mobileView !== 'products', 'flex': mobileView === 'products' }"
-            x-data @focus-product-search.window="$refs.productSearchInput.focus()">
+            x-data @focus-product-search.window="$refs.productSearchInput?.focus({ preventScroll: true })">
             <div class="flex-shrink-0 p-4 bg-white border-b border-slate-200">
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -477,7 +477,7 @@
                         Todos
                     </button>
                     @foreach($categories as $category)
-                    <button wire:click="selectCategory({{ $category->id }})" class="px-4 py-2 text-sm font-medium rounded-xl whitespace-nowrap transition {{ $selectedCategory === $category->id ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
+                    <button wire:key="pos-cat-{{ $category->id }}" wire:click="selectCategory({{ $category->id }})" class="px-4 py-2 text-sm font-medium rounded-xl whitespace-nowrap transition {{ $selectedCategory === $category->id ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
                         {{ $category->name }}
                     </button>
                     @endforeach
@@ -488,7 +488,7 @@
                 @if($sellableItems->count() > 0)
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3">
                     @foreach($sellableItems as $item)
-                    <button wire:click="{{ $item['type'] === 'service' ? 'addServiceToCart(' . $item['id'] . ')' : ($item['type'] === 'combo' ? 'addComboToCart(' . $item['id'] . ')' : 'addToCart(' . $item['id'] . ', ' . ($item['child_id'] ?? 'null') . ')') }}" class="bg-white rounded-lg border border-slate-200 hover:border-[#ff7261] hover:shadow-md transition-all duration-200 overflow-hidden group text-left">
+                    <button wire:key="pos-item-{{ $item['type'] }}-{{ $item['id'] }}-{{ $item['child_id'] ?? 'parent' }}" wire:click="{{ $item['type'] === 'service' ? 'addServiceToCart(' . $item['id'] . ')' : ($item['type'] === 'combo' ? 'addComboToCart(' . $item['id'] . ')' : 'addToCart(' . $item['id'] . ', ' . ($item['child_id'] ?? 'null') . ')') }}" class="bg-white rounded-lg border border-slate-200 hover:border-[#ff7261] hover:shadow-md transition-all duration-200 overflow-hidden group text-left">
                         <div class="aspect-square bg-slate-50 relative overflow-hidden">
                             @if($item['image'])
                             <img src="{{ Storage::url($item['image']) }}" alt="{{ $item['name'] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200">
@@ -616,7 +616,7 @@
     </div>
 
     <!-- Customer Search Modal (F7) -->
-    <div x-show="showCustomerSearch" x-transition class="fixed inset-0 z-[100]" @keydown.escape.window="showCustomerSearch = false; $wire.showCreateCustomer = false">
+    <div x-show="showCustomerSearch" x-cloak x-transition class="fixed inset-0 z-[100]" @keydown.escape.window="showCustomerSearch = false; $wire.showCreateCustomer = false">
         <div class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100]" @click="showCustomerSearch = false; $wire.showCreateCustomer = false"></div>
         <div class="fixed inset-0 z-[101] overflow-y-auto">
             <div class="flex min-h-full items-start justify-center p-2 sm:p-4 pt-10 sm:pt-20">

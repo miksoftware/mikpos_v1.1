@@ -2744,6 +2744,7 @@ class PointOfSale extends Component
             'taxDocuments' => $taxDocuments,
             'departments' => $departments,
             'subtotal' => $this->getSubtotalProperty(),
+            'discountTotal' => $this->getDiscountTotalProperty(),
             'taxTotal' => $this->getTaxTotalProperty(),
             'total' => $this->getTotalProperty(),
             'itemCount' => $this->getItemCountProperty(),
