@@ -3,10 +3,12 @@
 namespace App\Livewire;
 
 use App\Models\Branch;
+use App\Models\CreditPayment;
 use App\Models\PaymentMethod;
 use App\Models\Purchase;
 use App\Models\Supplier;
 use App\Services\ActivityLogService;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -38,6 +40,7 @@ class Purchases extends Component
     public float $paymentAmount = 0;
     public ?int $paymentMethodId = null;
     public string $paymentNotes = '';
+    public ?string $paymentDate = null;
 
     public $suppliers = [];
     public $paymentMethods = [];
@@ -255,6 +258,7 @@ class Purchases extends Component
         }
 
         $this->resetPaymentForm();
+        $this->paymentDate = now()->format('Y-m-d');
         $this->isPaymentModalOpen = true;
     }
 
@@ -268,10 +272,13 @@ class Purchases extends Component
         $this->validate([
             'paymentAmount' => 'required|numeric|min:0.01',
             'paymentMethodId' => 'required|exists:payment_methods,id',
+            'paymentDate' => 'required|date',
         ], [
             'paymentAmount.required' => 'El monto es obligatorio',
             'paymentAmount.min' => 'El monto debe ser mayor a 0',
             'paymentMethodId.required' => 'Selecciona un método de pago',
+            'paymentDate.required' => 'La fecha de pago es obligatoria',
+            'paymentDate.date' => 'La fecha de pago no es válida',
         ]);
 
         $purchase = Purchase::find($this->payingPurchase->id);
@@ -303,12 +310,35 @@ class Purchases extends Component
             'payment_status' => $newPaymentStatus,
         ]);
 
+        $paymentDateTime = \Carbon\Carbon::parse(($this->paymentDate ?: now()->format('Y-m-d')) . ' ' . now()->format('H:i:s'));
+        $paymentNumber = CreditPayment::generatePaymentNumber();
+        $receiptNumber = CreditPayment::generateReceiptNumber('payable');
+
+        $cp = CreditPayment::create([
+            'receipt_number' => $receiptNumber,
+            'payment_number' => $paymentNumber,
+            'credit_type' => 'payable',
+            'purchase_id' => $purchase->id,
+            'supplier_id' => $purchase->supplier_id,
+            'branch_id' => $purchase->branch_id,
+            'user_id' => auth()->id(),
+            'payment_method_id' => $this->paymentMethodId,
+            'amount' => $this->paymentAmount,
+            'affects_cash' => false,
+            'notes' => $this->paymentNotes ?: null,
+        ]);
+
+        DB::table('credit_payments')->where('id', $cp->id)->update([
+            'created_at' => $paymentDateTime,
+            'updated_at' => $paymentDateTime,
+        ]);
+
         $paymentMethodName = PaymentMethod::find($this->paymentMethodId)?->name ?? 'N/A';
         ActivityLogService::logUpdate(
             'purchases',
             $purchase,
             $oldData,
-            "Pago registrado en compra '{$purchase->purchase_number}': $" . number_format($this->paymentAmount, 2) . " via {$paymentMethodName}"
+            "Pago registrado en compra '{$purchase->purchase_number}': $" . number_format($this->paymentAmount, 2) . " via {$paymentMethodName} (Fecha: {$this->paymentDate})"
         );
 
         $this->isPaymentModalOpen = false;
@@ -349,6 +379,7 @@ class Purchases extends Component
         $this->paymentAmount = 0;
         $this->paymentMethodId = null;
         $this->paymentNotes = '';
+        $this->paymentDate = now()->format('Y-m-d');
     }
 
     public function printPurchase(int $id)

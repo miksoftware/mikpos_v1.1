@@ -55,6 +55,7 @@ class Credits extends Component
     public bool $paymentAffectsCash = true;
     public string $paymentNotes = '';
     public bool $paymentMarkComplete = false;
+    public ?string $paymentDate = null;
 
     // History modal
     public bool $isHistoryModalOpen = false;
@@ -73,10 +74,12 @@ class Credits extends Component
     public array $bulkInvoices = [];          // each: ['id','document_number','date','total','paid','remaining','allocated','lines'=>[...]]
     public bool $bulkAffectsCash = true;
     public string $bulkNotes = '';
+    public ?string $bulkPaymentDate = null;
 
     // Portfolio import properties
     public $portfolioFile;
     public $portfolioBranchId;
+    public ?string $portfolioDate = null;
     public bool $isPortfolioModalOpen = false;
     public $portfolioResults = null;
 
@@ -441,6 +444,7 @@ class Credits extends Component
         $this->paymentAffectsCash = true;
         $this->paymentNotes = '';
         $this->paymentMarkComplete = false;
+        $this->paymentDate = now()->format('Y-m-d');
         $this->isPaymentModalOpen = true;
     }
 
@@ -468,6 +472,14 @@ class Credits extends Component
             $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
             return;
         }
+
+        // Validate payment date
+        $this->validate([
+            'paymentDate' => 'required|date',
+        ], [
+            'paymentDate.required' => 'La fecha de pago es obligatoria',
+            'paymentDate.date' => 'La fecha de pago no es válida',
+        ]);
 
         // Validate payment lines
         if (!$this->paymentMarkComplete) {
@@ -556,6 +568,7 @@ class Credits extends Component
         $paymentNumber = CreditPayment::generatePaymentNumber();
         $receiptNumber = CreditPayment::generateReceiptNumber($creditType);
         $lastCreditPayment = null;
+        $paymentDateTime = \Carbon\Carbon::parse(($this->paymentDate ?: now()->format('Y-m-d')) . ' ' . now()->format('H:i:s'));
 
         // Create one CreditPayment per payment line
         $linesToProcess = $this->paymentLines;
@@ -592,6 +605,11 @@ class Credits extends Component
                 'notes' => $this->paymentNotes ?: null,
             ]);
 
+            DB::table('credit_payments')->where('id', $lastCreditPayment->id)->update([
+                'created_at' => $paymentDateTime,
+                'updated_at' => $paymentDateTime,
+            ]);
+
             // If affects cash, create cash movement per line
             if ($this->paymentAffectsCash && $cashReconciliationId) {
                 $movementType = $creditType === 'payable' ? 'expense' : 'income';
@@ -601,13 +619,18 @@ class Credits extends Component
 
                 $methodName = PaymentMethod::find($line['payment_method_id'])?->name ?? '';
 
-                CashMovement::create([
+                $movement = CashMovement::create([
                     'cash_reconciliation_id' => $cashReconciliationId,
                     'user_id' => $user->id,
                     'type' => $movementType,
                     'amount' => $lineAmount,
                     'concept' => "{$conceptPrefix} - {$docNumber} ({$methodName})",
                     'notes' => $this->paymentNotes ?: null,
+                ]);
+
+                DB::table('cash_movements')->where('id', $movement->id)->update([
+                    'created_at' => $paymentDateTime,
+                    'updated_at' => $paymentDateTime,
                 ]);
             }
 
@@ -683,6 +706,7 @@ class Credits extends Component
         $this->bulkInvoices = [];
         $this->bulkAffectsCash = true;
         $this->bulkNotes = '';
+        $this->bulkPaymentDate = now()->format('Y-m-d');
         $this->isBulkModalOpen = true;
     }
 
@@ -979,11 +1003,20 @@ class Credits extends Component
             $cashReconciliationId = $reconciliation->id;
         }
 
+        // Validate bulk payment date
+        $this->validate([
+            'bulkPaymentDate' => 'required|date',
+        ], [
+            'bulkPaymentDate.required' => 'La fecha de pago es obligatoria',
+            'bulkPaymentDate.date' => 'La fecha de pago no es válida',
+        ]);
+
         $user = auth()->user();
         $entityName = $this->bulkSelectedEntity['name'];
         $receiptNumber = CreditPayment::generateReceiptNumber($this->bulkType);
         $totalProcessed = 0;
         $invoicesAffected = 0;
+        $bulkPaymentDateTime = \Carbon\Carbon::parse(($this->bulkPaymentDate ?: now()->format('Y-m-d')) . ' ' . now()->format('H:i:s'));
 
         try {
             DB::beginTransaction();
@@ -1029,6 +1062,11 @@ class Credits extends Component
                         'notes' => $this->bulkNotes ?: null,
                     ]);
 
+                    DB::table('credit_payments')->where('id', $cp->id)->update([
+                        'created_at' => $bulkPaymentDateTime,
+                        'updated_at' => $bulkPaymentDateTime,
+                    ]);
+
                     if ($this->bulkAffectsCash && $cashReconciliationId) {
                         $movementType = $creditType === 'payable' ? 'expense' : 'income';
                         $conceptPrefix = $creditType === 'payable'
@@ -1036,13 +1074,18 @@ class Credits extends Component
                             : "Cobro crédito cliente: {$entityName}";
                         $methodName = PaymentMethod::find($line['payment_method_id'])?->name ?? '';
 
-                        CashMovement::create([
+                        $cashMovement = CashMovement::create([
                             'cash_reconciliation_id' => $cashReconciliationId,
                             'user_id' => $user->id,
                             'type' => $movementType,
                             'amount' => $lineAmount,
                             'concept' => "{$conceptPrefix} - {$inv['document_number']} ({$methodName})",
                             'notes' => $this->bulkNotes ?: null,
+                        ]);
+
+                        DB::table('cash_movements')->where('id', $cashMovement->id)->update([
+                            'created_at' => $bulkPaymentDateTime,
+                            'updated_at' => $bulkPaymentDateTime,
                         ]);
                     }
 
@@ -1130,6 +1173,7 @@ class Credits extends Component
         $this->portfolioFile = null;
         $this->portfolioResults = null;
         $this->portfolioBranchId = $this->needsBranchSelection ? '' : auth()->user()->branch_id;
+        $this->portfolioDate = now()->format('Y-m-d');
         $this->isPortfolioModalOpen = true;
     }
 
@@ -1149,6 +1193,7 @@ class Credits extends Component
 
         $rules = [
             'portfolioFile' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
+            'portfolioDate' => 'required|date',
         ];
 
         if ($this->needsBranchSelection) {
@@ -1159,12 +1204,14 @@ class Credits extends Component
             'portfolioFile.required' => 'Debes seleccionar un archivo Excel o CSV',
             'portfolioFile.mimes' => 'El archivo debe tener extensión .xlsx, .xls o .csv',
             'portfolioBranchId.required' => 'Debe seleccionar una sucursal para la importación',
+            'portfolioDate.required' => 'Debe seleccionar la fecha de registro',
+            'portfolioDate.date' => 'La fecha de registro no es válida',
         ]);
 
         $path = $this->portfolioFile->getRealPath();
         $targetBranchId = $this->needsBranchSelection ? (int) $this->portfolioBranchId : auth()->user()->branch_id;
 
-        $results = $importService->import($path, $targetBranchId);
+        $results = $importService->import($path, $targetBranchId, $this->portfolioDate);
         $this->portfolioResults = $results;
 
         if (($results['created'] ?? 0) > 0 || ($results['updated'] ?? 0) > 0) {

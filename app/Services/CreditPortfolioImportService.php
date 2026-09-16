@@ -22,7 +22,7 @@ class CreditPortfolioImportService
      * @param int|null $defaultBranchId
      * @return array
      */
-    public function import(string $filePath, ?int $defaultBranchId = null): array
+    public function import(string $filePath, ?int $defaultBranchId = null, ?string $defaultDate = null): array
     {
         $spreadsheet = IOFactory::load($filePath);
         $worksheet = $spreadsheet->getActiveSheet();
@@ -63,6 +63,7 @@ class CreditPortfolioImportService
 
         $branches = Branch::where('is_active', true)->get();
         $fallbackBranchId = $defaultBranchId ?: ($branches->first()?->id ?? 1);
+        $fallbackDate = $defaultDate ? Carbon::parse($defaultDate)->format('Y-m-d') : now()->format('Y-m-d');
         $authUserId = auth()->id() ?: 1;
 
         $createdCount = 0;
@@ -98,11 +99,10 @@ class CreditPortfolioImportService
             $branchId = $this->findBranchId($branchRaw, $branches) ?: $fallbackBranchId;
 
             // Resolve dates
-            $today = now()->format('Y-m-d');
             $invoiceDateRaw = $this->getCellValue($row, $columnMap, 'invoice_date');
             $dueDateRaw = $this->getCellValue($row, $columnMap, 'due_date');
 
-            $invoiceDate = $this->parseDate($invoiceDateRaw, $today);
+            $invoiceDate = $this->parseDate($invoiceDateRaw, $fallbackDate);
             $defaultDueDate = Carbon::parse($invoiceDate)->addDays(30)->format('Y-m-d');
             $dueDate = $this->parseDate($dueDateRaw, $defaultDueDate);
 
@@ -156,9 +156,41 @@ class CreditPortfolioImportService
                         'payment_due_date' => $dueDate,
                         'notes' => $notes,
                         'source' => 'cartera_importada',
-                        'created_at' => $invoiceDate . ' ' . now()->format('H:i:s'),
                     ]
                 );
+
+                // Ensure created_at in sales table reflects the exact invoice/portfolio date
+                $targetCreatedAt = Carbon::parse($invoiceDate . ' ' . now()->format('H:i:s'));
+                DB::table('sales')->where('id', $sale->id)->update([
+                    'created_at' => $targetCreatedAt,
+                    'updated_at' => $targetCreatedAt,
+                ]);
+                $sale->refresh();
+
+                // If upfront payment was registered, ensure a CreditPayment record exists with matching date
+                if ($paidAmount > 0) {
+                    $existingPayment = \App\Models\CreditPayment::where('sale_id', $sale->id)->first();
+                    if (!$existingPayment) {
+                        $firstMethodId = \App\Models\PaymentMethod::where('is_active', true)->first()?->id ?? 1;
+                        $creditPayment = \App\Models\CreditPayment::create([
+                            'receipt_number' => \App\Models\CreditPayment::generateReceiptNumber('receivable'),
+                            'payment_number' => \App\Models\CreditPayment::generatePaymentNumber(),
+                            'credit_type' => 'receivable',
+                            'sale_id' => $sale->id,
+                            'customer_id' => $customer->id,
+                            'branch_id' => $branchId,
+                            'user_id' => $authUserId,
+                            'payment_method_id' => $firstMethodId,
+                            'amount' => $paidAmount,
+                            'affects_cash' => false,
+                            'notes' => 'Abono inicial cartera importada',
+                        ]);
+                        DB::table('credit_payments')->where('id', $creditPayment->id)->update([
+                            'created_at' => $targetCreatedAt,
+                            'updated_at' => $targetCreatedAt,
+                        ]);
+                    }
+                }
 
                 if ($isNewSale) {
                     $createdCount++;

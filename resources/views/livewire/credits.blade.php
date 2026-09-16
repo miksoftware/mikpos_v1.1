@@ -486,6 +486,13 @@
                             </div>
                         </div>
 
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Fecha de Pago <span class="text-red-500">*</span></label>
+                            <input wire:model="paymentDate" type="date"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm bg-white">
+                            @error('paymentDate') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+
                         <label class="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-xl cursor-pointer">
                             <input wire:model.live="paymentMarkComplete" type="checkbox" class="w-4 h-4 text-green-600 border-slate-300 rounded focus:ring-green-500">
                             <div>
@@ -746,6 +753,13 @@
 
                         {{-- Affects cash + notes --}}
                         <div class="mt-4 space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Fecha de Pago <span class="text-red-500">*</span></label>
+                                <input wire:model="bulkPaymentDate" type="date"
+                                    class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm bg-white">
+                                @error('bulkPaymentDate') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                            </div>
+
                             <label class="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl cursor-pointer">
                                 <input wire:model="bulkAffectsCash" type="checkbox" class="w-4 h-4 text-amber-600 border-slate-300 rounded focus:ring-amber-500">
                                 <div>
@@ -901,19 +915,28 @@
                             </a>
                         </div>
 
-                        <!-- Branch Selection if required -->
-                        @if($needsBranchSelection)
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Sucursal Objetivo *</label>
-                            <select wire:model="portfolioBranchId" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-sm">
-                                <option value="">Seleccionar sucursal...</option>
-                                @foreach($branches as $branch)
-                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                            @error('portfolioBranchId') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        <!-- Branch Selection if required & Date Selection -->
+                        <div class="grid grid-cols-1 {{ $needsBranchSelection ? 'sm:grid-cols-2' : '' }} gap-4">
+                            @if($needsBranchSelection)
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Sucursal Objetivo *</label>
+                                <select wire:model="portfolioBranchId" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-sm">
+                                    <option value="">Seleccionar sucursal...</option>
+                                    @foreach($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('portfolioBranchId') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                            </div>
+                            @endif
+
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Fecha de Registro *</label>
+                                <input type="date" wire:model="portfolioDate" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-sm">
+                                <p class="text-[11px] text-slate-500 mt-0.5">Fecha con la que se registrará en el sistema (por defecto para las filas sin fecha).</p>
+                                @error('portfolioDate') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                            </div>
                         </div>
-                        @endif
 
                         <!-- File Input -->
                         <div>
