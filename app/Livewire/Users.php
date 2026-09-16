@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Branch;
 use App\Models\Role;
 use App\Models\CashRegister;
+use App\Services\ActivityLogService;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Rule;
 use Livewire\Attributes\Layout;
@@ -170,6 +171,12 @@ class Users extends Component
         $user = User::find($id);
         if (!$user) return;
 
+        // Prevent deleting current logged-in user
+        if ($user->id === auth()->id()) {
+            $this->dispatch('notify', message: 'No puedes eliminar tu propia cuenta', type: 'error');
+            return;
+        }
+
         // Prevent deleting protected users
         if ((int) $id === 1 || str_contains($user->email ?? '', 'softwaremik')) {
             $this->dispatch('notify', message: 'Este usuario no puede ser eliminado', type: 'error');
@@ -189,11 +196,23 @@ class Users extends Component
             return;
         }
 
+        if ($user->id === auth()->id()) {
+            $this->dispatch('notify', message: 'No puedes eliminar tu propia cuenta', type: 'error');
+            $this->isDeleteModalOpen = false;
+            return;
+        }
+
         if ((int) $this->userIdToDelete === 1 || str_contains($user->email ?? '', 'softwaremik')) {
             $this->dispatch('notify', message: 'Este usuario no puede ser eliminado', type: 'error');
             $this->isDeleteModalOpen = false;
             return;
         }
+
+        // Deactivate user access and perform soft delete
+        $user->is_active = false;
+        $user->save();
+
+        ActivityLogService::logDelete('users', $user, "Usuario '{$user->name}' archivado/eliminado");
 
         $user->delete();
         $this->isDeleteModalOpen = false;

@@ -153,9 +153,20 @@ class PointOfSale extends Component
     {
         $user = auth()->user();
 
+        // Check if POS was opened from a quote conversion
+        $quoteId = request()->query('from_quote');
+        $quote = null;
+        if ($quoteId) {
+            $quote = Quote::with(['items', 'customer'])->find((int) $quoteId);
+        }
+
         if ($user->isSuperAdmin()) {
             $this->availableBranches = Branch::where('is_active', true)->orderBy('name')->get()->toArray();
-            $this->branchId = $user->branch_id ?: null;
+            if ($quote && $quote->branch_id) {
+                $this->branchId = $quote->branch_id;
+            } else {
+                $this->branchId = request()->query('branch_id') ?: ($user->branch_id ?: null);
+            }
         } else {
             $this->branchId = $user->branch_id;
         }
@@ -165,13 +176,12 @@ class PointOfSale extends Component
         
         $this->loadCashRegisterForBranch();
         
-        // Load default customer
-        if ($this->branchId) {
+        // Load default customer only if NOT loading a quote
+        if ($this->branchId && !$quote) {
             $this->loadDefaultCustomer();
         }
 
         // Check if POS was opened from a quote conversion
-        $quoteId = request()->query('from_quote');
         if ($quoteId) {
             $this->loadFromQuote((int) $quoteId);
         }
@@ -179,7 +189,7 @@ class PointOfSale extends Component
         // Load branch users for seller dropdown
         $this->loadBranchUsers();
             
-        // Set default seller to current user
+        // Set default seller to current user if not set by quote
         if (!$this->sellerId) {
             $this->sellerId = $user->id;
         }
@@ -245,24 +255,30 @@ class PointOfSale extends Component
 
     public function updatedBranchId(): void
     {
-        // When super_admin changes branch, clear cart and reload dependencies
-        $this->cart = [];
-        $this->customerId = null;
-        $this->selectedCustomer = null;
         $this->productSearch = '';
         $this->customerSearch = '';
         $this->selectedCategory = null;
-        $this->globalDiscountApplied = false;
-        $this->globalDiscountAmount = 0;
-        $this->globalDiscountValue = '';
-        $this->globalDiscountReason = '';
         $this->cashRegisterId = null;
 
         $this->loadCashRegisterForBranch();
         $this->loadBranchUsers();
 
-        if ($this->branchId) {
-            $this->loadDefaultCustomer();
+        if ($this->fromQuoteId) {
+            // When converting a quote, reload quote items and customer so they are never wiped
+            $this->loadFromQuote($this->fromQuoteId);
+        } else {
+            // When super_admin changes branch normally, clear cart and reload dependencies
+            $this->cart = [];
+            $this->customerId = null;
+            $this->selectedCustomer = null;
+            $this->globalDiscountApplied = false;
+            $this->globalDiscountAmount = 0;
+            $this->globalDiscountValue = '';
+            $this->globalDiscountReason = '';
+
+            if ($this->branchId) {
+                $this->loadDefaultCustomer();
+            }
         }
     }
 
@@ -329,10 +345,19 @@ class PointOfSale extends Component
             return;
         }
 
+        // If super admin and branch is not set, set it from the quote
+        if ($user->isSuperAdmin() && $quote->branch_id && !$this->branchId) {
+            $this->branchId = $quote->branch_id;
+            $this->loadCashRegisterForBranch();
+            $this->loadBranchUsers();
+        }
+
         // Set customer from quote
         if ($quote->customer_id) {
             $this->customerId = $quote->customer_id;
             $this->selectedCustomer = $quote->customer;
+        } elseif ($this->branchId) {
+            $this->loadDefaultCustomer();
         }
 
         // Set seller from quote creator
@@ -1773,6 +1798,17 @@ class PointOfSale extends Component
         $this->globalDiscountValue = '';
         $this->globalDiscountReason = '';
         $this->showPriceOverride = false;
+        $this->fromQuoteId = null;
+        $this->fromQuoteNumber = null;
+    }
+
+    public function cancelQuoteConversion(): void
+    {
+        $this->clearCart();
+        if ($this->branchId) {
+            $this->loadDefaultCustomer();
+        }
+        $this->dispatch('notify', message: 'Conversión de cotización cancelada', type: 'info');
     }
 
     // Discount methods

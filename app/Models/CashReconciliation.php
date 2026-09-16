@@ -54,12 +54,12 @@ class CashReconciliation extends Model
 
     public function openedByUser(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'opened_by');
+        return $this->belongsTo(User::class, 'opened_by')->withTrashed();
     }
 
     public function closedByUser(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'closed_by');
+        return $this->belongsTo(User::class, 'closed_by')->withTrashed();
     }
 
     public function movements(): HasMany

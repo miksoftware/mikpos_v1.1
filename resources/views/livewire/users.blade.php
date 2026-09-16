@@ -240,7 +240,7 @@
                         </svg>
                     </div>
                     <h3 class="text-lg font-bold text-slate-900 mb-2">Eliminar Usuario</h3>
-                    <p class="text-slate-500 mb-6">¿Estás seguro de que deseas eliminar este usuario? Esta acción no se puede deshacer.</p>
+                    <p class="text-slate-500 mb-6">¿Estás seguro de que deseas eliminar este usuario? El usuario será desactivado y archivado del sistema, pero todos sus registros históricos (ventas, compras, arqueos) se conservarán intactos.</p>
                     <div class="flex justify-center gap-3">
                         <button wire:click="$set('isDeleteModalOpen', false)" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cancelar</button>
                         <button wire:click="delete" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700">Eliminar</button>

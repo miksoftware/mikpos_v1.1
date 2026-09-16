@@ -93,8 +93,12 @@ class Quotes extends Component
             return;
         }
 
-        // Redirect to POS with the quote ID as query param
-        $this->redirect(route('pos', ['from_quote' => $quote->id]), navigate: false);
+        // Redirect to POS with the quote ID and branch ID as query params
+        $params = ['from_quote' => $quote->id];
+        if ($quote->branch_id) {
+            $params['branch_id'] = $quote->branch_id;
+        }
+        $this->redirect(route('pos', $params), navigate: false);
     }
 
     public function openCancelModal($quoteId): void
