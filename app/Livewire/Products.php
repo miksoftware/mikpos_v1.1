@@ -2716,7 +2716,7 @@ class Products extends Component
      */
     public function deleteBarcode(int $barcodeId)
     {
-        if (!auth()->user()->hasPermission('products.edit')) {
+        if (!auth()->user()->hasPermission('products.edit') && !auth()->user()->hasPermission('products.delete')) {
             $this->dispatch('notify', message: 'No tienes permiso', type: 'error');
             return;
         }
