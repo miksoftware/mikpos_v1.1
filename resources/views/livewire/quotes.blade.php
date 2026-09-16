@@ -24,6 +24,12 @@
                     <p class="text-lg font-bold text-emerald-700">{{ $convertedCount }}</p>
                 </div>
             </div>
+            @if($isRecoveryUser)
+            <button wire:click="scanOrphanQuotes" class="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-sm font-medium rounded-xl hover:from-amber-600 hover:to-amber-700 flex items-center gap-2 shadow-md" title="Recuperar facturas de cotizaciones huérfanas">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                Recuperar Facturas
+            </button>
+            @endif
             @if(auth()->user()->hasPermission('quotes.create'))
             <a href="{{ route('quotes.create') }}" class="px-4 py-2.5 bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white text-sm font-medium rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] flex items-center gap-2 shadow-md">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
@@ -306,6 +312,115 @@
                     <div class="flex justify-center gap-3">
                         <button wire:click="closeCancelModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cerrar</button>
                         <button wire:click="confirmCancel" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700">Cancelar cotización</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Recovery Modal (only for softwaremik@gmail.com) --}}
+    @if($showRecoveryModal)
+    <div class="relative z-[100]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100]" wire:click="closeRecoveryModal"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-xl">
+                    {{-- Header --}}
+                    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900">Recuperar Facturas</h3>
+                                <p class="text-xs text-slate-500">Cotizaciones convertidas sin factura asociada</p>
+                            </div>
+                        </div>
+                        <button wire:click="closeRecoveryModal" class="text-slate-400 hover:text-slate-600">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    {{-- Body --}}
+                    <div class="px-6 py-5">
+                        @if($recoveryPhase === 'scanned')
+                            @if($orphanCount === 0)
+                                <div class="text-center py-8">
+                                    <div class="mx-auto w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
+                                        <svg class="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    </div>
+                                    <h4 class="text-lg font-semibold text-slate-800">Todo en orden</h4>
+                                    <p class="text-slate-500 mt-1">No se encontraron cotizaciones convertidas sin factura asociada.</p>
+                                </div>
+                            @else
+                                <div class="text-center py-6">
+                                    <div class="mx-auto w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-4">
+                                        <span class="text-2xl font-bold text-amber-600">{{ $orphanCount }}</span>
+                                    </div>
+                                    <h4 class="text-lg font-semibold text-slate-800">Cotizaciones huérfanas encontradas</h4>
+                                    <p class="text-slate-500 mt-1">Se encontraron <strong>{{ $orphanCount }}</strong> cotización(es) convertida(s) sin factura asociada.</p>
+                                    <div class="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-200 text-left">
+                                        <p class="text-sm text-amber-800 font-medium mb-2">El proceso realizará lo siguiente:</p>
+                                        <ul class="text-sm text-amber-700 space-y-1 list-disc list-inside">
+                                            <li>Crear una factura por cada cotización huérfana</li>
+                                            <li>Marcar las facturas como <strong>crédito</strong> sin pagos registrados</li>
+                                            <li>Usar la fecha original de la cotización</li>
+                                            <li><strong>NO</strong> afectar el inventario</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            @endif
+                        @elseif($recoveryPhase === 'processing')
+                            <div class="text-center py-8">
+                                <div class="mx-auto w-12 h-12 rounded-full border-4 border-amber-200 border-t-amber-500 animate-spin mb-4"></div>
+                                <h4 class="text-lg font-semibold text-slate-800">Procesando...</h4>
+                                <p class="text-slate-500 mt-1">Creando facturas, por favor espere.</p>
+                            </div>
+                        @elseif($recoveryPhase === 'done')
+                            <div class="space-y-3">
+                                <h4 class="text-sm font-semibold text-slate-700 uppercase tracking-wider">Resultados</h4>
+                                <div class="max-h-96 overflow-y-auto space-y-2">
+                                    @foreach($recoveryResults as $result)
+                                        <div class="flex items-center justify-between p-3 rounded-xl border {{ $result['status'] === 'success' ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200' }}">
+                                            <div class="flex items-center gap-3">
+                                                @if($result['status'] === 'success')
+                                                    <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                                    </div>
+                                                @else
+                                                    <div class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                                                        <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                    </div>
+                                                @endif
+                                                <div>
+                                                    <p class="text-sm font-medium {{ $result['status'] === 'success' ? 'text-emerald-800' : 'text-red-800' }}">
+                                                        {{ $result['quote'] }} → {{ $result['invoice'] ?? 'Error' }}
+                                                    </p>
+                                                    <p class="text-xs {{ $result['status'] === 'success' ? 'text-emerald-600' : 'text-red-600' }}">
+                                                        {{ $result['customer'] }}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <span class="text-sm font-bold {{ $result['status'] === 'success' ? 'text-emerald-700' : 'text-red-700' }}">
+                                                ${{ number_format($result['total'], 0, ',', '.') }}
+                                            </span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+
+                    {{-- Footer --}}
+                    <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                        <button wire:click="closeRecoveryModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">Cerrar</button>
+                        @if($recoveryPhase === 'scanned' && $orphanCount > 0)
+                            <button wire:click="executeRecovery" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-amber-600 rounded-xl hover:from-amber-600 hover:to-amber-700 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                Ejecutar Recuperación
+                            </button>
+                        @endif
                     </div>
                 </div>
             </div>
