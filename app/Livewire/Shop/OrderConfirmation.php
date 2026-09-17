@@ -18,12 +18,14 @@ class OrderConfirmation extends Component
     {
         // Validate the sale belongs to the authenticated customer
         $customer = Auth::guard('customer')->user();
+        $syncService = app(\App\Services\CustomerSyncService::class);
+        $customerIds = $syncService->getAllCustomerIds($customer);
 
-        if ($sale->customer_id !== $customer->id || $sale->source !== 'ecommerce') {
+        if (!in_array($sale->customer_id, $customerIds) || $sale->source !== 'ecommerce') {
             abort(403);
         }
 
-        $this->sale = $sale->load(['items', 'payments.paymentMethod', 'ecommerceOrder']);
+        $this->sale = $sale->load(['items', 'payments.paymentMethod', 'ecommerceOrder', 'branch']);
     }
 
     public function render()

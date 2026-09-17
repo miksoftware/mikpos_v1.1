@@ -129,19 +129,8 @@ Route::post('/logout', function () {
     return redirect('/login');
 })->name('logout');
 
-// Fallback generic /shop routes: Redirect to active or first available branch store
-Route::get('/shop/{path?}', function (?string $path = null) {
-    $branch = \App\Models\Branch::getEcommerceBranch();
-    if ($branch) {
-        $branchSlug = $branch->slug ?: \Illuminate\Support\Str::slug($branch->name ?: 'sucursal-' . $branch->id);
-        $target = $path ? "/{$branchSlug}/shop/{$path}" : "/{$branchSlug}/shop";
-        return redirect($target);
-    }
-    abort(503, 'La tienda en línea no está disponible en este momento.');
-})->where('path', '.*');
-
-// E-commerce routes per branch (/{branch_slug}/shop)
-Route::prefix('{branch_slug}/shop')->group(function () {
+// E-commerce routes for Unified Store (/shop)
+Route::prefix('shop')->group(function () {
     // Guest routes
     Route::middleware(['guest:customer', 'ecommerce.check'])->group(function () {
         Route::get('/login', App\Livewire\Shop\Auth\Login::class)->name('shop.login');
@@ -160,14 +149,34 @@ Route::prefix('{branch_slug}/shop')->group(function () {
         Route::get('/orders', App\Livewire\Shop\Orders::class)->name('shop.orders');
         Route::get('/profile', App\Livewire\Shop\Profile::class)->name('shop.profile');
 
-        Route::post('/logout', function ($branch_slug) {
+        Route::post('/logout', function () {
             Auth::guard('customer')->logout();
             request()->session()->invalidate();
             request()->session()->regenerateToken();
-            return redirect()->route('shop.login', ['branch_slug' => $branch_slug]);
+            return redirect()->route('shop.login');
         })->name('shop.logout');
     });
 });
+
+// Branch-specific link support (/{branch_slug}/shop/{path?})
+// Stores target branch in session and seamlessly routes to the store
+Route::get('/{branch_slug}/shop/{path?}', function (string $branchSlug, ?string $path = null) {
+    $branch = \App\Models\Branch::where(function ($q) use ($branchSlug) {
+        $q->where('slug', $branchSlug)->orWhere('code', $branchSlug);
+    })->where('is_active', true)->where('ecommerce_enabled', true)->first();
+
+    if ($branch) {
+        session([
+            'ecommerce_branch_id' => $branch->id,
+            'ecommerce_branch_slug' => $branch->slug,
+            'branch_user_selected' => true,
+        ]);
+        $target = $path ? "/shop/{$path}" : "/shop";
+        return redirect($target);
+    }
+
+    abort(404, 'La sucursal solicitada no existe o no tiene habilitada la tienda virtual.');
+})->where('path', '.*');
 
 // Protected routes
 Route::middleware(['auth', 'user.active'])->group(function () {

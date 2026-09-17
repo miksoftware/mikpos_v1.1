@@ -114,6 +114,27 @@ class Branches extends Component
     public $tax_exempt_preserves_price = false;
     public $is_active = true;
 
+    // Ecommerce store mode ('unified' or 'independent')
+    public string $ecommerceStoreMode = 'unified';
+
+    public function mount(): void
+    {
+        $this->ecommerceStoreMode = \App\Models\EcommerceSetting::getSettings()->store_mode;
+    }
+
+    public function setEcommerceStoreMode(string $mode): void
+    {
+        if (!auth()->user()->hasPermission('branches.edit')) {
+            $this->dispatch('notify', message: 'No tienes permiso para modificar esta configuración', type: 'error');
+            return;
+        }
+
+        $setting = \App\Models\EcommerceSetting::getSettings();
+        $setting->update(['store_mode' => $mode]);
+        $this->ecommerceStoreMode = $mode;
+        $this->dispatch('notify', message: 'Modo de tienda virtual configurado: ' . ($mode === 'unified' ? 'Tienda Unificada' : 'Por Sucursales'), type: 'success');
+    }
+
     // Logo upload
     public $logo = null;
     public ?string $existingLogo = null;

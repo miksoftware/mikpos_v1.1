@@ -31,6 +31,12 @@ class CheckEcommerce
             return $next($request);
         }
 
+        // If in unified mode, allow access as long as at least one active branch has ecommerce enabled
+        $hasAnyBranch = Branch::where('is_active', true)->where('ecommerce_enabled', true)->exists();
+        if ($hasAnyBranch) {
+            return $next($request);
+        }
+
         abort(503, 'La tienda en línea no está disponible en este momento.');
     }
 }

@@ -93,12 +93,25 @@
 
         {{-- Actions --}}
         <div class="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6">
-            <a href="{{ route('shop.orders') }}" class="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all">
+            <a href="{{ route('shop.orders') }}" class="w-full sm:w-auto text-center px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] transition-all shadow-sm">
                 Ver mis pedidos
             </a>
-            <a href="{{ route('shop.catalog') }}" class="px-6 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-all">
-                Seguir comprando
+            <a href="{{ route('shop.catalog') }}" class="w-full sm:w-auto text-center px-6 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-all shadow-sm">
+                Seguir comprando en {{ $sale->branch?->name ?? 'esta sede' }}
             </a>
+            @php
+                $otherBranchesCount = \App\Models\Branch::where('is_active', true)->where('ecommerce_enabled', true)->count();
+            @endphp
+            @if($otherBranchesCount > 1)
+                <button type="button"
+                    @click="$dispatch('open-branch-selector')"
+                    class="w-full sm:w-auto text-center px-6 py-2.5 text-sm font-medium text-[#ff7261] bg-white border border-[#ff7261]/30 hover:bg-[#ff7261]/5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5">
+                    <svg class="w-4 h-4 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                    </svg>
+                    Comprar en otra sucursal
+                </button>
+            @endif
         </div>
     </div>
 </div>

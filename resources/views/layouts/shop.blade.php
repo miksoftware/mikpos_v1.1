@@ -47,30 +47,49 @@
         <header class="bg-white border-b border-slate-200 fixed top-0 left-0 right-0 z-40" x-data="{ mobileMenuOpen: false }">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
-                    {{-- Logo --}}
-                    <a href="{{ route('shop.catalog') }}" class="flex items-center gap-3 flex-shrink-0">
-                        @if($shopBranch && $shopBranch->logo)
-                            <img src="{{ Storage::url($shopBranch->logo) }}" alt="{{ $shopName }}" class="h-9 w-auto object-contain">
-                        @else
-                            <div class="w-9 h-9 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-xl flex items-center justify-center shadow-sm">
-                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                    {{-- Left: Logo & Nav --}}
+                    <div class="flex items-center gap-6">
+                        <a href="{{ route('shop.catalog') }}" class="flex items-center gap-3 flex-shrink-0">
+                            @if($shopBranch && $shopBranch->logo)
+                                <img src="{{ Storage::url($shopBranch->logo) }}" alt="{{ $shopName }}" class="h-9 w-auto object-contain">
+                            @else
+                                <div class="w-9 h-9 bg-gradient-to-br from-[#ff7261] to-[#a855f7] rounded-xl flex items-center justify-center shadow-sm">
+                                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                                    </svg>
+                                </div>
+                            @endif
+                            <span class="text-lg font-bold text-slate-900 hidden sm:inline">{{ $shopName }}</span>
+                        </a>
+
+                        {{-- Desktop Nav --}}
+                        <nav class="hidden md:flex items-center gap-5">
+                            <a href="{{ route('shop.catalog') }}" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Catálogo</a>
+                            @auth('customer')
+                                <a href="{{ route('shop.orders') }}" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Mis Pedidos</a>
+                            @endauth
+                        </nav>
+                    </div>
+
+                    {{-- Middle/Right: Branch Selector & Actions --}}
+                    <div class="flex items-center gap-2 sm:gap-3">
+                        {{-- Branch Selector Button --}}
+                        @php
+                            $availableBranchesCount = \App\Models\Branch::where('is_active', true)->where('ecommerce_enabled', true)->count();
+                        @endphp
+                        @if($availableBranchesCount > 1)
+                            <button type="button"
+                                @click="$dispatch('open-branch-selector')"
+                                class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200/90 text-slate-700 text-xs font-medium transition-all shadow-sm group">
+                                <svg class="w-3.5 h-3.5 text-[#ff7261] flex-shrink-0 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                 </svg>
-                            </div>
+                                <span class="truncate max-w-[90px] sm:max-w-[150px] font-semibold">{{ $shopBranch?->name ?? 'Seleccionar sede' }}</span>
+                                <span class="text-[#ff7261] font-semibold hover:underline hidden xs:inline">Cambiar</span>
+                            </button>
                         @endif
-                        <span class="text-lg font-bold text-slate-900">{{ $shopName }}</span>
-                    </a>
 
-                    {{-- Desktop Nav --}}
-                    <nav class="hidden md:flex items-center gap-6">
-                        <a href="{{ route('shop.catalog') }}" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Catálogo</a>
-                        @auth('customer')
-                            <a href="{{ route('shop.orders') }}" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Mis Pedidos</a>
-                        @endauth
-                    </nav>
-
-                    {{-- Right Side --}}
-                    <div class="flex items-center gap-3">
                         @auth('customer')
                             {{-- Cart --}}
                             @php
@@ -145,6 +164,11 @@
                 {{-- Mobile Nav --}}
                 <div x-show="mobileMenuOpen" x-collapse class="md:hidden border-t border-slate-100 py-3 space-y-1">
                     <a href="{{ route('shop.catalog') }}" class="block px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg">Catálogo</a>
+                    @if($availableBranchesCount > 1)
+                        <button type="button" @click="$dispatch('open-branch-selector'); mobileMenuOpen = false" class="block w-full text-left px-3 py-2 text-sm font-medium text-[#ff7261] hover:bg-slate-50 rounded-lg">
+                            📍 Cambiar Sucursal ({{ $shopBranch?->name }})
+                        </button>
+                    @endif
                     @auth('customer')
                         <a href="{{ route('shop.orders') }}" class="block px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg">Mis Pedidos</a>
                         <a href="{{ route('shop.profile') }}" class="block px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg">Perfil</a>
@@ -180,6 +204,9 @@
             </div>
         </footer>
     @endif
+
+    {{-- Branch Selector Modal --}}
+    @livewire('shop.branch-selector-modal')
 
     {{-- Toast Notifications --}}
     <x-toast />

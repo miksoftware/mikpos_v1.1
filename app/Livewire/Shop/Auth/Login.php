@@ -43,9 +43,18 @@ class Login extends Component
 
         session()->regenerate();
 
-        $branch = \App\Models\Branch::getEcommerceBranch();
-        $targetUrl = $branch ? $branch->shop_url : '/shop';
-        $this->redirect($targetUrl, navigate: true);
+        // In unified mode: ensure the logged-in customer has a record in the active branch
+        $activeBranchId = \App\Models\Branch::getEcommerceBranchId();
+        if ($activeBranchId && \App\Models\EcommerceSetting::isUnifiedMode()) {
+            $currentCustomer = Auth::guard('customer')->user();
+            if ($currentCustomer && $currentCustomer->branch_id !== $activeBranchId) {
+                $syncService = app(\App\Services\CustomerSyncService::class);
+                $branchCustomer = $syncService->ensureCustomerExistsInBranch($currentCustomer, $activeBranchId);
+                Auth::guard('customer')->login($branchCustomer);
+            }
+        }
+
+        $this->redirect(route('shop.catalog'), navigate: true);
     }
 
     public function render()

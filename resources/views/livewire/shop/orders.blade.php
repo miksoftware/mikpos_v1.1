@@ -44,6 +44,15 @@
                                         {{ $statusConfig['label'] }}
                                     </span>
                                 </div>
+                                @if($order->branch)
+                                    <div class="flex items-center gap-1 text-xs text-slate-500 mb-1.5">
+                                        <svg class="w-3.5 h-3.5 text-[#ff7261] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        </svg>
+                                        <span class="font-medium text-slate-700 truncate">{{ $order->branch->name }}</span>
+                                    </div>
+                                @endif
                                 <div class="flex items-center justify-between text-sm">
                                     <span class="text-slate-500">{{ $order->created_at->format('d/m/Y H:i') }}</span>
                                     <span class="font-semibold text-slate-900">${{ number_format($order->total, 0, ',', '.') }}</span>
@@ -96,9 +105,18 @@
                         </div>
 
                         <div class="max-h-[calc(100vh-12rem)] overflow-y-auto">
-                            {{-- Date --}}
-                            <div class="px-6 py-3 text-sm text-slate-500 border-b border-slate-100">
-                                Fecha: {{ $selectedSale->created_at->format('d/m/Y H:i') }}
+                            {{-- Date & Branch --}}
+                            <div class="px-6 py-3 text-sm text-slate-500 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
+                                <span>Fecha: {{ $selectedSale->created_at->format('d/m/Y H:i') }}</span>
+                                @if($selectedSale->branch)
+                                    <span class="inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg">
+                                        <svg class="w-3.5 h-3.5 text-[#ff7261]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        </svg>
+                                        {{ $selectedSale->branch->name }}
+                                    </span>
+                                @endif
                             </div>
 
                             {{-- Partial Order Notice --}}

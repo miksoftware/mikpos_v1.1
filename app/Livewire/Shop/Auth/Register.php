@@ -103,8 +103,7 @@ class Register extends Component
 
         $phoneDigits = preg_replace('/\D+/', '', $this->phone) ?? '';
 
-        $customer = Customer::create([
-            'branch_id' => \App\Models\Branch::getEcommerceBranchId(),
+        $customerData = [
             'customer_type' => $this->customer_type,
             'tax_document_id' => $this->tax_document_id,
             'document_number' => $this->document_number,
@@ -118,13 +117,22 @@ class Register extends Component
             'municipality_id' => $this->municipality_id,
             'address' => $this->address,
             'is_active' => true,
-        ]);
+        ];
+
+        $currentBranchId = \App\Models\Branch::getEcommerceBranchId();
+
+        if (\App\Models\EcommerceSetting::isUnifiedMode()) {
+            $syncService = app(\App\Services\CustomerSyncService::class);
+            $customer = $syncService->syncToAllEcommerceBranches($customerData, $currentBranchId);
+        } else {
+            $customer = Customer::create(array_merge($customerData, [
+                'branch_id' => $currentBranchId,
+            ]));
+        }
 
         Auth::guard('customer')->login($customer);
 
-        $branch = \App\Models\Branch::getEcommerceBranch();
-        $targetUrl = $branch ? $branch->shop_url : '/shop';
-        $this->redirect($targetUrl, navigate: true);
+        $this->redirect(route('shop.catalog'), navigate: true);
     }
 
     public function render()

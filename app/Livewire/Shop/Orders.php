@@ -20,8 +20,11 @@ class Orders extends Component
     public function viewOrder(int $saleId): void
     {
         $customer = Auth::guard('customer')->user();
+        $syncService = app(\App\Services\CustomerSyncService::class);
+        $customerIds = $syncService->getAllCustomerIds($customer);
+
         $sale = Sale::where('id', $saleId)
-            ->where('customer_id', $customer->id)
+            ->whereIn('customer_id', $customerIds)
             ->where('source', 'ecommerce')
             ->first();
 
@@ -38,23 +41,26 @@ class Orders extends Component
     public function render()
     {
         $customer = Auth::guard('customer')->user();
+        $syncService = app(\App\Services\CustomerSyncService::class);
+        $customerIds = $syncService->getAllCustomerIds($customer);
 
-        $orders = Sale::where('customer_id', $customer->id)
+        $orders = Sale::whereIn('customer_id', $customerIds)
             ->where('source', 'ecommerce')
-            ->with(['payments.paymentMethod', 'ecommerceOrder', 'items'])
+            ->with(['payments.paymentMethod', 'ecommerceOrder', 'items', 'branch'])
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
         $selectedSale = null;
         if ($this->selectedSaleId) {
             $selectedSale = Sale::where('id', $this->selectedSaleId)
-                ->where('customer_id', $customer->id)
+                ->whereIn('customer_id', $customerIds)
                 ->where('source', 'ecommerce')
                 ->with([
                     'items',
                     'payments.paymentMethod',
                     'ecommerceOrder.shippingDepartment',
                     'ecommerceOrder.shippingMunicipality',
+                    'branch',
                 ])
                 ->first();
         }

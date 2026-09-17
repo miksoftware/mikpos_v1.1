@@ -35,8 +35,7 @@ class Checkout extends Component
 
         if (empty($this->items)) {
             $this->dispatch('notify', message: 'Tu carrito está vacío', type: 'warning');
-            $branchSlug = session('ecommerce_branch_slug') ?: \App\Models\Branch::getEcommerceBranch()?->slug;
-            $this->redirectRoute('shop.catalog', ['branch_slug' => $branchSlug], navigate: true);
+            $this->redirectRoute('shop.catalog', navigate: true);
             return;
         }
 
@@ -115,8 +114,7 @@ class Checkout extends Component
             session()->forget('ecommerce_cart');
             $this->dispatch('cart-updated', count: 0);
 
-            $branchSlug = session('ecommerce_branch_slug') ?: \App\Models\Branch::getEcommerceBranch()?->slug;
-            $this->redirectRoute('shop.order', ['branch_slug' => $branchSlug, 'sale' => $sale->id], navigate: true);
+            $this->redirectRoute('shop.order', ['sale' => $sale->id], navigate: true);
         } catch (\Exception $e) {
             $this->dispatch('notify', message: $e->getMessage(), type: 'error');
         }

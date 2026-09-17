@@ -21,6 +21,61 @@
         </div>
     </div>
 
+    <!-- Ecommerce Global Mode Banner -->
+    @php
+        $ecommerceBranchesCount = \App\Models\Branch::where('is_active', true)->where('ecommerce_enabled', true)->count();
+    @endphp
+    @if($ecommerceBranchesCount > 0)
+    <div class="bg-gradient-to-r from-purple-900/90 via-indigo-900/90 to-slate-900 rounded-2xl p-4 sm:p-5 text-white shadow-md border border-purple-800/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex items-start gap-3.5">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ff7261] to-[#a855f7] flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                </svg>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h3 class="text-sm sm:text-base font-bold text-white">Tienda Virtual MikPos</h3>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold {{ $ecommerceStoreMode === 'unified' ? 'bg-purple-400/20 text-purple-200 border border-purple-400/30' : 'bg-slate-400/20 text-slate-200 border border-slate-400/30' }}">
+                        {{ $ecommerceStoreMode === 'unified' ? 'Modo Tienda Unificada' : 'Modo Por Sucursales' }}
+                    </span>
+                </div>
+                <p class="text-xs text-slate-300 mt-1">
+                    @if($ecommerceStoreMode === 'unified')
+                        Todas las sucursales habilitadas se gestionan a través del enlace único <strong>/shop</strong> con selector de sede interactivo.
+                    @else
+                        Cada sucursal maneja su propio enlace web independiente (/sucursal/shop).
+                    @endif
+                </p>
+                <div class="mt-2 flex items-center gap-2">
+                    <span class="text-xs text-purple-200 font-mono bg-black/30 px-2.5 py-1 rounded-lg border border-purple-500/20">
+                        {{ url('/shop') }}
+                    </span>
+                    <a href="{{ url('/shop') }}" target="_blank" class="text-xs text-white hover:text-purple-200 underline font-medium flex items-center gap-1">
+                        Abrir tienda
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        @if(auth()->user()->hasPermission('branches.edit'))
+        <div class="flex items-center bg-black/30 p-1 rounded-xl border border-purple-500/30 self-start md:self-center">
+            <button type="button"
+                wire:click="setEcommerceStoreMode('unified')"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all {{ $ecommerceStoreMode === 'unified' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-sm' : 'text-slate-300 hover:text-white' }}">
+                Tienda Unificada
+            </button>
+            <button type="button"
+                wire:click="setEcommerceStoreMode('independent')"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all {{ $ecommerceStoreMode === 'independent' ? 'bg-gradient-to-r from-[#ff7261] to-[#a855f7] text-white shadow-sm' : 'text-slate-300 hover:text-white' }}">
+                Por Sucursales
+            </button>
+        </div>
+        @endif
+    </div>
+    @endif
+
     <!-- Search -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
         <div class="relative">
