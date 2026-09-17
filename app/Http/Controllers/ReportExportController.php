@@ -4410,7 +4410,15 @@ class ReportExportController extends Controller
             }
 
             // 1. Resolve Ecommerce Branch
-            $branchId = $request->get('branch_id') ?: Branch::getEcommerceBranchId();
+            $branchId = $request->get('branch_id');
+            if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->branch_id) {
+                // Users with assigned branch always download their assigned branch catalog
+                $branchId = auth()->user()->branch_id;
+            }
+            if (!$branchId) {
+                $branchId = Branch::getEcommerceBranchId();
+            }
+
             $branch = null;
             if ($branchId) {
                 $branch = Branch::with(['department', 'municipality'])->find($branchId);

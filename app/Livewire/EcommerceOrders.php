@@ -5,10 +5,14 @@ namespace App\Livewire;
 use App\Mail\EcommerceItemsUnavailable;
 use App\Mail\EcommerceOrderItemsModified;
 use App\Mail\EcommerceOrderStatusChanged;
+use App\Mail\EcommercePaymentMethodChanged;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\SalePayment;
+use App\Models\PaymentMethod;
 use App\Models\EcommerceOrder;
 use App\Models\Product;
+use App\Models\Branch;
 use App\Models\InventoryMovement;
 use App\Services\EcommerceCheckoutService;
 use App\Services\FactusV2Service;
@@ -64,6 +68,12 @@ class EcommerceOrders extends Component
     public string $globalDiscountType = 'percentage';
     public string $globalDiscountValue = '';
     public string $globalDiscountReason = '';
+
+    // Change Payment Method modal
+    public bool $showChangePaymentMethodModal = false;
+    public string $newPaymentMethodOption = '';
+    public string $paymentMethodChangeReason = '';
+    public bool $notifyCustomerPaymentChange = true;
 
     // Electronic Invoicing Toggle
     public bool $generateElectronicInvoice = true;
@@ -188,6 +198,7 @@ class EcommerceOrders extends Component
         $this->selectedSale = null;
         $this->selectedOrder = null;
         $this->unavailableItems = [];
+        $this->showChangePaymentMethodModal = false;
     }
 
     public function toggleItemUnavailable(int $itemId)
@@ -784,6 +795,167 @@ class EcommerceOrders extends Component
         $this->dispatch('notify', message: 'Descuento general eliminado', type: 'success');
     }
 
+    public function openChangePaymentMethodModal(): void
+    {
+        if (!$this->selectedSale) {
+            return;
+        }
+
+        if ($this->selectedSale->status !== 'pending_approval') {
+            $this->dispatch('notify', message: 'Solo se puede cambiar el método de pago en pedidos pendientes de aprobación', type: 'warning');
+            return;
+        }
+
+        if ($this->selectedSale->payment_type === 'credit') {
+            $this->newPaymentMethodOption = 'credit';
+        } else {
+            $payment = $this->selectedSale->payments()->first();
+            $this->newPaymentMethodOption = $payment ? (string) $payment->payment_method_id : '';
+        }
+
+        $this->paymentMethodChangeReason = '';
+        $this->notifyCustomerPaymentChange = true;
+        $this->showChangePaymentMethodModal = true;
+    }
+
+    public function closeChangePaymentMethodModal(): void
+    {
+        $this->showChangePaymentMethodModal = false;
+        $this->newPaymentMethodOption = '';
+        $this->paymentMethodChangeReason = '';
+        $this->notifyCustomerPaymentChange = true;
+    }
+
+    public function getSalePaymentMethodName(?Sale $sale): string
+    {
+        if (!$sale) {
+            return 'N/A';
+        }
+
+        if ($sale->payment_type === 'credit') {
+            return 'Crédito';
+        }
+
+        $payment = $sale->payments()->with('paymentMethod')->first();
+        return $payment?->paymentMethod?->name ?? 'No especificado';
+    }
+
+    public function savePaymentMethodChange(): void
+    {
+        if (!$this->selectedSale) {
+            return;
+        }
+
+        if ($this->selectedSale->status !== 'pending_approval') {
+            $this->dispatch('notify', message: 'No se puede modificar un pedido que ya no está pendiente', type: 'error');
+            return;
+        }
+
+        if (empty($this->newPaymentMethodOption)) {
+            $this->dispatch('notify', message: 'Debes seleccionar un método de pago', type: 'warning');
+            return;
+        }
+
+        $sale = $this->selectedSale;
+        $oldPaymentMethodName = $this->getSalePaymentMethodName($sale);
+        $newPaymentMethodName = '';
+
+        if ($this->newPaymentMethodOption === 'credit') {
+            $newPaymentMethodName = 'Crédito';
+        } else {
+            $paymentMethod = PaymentMethod::find($this->newPaymentMethodOption);
+            if (!$paymentMethod) {
+                $this->dispatch('notify', message: 'Método de pago no válido', type: 'error');
+                return;
+            }
+            $newPaymentMethodName = $paymentMethod->name;
+        }
+
+        if ($oldPaymentMethodName === $newPaymentMethodName) {
+            $this->dispatch('notify', message: 'El método seleccionado es el mismo actual', type: 'info');
+            $this->closeChangePaymentMethodModal();
+            return;
+        }
+
+        try {
+            DB::transaction(function () use ($sale, $oldPaymentMethodName, $newPaymentMethodName) {
+                if ($this->newPaymentMethodOption === 'credit') {
+                    $sale->payments()->delete();
+                    $sale->update([
+                        'payment_type' => 'credit',
+                        'payment_status' => 'pending',
+                        'paid_amount' => 0,
+                        'credit_amount' => $sale->total,
+                    ]);
+                } else {
+                    $methodId = (int) $this->newPaymentMethodOption;
+                    $payment = $sale->payments()->first();
+
+                    if ($payment) {
+                        $payment->update([
+                            'payment_method_id' => $methodId,
+                            'amount' => $sale->total,
+                        ]);
+                    } else {
+                        SalePayment::create([
+                            'sale_id' => $sale->id,
+                            'payment_method_id' => $methodId,
+                            'amount' => $sale->total,
+                        ]);
+                    }
+
+                    $sale->update([
+                        'payment_type' => 'cash',
+                        'payment_status' => 'paid',
+                        'paid_amount' => $sale->total,
+                        'credit_amount' => 0,
+                    ]);
+                }
+
+                ActivityLogService::log(
+                    'ecommerce_orders',
+                    'update',
+                    "Método de pago cambiado en pedido #{$sale->invoice_number}: de {$oldPaymentMethodName} a {$newPaymentMethodName}" . ($this->paymentMethodChangeReason ? " (Motivo: {$this->paymentMethodChangeReason})" : ''),
+                    $sale,
+                    ['payment_method' => $oldPaymentMethodName],
+                    ['payment_method' => $newPaymentMethodName, 'reason' => $this->paymentMethodChangeReason]
+                );
+            });
+
+            // Send notification email to customer if requested
+            if ($this->notifyCustomerPaymentChange) {
+                $sale->refresh();
+                $sale->load(['customer', 'branch']);
+                $customer = $sale->customer;
+
+                if ($customer && !empty($customer->email)) {
+                    try {
+                        Mail::to($customer->email)->send(
+                            new EcommercePaymentMethodChanged(
+                                sale: $sale,
+                                oldPaymentMethod: $oldPaymentMethodName,
+                                newPaymentMethod: $newPaymentMethodName,
+                                reason: $this->paymentMethodChangeReason ?: null
+                            )
+                        );
+                    } catch (\Exception $e) {
+                        Log::error("Error enviando email de cambio de método de pago pedido #{$sale->invoice_number}: " . $e->getMessage());
+                    }
+                }
+            }
+
+            $this->closeChangePaymentMethodModal();
+
+            // Refresh selected sale with relationships
+            $this->selectedSale->refresh();
+            $this->selectedSale->load(['payments.paymentMethod', 'customer', 'branch', 'items.product', 'ecommerceOrder']);
+
+            $this->dispatch('notify', message: "Método de pago actualizado a {$newPaymentMethodName}", type: 'success');
+        } catch (\Exception $e) {
+            $this->dispatch('notify', message: 'Error al cambiar método de pago: ' . $e->getMessage(), type: 'error');
+        }
+    }
+
     public function bulkApprove()
     {
         if (empty($this->selectedOrders)) {
@@ -1049,6 +1221,12 @@ class EcommerceOrders extends Component
             $reportData = $this->getReportData();
         }
 
+        $user = auth()->user();
+        $isSuperAdmin = $user ? $user->isSuperAdmin() : false;
+        $branches = $isSuperAdmin ? Branch::where('is_active', true)->orderBy('name')->get() : collect();
+        $userBranchId = $user ? $user->branch_id : null;
+        $defaultBranchId = $userBranchId ?: ($branches->first()?->id ?? Branch::getEcommerceBranchId());
+
         return view('livewire.ecommerce-orders', [
             'orders' => $orders,
             'pendingCount' => $pendingCount,
@@ -1056,6 +1234,11 @@ class EcommerceOrders extends Component
             'rejectedCount' => $rejectedCount,
             'aggregatedProducts' => $aggregatedProducts,
             'reportData' => $reportData,
+            'isSuperAdmin' => $isSuperAdmin,
+            'branches' => $branches,
+            'userBranchId' => $userBranchId,
+            'defaultBranchId' => $defaultBranchId,
+            'paymentMethods' => PaymentMethod::where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 }

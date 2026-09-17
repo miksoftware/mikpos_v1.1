@@ -1,4 +1,4 @@
-<div x-data="catalogPdfDownloader()">
+<div x-data="catalogPdfDownloader({{ json_encode($isSuperAdmin) }}, {{ json_encode($userBranchId) }}, {{ json_encode($defaultBranchId) }})">
     {{-- Header --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
@@ -7,7 +7,7 @@
         </div>
         <div class="flex items-center gap-3">
             <button type="button"
-                @click="downloadPdf('{{ route('ecommerce-orders.catalog-pdf') }}')"
+                @click="handleCatalogClick()"
                 :disabled="isDownloading"
                 class="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow-md transition-all duration-200 group">
                 <template x-if="!isDownloading">
@@ -619,14 +619,36 @@
                         @endif
 
                         {{-- Payment --}}
-                        @if($selectedSale->payments->isNotEmpty())
-                        <div>
-                            <p class="text-xs font-semibold text-slate-500 uppercase mb-1">Método de pago</p>
-                            @foreach($selectedSale->payments as $payment)
-                                <p class="text-sm text-slate-700">{{ $payment->paymentMethod->name ?? 'N/A' }} - ${{ number_format($payment->amount, 0, ',', '.') }}</p>
-                            @endforeach
+                        <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Método de pago</p>
+                                @if($selectedSale->status === 'pending_approval')
+                                    <button wire:click="openChangePaymentMethodModal" type="button" class="inline-flex items-center gap-1 text-xs font-bold text-[#ff7261] hover:text-[#e55a4a] hover:underline px-2 py-0.5 rounded-lg hover:bg-orange-50 transition-colors">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                        Cambiar método
+                                    </button>
+                                @endif
+                            </div>
+                            @if($selectedSale->payment_type === 'credit')
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                                        Crédito
+                                    </span>
+                                    <span class="text-sm font-semibold text-slate-800">${{ number_format($selectedSale->total, 0, ',', '.') }}</span>
+                                </div>
+                            @elseif($selectedSale->payments->isNotEmpty())
+                                @foreach($selectedSale->payments as $payment)
+                                    <div class="flex items-center gap-2">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                                            {{ $payment->paymentMethod->name ?? 'N/A' }}
+                                        </span>
+                                        <span class="text-sm font-semibold text-slate-800">${{ number_format($payment->amount, 0, ',', '.') }}</span>
+                                    </div>
+                                @endforeach
+                            @else
+                                <p class="text-sm text-slate-500 italic">No especificado</p>
+                            @endif
                         </div>
-                        @endif
 
                         {{-- Rejection reason --}}
                         @if($selectedSale->status === 'rejected' && $selectedOrder?->rejection_reason)
@@ -871,6 +893,239 @@
     </div>
     @endif
 
+    {{-- Change Payment Method Modal --}}
+    @if($showChangePaymentMethodModal && $selectedSale)
+    <div class="relative z-[110]" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[110]" wire:click="closeChangePaymentMethodModal"></div>
+        <div class="fixed inset-0 z-[111] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-6">
+                    {{-- Header --}}
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center text-[#ff7261]">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-slate-900">Cambiar Método de Pago</h3>
+                                <p class="text-xs text-slate-500">Pedido #{{ $selectedSale->invoice_number }} &bull; Total: ${{ number_format($selectedSale->total, 0, ',', '.') }}</p>
+                            </div>
+                        </div>
+                        <button wire:click="closeChangePaymentMethodModal" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+                        {{-- Current Payment Method notice --}}
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between">
+                            <span class="text-xs text-slate-500 font-medium">Método actual:</span>
+                            <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700">
+                                {{ $this->getSalePaymentMethodName($selectedSale) }}
+                            </span>
+                        </div>
+
+                        {{-- Payment Method Selection --}}
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
+                                Seleccionar nuevo método de pago <span class="text-red-500">*</span>
+                            </label>
+                            <div class="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
+                                @foreach($paymentMethods as $pm)
+                                    <label class="flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all {{ $newPaymentMethodOption == (string)$pm->id ? 'border-[#ff7261] bg-orange-50/50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300' }}">
+                                        <div class="flex items-center gap-3">
+                                            <input type="radio" wire:model.live="newPaymentMethodOption" value="{{ $pm->id }}" class="text-[#ff7261] focus:ring-[#ff7261]">
+                                            <span class="text-sm font-medium {{ $newPaymentMethodOption == (string)$pm->id ? 'text-slate-900 font-bold' : 'text-slate-700' }}">
+                                                {{ $pm->name }}
+                                            </span>
+                                        </div>
+                                        @if($pm->isCash())
+                                            <span class="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">Efectivo</span>
+                                        @else
+                                            <span class="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">Digital / Transferencia</span>
+                                        @endif
+                                    </label>
+                                @endforeach
+
+                                {{-- Credit Option --}}
+                                <label class="flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all {{ $newPaymentMethodOption === 'credit' ? 'border-[#ff7261] bg-orange-50/50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300' }}">
+                                    <div class="flex items-center gap-3">
+                                        <input type="radio" wire:model.live="newPaymentMethodOption" value="credit" class="text-[#ff7261] focus:ring-[#ff7261]">
+                                        <div>
+                                            <span class="text-sm font-medium {{ $newPaymentMethodOption === 'credit' ? 'text-slate-900 font-bold' : 'text-slate-700' }}">
+                                                Crédito a cliente
+                                            </span>
+                                            @if($selectedSale->customer?->has_credit)
+                                                <p class="text-[11px] text-slate-500">Cupo disp: ${{ number_format($selectedSale->customer->getRemainingCredit(), 0, ',', '.') }}</p>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <span class="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">Crédito</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {{-- Motivo / Razón --}}
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                                Motivo o nota del cambio <span class="text-slate-400 font-normal">(opcional)</span>
+                            </label>
+                            <textarea wire:model="paymentMethodChangeReason" rows="2" placeholder="Ej: El cliente se equivocó al pagar y realizó transferencia..."
+                                class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] text-sm"></textarea>
+                        </div>
+
+                        {{-- Notificar al cliente al correo --}}
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                            <label class="flex items-start gap-3 cursor-pointer">
+                                <input type="checkbox" wire:model="notifyCustomerPaymentChange" class="mt-0.5 rounded border-slate-300 text-[#ff7261] focus:ring-[#ff7261]">
+                                <div>
+                                    <span class="text-xs font-bold text-slate-800">Notificar al cliente por correo</span>
+                                    <p class="text-[11px] text-slate-500 mt-0.5">
+                                        @if($selectedSale->customer?->email)
+                                            Se enviará un correo a <strong>{{ $selectedSale->customer->email }}</strong> con los detalles de este cambio.
+                                        @else
+                                            <span class="text-amber-600 font-semibold">El cliente no tiene un correo registrado en el sistema.</span>
+                                        @endif
+                                    </p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    {{-- Footer --}}
+                    <div class="flex justify-end gap-3 mt-6 pt-3 border-t border-slate-100">
+                        <button wire:click="closeChangePaymentMethodModal" type="button" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
+                            Cancelar
+                        </button>
+                        <button wire:click="savePaymentMethodChange" type="button" wire:loading.attr="disabled"
+                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-[#ff7261] to-[#a855f7] rounded-xl hover:from-[#e55a4a] hover:to-[#9333ea] shadow transition-all disabled:opacity-50">
+                            <span wire:loading.remove wire:target="savePaymentMethodChange">Guardar cambio</span>
+                            <span wire:loading wire:target="savePaymentMethodChange">Guardando...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Modal de Selección de Sucursal para Administrador General --}}
+    @if($isSuperAdmin)
+    <div x-show="showBranchModal"
+        x-cloak
+        class="fixed inset-0 z-50 overflow-y-auto"
+        role="dialog" aria-modal="true">
+        
+        <!-- Backdrop -->
+        <div x-show="showBranchModal"
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"
+            @click="showBranchModal = false"></div>
+
+        <div class="min-h-screen px-4 text-center flex items-center justify-center py-6 sm:py-10">
+            <div x-show="showBranchModal"
+                x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                x-transition:leave="transition ease-in duration-200"
+                x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                class="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden text-left p-6 sm:p-7 z-10 border border-slate-100">
+
+                <!-- Header -->
+                <div class="flex items-start justify-between gap-4 pb-4 border-b border-slate-100">
+                    <div class="flex items-start gap-3.5">
+                        <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#ff7261]/10 to-[#a855f7]/20 border border-[#a855f7]/20 flex items-center justify-center text-[#a855f7] flex-shrink-0 mt-0.5 shadow-sm">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#a855f7]/10 text-[#a855f7] border border-[#a855f7]/20">Admin General</span>
+                                <span class="text-xs text-slate-400 font-medium">Catálogo PDF</span>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-900 mt-1">Descargar Catálogo</h3>
+                            <p class="text-xs text-slate-500 mt-0.5">Selecciona la sucursal de la cual deseas generar el catálogo de productos:</p>
+                        </div>
+                    </div>
+                    <button type="button" @click="showBranchModal = false" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <!-- Body: Branch List -->
+                <div class="my-5 space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                    @forelse($branches as $b)
+                    <div @click="selectedBranchId = {{ $b->id }}"
+                        class="p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group"
+                        :class="selectedBranchId == {{ $b->id }} ? 'border-[#a855f7] bg-purple-50/50 shadow-sm ring-1 ring-[#a855f7]' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+                                :class="selectedBranchId == {{ $b->id }} ? 'bg-[#a855f7] text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                    <span>{{ $b->name }}</span>
+                                    @if($b->code)
+                                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">{{ $b->code }}</span>
+                                    @endif
+                                </div>
+                                <div class="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
+                                    @if($b->ecommerce_enabled)
+                                    <span class="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Tienda Online
+                                    </span>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="w-5 h-5 rounded-full border flex items-center justify-center transition-all"
+                            :class="selectedBranchId == {{ $b->id }} ? 'border-[#a855f7] bg-[#a855f7] text-white' : 'border-slate-300 bg-white'">
+                            <svg x-show="selectedBranchId == {{ $b->id }}" class="w-3 h-3 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                            </svg>
+                        </div>
+                    </div>
+                    @empty
+                    <div class="p-4 text-center text-sm text-slate-500 bg-slate-50 rounded-2xl">
+                        No hay sucursales activas registradas.
+                    </div>
+                    @endforelse
+                </div>
+
+                <!-- Footer -->
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                    <button type="button" @click="showBranchModal = false"
+                        class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="button" @click="confirmBranchDownload()"
+                        :disabled="!selectedBranchId"
+                        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#ff7261] to-[#a855f7] hover:from-[#e55a4a] hover:to-[#9333ea] text-white text-xs font-semibold shadow-sm hover:shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <span>Descargar Catálogo</span>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- Modal de Error para Administradores al Descargar Catálogo PDF --}}
     <div x-show="showErrorModal"
         x-cloak
@@ -989,7 +1244,7 @@
                             class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-all">
                             Cerrar
                         </button>
-                        <button type="button" @click="downloadPdf('{{ route('ecommerce-orders.catalog-pdf') }}')"
+                        <button type="button" @click="retryDownload()"
                             class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-all inline-flex items-center gap-1.5">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                             <span>Reintentar</span>
@@ -1010,8 +1265,12 @@
     </div>
 
     <script>
-        function catalogPdfDownloader() {
+        function catalogPdfDownloader(isSuperAdmin = false, userBranchId = null, defaultBranchId = null) {
             return {
+                isSuperAdmin: Boolean(isSuperAdmin),
+                userBranchId: userBranchId,
+                selectedBranchId: defaultBranchId || userBranchId || '',
+                showBranchModal: false,
                 isDownloading: false,
                 showErrorModal: false,
                 errorMessage: '',
@@ -1019,6 +1278,36 @@
                 diagnostics: null,
                 copied: false,
                 showStackTrace: false,
+                baseUrl: '{{ route('ecommerce-orders.catalog-pdf') }}',
+
+                handleCatalogClick() {
+                    if (this.isSuperAdmin) {
+                        this.showBranchModal = true;
+                    } else {
+                        const url = this.baseUrl + (this.userBranchId ? ('?branch_id=' + this.userBranchId) : '');
+                        this.downloadPdf(url);
+                    }
+                },
+
+                confirmBranchDownload() {
+                    if (!this.selectedBranchId) {
+                        return;
+                    }
+                    this.showBranchModal = false;
+                    const url = this.baseUrl + '?branch_id=' + this.selectedBranchId;
+                    this.downloadPdf(url);
+                },
+
+                retryDownload() {
+                    this.showErrorModal = false;
+                    if (this.isSuperAdmin && this.selectedBranchId) {
+                        this.downloadPdf(this.baseUrl + '?branch_id=' + this.selectedBranchId);
+                    } else if (this.userBranchId) {
+                        this.downloadPdf(this.baseUrl + '?branch_id=' + this.userBranchId);
+                    } else {
+                        this.downloadPdf(this.baseUrl);
+                    }
+                },
 
                 async downloadPdf(url) {
                     this.isDownloading = true;
