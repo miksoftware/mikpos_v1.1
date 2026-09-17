@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 class CreditPayment extends Model
 {
@@ -111,33 +112,66 @@ class CreditPayment extends Model
 
     public static function generatePaymentNumber(): string
     {
-        $prefix = 'PAG';
-        $date = now()->format('Ymd');
-        $last = static::whereDate('created_at', today())->orderByDesc('id')->first();
+        $prefix = 'PG';
+        $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+
+        if ($isSqlite) {
+            $last = static::where('payment_number', 'like', "{$prefix}-%")
+                ->orderBy('id', 'desc')
+                ->first();
+        } else {
+            $last = static::where('payment_number', 'like', "{$prefix}-%")
+                ->orderByRaw("CAST(SUBSTRING_INDEX(payment_number, '-', -1) AS UNSIGNED) DESC")
+                ->first();
+        }
+
         $sequence = 1;
-        if ($last) {
+        if ($last && $last->payment_number) {
             $parts = explode('-', $last->payment_number);
-            if (count($parts) === 3 && is_numeric($parts[2])) {
-                $sequence = (int) $parts[2] + 1;
+            $lastSeq = (int) end($parts);
+            if ($lastSeq > 0) {
+                $sequence = $lastSeq + 1;
             }
         }
-        return sprintf('%s-%s-%04d', $prefix, $date, $sequence);
+
+        do {
+            $candidate = sprintf('%s-%08d', $prefix, $sequence);
+            $sequence++;
+        } while (static::where('payment_number', $candidate)->exists());
+
+        return $candidate;
     }
 
-    public static function generateReceiptNumber(string $type = 'receivable'): string
+    public static function generateReceiptNumber(string $type = 'receivable', ?string $date = null): string
     {
         $prefix = $type === 'payable' ? 'EGR' : 'RC';
-        $date = now()->format('Ymd');
-        $last = static::where('receipt_number', 'like', "{$prefix}-{$date}-%")
-            ->orderByDesc('id')
-            ->first();
+        $dateStr = $date ? str_replace('-', '', substr($date, 0, 10)) : now()->format('Ymd');
+        $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+
+        if ($isSqlite) {
+            $last = static::where('receipt_number', 'like', "{$prefix}-{$dateStr}-%")
+                ->orderBy('id', 'desc')
+                ->first();
+        } else {
+            $last = static::where('receipt_number', 'like', "{$prefix}-{$dateStr}-%")
+                ->orderByRaw("CAST(SUBSTRING_INDEX(receipt_number, '-', -1) AS UNSIGNED) DESC")
+                ->first();
+        }
+
         $sequence = 1;
         if ($last && $last->receipt_number) {
             $parts = explode('-', $last->receipt_number);
-            if (count($parts) === 3 && is_numeric($parts[2])) {
-                $sequence = (int) $parts[2] + 1;
+            $lastSeq = (int) end($parts);
+            if ($lastSeq > 0) {
+                $sequence = $lastSeq + 1;
             }
         }
-        return sprintf('%s-%s-%04d', $prefix, $date, $sequence);
+
+        do {
+            $candidate = sprintf('%s-%s-%04d', $prefix, $dateStr, $sequence);
+            $sequence++;
+        } while (static::where('receipt_number', $candidate)->exists());
+
+        return $candidate;
     }
 }
