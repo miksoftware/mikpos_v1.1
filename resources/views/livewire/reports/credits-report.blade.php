@@ -9,11 +9,13 @@
         </div>
         <div class="flex items-center gap-2">
             <a href="{{ route('reports.credits.pdf', [
+                'view_mode' => $viewMode,
                 'date_range' => $dateRange,
                 'start_date' => $startDate,
                 'end_date' => $endDate,
                 'branch_id' => $selectedBranchId,
                 'seller_id' => $selectedSellerId,
+                'credit_type' => $creditType,
                 'payment_status' => $paymentStatus,
                 'search' => $search,
             ]) }}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 rounded-xl transition-all shadow-sm hover:shadow-md hover:shadow-rose-500/20 active:scale-95">
@@ -25,11 +27,13 @@
             </a>
 
             <a href="{{ route('reports.credits.excel', [
+                'view_mode' => $viewMode,
                 'date_range' => $dateRange,
                 'start_date' => $startDate,
                 'end_date' => $endDate,
                 'branch_id' => $selectedBranchId,
                 'seller_id' => $selectedSellerId,
+                'credit_type' => $creditType,
                 'payment_status' => $paymentStatus,
                 'search' => $search,
             ]) }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-xl transition-all shadow-sm hover:shadow-md hover:shadow-emerald-500/20 active:scale-95">
@@ -77,9 +81,8 @@
                 <label class="block text-xs font-medium text-slate-500 mb-1">Estado</label>
                 <select wire:model.live="paymentStatus" class="px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ff7261]/50 focus:border-[#ff7261] sm:text-sm">
                     <option value="">Todos</option>
-                    <option value="pending">Pendiente</option>
-                    <option value="partial">Parcial</option>
-                    <option value="paid">Pagado</option>
+                    <option value="pending">Pendientes</option>
+                    <option value="paid">Pagados</option>
                 </select>
             </div>
             <div>
@@ -200,15 +203,6 @@
                 </div>
                 <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                     <div class="flex items-center gap-2">
-                        <span class="w-3 h-3 rounded-full bg-amber-500"></span>
-                        <span class="text-sm text-slate-700">Parciales</span>
-                    </div>
-                    <div class="text-right">
-                        <span class="text-sm font-bold text-slate-800">{{ $payableSummary['partial_count'] }}</span>
-                    </div>
-                </div>
-                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                    <div class="flex items-center gap-2">
                         <span class="w-3 h-3 rounded-full bg-green-500"></span>
                         <span class="text-sm text-slate-700">Pagados</span>
                     </div>
@@ -253,15 +247,6 @@
                     </div>
                     <div class="text-right">
                         <span class="text-sm font-bold text-slate-800">{{ $receivableSummary['pending_count'] }}</span>
-                    </div>
-                </div>
-                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                    <div class="flex items-center gap-2">
-                        <span class="w-3 h-3 rounded-full bg-amber-500"></span>
-                        <span class="text-sm text-slate-700">Parciales</span>
-                    </div>
-                    <div class="text-right">
-                        <span class="text-sm font-bold text-slate-800">{{ $receivableSummary['partial_count'] }}</span>
                     </div>
                 </div>
                 <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
@@ -613,8 +598,6 @@
                                 <td class="px-5 py-2.5 text-center">
                                     @if($invoice->payment_status === 'paid')
                                     <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Pagado</span>
-                                    @elseif($invoice->payment_status === 'partial')
-                                    <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Parcial</span>
                                     @else
                                     <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Pendiente</span>
                                     @endif
@@ -795,8 +778,6 @@
                                 <td class="px-5 py-2.5 text-center">
                                     @if($invoice->payment_status === 'paid')
                                     <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Pagado</span>
-                                    @elseif($invoice->payment_status === 'partial')
-                                    <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Parcial</span>
                                     @else
                                     <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Pendiente</span>
                                     @endif
@@ -907,8 +888,6 @@
                         <td class="px-6 py-3 text-center">
                             @if($item->payment_status === 'paid')
                             <span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Pagado</span>
-                            @elseif($item->payment_status === 'partial')
-                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Parcial</span>
                             @else
                             <span class="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">Pendiente</span>
                             @endif
@@ -991,8 +970,6 @@
                         <td class="px-6 py-3 text-center">
                             @if($item->payment_status === 'paid')
                             <span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Pagado</span>
-                            @elseif($item->payment_status === 'partial')
-                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Parcial</span>
                             @else
                             <span class="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">Pendiente</span>
                             @endif
@@ -1047,8 +1024,6 @@
                         <td class="px-6 py-3 text-center">
                             @if($item->payment_status === 'paid')
                             <span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Pagado</span>
-                            @elseif($item->payment_status === 'partial')
-                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Parcial</span>
                             @else
                             <span class="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">Pendiente</span>
                             @endif

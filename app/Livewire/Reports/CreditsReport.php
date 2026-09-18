@@ -133,6 +133,16 @@ class CreditsReport extends Component
         return $query;
     }
 
+    private function applyPaymentStatusFilter($query, string $table = 'sales')
+    {
+        if ($this->paymentStatus === 'pending') {
+            $query->whereIn("{$table}.payment_status", ['pending', 'partial']);
+        } elseif ($this->paymentStatus === 'paid') {
+            $query->where("{$table}.payment_status", 'paid');
+        }
+        return $query;
+    }
+
     private function calculateSummary()
     {
         // Payable summary (purchases)
@@ -154,7 +164,7 @@ class CreditsReport extends Component
             'total_remaining' => (float) ($pData->total_credit ?? 0) - (float) ($pData->total_paid ?? 0),
             'paid_count' => (clone $pQuery)->where('purchases.payment_status', 'paid')->count(),
             'partial_count' => (clone $pQuery)->where('purchases.payment_status', 'partial')->count(),
-            'pending_count' => (clone $pQuery)->where('purchases.payment_status', 'pending')->count(),
+            'pending_count' => (clone $pQuery)->whereIn('purchases.payment_status', ['pending', 'partial'])->count(),
         ];
 
         // Receivable summary (sales)
@@ -177,7 +187,7 @@ class CreditsReport extends Component
             'total_remaining' => (float) ($sData->total_credit ?? 0) - (float) ($sData->total_paid ?? 0),
             'paid_count' => (clone $sQuery)->where('sales.payment_status', 'paid')->count(),
             'partial_count' => (clone $sQuery)->where('sales.payment_status', 'partial')->count(),
-            'pending_count' => (clone $sQuery)->where('sales.payment_status', 'pending')->count(),
+            'pending_count' => (clone $sQuery)->whereIn('sales.payment_status', ['pending', 'partial'])->count(),
         ];
 
         // Combined summary
@@ -398,10 +408,7 @@ class CreditsReport extends Component
         $this->applyBranchFilter($query, 'sales');
         $this->applyDateFilter($query, 'sales');
         $this->applySellerFilter($query, 'sales');
-
-        if ($this->paymentStatus) {
-            $query->where('sales.payment_status', $this->paymentStatus);
-        }
+        $this->applyPaymentStatusFilter($query, 'sales');
 
         if ($this->search) {
             $query->where(function ($q) {
@@ -434,10 +441,7 @@ class CreditsReport extends Component
         $this->applyBranchFilter($query, 'sales');
         $this->applyDateFilter($query, 'sales');
         $this->applySellerFilter($query, 'sales');
-
-        if ($this->paymentStatus) {
-            $query->where('sales.payment_status', $this->paymentStatus);
-        }
+        $this->applyPaymentStatusFilter($query, 'sales');
 
         if ($this->search) {
             $query->where(function ($q) {
@@ -471,9 +475,7 @@ class CreditsReport extends Component
             $this->applyBranchFilter($invQuery, 'sales');
             $this->applyDateFilter($invQuery, 'sales');
             $this->applySellerFilter($invQuery, 'sales');
-            if ($this->paymentStatus) {
-                $invQuery->where('sales.payment_status', $this->paymentStatus);
-            }
+            $this->applyPaymentStatusFilter($invQuery, 'sales');
             $expandedInvoices = $invQuery->orderByDesc('sales.created_at')->get();
         }
 
@@ -495,10 +497,7 @@ class CreditsReport extends Component
         $this->applyBranchFilter($query, 'sales');
         $this->applyDateFilter($query, 'sales');
         $this->applySellerFilter($query, 'sales');
-
-        if ($this->paymentStatus) {
-            $query->where('sales.payment_status', $this->paymentStatus);
-        }
+        $this->applyPaymentStatusFilter($query, 'sales');
 
         if ($this->search) {
             $query->where(function ($q) {
@@ -539,10 +538,7 @@ class CreditsReport extends Component
 
             $this->applyBranchFilter($invQuery, 'sales');
             $this->applyDateFilter($invQuery, 'sales');
-
-            if ($this->paymentStatus) {
-                $invQuery->where('sales.payment_status', $this->paymentStatus);
-            }
+            $this->applyPaymentStatusFilter($invQuery, 'sales');
 
             $expandedInvoices = $invQuery->orderByDesc('sales.created_at')->get();
         }
@@ -562,10 +558,7 @@ class CreditsReport extends Component
             ->join('suppliers', 'purchases.supplier_id', '=', 'suppliers.id');
         $this->applyBranchFilter($query, 'purchases');
         $this->applyDateFilter($query, 'purchases');
-
-        if ($this->paymentStatus) {
-            $query->where('purchases.payment_status', $this->paymentStatus);
-        }
+        $this->applyPaymentStatusFilter($query, 'purchases');
 
         if ($this->search) {
             $query->where(function ($q) {
@@ -587,10 +580,8 @@ class CreditsReport extends Component
             ->leftJoin('suppliers', 'purchases.supplier_id', '=', 'suppliers.id');
         $this->applyBranchFilter($purchases, 'purchases');
         $this->applyDateFilter($purchases, 'purchases');
+        $this->applyPaymentStatusFilter($purchases, 'purchases');
 
-        if ($this->paymentStatus) {
-            $purchases->where('purchases.payment_status', $this->paymentStatus);
-        }
         if ($this->creditType === 'receivable') {
             $purchases->whereRaw('1 = 0'); // exclude
         }
@@ -611,10 +602,7 @@ class CreditsReport extends Component
             ->leftJoin('customers', 'sales.customer_id', '=', 'customers.id');
         $this->applyBranchFilter($sales, 'sales');
         $this->applyDateFilter($sales, 'sales');
-
-        if ($this->paymentStatus) {
-            $sales->where('sales.payment_status', $this->paymentStatus);
-        }
+        $this->applyPaymentStatusFilter($sales, 'sales');
         if ($this->creditType === 'payable') {
             $sales->whereRaw('1 = 0'); // exclude
         }

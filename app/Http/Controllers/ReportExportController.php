@@ -1531,11 +1531,13 @@ class ReportExportController extends Controller
 
     public function creditsGroupedExcel(Request $request)
     {
+        $viewMode = $request->get('view_mode', 'by_customer_grouped');
         $dateRange = $request->get('date_range', 'all');
         $startDate = $request->get('start_date');
         $endDate = $request->get('end_date');
         $branchId = $request->get('branch_id');
         $sellerId = $request->get('seller_id');
+        $creditType = $request->get('credit_type', '');
         $paymentStatus = $request->get('payment_status', '');
         $search = $request->get('search', '');
         $user = auth()->user();
@@ -1548,88 +1550,49 @@ class ReportExportController extends Controller
             $branchName = Branch::find($branchId)?->name ?? '';
         }
 
-        // Build base query for credit sales grouped by customer
-        $query = Sale::where('sales.payment_type', 'credit')
-            ->where('sales.status', 'completed')
-            ->whereNotNull('sales.customer_id')
-            ->join('customers', 'sales.customer_id', '=', 'customers.id');
+        $applySalesFilters = function ($query) use ($branchId, $user, $sellerId, $startDate, $endDate, $paymentStatus) {
+            if ($branchId) {
+                $query->where('sales.branch_id', $branchId);
+            } elseif (!$user->isSuperAdmin()) {
+                $query->where('sales.branch_id', $user->branch_id);
+            }
+            if ($sellerId) {
+                $query->where('sales.seller_id', $sellerId);
+            }
+            if ($startDate) {
+                $query->whereDate('sales.created_at', '>=', $startDate);
+            }
+            if ($endDate) {
+                $query->whereDate('sales.created_at', '<=', $endDate);
+            }
+            if ($paymentStatus === 'pending') {
+                $query->whereIn('sales.payment_status', ['pending', 'partial']);
+            } elseif ($paymentStatus === 'paid') {
+                $query->where('sales.payment_status', 'paid');
+            }
+        };
 
-        if ($branchId) {
-            $query->where('sales.branch_id', $branchId);
-        } elseif (!$user->isSuperAdmin()) {
-            $query->where('sales.branch_id', $user->branch_id);
-        }
+        $applyPurchaseFilters = function ($query) use ($branchId, $user, $startDate, $endDate, $paymentStatus) {
+            if ($branchId) {
+                $query->where('purchases.branch_id', $branchId);
+            } elseif (!$user->isSuperAdmin()) {
+                $query->where('purchases.branch_id', $user->branch_id);
+            }
+            if ($startDate) {
+                $query->whereDate('purchases.created_at', '>=', $startDate);
+            }
+            if ($endDate) {
+                $query->whereDate('purchases.created_at', '<=', $endDate);
+            }
+            if ($paymentStatus === 'pending') {
+                $query->whereIn('purchases.payment_status', ['pending', 'partial']);
+            } elseif ($paymentStatus === 'paid') {
+                $query->where('purchases.payment_status', 'paid');
+            }
+        };
 
-        if ($sellerId) {
-            $query->where('sales.seller_id', $sellerId);
-        }
-
-        if ($startDate) {
-            $query->whereDate('sales.created_at', '>=', $startDate);
-        }
-        if ($endDate) {
-            $query->whereDate('sales.created_at', '<=', $endDate);
-        }
-        if ($paymentStatus) {
-            $query->where('sales.payment_status', $paymentStatus);
-        }
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('customers.first_name', 'like', "%{$search}%")
-                    ->orWhere('customers.last_name', 'like', "%{$search}%")
-                    ->orWhere('customers.business_name', 'like', "%{$search}%")
-                    ->orWhere('customers.document_number', 'like', "%{$search}%");
-            });
-        }
-
-        // Get customer IDs with their summaries
-        $customerSummaries = (clone $query)
-            ->select(
-                'customers.id',
-                'customers.document_number',
-                'customers.phone',
-                DB::raw("CASE WHEN customers.customer_type = 'juridico' THEN customers.business_name ELSE CONCAT(customers.first_name, ' ', customers.last_name) END as customer_name"),
-                DB::raw('COUNT(sales.id) as total_invoices'),
-                DB::raw('SUM(sales.credit_amount) as total_credit'),
-                DB::raw('SUM(sales.paid_amount) as total_paid'),
-                DB::raw('SUM(sales.credit_amount - sales.paid_amount) as total_remaining')
-            )
-            ->groupBy('customers.id', 'customers.customer_type', 'customers.business_name', 'customers.first_name', 'customers.last_name', 'customers.document_number', 'customers.phone')
-            ->orderByDesc('total_remaining')
-            ->get();
-
-        // Get all invoices grouped by customer
-        $allInvoices = Sale::with('seller')
-            ->where('sales.payment_type', 'credit')
-            ->where('sales.status', 'completed')
-            ->whereIn('sales.customer_id', $customerSummaries->pluck('id'));
-
-        if ($branchId) {
-            $allInvoices->where('sales.branch_id', $branchId);
-        } elseif (!$user->isSuperAdmin()) {
-            $allInvoices->where('sales.branch_id', $user->branch_id);
-        }
-        if ($sellerId) {
-            $allInvoices->where('sales.seller_id', $sellerId);
-        }
-        if ($startDate) {
-            $allInvoices->whereDate('sales.created_at', '>=', $startDate);
-        }
-        if ($endDate) {
-            $allInvoices->whereDate('sales.created_at', '<=', $endDate);
-        }
-        if ($paymentStatus) {
-            $allInvoices->where('sales.payment_status', $paymentStatus);
-        }
-
-        $invoicesByCustomer = $allInvoices->orderBy('sales.created_at', 'desc')
-            ->get()
-            ->groupBy('customer_id');
-
-        // Build Excel
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Créditos por Cliente');
 
         $headerStyle = [
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 10],
@@ -1637,7 +1600,7 @@ class ReportExportController extends Controller
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '9333EA']]],
         ];
-        $customerHeaderStyle = [
+        $groupHeaderStyle = [
             'font' => ['bold' => true, 'size' => 11, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '475569']],
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '334155']]],
@@ -1655,159 +1618,657 @@ class ReportExportController extends Controller
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
         ];
 
-        $row = 1;
-        $sheet->setCellValue('A' . $row, 'REPORTE DE CRÉDITOS POR CLIENTE');
-        $sheet->mergeCells('A' . $row . ':J' . $row);
-        $sheet->getStyle('A' . $row)->applyFromArray($titleStyle);
-        $sheet->getRowDimension($row)->setRowHeight(30);
-        $row += 2;
+        // 1. By Seller
+        if ($viewMode === 'by_seller') {
+            $sheet->setTitle('Créditos por Vendedor');
+            $row = 1;
+            $sheet->setCellValue('A' . $row, 'REPORTE DE CRÉDITOS POR VENDEDOR');
+            $sheet->mergeCells('A' . $row . ':I' . $row);
+            $sheet->getStyle('A' . $row)->applyFromArray($titleStyle);
+            $sheet->getRowDimension($row)->setRowHeight(30);
+            $row += 2;
 
-        $periodLabel = $startDate && $endDate ? "$startDate - $endDate" : 'Todo';
-        $sheet->setCellValue('A' . $row, 'Período:');
-        $sheet->setCellValue('B' . $row, $periodLabel);
-        $sheet->getStyle('A' . $row)->getFont()->setBold(true);
-        $row++;
-        $sheet->setCellValue('A' . $row, 'Sucursal:');
-        $sheet->setCellValue('B' . $row, $branchName);
-        $sheet->getStyle('A' . $row)->getFont()->setBold(true);
-        $row++;
-
-        if ($sellerId) {
-            $sUser = User::find($sellerId);
-            $sheet->setCellValue('A' . $row, 'Vendedor:');
-            $sheet->setCellValue('B' . $row, $sUser?->name ?? '-');
+            $sheet->setCellValue('A' . $row, 'Período:');
+            $sheet->setCellValue('B' . $row, $startDate && $endDate ? "$startDate - $endDate" : 'Todo');
             $sheet->getStyle('A' . $row)->getFont()->setBold(true);
             $row++;
-        }
-
-        $sheet->setCellValue('A' . $row, 'Generado:');
-        $sheet->setCellValue('B' . $row, now()->format('d/m/Y H:i'));
-        $sheet->getStyle('A' . $row)->getFont()->setBold(true);
-        $row++;
-
-        if ($paymentStatus) {
-            $statusLabels = ['pending' => 'Pendiente', 'partial' => 'Parcial', 'paid' => 'Pagado'];
-            $sheet->setCellValue('A' . $row, 'Estado:');
-            $sheet->setCellValue('B' . $row, $statusLabels[$paymentStatus] ?? $paymentStatus);
+            $sheet->setCellValue('A' . $row, 'Sucursal:');
+            $sheet->setCellValue('B' . $row, $branchName);
             $sheet->getStyle('A' . $row)->getFont()->setBold(true);
             $row++;
+            $sheet->setCellValue('A' . $row, 'Generado:');
+            $sheet->setCellValue('B' . $row, now()->format('d/m/Y H:i'));
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row += 2;
+
+            $query = Sale::where('sales.payment_type', 'credit')
+                ->where('sales.status', 'completed')
+                ->leftJoin('users as sellers', 'sales.seller_id', '=', 'sellers.id')
+                ->leftJoin('customers', 'sales.customer_id', '=', 'customers.id');
+            $applySalesFilters($query);
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('sellers.name', 'like', "%{$search}%")
+                        ->orWhere('customers.first_name', 'like', "%{$search}%")
+                        ->orWhere('customers.last_name', 'like', "%{$search}%")
+                        ->orWhere('customers.business_name', 'like', "%{$search}%")
+                        ->orWhere('customers.document_number', 'like', "%{$search}%")
+                        ->orWhere('sales.invoice_number', 'like', "%{$search}%");
+                });
+            }
+
+            $sellersSummaries = $query->select(
+                'sales.seller_id',
+                DB::raw("COALESCE(sellers.name, 'Sin Vendedor Asignado') as seller_name"),
+                'sellers.email as seller_email',
+                DB::raw('COUNT(sales.id) as total_invoices'),
+                DB::raw('SUM(sales.credit_amount) as total_credit'),
+                DB::raw('SUM(sales.paid_amount) as total_paid'),
+                DB::raw('SUM(sales.credit_amount - sales.paid_amount) as total_remaining')
+            )
+            ->groupBy('sales.seller_id', 'sellers.name', 'sellers.email')
+            ->orderByDesc('total_remaining')
+            ->get();
+
+            $allSellerInvoices = Sale::with(['customer', 'branch'])
+                ->where('sales.payment_type', 'credit')
+                ->where('sales.status', 'completed');
+            $applySalesFilters($allSellerInvoices);
+            if ($search) {
+                $allSellerInvoices->where(function ($q) use ($search) {
+                    $q->whereHas('customer', function ($cq) use ($search) {
+                        $cq->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('business_name', 'like', "%{$search}%");
+                    })->orWhere('sales.invoice_number', 'like', "%{$search}%");
+                });
+            }
+
+            $invoicesBySeller = $allSellerInvoices->orderBy('sales.created_at', 'desc')
+                ->get()
+                ->groupBy(fn($inv) => $inv->seller_id ?? 0);
+
+            foreach ($sellersSummaries as $seller) {
+                $sheet->setCellValue('A' . $row, $seller->seller_name);
+                $sheet->setCellValue('D' . $row, 'Facturas: ' . $seller->total_invoices);
+                $sheet->setCellValue('G' . $row, 'Saldo: $' . number_format($seller->total_remaining, 2));
+                $sheet->mergeCells('A' . $row . ':C' . $row);
+                $sheet->mergeCells('D' . $row . ':F' . $row);
+                $sheet->mergeCells('G' . $row . ':I' . $row);
+                $sheet->getStyle('A' . $row . ':I' . $row)->applyFromArray($groupHeaderStyle);
+                $row++;
+
+                $headers = ['Factura', 'Cliente', 'Fecha', 'Vencimiento', 'Días en Mora', 'Total Crédito', 'Pagado', 'Por Cobrar', 'Estado'];
+                foreach ($headers as $colIdx => $hText) {
+                    $colLetter = Coordinate::stringFromColumnIndex($colIdx + 1);
+                    $sheet->setCellValue($colLetter . $row, $hText);
+                }
+                $sheet->getStyle('A' . $row . ':I' . $row)->applyFromArray($headerStyle);
+                $row++;
+
+                $invoices = $invoicesBySeller->get($seller->seller_id ?? 0, collect());
+                foreach ($invoices as $inv) {
+                    $rem = (float) $inv->credit_amount - (float) $inv->paid_amount;
+                    $dueDateStr = $inv->payment_due_date ? $inv->payment_due_date->format('d/m/Y') : ($inv->created_at ? $inv->created_at->copy()->addDays(30)->format('d/m/Y') : '-');
+                    $moraStr = $rem <= 0 || $inv->payment_status === 'paid' ? 'Saldado' : ($inv->days_overdue === 0 ? 'Al día' : "{$inv->days_overdue} días");
+                    $clientName = $inv->customer ? ($inv->customer->business_name ?: $inv->customer->first_name . ' ' . $inv->customer->last_name) : 'Cliente General';
+
+                    $sheet->setCellValue('A' . $row, $inv->invoice_number);
+                    $sheet->setCellValue('B' . $row, $clientName);
+                    $sheet->setCellValue('C' . $row, $inv->created_at->format('d/m/Y'));
+                    $sheet->setCellValue('D' . $row, $dueDateStr);
+                    $sheet->setCellValue('E' . $row, $moraStr);
+                    $sheet->setCellValue('F' . $row, (float) $inv->credit_amount);
+                    $sheet->setCellValue('G' . $row, (float) $inv->paid_amount);
+                    $sheet->setCellValue('H' . $row, $rem);
+                    $sheet->setCellValue('I' . $row, $inv->payment_status === 'paid' ? 'Pagado' : 'Pendiente');
+                    $sheet->getStyle('A' . $row . ':I' . $row)->applyFromArray($dataStyle);
+                    $sheet->getStyle('F' . $row . ':H' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+                    $row++;
+                }
+
+                $sheet->setCellValue('A' . $row, 'Subtotal ' . $seller->seller_name);
+                $sheet->mergeCells('A' . $row . ':E' . $row);
+                $sheet->setCellValue('F' . $row, (float) $seller->total_credit);
+                $sheet->setCellValue('G' . $row, (float) $seller->total_paid);
+                $sheet->setCellValue('H' . $row, (float) $seller->total_remaining);
+                $sheet->setCellValue('I' . $row, $seller->total_invoices . ' fac.');
+                $sheet->getStyle('A' . $row . ':I' . $row)->applyFromArray($subtotalStyle);
+                $sheet->getStyle('F' . $row . ':H' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+                $row += 2;
+            }
+
+            foreach (range('A', 'I') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+            $filename = 'reporte-creditos-vendedor-' . now()->format('Y-m-d') . '.xlsx';
         }
 
-        $row++;
+        // 2. By Customer (Flat list)
+        elseif ($viewMode === 'by_customer') {
+            $sheet->setTitle('Detalle de Clientes');
+            $row = 1;
+            $sheet->setCellValue('A' . $row, 'REPORTE DETALLADO DE CRÉDITOS POR CLIENTE');
+            $sheet->mergeCells('A' . $row . ':J' . $row);
+            $sheet->getStyle('A' . $row)->applyFromArray($titleStyle);
+            $sheet->getRowDimension($row)->setRowHeight(30);
+            $row += 2;
 
-        // Grand totals
-        $grandTotalCredit = $customerSummaries->sum('total_credit');
-        $grandTotalPaid = $customerSummaries->sum('total_paid');
-        $grandTotalRemaining = $customerSummaries->sum('total_remaining');
-        $grandTotalInvoices = $customerSummaries->sum('total_invoices');
+            $sheet->setCellValue('A' . $row, 'Período:');
+            $sheet->setCellValue('B' . $row, $startDate && $endDate ? "$startDate - $endDate" : 'Todo');
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row++;
+            $sheet->setCellValue('A' . $row, 'Sucursal:');
+            $sheet->setCellValue('B' . $row, $branchName);
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row += 2;
 
-        $sheet->setCellValue('A' . $row, 'RESUMEN GENERAL');
-        $sheet->getStyle('A' . $row)->getFont()->setBold(true)->setSize(12);
-        $row++;
-        $sheet->setCellValue('A' . $row, 'Total Clientes:');
-        $sheet->setCellValue('B' . $row, $customerSummaries->count());
-        $sheet->getStyle('A' . $row)->getFont()->setBold(true);
-        $row++;
-        $sheet->setCellValue('A' . $row, 'Total Facturas:');
-        $sheet->setCellValue('B' . $row, $grandTotalInvoices);
-        $sheet->getStyle('A' . $row)->getFont()->setBold(true);
-        $row++;
-        $sheet->setCellValue('A' . $row, 'Total Créditos:');
-        $sheet->setCellValue('B' . $row, $grandTotalCredit);
-        $sheet->getStyle('A' . $row . ':B' . $row)->getFont()->setBold(true);
-        $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
-        $row++;
-        $sheet->setCellValue('A' . $row, 'Total Pagado:');
-        $sheet->setCellValue('B' . $row, $grandTotalPaid);
-        $sheet->getStyle('A' . $row)->getFont()->setBold(true);
-        $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
-        $sheet->getStyle('B' . $row)->getFont()->setColor(new Color('16A34A'));
-        $row++;
-        $sheet->setCellValue('A' . $row, 'Total Pendiente:');
-        $sheet->setCellValue('B' . $row, $grandTotalRemaining);
-        $sheet->getStyle('A' . $row)->getFont()->setBold(true);
-        $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
-        $sheet->getStyle('B' . $row)->getFont()->setBold(true)->setColor(new Color('DC2626'));
-        $row += 2;
+            $query = Sale::where('sales.payment_type', 'credit')
+                ->where('sales.status', 'completed')
+                ->join('customers', 'sales.customer_id', '=', 'customers.id')
+                ->leftJoin('users as sellers', 'sales.seller_id', '=', 'sellers.id');
+            $applySalesFilters($query);
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('customers.first_name', 'like', "%{$search}%")
+                        ->orWhere('customers.last_name', 'like', "%{$search}%")
+                        ->orWhere('customers.business_name', 'like', "%{$search}%")
+                        ->orWhere('customers.document_number', 'like', "%{$search}%")
+                        ->orWhere('sellers.name', 'like', "%{$search}%")
+                        ->orWhere('sales.invoice_number', 'like', "%{$search}%");
+                });
+            }
 
-        // Per-customer detail
-        foreach ($customerSummaries as $customer) {
-            // Customer header row
-            $sheet->setCellValue('A' . $row, $customer->customer_name);
-            $sheet->setCellValue('D' . $row, 'Doc: ' . $customer->document_number);
-            $sheet->setCellValue('G' . $row, 'Tel: ' . ($customer->phone ?? '-'));
-            $sheet->mergeCells('A' . $row . ':C' . $row);
-            $sheet->mergeCells('D' . $row . ':F' . $row);
-            $sheet->mergeCells('G' . $row . ':J' . $row);
-            $sheet->getStyle('A' . $row . ':J' . $row)->applyFromArray($customerHeaderStyle);
+            $items = $query->select(
+                'sales.*',
+                DB::raw("CASE WHEN customers.customer_type = 'juridico' THEN customers.business_name ELSE CONCAT(customers.first_name, ' ', customers.last_name) END as customer_name"),
+                'customers.document_number',
+                'sellers.name as seller_name'
+            )->orderByDesc('sales.created_at')->get();
+
+            $headers = ['Factura', 'Cliente', 'Documento', 'Vendedor', 'Fecha', 'Vencimiento', 'Días en Mora', 'Total Crédito', 'Pagado', 'Pendiente', 'Estado'];
+            foreach ($headers as $colIdx => $hText) {
+                $colLetter = Coordinate::stringFromColumnIndex($colIdx + 1);
+                $sheet->setCellValue($colLetter . $row, $hText);
+            }
+            $sheet->getStyle('A' . $row . ':K' . $row)->applyFromArray($headerStyle);
             $row++;
 
-            // Invoice headers
-            $sheet->setCellValue('A' . $row, 'Factura');
-            $sheet->setCellValue('B' . $row, 'Fecha');
-            $sheet->setCellValue('C' . $row, 'Vencimiento');
-            $sheet->setCellValue('D' . $row, 'Días en Mora');
-            $sheet->setCellValue('E' . $row, 'Vendedor');
-            $sheet->setCellValue('F' . $row, 'Total Venta');
-            $sheet->setCellValue('G' . $row, 'Total Crédito');
-            $sheet->setCellValue('H' . $row, 'Pagado');
-            $sheet->setCellValue('I' . $row, 'Pendiente');
-            $sheet->setCellValue('J' . $row, 'Estado');
-            $sheet->getStyle('A' . $row . ':J' . $row)->applyFromArray($headerStyle);
-            $row++;
+            foreach ($items as $item) {
+                $rem = (float) $item->credit_amount - (float) $item->paid_amount;
+                $dueDateStr = $item->payment_due_date ? $item->payment_due_date->format('d/m/Y') : ($item->created_at ? $item->created_at->copy()->addDays(30)->format('d/m/Y') : '-');
+                $moraStr = $rem <= 0 || $item->payment_status === 'paid' ? 'Saldado' : ($item->days_overdue === 0 ? 'Al día' : "{$item->days_overdue} días");
 
-            // Invoice rows
-            $invoices = $invoicesByCustomer->get($customer->id, collect());
-            foreach ($invoices as $invoice) {
-                $remaining = (float) $invoice->credit_amount - (float) $invoice->paid_amount;
-                $statusLabels = ['pending' => 'Pendiente', 'partial' => 'Parcial', 'paid' => 'Pagado'];
-                $dueDateStr = $invoice->payment_due_date ? $invoice->payment_due_date->format('d/m/Y') : ($invoice->created_at ? $invoice->created_at->copy()->addDays(30)->format('d/m/Y') : '-');
-                $daysOverdue = $invoice->days_overdue;
-                $moraStr = $remaining <= 0 || $invoice->payment_status === 'paid' ? 'Saldado' : ($daysOverdue === 0 ? 'Al día' : "{$daysOverdue} días");
-
-                $sheet->setCellValue('A' . $row, $invoice->invoice_number);
-                $sheet->setCellValue('B' . $row, $invoice->created_at->format('d/m/Y'));
-                $sheet->setCellValue('C' . $row, $dueDateStr);
-                $sheet->setCellValue('D' . $row, $moraStr);
-                $sheet->setCellValue('E' . $row, $invoice->seller?->name ?? '-');
-                $sheet->setCellValue('F' . $row, (float) $invoice->total);
-                $sheet->setCellValue('G' . $row, (float) $invoice->credit_amount);
-                $sheet->setCellValue('H' . $row, (float) $invoice->paid_amount);
-                $sheet->setCellValue('I' . $row, $remaining);
-                $sheet->setCellValue('J' . $row, $statusLabels[$invoice->payment_status] ?? $invoice->payment_status);
-                $sheet->getStyle('A' . $row . ':J' . $row)->applyFromArray($dataStyle);
-                $sheet->getStyle('F' . $row . ':I' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
-
-                if ($daysOverdue > 0 && $remaining > 0) {
-                    $sheet->getStyle('D' . $row)->getFont()->setColor(new Color('DC2626'))->setBold(true);
-                }
-
-                if ($remaining > 0) {
-                    $sheet->getStyle('I' . $row)->getFont()->setColor(new Color('DC2626'));
-                }
+                $sheet->setCellValue('A' . $row, $item->invoice_number);
+                $sheet->setCellValue('B' . $row, $item->customer_name);
+                $sheet->setCellValue('C' . $row, $item->document_number);
+                $sheet->setCellValue('D' . $row, $item->seller_name ?? '-');
+                $sheet->setCellValue('E' . $row, $item->created_at->format('d/m/Y'));
+                $sheet->setCellValue('F' . $row, $dueDateStr);
+                $sheet->setCellValue('G' . $row, $moraStr);
+                $sheet->setCellValue('H' . $row, (float) $item->credit_amount);
+                $sheet->setCellValue('I' . $row, (float) $item->paid_amount);
+                $sheet->setCellValue('J' . $row, $rem);
+                $sheet->setCellValue('K' . $row, $item->payment_status === 'paid' ? 'Pagado' : 'Pendiente');
+                $sheet->getStyle('A' . $row . ':K' . $row)->applyFromArray($dataStyle);
+                $sheet->getStyle('H' . $row . ':J' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
                 $row++;
             }
 
-            // Customer subtotal
-            $sheet->setCellValue('A' . $row, 'Subtotal ' . $customer->customer_name);
-            $sheet->mergeCells('A' . $row . ':E' . $row);
-            $sheet->setCellValue('F' . $row, '');
-            $sheet->setCellValue('G' . $row, (float) $customer->total_credit);
-            $sheet->setCellValue('H' . $row, (float) $customer->total_paid);
-            $sheet->setCellValue('I' . $row, (float) $customer->total_remaining);
-            $sheet->setCellValue('J' . $row, $customer->total_invoices . ' factura(s)');
-            $sheet->getStyle('A' . $row . ':J' . $row)->applyFromArray($subtotalStyle);
-            $sheet->getStyle('G' . $row . ':I' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
-            $sheet->getStyle('I' . $row)->getFont()->setBold(true)->setColor(new Color('DC2626'));
-            $row += 2;
+            $sheet->setCellValue('A' . $row, 'TOTALES');
+            $sheet->mergeCells('A' . $row . ':G' . $row);
+            $sheet->setCellValue('H' . $row, (float) $items->sum('credit_amount'));
+            $sheet->setCellValue('I' . $row, (float) $items->sum('paid_amount'));
+            $sheet->setCellValue('J' . $row, (float) $items->sum(fn($i) => (float)$i->credit_amount - (float)$i->paid_amount));
+            $sheet->setCellValue('K' . $row, count($items) . ' fac.');
+            $sheet->getStyle('A' . $row . ':K' . $row)->applyFromArray($subtotalStyle);
+            $sheet->getStyle('H' . $row . ':J' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+
+            foreach (range('A', 'K') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+            $filename = 'reporte-creditos-cliente-detalle-' . now()->format('Y-m-d') . '.xlsx';
         }
 
-        foreach (range('A', 'J') as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
+        // 3. By Supplier
+        elseif ($viewMode === 'by_supplier') {
+            $sheet->setTitle('Créditos por Proveedor');
+            $row = 1;
+            $sheet->setCellValue('A' . $row, 'REPORTE DE CRÉDITOS POR PROVEEDOR (CUENTAS POR PAGAR)');
+            $sheet->mergeCells('A' . $row . ':I' . $row);
+            $sheet->getStyle('A' . $row)->applyFromArray($titleStyle);
+            $sheet->getRowDimension($row)->setRowHeight(30);
+            $row += 2;
+
+            $sheet->setCellValue('A' . $row, 'Período:');
+            $sheet->setCellValue('B' . $row, $startDate && $endDate ? "$startDate - $endDate" : 'Todo');
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row++;
+            $sheet->setCellValue('A' . $row, 'Sucursal:');
+            $sheet->setCellValue('B' . $row, $branchName);
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row += 2;
+
+            $query = Purchase::where('purchases.payment_type', 'credit')
+                ->where('purchases.status', 'completed')
+                ->join('suppliers', 'purchases.supplier_id', '=', 'suppliers.id');
+            $applyPurchaseFilters($query);
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('suppliers.name', 'like', "%{$search}%")
+                        ->orWhere('purchases.purchase_number', 'like', "%{$search}%");
+                });
+            }
+
+            $items = $query->select('purchases.*', 'suppliers.name as supplier_name')
+                ->orderByDesc('purchases.created_at')
+                ->get();
+
+            $headers = ['Compra', 'Proveedor', 'Fecha', 'Vencimiento', 'Días en Mora', 'Total Crédito', 'Pagado', 'Pendiente', 'Estado'];
+            foreach ($headers as $colIdx => $hText) {
+                $colLetter = Coordinate::stringFromColumnIndex($colIdx + 1);
+                $sheet->setCellValue($colLetter . $row, $hText);
+            }
+            $sheet->getStyle('A' . $row . ':I' . $row)->applyFromArray($headerStyle);
+            $row++;
+
+            foreach ($items as $item) {
+                $rem = (float) $item->credit_amount - (float) $item->paid_amount;
+                $dueDateStr = $item->payment_due_date ? $item->payment_due_date->format('d/m/Y') : ($item->created_at ? $item->created_at->copy()->addDays(30)->format('d/m/Y') : '-');
+                $moraStr = $rem <= 0 || $item->payment_status === 'paid' ? 'Saldado' : ($item->days_overdue === 0 ? 'Al día' : "{$item->days_overdue} días");
+
+                $sheet->setCellValue('A' . $row, $item->purchase_number);
+                $sheet->setCellValue('B' . $row, $item->supplier_name);
+                $sheet->setCellValue('C' . $row, $item->created_at->format('d/m/Y'));
+                $sheet->setCellValue('D' . $row, $dueDateStr);
+                $sheet->setCellValue('E' . $row, $moraStr);
+                $sheet->setCellValue('F' . $row, (float) $item->credit_amount);
+                $sheet->setCellValue('G' . $row, (float) $item->paid_amount);
+                $sheet->setCellValue('H' . $row, $rem);
+                $sheet->setCellValue('I' . $row, $item->payment_status === 'paid' ? 'Pagado' : 'Pendiente');
+                $sheet->getStyle('A' . $row . ':I' . $row)->applyFromArray($dataStyle);
+                $sheet->getStyle('F' . $row . ':H' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+                $row++;
+            }
+
+            $sheet->setCellValue('A' . $row, 'TOTALES');
+            $sheet->mergeCells('A' . $row . ':E' . $row);
+            $sheet->setCellValue('F' . $row, (float) $items->sum('credit_amount'));
+            $sheet->setCellValue('G' . $row, (float) $items->sum('paid_amount'));
+            $sheet->setCellValue('H' . $row, (float) $items->sum(fn($i) => (float)$i->credit_amount - (float)$i->paid_amount));
+            $sheet->setCellValue('I' . $row, count($items) . ' compras');
+            $sheet->getStyle('A' . $row . ':I' . $row)->applyFromArray($subtotalStyle);
+            $sheet->getStyle('F' . $row . ':H' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+
+            foreach (range('A', 'I') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+            $filename = 'reporte-creditos-proveedor-' . now()->format('Y-m-d') . '.xlsx';
+        }
+
+        // 4. By Date
+        elseif ($viewMode === 'by_date') {
+            $sheet->setTitle('Créditos por Fecha');
+            $row = 1;
+            $sheet->setCellValue('A' . $row, 'REPORTE CRONOLÓGICO DE CRÉDITOS');
+            $sheet->mergeCells('A' . $row . ':G' . $row);
+            $sheet->getStyle('A' . $row)->applyFromArray($titleStyle);
+            $sheet->getRowDimension($row)->setRowHeight(30);
+            $row += 2;
+
+            $sheet->setCellValue('A' . $row, 'Período:');
+            $sheet->setCellValue('B' . $row, $startDate && $endDate ? "$startDate - $endDate" : 'Todo');
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row++;
+            $sheet->setCellValue('A' . $row, 'Sucursal:');
+            $sheet->setCellValue('B' . $row, $branchName);
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row += 2;
+
+            $purchases = Purchase::where('purchases.payment_type', 'credit')
+                ->where('purchases.status', 'completed')
+                ->leftJoin('suppliers', 'purchases.supplier_id', '=', 'suppliers.id');
+            $applyPurchaseFilters($purchases);
+            if ($creditType === 'receivable') {
+                $purchases->whereRaw('1 = 0');
+            }
+            $pItems = $purchases->select(
+                DB::raw("'purchase' as record_type"),
+                'purchases.id',
+                'purchases.purchase_number as doc_number',
+                'suppliers.name as entity_name',
+                'purchases.created_at',
+                'purchases.credit_amount',
+                'purchases.paid_amount',
+                'purchases.payment_status'
+            )->get();
+
+            $sales = Sale::where('sales.payment_type', 'credit')
+                ->where('sales.status', 'completed')
+                ->leftJoin('customers', 'sales.customer_id', '=', 'customers.id');
+            $applySalesFilters($sales);
+            if ($creditType === 'payable') {
+                $sales->whereRaw('1 = 0');
+            }
+            $sItems = $sales->select(
+                DB::raw("'sale' as record_type"),
+                'sales.id',
+                'sales.invoice_number as doc_number',
+                DB::raw("CASE WHEN customers.customer_type = 'juridico' THEN customers.business_name ELSE CONCAT(customers.first_name, ' ', customers.last_name) END as entity_name"),
+                'sales.created_at',
+                'sales.credit_amount',
+                'sales.paid_amount',
+                'sales.payment_status'
+            )->get();
+
+            $mergedItems = $pItems->concat($sItems)->sortByDesc('created_at')->values();
+            if ($search) {
+                $sTerm = mb_strtolower($search);
+                $mergedItems = $mergedItems->filter(fn($i) => str_contains(mb_strtolower($i->doc_number . ' ' . $i->entity_name), $sTerm));
+            }
+
+            $headers = ['Tipo', 'Documento', 'Entidad', 'Fecha', 'Total', 'Pagado', 'Pendiente', 'Estado'];
+            foreach ($headers as $colIdx => $hText) {
+                $colLetter = Coordinate::stringFromColumnIndex($colIdx + 1);
+                $sheet->setCellValue($colLetter . $row, $hText);
+            }
+            $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($headerStyle);
+            $row++;
+
+            foreach ($mergedItems as $item) {
+                $rem = (float) $item->credit_amount - (float) $item->paid_amount;
+                $sheet->setCellValue('A' . $row, $item->record_type === 'purchase' ? 'Por Pagar' : 'Por Cobrar');
+                $sheet->setCellValue('B' . $row, $item->doc_number);
+                $sheet->setCellValue('C' . $row, $item->entity_name);
+                $sheet->setCellValue('D' . $row, Carbon::parse($item->created_at)->format('d/m/Y'));
+                $sheet->setCellValue('E' . $row, (float) $item->credit_amount);
+                $sheet->setCellValue('F' . $row, (float) $item->paid_amount);
+                $sheet->setCellValue('G' . $row, $rem);
+                $sheet->setCellValue('H' . $row, $item->payment_status === 'paid' ? 'Pagado' : 'Pendiente');
+                $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($dataStyle);
+                $sheet->getStyle('E' . $row . ':G' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+                $row++;
+            }
+
+            $sheet->setCellValue('A' . $row, 'TOTALES');
+            $sheet->mergeCells('A' . $row . ':D' . $row);
+            $sheet->setCellValue('E' . $row, (float) $mergedItems->sum('credit_amount'));
+            $sheet->setCellValue('F' . $row, (float) $mergedItems->sum('paid_amount'));
+            $sheet->setCellValue('G' . $row, (float) $mergedItems->sum(fn($i) => (float)$i->credit_amount - (float)$i->paid_amount));
+            $sheet->setCellValue('H' . $row, count($mergedItems) . ' reg.');
+            $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($subtotalStyle);
+            $sheet->getStyle('E' . $row . ':G' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+
+            foreach (range('A', 'H') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+            $filename = 'reporte-creditos-fecha-' . now()->format('Y-m-d') . '.xlsx';
+        }
+
+        // 5. Payments / Abonos
+        elseif ($viewMode === 'payments') {
+            $sheet->setTitle('Abonos y Pagos');
+            $row = 1;
+            $sheet->setCellValue('A' . $row, 'REPORTE DE HISTORIAL DE ABONOS Y PAGOS');
+            $sheet->mergeCells('A' . $row . ':H' . $row);
+            $sheet->getStyle('A' . $row)->applyFromArray($titleStyle);
+            $sheet->getRowDimension($row)->setRowHeight(30);
+            $row += 2;
+
+            $sheet->setCellValue('A' . $row, 'Período:');
+            $sheet->setCellValue('B' . $row, $startDate && $endDate ? "$startDate - $endDate" : 'Todo');
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row++;
+            $sheet->setCellValue('A' . $row, 'Sucursal:');
+            $sheet->setCellValue('B' . $row, $branchName);
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row += 2;
+
+            $pQuery = CreditPayment::with(['user', 'paymentMethod', 'purchase.supplier', 'sale.customer']);
+            if ($branchId) {
+                $pQuery->where('credit_payments.branch_id', $branchId);
+            } elseif (!$user->isSuperAdmin()) {
+                $pQuery->where('credit_payments.branch_id', $user->branch_id);
+            }
+            if ($startDate) {
+                $pQuery->whereDate('credit_payments.created_at', '>=', $startDate);
+            }
+            if ($endDate) {
+                $pQuery->whereDate('credit_payments.created_at', '<=', $endDate);
+            }
+            if ($creditType) {
+                $pQuery->where('credit_payments.credit_type', $creditType);
+            }
+            if ($search) {
+                $pQuery->where(function ($q) use ($search) {
+                    $q->where('credit_payments.payment_number', 'like', "%{$search}%")
+                        ->orWhereHas('purchase.supplier', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('sale.customer', fn($cq) => $cq->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('business_name', 'like', "%{$search}%"));
+                });
+            }
+
+            $payments = $pQuery->orderByDesc('credit_payments.created_at')->get();
+
+            $headers = ['Nº Pago', 'Tipo', 'Entidad', 'Método', 'Monto', 'Afecta Caja', 'Usuario', 'Fecha'];
+            foreach ($headers as $colIdx => $hText) {
+                $colLetter = Coordinate::stringFromColumnIndex($colIdx + 1);
+                $sheet->setCellValue($colLetter . $row, $hText);
+            }
+            $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($headerStyle);
+            $row++;
+
+            foreach ($payments as $p) {
+                $entityName = $p->credit_type === 'payable'
+                    ? ($p->purchase?->supplier?->name ?? '-')
+                    : ($p->sale?->customer ? ($p->sale->customer->business_name ?: $p->sale->customer->first_name . ' ' . $p->sale->customer->last_name) : '-');
+
+                $sheet->setCellValue('A' . $row, $p->payment_number);
+                $sheet->setCellValue('B' . $row, $p->credit_type === 'payable' ? 'Pago Proveedor' : 'Cobro Cliente');
+                $sheet->setCellValue('C' . $row, $entityName);
+                $sheet->setCellValue('D' . $row, $p->paymentMethod?->name ?? '-');
+                $sheet->setCellValue('E' . $row, (float) $p->amount);
+                $sheet->setCellValue('F' . $row, $p->affects_cash ? 'Sí' : 'No');
+                $sheet->setCellValue('G' . $row, $p->user?->name ?? '-');
+                $sheet->setCellValue('H' . $row, Carbon::parse($p->created_at)->format('d/m/Y H:i'));
+                $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($dataStyle);
+                $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+                $row++;
+            }
+
+            $sheet->setCellValue('A' . $row, 'TOTAL PAGOS/ABONOS');
+            $sheet->mergeCells('A' . $row . ':D' . $row);
+            $sheet->setCellValue('E' . $row, (float) $payments->sum('amount'));
+            $sheet->setCellValue('F' . $row, '');
+            $sheet->setCellValue('G' . $row, '');
+            $sheet->setCellValue('H' . $row, count($payments) . ' movs.');
+            $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray($subtotalStyle);
+            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+
+            foreach (range('A', 'H') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+            $filename = 'reporte-abonos-pagos-' . now()->format('Y-m-d') . '.xlsx';
+        }
+
+        // 6. Default: by_customer_grouped and summary
+        else {
+            $sheet->setTitle('Créditos por Cliente');
+
+            $row = 1;
+            $sheet->setCellValue('A' . $row, 'REPORTE DE CRÉDITOS POR CLIENTE');
+            $sheet->mergeCells('A' . $row . ':J' . $row);
+            $sheet->getStyle('A' . $row)->applyFromArray($titleStyle);
+            $sheet->getRowDimension($row)->setRowHeight(30);
+            $row += 2;
+
+            $periodLabel = $startDate && $endDate ? "$startDate - $endDate" : 'Todo';
+            $sheet->setCellValue('A' . $row, 'Período:');
+            $sheet->setCellValue('B' . $row, $periodLabel);
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row++;
+            $sheet->setCellValue('A' . $row, 'Sucursal:');
+            $sheet->setCellValue('B' . $row, $branchName);
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row++;
+
+            if ($sellerId) {
+                $sUser = User::find($sellerId);
+                $sheet->setCellValue('A' . $row, 'Vendedor:');
+                $sheet->setCellValue('B' . $row, $sUser?->name ?? '-');
+                $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+                $row++;
+            }
+
+            $sheet->setCellValue('A' . $row, 'Generado:');
+            $sheet->setCellValue('B' . $row, now()->format('d/m/Y H:i'));
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row++;
+
+            if ($paymentStatus) {
+                $sheet->setCellValue('A' . $row, 'Estado:');
+                $sheet->setCellValue('B' . $row, $paymentStatus === 'paid' ? 'Pagado' : 'Pendiente');
+                $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+                $row++;
+            }
+
+            $row++;
+
+            // Build base query for credit sales grouped by customer
+            $query = Sale::where('sales.payment_type', 'credit')
+                ->where('sales.status', 'completed')
+                ->whereNotNull('sales.customer_id')
+                ->join('customers', 'sales.customer_id', '=', 'customers.id');
+            $applySalesFilters($query);
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('customers.first_name', 'like', "%{$search}%")
+                        ->orWhere('customers.last_name', 'like', "%{$search}%")
+                        ->orWhere('customers.business_name', 'like', "%{$search}%")
+                        ->orWhere('customers.document_number', 'like', "%{$search}%");
+                });
+            }
+
+            $customerSummaries = (clone $query)
+                ->select(
+                    'customers.id',
+                    'customers.document_number',
+                    'customers.phone',
+                    DB::raw("CASE WHEN customers.customer_type = 'juridico' THEN customers.business_name ELSE CONCAT(customers.first_name, ' ', customers.last_name) END as customer_name"),
+                    DB::raw('COUNT(sales.id) as total_invoices'),
+                    DB::raw('SUM(sales.credit_amount) as total_credit'),
+                    DB::raw('SUM(sales.paid_amount) as total_paid'),
+                    DB::raw('SUM(sales.credit_amount - sales.paid_amount) as total_remaining')
+                )
+                ->groupBy('customers.id', 'customers.customer_type', 'customers.business_name', 'customers.first_name', 'customers.last_name', 'customers.document_number', 'customers.phone')
+                ->orderByDesc('total_remaining')
+                ->get();
+
+            $allInvoices = Sale::with('seller')
+                ->where('sales.payment_type', 'credit')
+                ->where('sales.status', 'completed')
+                ->whereIn('sales.customer_id', $customerSummaries->pluck('id'));
+            $applySalesFilters($allInvoices);
+
+            $invoicesByCustomer = $allInvoices->orderBy('sales.created_at', 'desc')
+                ->get()
+                ->groupBy('customer_id');
+
+            // Grand totals
+            $grandTotalCredit = $customerSummaries->sum('total_credit');
+            $grandTotalPaid = $customerSummaries->sum('total_paid');
+            $grandTotalRemaining = $customerSummaries->sum('total_remaining');
+            $grandTotalInvoices = $customerSummaries->sum('total_invoices');
+
+            $sheet->setCellValue('A' . $row, 'RESUMEN GENERAL');
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true)->setSize(12);
+            $row++;
+            $sheet->setCellValue('A' . $row, 'Total Clientes:');
+            $sheet->setCellValue('B' . $row, $customerSummaries->count());
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row++;
+            $sheet->setCellValue('A' . $row, 'Total Facturas:');
+            $sheet->setCellValue('B' . $row, $grandTotalInvoices);
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $row++;
+            $sheet->setCellValue('A' . $row, 'Total Créditos:');
+            $sheet->setCellValue('B' . $row, $grandTotalCredit);
+            $sheet->getStyle('A' . $row . ':B' . $row)->getFont()->setBold(true);
+            $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $row++;
+            $sheet->setCellValue('A' . $row, 'Total Pagado:');
+            $sheet->setCellValue('B' . $row, $grandTotalPaid);
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('B' . $row)->getFont()->setColor(new Color('16A34A'));
+            $row++;
+            $sheet->setCellValue('A' . $row, 'Total Pendiente:');
+            $sheet->setCellValue('B' . $row, $grandTotalRemaining);
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+            $sheet->getStyle('B' . $row)->getFont()->setBold(true)->setColor(new Color('DC2626'));
+            $row += 2;
+
+            foreach ($customerSummaries as $customer) {
+                $sheet->setCellValue('A' . $row, $customer->customer_name);
+                $sheet->setCellValue('D' . $row, 'Doc: ' . $customer->document_number);
+                $sheet->setCellValue('G' . $row, 'Tel: ' . ($customer->phone ?? '-'));
+                $sheet->mergeCells('A' . $row . ':C' . $row);
+                $sheet->mergeCells('D' . $row . ':F' . $row);
+                $sheet->mergeCells('G' . $row . ':J' . $row);
+                $sheet->getStyle('A' . $row . ':J' . $row)->applyFromArray($groupHeaderStyle);
+                $row++;
+
+                $headers = ['Factura', 'Fecha', 'Vencimiento', 'Días en Mora', 'Vendedor', 'Total Venta', 'Total Crédito', 'Pagado', 'Pendiente', 'Estado'];
+                foreach ($headers as $colIdx => $hText) {
+                    $colLetter = Coordinate::stringFromColumnIndex($colIdx + 1);
+                    $sheet->setCellValue($colLetter . $row, $hText);
+                }
+                $sheet->getStyle('A' . $row . ':J' . $row)->applyFromArray($headerStyle);
+                $row++;
+
+                $invoices = $invoicesByCustomer->get($customer->id, collect());
+                foreach ($invoices as $invoice) {
+                    $remaining = (float) $invoice->credit_amount - (float) $invoice->paid_amount;
+                    $dueDateStr = $invoice->payment_due_date ? $invoice->payment_due_date->format('d/m/Y') : ($invoice->created_at ? $invoice->created_at->copy()->addDays(30)->format('d/m/Y') : '-');
+                    $daysOverdue = $invoice->days_overdue;
+                    $moraStr = $remaining <= 0 || $invoice->payment_status === 'paid' ? 'Saldado' : ($daysOverdue === 0 ? 'Al día' : "{$daysOverdue} días");
+
+                    $sheet->setCellValue('A' . $row, $invoice->invoice_number);
+                    $sheet->setCellValue('B' . $row, $invoice->created_at->format('d/m/Y'));
+                    $sheet->setCellValue('C' . $row, $dueDateStr);
+                    $sheet->setCellValue('D' . $row, $moraStr);
+                    $sheet->setCellValue('E' . $row, $invoice->seller?->name ?? '-');
+                    $sheet->setCellValue('F' . $row, (float) $invoice->total);
+                    $sheet->setCellValue('G' . $row, (float) $invoice->credit_amount);
+                    $sheet->setCellValue('H' . $row, (float) $invoice->paid_amount);
+                    $sheet->setCellValue('I' . $row, $remaining);
+                    $sheet->setCellValue('J' . $row, $invoice->payment_status === 'paid' ? 'Pagado' : 'Pendiente');
+                    $sheet->getStyle('A' . $row . ':J' . $row)->applyFromArray($dataStyle);
+                    $sheet->getStyle('F' . $row . ':I' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+                    $row++;
+                }
+
+                $sheet->setCellValue('A' . $row, 'Subtotal ' . $customer->customer_name);
+                $sheet->mergeCells('A' . $row . ':E' . $row);
+                $sheet->setCellValue('F' . $row, '');
+                $sheet->setCellValue('G' . $row, (float) $customer->total_credit);
+                $sheet->setCellValue('H' . $row, (float) $customer->total_paid);
+                $sheet->setCellValue('I' . $row, (float) $customer->total_remaining);
+                $sheet->setCellValue('J' . $row, $customer->total_invoices . ' factura(s)');
+                $sheet->getStyle('A' . $row . ':J' . $row)->applyFromArray($subtotalStyle);
+                $sheet->getStyle('G' . $row . ':I' . $row)->getNumberFormat()->setFormatCode('$#,##0.00');
+                $row += 2;
+            }
+
+            foreach (range('A', 'J') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+            $filename = 'reporte-creditos-cliente-' . now()->format('Y-m-d') . '.xlsx';
         }
 
         $writer = new Xlsx($spreadsheet);
-        $filename = 'reporte-creditos-cliente-' . now()->format('Y-m-d') . '.xlsx';
         $tempFile = tempnam(sys_get_temp_dir(), 'excel');
         $writer->save($tempFile);
 
@@ -1818,11 +2279,13 @@ class ReportExportController extends Controller
 
     public function creditsPdf(Request $request)
     {
+        $viewMode = $request->get('view_mode', 'by_customer_grouped');
         $dateRange = $request->get('date_range', 'all');
         $startDate = $request->get('start_date');
         $endDate = $request->get('end_date');
         $branchId = $request->get('branch_id');
         $sellerId = $request->get('seller_id');
+        $creditType = $request->get('credit_type', '');
         $paymentStatus = $request->get('payment_status', '');
         $search = $request->get('search', '');
         $user = auth()->user();
@@ -1839,32 +2302,317 @@ class ReportExportController extends Controller
         }
 
         $seller = $sellerId ? User::find($sellerId) : null;
+        $generatedAt = now()->format('d/m/Y h:i A');
+        $generatedBy = $user->name;
 
-        // Build base query for credit sales grouped by customer
+        $applySalesFilters = function ($query) use ($branchId, $user, $sellerId, $startDate, $endDate, $paymentStatus) {
+            if ($branchId) {
+                $query->where('sales.branch_id', $branchId);
+            } elseif (!$user->isSuperAdmin()) {
+                $query->where('sales.branch_id', $user->branch_id);
+            }
+            if ($sellerId) {
+                $query->where('sales.seller_id', $sellerId);
+            }
+            if ($startDate) {
+                $query->whereDate('sales.created_at', '>=', $startDate);
+            }
+            if ($endDate) {
+                $query->whereDate('sales.created_at', '<=', $endDate);
+            }
+            if ($paymentStatus === 'pending') {
+                $query->whereIn('sales.payment_status', ['pending', 'partial']);
+            } elseif ($paymentStatus === 'paid') {
+                $query->where('sales.payment_status', 'paid');
+            }
+        };
+
+        $applyPurchaseFilters = function ($query) use ($branchId, $user, $startDate, $endDate, $paymentStatus) {
+            if ($branchId) {
+                $query->where('purchases.branch_id', $branchId);
+            } elseif (!$user->isSuperAdmin()) {
+                $query->where('purchases.branch_id', $user->branch_id);
+            }
+            if ($startDate) {
+                $query->whereDate('purchases.created_at', '>=', $startDate);
+            }
+            if ($endDate) {
+                $query->whereDate('purchases.created_at', '<=', $endDate);
+            }
+            if ($paymentStatus === 'pending') {
+                $query->whereIn('purchases.payment_status', ['pending', 'partial']);
+            } elseif ($paymentStatus === 'paid') {
+                $query->where('purchases.payment_status', 'paid');
+            }
+        };
+
+        // 1. By Seller PDF
+        if ($viewMode === 'by_seller') {
+            $query = Sale::where('sales.payment_type', 'credit')
+                ->where('sales.status', 'completed')
+                ->leftJoin('users as sellers', 'sales.seller_id', '=', 'sellers.id')
+                ->leftJoin('customers', 'sales.customer_id', '=', 'customers.id');
+            $applySalesFilters($query);
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('sellers.name', 'like', "%{$search}%")
+                        ->orWhere('customers.first_name', 'like', "%{$search}%")
+                        ->orWhere('customers.last_name', 'like', "%{$search}%")
+                        ->orWhere('customers.business_name', 'like', "%{$search}%")
+                        ->orWhere('customers.document_number', 'like', "%{$search}%")
+                        ->orWhere('sales.invoice_number', 'like', "%{$search}%");
+                });
+            }
+
+            $sellersSummaries = $query->select(
+                'sales.seller_id',
+                DB::raw("COALESCE(sellers.name, 'Sin Vendedor Asignado') as seller_name"),
+                'sellers.email as seller_email',
+                DB::raw('COUNT(sales.id) as total_invoices'),
+                DB::raw('SUM(sales.credit_amount) as total_credit'),
+                DB::raw('SUM(sales.paid_amount) as total_paid'),
+                DB::raw('SUM(sales.credit_amount - sales.paid_amount) as total_remaining')
+            )
+            ->groupBy('sales.seller_id', 'sellers.name', 'sellers.email')
+            ->orderByDesc('total_remaining')
+            ->get();
+
+            $allSellerInvoices = Sale::with(['customer', 'branch'])
+                ->where('sales.payment_type', 'credit')
+                ->where('sales.status', 'completed');
+            $applySalesFilters($allSellerInvoices);
+            if ($search) {
+                $allSellerInvoices->where(function ($q) use ($search) {
+                    $q->whereHas('customer', function ($cq) use ($search) {
+                        $cq->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('business_name', 'like', "%{$search}%");
+                    })->orWhere('sales.invoice_number', 'like', "%{$search}%");
+                });
+            }
+
+            $invoicesBySeller = $allSellerInvoices->orderBy('sales.created_at', 'desc')
+                ->get()
+                ->groupBy(fn($inv) => $inv->seller_id ?? 0);
+
+            $pdf = Pdf::loadView('reports.credits-by-seller-pdf', [
+                'sellersSummaries' => $sellersSummaries,
+                'invoicesBySeller' => $invoicesBySeller,
+                'branchName' => $branchName,
+                'startDate' => $startDate,
+                'endDate' => $endDate,
+                'dateRange' => $dateRange,
+                'paymentStatus' => $paymentStatus,
+                'search' => $search,
+                'generatedAt' => $generatedAt,
+                'generatedBy' => $generatedBy,
+                'grandTotalInvoices' => (int) $sellersSummaries->sum('total_invoices'),
+                'grandTotalCredit' => (float) $sellersSummaries->sum('total_credit'),
+                'grandTotalPaid' => (float) $sellersSummaries->sum('total_paid'),
+                'grandTotalRemaining' => (float) $sellersSummaries->sum('total_remaining'),
+            ]);
+            $pdf->setPaper('a4', 'portrait');
+            $filename = 'reporte-creditos-por-vendedor-' . now()->format('Y-m-d') . '.pdf';
+            return $request->has('download') ? $pdf->download($filename) : $pdf->stream($filename);
+        }
+
+        // 2. By Customer Detailed List PDF
+        if ($viewMode === 'by_customer') {
+            $query = Sale::where('sales.payment_type', 'credit')
+                ->where('sales.status', 'completed')
+                ->join('customers', 'sales.customer_id', '=', 'customers.id')
+                ->leftJoin('users as sellers', 'sales.seller_id', '=', 'sellers.id');
+            $applySalesFilters($query);
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('customers.first_name', 'like', "%{$search}%")
+                        ->orWhere('customers.last_name', 'like', "%{$search}%")
+                        ->orWhere('customers.business_name', 'like', "%{$search}%")
+                        ->orWhere('customers.document_number', 'like', "%{$search}%")
+                        ->orWhere('sellers.name', 'like', "%{$search}%")
+                        ->orWhere('sales.invoice_number', 'like', "%{$search}%");
+                });
+            }
+
+            $items = $query->select(
+                'sales.*',
+                DB::raw("CASE WHEN customers.customer_type = 'juridico' THEN customers.business_name ELSE CONCAT(customers.first_name, ' ', customers.last_name) END as customer_name"),
+                'customers.document_number',
+                'sellers.name as seller_name'
+            )->orderByDesc('sales.created_at')->get();
+
+            $pdf = Pdf::loadView('reports.credits-by-customer-pdf', [
+                'items' => $items,
+                'branchName' => $branchName,
+                'startDate' => $startDate,
+                'endDate' => $endDate,
+                'dateRange' => $dateRange,
+                'paymentStatus' => $paymentStatus,
+                'search' => $search,
+                'generatedAt' => $generatedAt,
+                'generatedBy' => $generatedBy,
+                'totalCredit' => (float) $items->sum('credit_amount'),
+                'totalPaid' => (float) $items->sum('paid_amount'),
+                'totalRemaining' => (float) $items->sum(fn($i) => (float)$i->credit_amount - (float)$i->paid_amount),
+            ]);
+            $pdf->setPaper('a4', 'portrait');
+            $filename = 'reporte-creditos-por-cliente-detalle-' . now()->format('Y-m-d') . '.pdf';
+            return $request->has('download') ? $pdf->download($filename) : $pdf->stream($filename);
+        }
+
+        // 3. By Supplier PDF
+        if ($viewMode === 'by_supplier') {
+            $query = Purchase::where('purchases.payment_type', 'credit')
+                ->where('purchases.status', 'completed')
+                ->join('suppliers', 'purchases.supplier_id', '=', 'suppliers.id');
+            $applyPurchaseFilters($query);
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('suppliers.name', 'like', "%{$search}%")
+                        ->orWhere('purchases.purchase_number', 'like', "%{$search}%");
+                });
+            }
+
+            $items = $query->select('purchases.*', 'suppliers.name as supplier_name')
+                ->orderByDesc('purchases.created_at')
+                ->get();
+
+            $pdf = Pdf::loadView('reports.credits-by-supplier-pdf', [
+                'items' => $items,
+                'branchName' => $branchName,
+                'startDate' => $startDate,
+                'endDate' => $endDate,
+                'dateRange' => $dateRange,
+                'paymentStatus' => $paymentStatus,
+                'search' => $search,
+                'generatedAt' => $generatedAt,
+                'generatedBy' => $generatedBy,
+                'totalCredit' => (float) $items->sum('credit_amount'),
+                'totalPaid' => (float) $items->sum('paid_amount'),
+                'totalRemaining' => (float) $items->sum(fn($i) => (float)$i->credit_amount - (float)$i->paid_amount),
+            ]);
+            $pdf->setPaper('a4', 'portrait');
+            $filename = 'reporte-creditos-por-proveedor-' . now()->format('Y-m-d') . '.pdf';
+            return $request->has('download') ? $pdf->download($filename) : $pdf->stream($filename);
+        }
+
+        // 4. By Date PDF
+        if ($viewMode === 'by_date') {
+            $purchases = Purchase::where('purchases.payment_type', 'credit')
+                ->where('purchases.status', 'completed')
+                ->leftJoin('suppliers', 'purchases.supplier_id', '=', 'suppliers.id');
+            $applyPurchaseFilters($purchases);
+            if ($creditType === 'receivable') {
+                $purchases->whereRaw('1 = 0');
+            }
+            $pItems = $purchases->select(
+                DB::raw("'purchase' as record_type"),
+                'purchases.id',
+                'purchases.purchase_number as doc_number',
+                'suppliers.name as entity_name',
+                'purchases.created_at',
+                'purchases.credit_amount',
+                'purchases.paid_amount',
+                'purchases.payment_status'
+            )->get();
+
+            $sales = Sale::where('sales.payment_type', 'credit')
+                ->where('sales.status', 'completed')
+                ->leftJoin('customers', 'sales.customer_id', '=', 'customers.id');
+            $applySalesFilters($sales);
+            if ($creditType === 'payable') {
+                $sales->whereRaw('1 = 0');
+            }
+            $sItems = $sales->select(
+                DB::raw("'sale' as record_type"),
+                'sales.id',
+                'sales.invoice_number as doc_number',
+                DB::raw("CASE WHEN customers.customer_type = 'juridico' THEN customers.business_name ELSE CONCAT(customers.first_name, ' ', customers.last_name) END as entity_name"),
+                'sales.created_at',
+                'sales.credit_amount',
+                'sales.paid_amount',
+                'sales.payment_status'
+            )->get();
+
+            $mergedItems = $pItems->concat($sItems)->sortByDesc('created_at')->values();
+            if ($search) {
+                $sTerm = mb_strtolower($search);
+                $mergedItems = $mergedItems->filter(fn($i) => str_contains(mb_strtolower($i->doc_number . ' ' . $i->entity_name), $sTerm));
+            }
+
+            $pdf = Pdf::loadView('reports.credits-by-date-pdf', [
+                'items' => $mergedItems,
+                'branchName' => $branchName,
+                'startDate' => $startDate,
+                'endDate' => $endDate,
+                'dateRange' => $dateRange,
+                'paymentStatus' => $paymentStatus,
+                'search' => $search,
+                'generatedAt' => $generatedAt,
+                'generatedBy' => $generatedBy,
+                'totalCredit' => (float) $mergedItems->sum('credit_amount'),
+                'totalPaid' => (float) $mergedItems->sum('paid_amount'),
+                'totalRemaining' => (float) $mergedItems->sum(fn($i) => (float)$i->credit_amount - (float)$i->paid_amount),
+            ]);
+            $pdf->setPaper('a4', 'portrait');
+            $filename = 'reporte-creditos-por-fecha-' . now()->format('Y-m-d') . '.pdf';
+            return $request->has('download') ? $pdf->download($filename) : $pdf->stream($filename);
+        }
+
+        // 5. Payments PDF
+        if ($viewMode === 'payments') {
+            $pQuery = CreditPayment::with(['user', 'paymentMethod', 'purchase.supplier', 'sale.customer']);
+            if ($branchId) {
+                $pQuery->where('credit_payments.branch_id', $branchId);
+            } elseif (!$user->isSuperAdmin()) {
+                $pQuery->where('credit_payments.branch_id', $user->branch_id);
+            }
+            if ($startDate) {
+                $pQuery->whereDate('credit_payments.created_at', '>=', $startDate);
+            }
+            if ($endDate) {
+                $pQuery->whereDate('credit_payments.created_at', '<=', $endDate);
+            }
+            if ($creditType) {
+                $pQuery->where('credit_payments.credit_type', $creditType);
+            }
+            if ($search) {
+                $pQuery->where(function ($q) use ($search) {
+                    $q->where('credit_payments.payment_number', 'like', "%{$search}%")
+                        ->orWhereHas('purchase.supplier', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('sale.customer', fn($cq) => $cq->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('business_name', 'like', "%{$search}%"));
+                });
+            }
+
+            $payments = $pQuery->orderByDesc('credit_payments.created_at')->get();
+            $totalReceivable = (float) $payments->where('credit_type', 'receivable')->sum('amount');
+            $totalPayable = (float) $payments->where('credit_type', 'payable')->sum('amount');
+
+            $pdf = Pdf::loadView('reports.credits-payments-pdf', [
+                'payments' => $payments,
+                'branchName' => $branchName,
+                'startDate' => $startDate,
+                'endDate' => $endDate,
+                'dateRange' => $dateRange,
+                'search' => $search,
+                'generatedAt' => $generatedAt,
+                'generatedBy' => $generatedBy,
+                'totalReceivable' => $totalReceivable,
+                'totalPayable' => $totalPayable,
+            ]);
+            $pdf->setPaper('a4', 'portrait');
+            $filename = 'reporte-abonos-pagos-' . now()->format('Y-m-d') . '.pdf';
+            return $request->has('download') ? $pdf->download($filename) : $pdf->stream($filename);
+        }
+
+        // 6. Default: by_customer_grouped and summary
         $query = Sale::where('sales.payment_type', 'credit')
             ->where('sales.status', 'completed')
             ->whereNotNull('sales.customer_id')
             ->join('customers', 'sales.customer_id', '=', 'customers.id');
-
-        if ($branchId) {
-            $query->where('sales.branch_id', $branchId);
-        } elseif (!$user->isSuperAdmin()) {
-            $query->where('sales.branch_id', $user->branch_id);
-        }
-
-        if ($sellerId) {
-            $query->where('sales.seller_id', $sellerId);
-        }
-
-        if ($startDate) {
-            $query->whereDate('sales.created_at', '>=', $startDate);
-        }
-        if ($endDate) {
-            $query->whereDate('sales.created_at', '<=', $endDate);
-        }
-        if ($paymentStatus) {
-            $query->where('sales.payment_status', $paymentStatus);
-        }
+        $applySalesFilters($query);
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('customers.first_name', 'like', "%{$search}%")
@@ -1874,7 +2622,6 @@ class ReportExportController extends Controller
             });
         }
 
-        // Get customer summaries
         $customerSummaries = (clone $query)
             ->select(
                 'customers.id',
@@ -1890,35 +2637,16 @@ class ReportExportController extends Controller
             ->orderByDesc('total_remaining')
             ->get();
 
-        // Invoices by customer
         $allInvoices = Sale::with(['seller', 'customer'])
             ->where('sales.payment_type', 'credit')
             ->where('sales.status', 'completed')
             ->whereIn('sales.customer_id', $customerSummaries->pluck('id'));
-
-        if ($branchId) {
-            $allInvoices->where('sales.branch_id', $branchId);
-        } elseif (!$user->isSuperAdmin()) {
-            $allInvoices->where('sales.branch_id', $user->branch_id);
-        }
-        if ($sellerId) {
-            $allInvoices->where('sales.seller_id', $sellerId);
-        }
-        if ($startDate) {
-            $allInvoices->whereDate('sales.created_at', '>=', $startDate);
-        }
-        if ($endDate) {
-            $allInvoices->whereDate('sales.created_at', '<=', $endDate);
-        }
-        if ($paymentStatus) {
-            $allInvoices->where('sales.payment_status', $paymentStatus);
-        }
+        $applySalesFilters($allInvoices);
 
         $invoicesByCustomer = $allInvoices->orderBy('sales.created_at', 'desc')
             ->get()
             ->groupBy('customer_id');
 
-        // Totals & Overdue analytics
         $grandTotalCredit = (float) $customerSummaries->sum('total_credit');
         $grandTotalPaid = (float) $customerSummaries->sum('total_paid');
         $grandTotalRemaining = (float) $customerSummaries->sum('total_remaining');
@@ -1955,8 +2683,8 @@ class ReportExportController extends Controller
             'dateRange' => $dateRange,
             'paymentStatus' => $paymentStatus,
             'search' => $search,
-            'generatedAt' => now()->format('d/m/Y h:i A'),
-            'generatedBy' => $user->name,
+            'generatedAt' => $generatedAt,
+            'generatedBy' => $generatedBy,
             'grandTotalCredit' => $grandTotalCredit,
             'grandTotalPaid' => $grandTotalPaid,
             'grandTotalRemaining' => $grandTotalRemaining,
@@ -1967,7 +2695,7 @@ class ReportExportController extends Controller
             'currentInvoicesCount' => $currentInvoicesCount,
         ]);
 
-        $pdf->setPaper('a4', 'landscape');
+        $pdf->setPaper('a4', 'portrait');
         $filename = 'reporte-creditos-cartera-' . now()->format('Y-m-d') . '.pdf';
 
         if ($request->has('download')) {
